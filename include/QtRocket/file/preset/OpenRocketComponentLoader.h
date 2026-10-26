@@ -77,7 +77,8 @@ class WarningSet;
 /// file with an IOException "Unable to parse component preset file: <file name>" (with " (invalid
 /// format or corrupted file)" when JAXB fails) for an XML error, another root, an unknown unit of
 /// measure in the section and a preset ComponentPresetFactory refuses (its message after the
-/// file's); QtRocket's message starts as Java's and says why after a colon. For what OpenRocket's
+/// file's; QtRocket's factory refuses more, see the deviations); QtRocket's message starts as
+/// Java's and says why after a colon. For what OpenRocket's
 /// DTOs throw a RuntimeException on, which ends OpenRocket's whole preset load, the later files
 /// and the user's included, QtRocket refuses only the file, with a message that names the
 /// component ("the BodyTube 'BT-20' (component 3)": its element, its <PartNumber> and its number
@@ -98,14 +99,25 @@ class WarningSet;
 ///   the rule of the design files). OpenRocket loads it. A negative number passes, as the factory
 ///   documents, and so does what the factory derives: internal/semroc-legacy.orc's transition
 ///   BC-08542 [R] has a material of infinite density, as in OpenRocket.
+/// - A Streamer or Parachute whose <Material> is not a SURFACE material, or a Parachute whose
+///   <LineMaterial> is not a LINE one, is skipped with a warning (the class of D5: a preset
+///   OpenRocket loads but cannot use). OpenRocket loads it, and it fails only when it is applied
+///   (RecoveryDevice casts the material to Material.Surface). QtRocket's ComponentPresetFactory
+///   refuses such a preset (Milestone 1's deviation), which would refuse the whole file, so the
+///   loader skips the component before the factory sees it; the factory's other refusals still
+///   refuse the file, as OpenRocket's InvalidComponentPresetException does.
 /// - A component that is skipped is never given to the factory, so a problem the factory would
 ///   find in it (which refuses the file in OpenRocket) is not looked for; its other problems, the
 ///   ones the DTO meets, still refuse the file.
+/// - The kind of a component is the name of its element alone: an xsi:type attribute is ignored.
+///   OpenRocket's JAXB substitutes the DTO class an xsi:type names on a <BodyTube> element
+///   (xsi:type="centeringRingDTO" makes a centering ring; "baseComponentDTO" refuses the file)
+///   and ignores it on the other kinds. No file OpenRocket writes has one.
 /// - Bounds (decision D7, the policy of the loaders of Milestone 1): a file of more than
-///   Limits::fileSize bytes, more than Limits::elements elements (OrcDocument) or more than
-///   Limits::materials <Material> elements in its <Materials> is refused (ErrorCode::
-///   UNSUPPORTED_FORMAT); of the components of more than Limits::presets, the first that many are
-///   read, with a warning. OpenRocket reads any file.
+///   Limits::fileSize bytes (through loadFile() too, before it is opened), more than
+///   Limits::elements elements (OrcDocument) or more than Limits::materials <Material> elements in
+///   its <Materials> is refused (ErrorCode::UNSUPPORTED_FORMAT); of the components of more than
+///   Limits::presets, the first that many are read, with a warning. OpenRocket reads any file.
 /// - OrcDocument's: a document type declaration that declares anything is refused (Java expands
 ///   its entities), and so is a byte order mark, as in Java.
 /// - The warnings are QtRocket's (OpenRocket's loader has none). They go to the caller's set only
@@ -162,9 +174,11 @@ public:
                                                       WarningSet&                warnings) const;
 
     /// load() of the file @p file, named by its file name (without the directories). A file
-    /// that cannot be read, or is larger than Limits::fileSize (refused before it is read), fails
-    /// with ErrorCode::IO and readFile()'s message after "Unable to parse component preset file:
-    /// <file name>: ".
+    /// whose size is larger than Limits::fileSize is refused before it is opened, as load()
+    /// refuses it (ErrorCode::UNSUPPORTED_FORMAT, "... the file is larger than <N> bytes"). A file
+    /// that cannot be read, or a source that gives more bytes than the bound although its size
+    /// said otherwise (a device, a pipe, a growing file), fails with ErrorCode::IO and
+    /// readFile()'s message after "Unable to parse component preset file: <file name>: ".
     [[nodiscard]] Result<std::vector<PresetPtr>> loadFile(const std::filesystem::path& file,
                                                           WarningSet& warnings) const;
 

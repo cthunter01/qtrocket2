@@ -111,8 +111,12 @@ public final class PresetDumper {
 		Application.setInjector(
 				Guice.createInjector(Modules.override(new ServicesForTesting()).with(new PluginModule())));
 
+		// The manifest is checked before anything is written: one without the entry would leave a new
+		// presets.json behind that no manifest names.
+		Path manifest = out.resolve("manifest.json");
+		manifestEntryLine(manifestLines(manifest), manifest);
 		Map<String, Object> entry = writeTo(openrocket.resolve("core"), out);
-		replaceManifestEntry(out.resolve("manifest.json"), entry);
+		replaceManifestEntry(manifest, entry);
 		GoldenDumper.log("presets: " + entry);
 	}
 
@@ -193,9 +197,29 @@ public final class PresetDumper {
 		// by another, or without it as the last member.
 		String[] lines = new String(Json.bytes(wrapper), StandardCharsets.UTF_8).split("\n", -1);
 		String line = lines[1].substring(0, lines[1].length() - 1);
-		String prefix = " \"" + MANIFEST_KEY + "\": {";
-		List<String> text = new ArrayList<>(Arrays.asList(
+		List<String> text = manifestLines(manifest);
+		int found = manifestEntryLine(text, manifest);
+		boolean comma = text.get(found).endsWith(",");
+		text.set(found, comma ? line + "," : line);
+		Files.write(manifest, String.join("\n", text).getBytes(StandardCharsets.UTF_8));
+	}
+
+	/** The lines of the manifest {@code manifest}. */
+	private static List<String> manifestLines(Path manifest) throws IOException {
+		if (!Files.isRegularFile(manifest)) {
+			throw new IOException(manifest + " does not exist: copy the committed manifest.json there or run the full"
+					+ " generate.sh");
+		}
+		return new ArrayList<>(Arrays.asList(
 				new String(Files.readAllBytes(manifest), StandardCharsets.UTF_8).split("\n", -1)));
+	}
+
+	/**
+	 * The index of the line of the {@value #MANIFEST_KEY} entry among the lines {@code text} of the
+	 * manifest {@code manifest}; fails when it has none or two.
+	 */
+	private static int manifestEntryLine(List<String> text, Path manifest) throws IOException {
+		String prefix = " \"" + MANIFEST_KEY + "\": {";
 		int found = -1;
 		for (int i = 0; i < text.size(); i++) {
 			if (text.get(i).startsWith(prefix)) {
@@ -208,9 +232,7 @@ public final class PresetDumper {
 		if (found < 0) {
 			throw new IOException(manifest + " has no " + MANIFEST_KEY + " entry: run the full generate.sh");
 		}
-		boolean comma = text.get(found).endsWith(",");
-		text.set(found, comma ? line + "," : line);
-		Files.write(manifest, String.join("\n", text).getBytes(StandardCharsets.UTF_8));
+		return found;
 	}
 
 	/** A preset: its type, manufacturer, part number and digest, then every property. */

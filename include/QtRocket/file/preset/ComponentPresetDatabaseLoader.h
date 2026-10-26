@@ -34,7 +34,8 @@ class MaterialStorage;
 /// with that extension, whatever its name starts with, as in OpenRocket.
 ///
 /// What goes wrong is recorded, never thrown (getProblems()), and the load goes on with the next
-/// file: a file that cannot be read or that OpenRocketComponentLoader refuses, a path of the
+/// file: a file that cannot be opened or read or that OpenRocketComponentLoader refuses, a path of
+/// the
 /// user's list that is no .orc file or no directory, a directory that cannot be listed, a bound
 /// of a walk, a bundled directory without preset files. The warnings of the files that were read
 /// (the components OpenRocketComponentLoader skipped) are gathered in getWarnings().
@@ -54,8 +55,15 @@ class MaterialStorage;
 /// - Bounds (decision D7 of the scouting, the policy of the loaders of Milestone 1): a directory
 ///   walk takes at most kMaxDirectoryFiles files and enters directories at most
 ///   kMaxDirectoryDepth deep, each bound reached a problem; a file is read within
-///   OpenRocketComponentLoader's limits; at most kMaxWarnings warnings are kept, then one that
-///   says the others were dropped. OpenRocket has none of these bounds.
+///   OpenRocketComponentLoader's limits; at most kMaxPresets presets are read from all the files
+///   together: the file that would pass the bound is not added (a problem, ErrorCode::
+///   UNSUPPORTED_FORMAT) and no later file is read; at most kMaxWarnings warnings are kept, then
+///   one that says the others were dropped. OpenRocket has none of these bounds.
+/// - A file a walk finds that is not a regular file (a FIFO, a socket, a device, with the
+///   extension) is not opened: a problem (ErrorCode::UNSUPPORTED_FORMAT, "<path> is not a regular
+///   file; it was not read"). OpenRocket opens it, which blocks for a FIFO and reads a device
+///   without an end. A listed path that is not a regular file is neither file nor directory, as
+///   in OpenRocket.
 /// - A user's path that is a regular file without the extension is a problem of its own
 ///   (ErrorCode::UNSUPPORTED_FORMAT); OpenRocket logs it as "... is neither file nor directory".
 ///
@@ -79,6 +87,10 @@ public:
     /// The most warnings kept (DocumentConfig::kMaxWarnings of the .ork loader). The bundled
     /// files give none.
     static constexpr std::size_t kMaxWarnings = 1000;
+    /// The most presets read from all the files of a loader together, some two hundred times the
+    /// bundled files' 5231: what the database's sorted insertion (Database.add()) still takes in
+    /// reasonable time.
+    static constexpr std::size_t kMaxPresets = 1000000;
 
     /// Where a problem was met.
     enum class Origin
@@ -97,11 +109,14 @@ public:
         std::filesystem::path file;
         Error                 error;
         Origin                origin{Origin::USER};
-        /// Whether the problem is an .orc file that was found and could not be read or was
-        /// refused (OpenRocketComponentLoader's Error). For such a user file OpenRocket shows
-        /// its dialog: the error message in italics, then "Component preset '<b>'{0}'</b>' will
-        /// be ignored during import." with this file (ComponentDbLoaderDlg.message1, .message2).
-        /// The other problems OpenRocket logs, or does not know (the bounds).
+        /// Whether the problem is an .orc file that OpenRocketComponentLoader could not read or
+        /// refused (its Error): a file of the user's list that cannot be opened, or any file that
+        /// opens and is refused. For such a user file OpenRocket shows its dialog: the error
+        /// message in italics, then "Component preset '<b>'{0}'</b>' will be ignored during
+        /// import." with this file (ComponentDbLoaderDlg.message1, .message2). The other problems
+        /// OpenRocket logs, or does not know (the bounds): among them a file a directory walk
+        /// found that is no regular file or cannot be opened ("Error opening file/directory
+        /// <path>", ErrorCode::IO), which OpenRocket's DirectoryIterator logs and skips.
         bool refusedFile{false};
     };
 
@@ -116,6 +131,8 @@ public:
                                             .depth = kMaxDirectoryDepth};
         /// The most warnings getWarnings() keeps.
         std::size_t warnings{kMaxWarnings};
+        /// The most presets read from all the files together (getPresetCount()).
+        std::size_t presets{kMaxPresets};
     };
 
     /// A loader that looks the presets' materials up in @p materials, with the default limits.
@@ -168,8 +185,20 @@ public:
     [[nodiscard]] static bool isPresetFile(const std::filesystem::path& file);
 
 private:
-    /// Reads @p file and adds its presets (loadFile() and addAll()), or records the problem.
-    void loadFile(const std::filesystem::path& file, Origin origin);
+    /// How a file was met: named by the user's list, or found by a directory walk.
+    enum class Found
+    {
+        LISTED,
+        WALKED,
+    };
+
+    /// Reads @p file and adds its presets (loadFile() and addAll()) and its warnings, or records
+    /// the problem; nothing once the bound of the presets is reached.
+    void loadFile(const std::filesystem::path& file, Origin origin, Found found);
+
+    /// Whether the file @p file a walk found is a regular file that opens; records the problem
+    /// otherwise.
+    [[nodiscard]] bool canOpenWalkedFile(const std::filesystem::path& file, Origin origin);
 
     /// Every preset file under @p directory (DirectoryIterator), whose problems are recorded.
     [[nodiscard]] std::vector<std::filesystem::path> findFiles(
@@ -185,6 +214,7 @@ private:
     std::size_t               m_presetCount{0};
     std::vector<Problem>      m_problems;
     WarningSet                m_warnings;
+    bool                      m_presetBoundReached{false};
 };
 
 }  // namespace QtRocket

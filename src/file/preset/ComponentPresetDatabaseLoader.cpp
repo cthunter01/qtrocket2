@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <ios>
 #include <source_location>
 #include <span>
 #include <string>
@@ -13,6 +15,7 @@
 #include "QtRocket/file/DirectoryIterator.h"
 #include "QtRocket/file/preset/OpenRocketComponentLoader.h"
 #include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
@@ -71,7 +74,7 @@ void ComponentPresetDatabaseLoader::loadPresetComponents(
     }
     for (const std::filesystem::path& file : files)
     {
-        loadFile(file, Origin::BUNDLED);
+        loadFile(file, Origin::BUNDLED, Found::WALKED);
     }
 }
 
@@ -83,13 +86,13 @@ void ComponentPresetDatabaseLoader::loadUserComponents(
         std::error_code error;
         if (std::filesystem::is_regular_file(file, error) && isPresetFile(file))
         {
-            loadFile(file, Origin::USER);
+            loadFile(file, Origin::USER, Found::LISTED);
         }
         else if (std::filesystem::is_directory(file, error))
         {
             for (const std::filesystem::path& found : findFiles(file, Origin::USER))
             {
-                loadFile(found, Origin::USER);
+                loadFile(found, Origin::USER, Found::WALKED);
             }
         }
         else if (std::filesystem::is_regular_file(file, error))
@@ -123,18 +126,68 @@ bool ComponentPresetDatabaseLoader::isPresetFile(const std::filesystem::path& fi
     return Strings::toLower(pathToUtf8(file.filename())).ends_with("." + std::string(kExtension));
 }
 
-void ComponentPresetDatabaseLoader::loadFile(const std::filesystem::path& file, Origin origin)
+void ComponentPresetDatabaseLoader::loadFile(const std::filesystem::path& file, Origin origin,
+                                             Found found)
 {
+    if (m_presetBoundReached || (found == Found::WALKED && !canOpenWalkedFile(file, origin)))
+    {
+        return;
+    }
+    WarningSet                                                fileWarnings;
     Result<std::vector<OpenRocketComponentLoader::PresetPtr>> presets =
-        m_loader.loadFile(file, m_warnings);
+        m_loader.loadFile(file, fileWarnings);
     if (!presets)
     {
         addProblem(file, std::move(presets.error()), origin, true);
         return;
     }
+    if (presets->size() > m_limits.presets - m_presetCount)
+    {
+        m_presetBoundReached = true;
+        addProblem(file,
+                   Error{.code    = ErrorCode::UNSUPPORTED_FORMAT,
+                         .message = std::format("The component preset files hold more than {} "
+                                                "presets; {} and the files after it were not read",
+                                                m_limits.presets, pathToUtf8(file)),
+                         .where   = std::source_location::current()},
+                   origin, false);
+        return;
+    }
     m_database.addAll(*presets);
+    m_warnings.addAll(fileWarnings);
     m_fileCount++;
     m_presetCount += presets->size();
+}
+
+bool ComponentPresetDatabaseLoader::canOpenWalkedFile(const std::filesystem::path& file,
+                                                      Origin                       origin)
+{
+    // A FIFO would block the open, and a device would be read without an end (OpenRocket opens
+    // them all): only a regular file is opened. A broken link is no file at all, which the open
+    // finds.
+    std::error_code                    error;
+    const std::filesystem::file_status status = std::filesystem::status(file, error);
+    if (std::filesystem::exists(status) && !std::filesystem::is_regular_file(status))
+    {
+        addProblem(file,
+                   Error{.code    = ErrorCode::UNSUPPORTED_FORMAT,
+                         .message = pathToUtf8(file) + " is not a regular file; it was not read",
+                         .where   = std::source_location::current()},
+                   origin, false);
+        return false;
+    }
+    // DirectoryIterator.next() opens the file and logs a failure ("Error opening file/directory
+    // <file>"), never handing it to the loader.
+    if (!std::ifstream(file, std::ios::binary))
+    {
+        addProblem(file,
+                   Error{.code    = ErrorCode::IO,
+                         .message = "Error opening file/directory " + pathToUtf8(file),
+                         .where   = std::source_location::current()},
+                   origin, false);
+        return false;
+    }
+    return true;
 }
 
 std::vector<std::filesystem::path> ComponentPresetDatabaseLoader::findFiles(

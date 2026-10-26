@@ -10,12 +10,19 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <ios>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/material/BuiltinMaterials.h"
@@ -331,18 +338,180 @@ TEST(ComponentPresetDatabaseLoader, ReadsWithinItsBounds)
     EXPECT_EQ(walks.getFileCount(), 2U);
     EXPECT_EQ(walks.getPresetCount(), 13U);
 
-    // A file larger than the bound of the files is refused before it is read.
+    // A file larger than the bound of the files is refused before it is opened.
     ComponentPresetDatabaseLoader files(*materials, {.file = {.fileSize = 2000}});
     files.loadUserComponents(std::array{user});
     ASSERT_EQ(files.getProblems().size(), 1U);
     EXPECT_EQ(files.getProblems().front().file, user / "b.orc");
     EXPECT_TRUE(files.getProblems().front().refusedFile);
-    EXPECT_EQ(files.getProblems().front().error.code, QtRocket::ErrorCode::IO);
-    EXPECT_TRUE(files.getProblems().front().error.message.starts_with(
-        "Unable to parse component preset file: b.orc: "))
-        << files.getProblems().front().error.message;
+    EXPECT_EQ(files.getProblems().front().error.code, QtRocket::ErrorCode::UNSUPPORTED_FORMAT);
+    EXPECT_EQ(files.getProblems().front().error.message,
+              "Unable to parse component preset file: b.orc: the file is larger than 2000 bytes");
     EXPECT_EQ(files.getFileCount(), 3U);
 }
+
+// The bound of the presets of all the files together: the file that would pass it is not added,
+// with its warnings, and no later file is read.
+TEST(ComponentPresetDatabaseLoader, ReadsThePresetsOfAllTheFilesWithinTheirBound)
+{
+    EXPECT_EQ(ComponentPresetDatabaseLoader::kMaxPresets, 1000000U);
+    EXPECT_EQ(ComponentPresetDatabaseLoader::Limits{}.presets,
+              ComponentPresetDatabaseLoader::kMaxPresets);
+    const auto materials = builtinMaterialStorage();
+    // every-kind.orc has eleven presets, skipped.orc one (and three warnings), legacy.orc two.
+    const std::array<std::filesystem::path, 3> userFiles{
+        presetFixture("every-kind.orc"), presetFixture("skipped.orc"), presetFixture("legacy.orc")};
+
+    ComponentPresetDatabaseLoader eleven(*materials, {.presets = 11});
+    eleven.loadUserComponents(userFiles);
+    EXPECT_EQ(
+        problemLines(eleven),
+        std::vector<std::string>{
+            "user UNSUPPORTED_FORMAT: The component preset files hold more than 11 presets; " +
+            QtRocket::pathToUtf8(presetFixture("skipped.orc")) +
+            " and the files after it were not read"});
+    EXPECT_EQ(eleven.getFileCount(), 1U);
+    EXPECT_EQ(eleven.getPresetCount(), 11U);
+    EXPECT_EQ(eleven.getDatabase().size(), 11U);
+    EXPECT_EQ(warningTexts(eleven), std::vector<std::string>{});
+
+    ComponentPresetDatabaseLoader twelve(*materials, {.presets = 12});
+    twelve.loadUserComponents(userFiles);
+    EXPECT_EQ(
+        problemLines(twelve),
+        std::vector<std::string>{
+            "user UNSUPPORTED_FORMAT: The component preset files hold more than 12 presets; " +
+            QtRocket::pathToUtf8(presetFixture("legacy.orc")) +
+            " and the files after it were not read"});
+    EXPECT_EQ(twelve.getFileCount(), 2U);
+    EXPECT_EQ(twelve.getPresetCount(), 12U);
+    EXPECT_EQ(warningTexts(twelve).size(), 3U);
+
+    ComponentPresetDatabaseLoader fourteen(*materials, {.presets = 14});
+    fourteen.loadUserComponents(userFiles);
+    EXPECT_TRUE(fourteen.getProblems().empty());
+    EXPECT_EQ(fourteen.getPresetCount(), 14U);
+}
+
+// A recovery device whose material is of another type is skipped with a warning
+// (OpenRocketComponentLoader), and the rest of its file loads without a problem: OpenRocket loads
+// the whole file and shows no dialog.
+TEST(ComponentPresetDatabaseLoader, ReadsAFileWithARecoveryDeviceOfAnotherMaterialType)
+{
+    const auto                    materials = builtinMaterialStorage();
+    ComponentPresetDatabaseLoader loader(*materials);
+    loader.loadUserComponents(std::array{presetFixture("recovery-materials.orc")});
+    EXPECT_TRUE(loader.getProblems().empty());
+    EXPECT_EQ(loader.getFileCount(), 1U);
+    EXPECT_EQ(loader.getPresetCount(), 2U);
+    EXPECT_EQ(loader.getDatabase().size(), 2U);
+    EXPECT_EQ(warningTexts(loader).size(), 3U);
+}
+
+/// Makes @p link a symbolic link to @p target; false where links cannot be made.
+[[nodiscard]] bool makePresetLink(const std::filesystem::path& target,
+                                  const std::filesystem::path& link)
+{
+    std::error_code error;
+    std::filesystem::create_directories(link.parent_path(), error);
+    std::filesystem::create_symlink(target, link, error);
+    return !error;
+}
+
+// A file a walk finds that cannot be opened (here a link to nothing) is a problem that is no
+// refused file: OpenRocket's DirectoryIterator logs "Error opening file/directory" and goes on,
+// with no dialog. The other files are read.
+TEST(ComponentPresetDatabaseLoader, RecordsAWalkedFileThatCannotBeOpenedAsNoRefusedFile)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
+    const std::filesystem::path link = tempDir.resolve("user/a.orc");
+    if (!makePresetLink(tempDir.resolve("nowhere.orc"), link))
+    {
+        GTEST_SKIP() << "cannot create links here";
+    }
+    const auto                    materials = builtinMaterialStorage();
+    ComponentPresetDatabaseLoader loader(*materials);
+    loader.loadUserComponents(std::array{tempDir.resolve("user")});
+    EXPECT_EQ(problemLines(loader),
+              std::vector<std::string>{"user IO: Error opening file/directory " +
+                                       QtRocket::pathToUtf8(link)});
+    EXPECT_EQ(problemFiles(loader), std::vector<std::filesystem::path>{link});
+    EXPECT_EQ(loader.getFileCount(), 1U);
+    EXPECT_EQ(loader.getDatabase().size(), 2U);
+}
+
+// A file of the user's list that cannot be opened is a refused file, as OpenRocket's
+// loadUserFile() shows its dialog for it; the same file found by a walk is not.
+TEST(ComponentPresetDatabaseLoader, RefusesAListedFileThatCannotBeOpened)
+{
+    const TempDir               tempDir;
+    const std::filesystem::path file = tempDir.copy(presetFixture("legacy.orc"), "user/a.orc");
+    std::filesystem::permissions(file, std::filesystem::perms::none);
+    if (std::ifstream(file, std::ios::binary))
+    {
+        GTEST_SKIP() << "a file without permissions can be read here";
+    }
+    const auto                    materials = builtinMaterialStorage();
+    ComponentPresetDatabaseLoader loader(*materials);
+    loader.loadUserComponents(std::array{file, tempDir.resolve("user")});
+    EXPECT_EQ(problemLines(loader),
+              (std::vector<std::string>{
+                  "user refused IO: Unable to parse component preset file: "
+                  "a.orc: cannot open '" +
+                      QtRocket::pathToUtf8(file) + "' for reading",
+                  "user IO: Error opening file/directory " + QtRocket::pathToUtf8(file)}));
+    EXPECT_EQ(loader.getFileCount(), 0U);
+}
+
+// A file a walk finds that is not a regular file is not opened, which would block for a FIFO and
+// never end for a device; OpenRocket opens it. A listed one is neither file nor directory.
+TEST(ComponentPresetDatabaseLoader, DoesNotOpenAWalkedFileThatIsNoRegularFile)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
+    const std::filesystem::path device = "/dev/zero";
+    const std::filesystem::path link   = tempDir.resolve("user/zero.orc");
+    std::error_code             error;
+    if (!std::filesystem::is_character_file(device, error) || !makePresetLink(device, link))
+    {
+        GTEST_SKIP() << "no /dev/zero or no links here";
+    }
+    const auto                    materials = builtinMaterialStorage();
+    ComponentPresetDatabaseLoader loader(*materials);
+    loader.loadUserComponents(std::array{tempDir.resolve("user"), link});
+    EXPECT_EQ(problemLines(loader),
+              (std::vector<std::string>{"user UNSUPPORTED_FORMAT: " + QtRocket::pathToUtf8(link) +
+                                            " is not a regular file; it was not read",
+                                        "user NOT_FOUND: User-defined component preset file " +
+                                            QtRocket::pathToUtf8(link) +
+                                            " is neither file nor directory"}));
+    EXPECT_FALSE(loader.getProblems().front().refusedFile);
+    EXPECT_EQ(loader.getFileCount(), 1U);
+}
+
+#ifndef _WIN32
+// The same for a FIFO, whose open would wait for a writer that never comes.
+TEST(ComponentPresetDatabaseLoader, DoesNotOpenAWalkedFifo)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
+    const std::filesystem::path fifo = tempDir.resolve("user/a.orc");
+    ASSERT_EQ(::mkfifo(QtRocket::pathToUtf8(fifo).c_str(), S_IRUSR | S_IWUSR), 0);
+    const auto                    materials = builtinMaterialStorage();
+    ComponentPresetDatabaseLoader loader(*materials);
+    loader.loadUserComponents(std::array{tempDir.resolve("user")});
+    EXPECT_EQ(problemLines(loader),
+              std::vector<std::string>{"user UNSUPPORTED_FORMAT: " + QtRocket::pathToUtf8(fifo) +
+                                       " is not a regular file; it was not read"});
+    EXPECT_EQ(loader.getFileCount(), 1U);
+}
+#else
+TEST(ComponentPresetDatabaseLoader, DoesNotOpenAWalkedFifo)
+{
+    GTEST_SKIP() << "Windows has no FIFO in its file system";
+}
+#endif
 
 // The bundled directory: a file that fails is a problem (OpenRocket logs it) and the others are
 // read; a directory without preset files is a problem too, after the one of a directory that

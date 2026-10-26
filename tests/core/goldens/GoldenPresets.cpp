@@ -41,11 +41,12 @@ namespace
 
 using Json = nlohmann::ordered_json;
 
-/// The double @p value of the golden: a number, or one of the strings "NaN", "Infinity" and
-/// "-Infinity"; nullopt for anything else.
+/// The double @p value of the golden: a number with a fraction or an exponent, or one of the
+/// strings "NaN", "Infinity" and "-Infinity"; nullopt for anything else. An integer is no double:
+/// PresetDumper writes every Double with Double.toString(), which always writes a '.' or an 'E'.
 [[nodiscard]] std::optional<double> goldenDouble(const Json& value)
 {
-    if (value.is_number())
+    if (value.is_number_float())
     {
         return value.get<double>();
     }

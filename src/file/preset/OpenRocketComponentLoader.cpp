@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -13,6 +14,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -473,6 +475,26 @@ public:
         m_properties.put(key, std::move(*material));
     }
 
+    /// Deviation (the recovery devices' material types): skips the preset when the material
+    /// of @p key, from the element @p element, is not of the type @p type. OpenRocket loads such a
+    /// preset, which fails only when it is applied (RecoveryDevice casts its material to
+    /// Material.Surface); ComponentPresetFactory refuses it (Milestone 1), which would refuse the
+    /// whole file, so the loader skips it first, as D5 skips the presets OpenRocket cannot use.
+    void requireMaterialType(const TypedKey<Material>& key, std::string_view element,
+                             Material::Type type)
+    {
+        if (!ok())
+        {
+            return;
+        }
+        const Material* const material = m_properties.get(key);
+        if (material != nullptr && material->getType() != type)
+        {
+            skip(std::format("its <{}> '{}' is not a {} material", element, material->getName(),
+                             toString(type)));
+        }
+    }
+
     /// The first failure: what is wrong with the component, after describe().
     [[nodiscard]] const std::optional<std::string>& failure() const noexcept { return m_failure; }
 
@@ -727,6 +749,7 @@ void readStreamer(ComponentReader& reader)
     reader.putLength(Preset::kThickness, "Thickness", Need::REQUIRED);
     reader.putLength(Preset::kLength, "Length", Need::REQUIRED);
     reader.putType();
+    reader.requireMaterialType(Preset::kMaterial, "Material", Material::Type::SURFACE);
 }
 
 /// ParachuteDTO: TYPE right after the base properties; the drag coefficient is read as a
@@ -744,6 +767,8 @@ void readParachute(ComponentReader& reader)
     reader.putLength(Preset::kLineLength, "LineLength", Need::IF_PRESENT);
     reader.putSides();
     reader.putMaterial(Preset::kLineMaterial, "LineMaterial");
+    reader.requireMaterialType(Preset::kMaterial, "Material", Material::Type::SURFACE);
+    reader.requireMaterialType(Preset::kLineMaterial, "LineMaterial", Material::Type::LINE);
 }
 
 /// The DTO of the kind of preset @p type.
@@ -901,8 +926,18 @@ Result<std::vector<PresetPtr>> OpenRocketComponentLoader::load(std::span<const s
 Result<std::vector<PresetPtr>> OpenRocketComponentLoader::loadFile(
     const std::filesystem::path& file, WarningSet& warnings) const
 {
-    const std::string                    fileName = pathToUtf8(file.filename());
-    const Result<std::vector<std::byte>> data     = readFile(file, m_limits.fileSize);
+    const std::string fileName = pathToUtf8(file.filename());
+    // The bound refuses a file that says it is larger before it is opened, as load() refuses
+    // the bytes; readFile() gives up on a source that gives more than it said (ErrorCode::IO).
+    std::error_code      sizeError;
+    const std::uintmax_t size = std::filesystem::file_size(file, sizeError);
+    if (!sizeError && std::cmp_greater(size, m_limits.fileSize))
+    {
+        return FileMessages(fileName).refused(
+            ErrorCode::UNSUPPORTED_FORMAT,
+            std::format("the file is larger than {} bytes", m_limits.fileSize));
+    }
+    const Result<std::vector<std::byte>> data = readFile(file, m_limits.fileSize);
     if (!data)
     {
         return fail(ErrorCode::IO, std::format("Unable to parse component preset file: {}: {}",

@@ -1340,6 +1340,14 @@ OK 11 presets
   Legacy=false; Manufacturer=Estes; PartNo=ThreadsLines other; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Thread (heavy-duty)' 0.0 shear 0.0 Other user]; digest=faaad9bf0df02015bbd2bd5ecc71d287
   Legacy=false; Manufacturer=Estes; PartNo=ThreadsLines unknown; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Mystery cord' 0.0 shear 0.0 Other user]; digest=3dc78a83f310341b9cac64f634bf991f
   Legacy=false; Manufacturer=Estes; PartNo=Kevlars unknown; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Mystery cord' 0.0 shear 0.0 Kevlars user]; digest=4f9981cc936ed88d6c9462cc3f9a8e8b
+== file recovery-materials.orc
+document 2354 bytes, sha256 8bc706d8d8979fdd47e2fefe8e822407d1a96bc774b1711521ba059e1ee17320
+OK 5 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-20; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=f91a6ac72879c0e22d5aa2f0c75537af
+  Manufacturer=Estes; PartNo=ST-1; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Legacy=false; Width=0.0508; Thickness=2.54E-5; Length=0.9144; Type=STREAMER; digest=ca87457eef3afb367633c539c4eeff45
+  Legacy=false; Manufacturer=Estes; PartNo=PK-1; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; digest=d1f4ba24cc9566864d8193b7556ab37c
+  Legacy=false; Manufacturer=Estes; PartNo=PK-2; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Elastic cord (round 2 mm, 1/16 in)' 0.0018 shear 0.0 Elastics builtin]; digest=44cf14ef3f71aaaeb2eb3c6be07448eb
+  Legacy=false; Manufacturer=Estes; PartNo=BT-50; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=f86ed849f2b7f7ace3c5e44f3030d7bb
 == file replaced-materials.orc
 document 1101 bytes, sha256 eccefeadbf251f89b854c0aa61a463e931d52d0e7628b66a640d888fb5696456
 THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
@@ -1361,3 +1369,7 @@ OK 1 presets
 == file unknown-group.orc
 document 741 bytes, sha256 d33ece27a4bd824f8da8dd07cd44a81ea871f279592d19df77894f99ccc74c8d
 THROWS java.lang.IllegalArgumentException: Unknown material group: Rocks
+== file xsi-type.orc
+document 817 bytes, sha256 aa469b2b4d501fbcd5585b641a4abb5e9af33af3e6af5c7cce14f2950ca8e04c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=RA-2050; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.0186944; OuterDiameter=0.02413; Length=0.0015875; Type=CENTERING_RING; Thickness=0.0027177999999999994; digest=8297936398a0e71c6c084cd230559586

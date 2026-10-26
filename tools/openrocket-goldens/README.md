@@ -929,7 +929,11 @@ seconds: it rewrites `presets/presets.json` and the line of its entry in `manife
 have one: an older manifest needs a full run), and nothing else. What it writes depends on the
 preset files and OpenRocket's code alone, so it is what a full run writes, byte for byte; the
 variables of the scratch dumps (`UUID_SALT`, `LAST_BIT`, `STABLE_EXAMPLES`) do not apply to it and
-are refused, `GOLDENS_OUT` is honoured.
+are refused, `GOLDENS_OUT` is honoured. The rest of the manifest stays, so the checkout must be the
+one it records: a dirty checkout (`ALLOW_DIRTY=1`), another OpenRocket commit or preset commit
+than the manifest's, or a manifest that is dirty itself is refused, and so is a `GOLDENS_OUT`
+without a `manifest.json` that has the entry (copy the committed one there first), all before
+anything is built or written.
 
 The version written into `manifest.json` and `creator=` of the re-saved files is OpenRocket's
 `build.version` with the commit hash appended as OpenRocket's build does, except that the hash is

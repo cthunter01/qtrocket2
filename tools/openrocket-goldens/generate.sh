@@ -6,7 +6,9 @@
 #
 # "--presets" runs PresetDumper alone: it rewrites presets/presets.json, the preset golden, and its entry in
 # manifest.json (which must have one), and nothing else; a full run writes the same bytes. The environment
-# variables of the scratch dumps (STABLE_EXAMPLES, UUID_SALT, LAST_BIT) do not change it and are refused with it.
+# variables of the scratch dumps (STABLE_EXAMPLES, UUID_SALT, LAST_BIT) do not change it and are refused with it,
+# and so are ALLOW_DIRTY's dirty checkout and a checkout at other commits than the manifest records (whose other
+# entries stay).
 #
 # Environment:
 #   OPENROCKET_DIR   the OpenRocket checkout (default: "openrocket" next to the QtRocket repository)
@@ -162,6 +164,28 @@ recorded="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$comm
 if [[ -n "$recorded" && "$recorded" != "$commit" ]]; then
     echo "warning: the committed goldens come from OpenRocket $recorded, the checkout is at $commit;" >&2
     echo "         check out $recorded (and run git submodule update --init) to reproduce them" >&2
+fi
+# "--presets" rewrites one entry of the manifest and keeps the others, which say where the whole data come
+# from (the commits, "dirty"): the preset golden must come from that same clean checkout, into a directory
+# whose manifest has the entry to replace. Checked before anything is built or written.
+if [[ "$presets_only" == true ]]; then
+    manifest="$out/manifest.json"
+    if [[ ! -f "$manifest" ]] || ! grep -q '^ "presets": {' "$manifest"; then
+        echo "error: --presets replaces the \"presets\" entry of $manifest, which has none;" >&2
+        echo "       copy the committed manifest.json into GOLDENS_OUT or run the full generate.sh" >&2
+        exit 1
+    fi
+    out_commit="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$manifest")"
+    out_preset_commit="$(sed -n 's/^ *"openrocket": {.*"presetDatabaseCommit": "\([0-9a-f]*\)".*/\1/p' "$manifest")"
+    out_dirty="$(sed -n 's/^ *"openrocket": {.*"dirty": \(true\|false\).*/\1/p' "$manifest")"
+    if [[ "$dirty" == true || "$out_dirty" != false || "$out_commit" != "$commit" ||
+        "$out_preset_commit" != "$preset_commit" ]]; then
+        echo "error: --presets keeps the rest of $manifest, which records OpenRocket ${out_commit:-(none)}" >&2
+        echo "       (presets ${out_preset_commit:-(none)}, dirty ${out_dirty:-(none)}); the checkout is at $commit" >&2
+        echo "       (presets $preset_commit, dirty $dirty): regenerate the presets from that clean checkout, or run" >&2
+        echo "       the full generate.sh" >&2
+        exit 1
+    fi
 fi
 
 # Build with OpenRocket's own Gradle wrapper (no wrapper is vendored here). The project directory

@@ -3,11 +3,11 @@
 # output and error, the bytes of their line ends, and the files written. The tests in this process
 # (CliTests.cpp, cli_golden_tests.cpp) cover the commands in full; these cover what only the
 # executable does: its arguments (UTF-8 on Windows too), its data directory (the build tree's copy of
-# the motor database and of the component presets, which QtRocket_cli_data makes, found beside the
-# program as in an installed archive), its exit status and its standard streams (binary mode on
-# Windows, a standard output that cannot be written). Every exit code is pinned but 5, an internal
-# error, which no input gives (CliTests.cpp provokes it in process). Label "cli"; the milestone run
-# also "golden".
+# the motor database and of the component presets, which QtRocket_data of the top-level
+# CMakeLists.txt makes, found beside the program as in an installed archive), its exit status and
+# its standard streams (binary mode on Windows, a standard output that cannot be written). Every
+# exit code is pinned but 5, an internal error, which no input gives (CliTests.cpp provokes it in
+# process). Label "cli"; the milestone run also "golden".
 
 # The tests run the program: building the test target builds it too (the coverage preset builds the
 # test target alone).

@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
@@ -1480,6 +1481,7 @@ private:
         }
         m_bindings.emplace_back(localpart != U"xmlns" ? std::u32string(localpart) : U"",
                                 uri.empty() ? std::nullopt : std::optional<std::u32string>(uri));
+        m_bindingsByPrefix[m_bindings.back().first].push_back(m_bindings.back().second);
     }
 
     /// An attribute value (scanAttributeValue()), normalised as CDATA.
@@ -1802,11 +1804,13 @@ private:
     /// The namespace @p prefix is bound to ("" is the default namespace), none when unbound.
     [[nodiscard]] std::optional<std::u32string> uriOf(std::u32string_view prefix) const
     {
-        const auto binding =
-            std::ranges::find(m_bindings.rbegin(), m_bindings.rend(), prefix, &Binding::first);
-        if (binding != m_bindings.rend())
+        // The innermost binding of the prefix: the last of its stack, which an index keeps so
+        // that a lookup costs no walk through every binding in scope (a document that nests many
+        // declarations would make the scan quadratic).
+        const auto binding = m_bindingsByPrefix.find(prefix);
+        if (binding != m_bindingsByPrefix.end() && !binding->second.empty())
         {
-            return binding->second;
+            return binding->second.back();
         }
         if (prefix == U"xml")
         {
@@ -1821,6 +1825,12 @@ private:
 
     void popContext()
     {
+        for (std::size_t i = m_bindings.size(); i > m_contexts.back(); i--)
+        {
+            const auto uris = m_bindingsByPrefix.find(m_bindings[i - 1].first);
+            QTROCKET_ASSERT(uris != m_bindingsByPrefix.end() && !uris->second.empty());
+            uris->second.pop_back();
+        }
         m_bindings.resize(m_contexts.back());
         m_contexts.pop_back();
     }
@@ -1839,6 +1849,9 @@ private:
     /// The namespace declarations in scope, and where each open element's begin.
     std::vector<Binding>     m_bindings;
     std::vector<std::size_t> m_contexts;
+    /// The URIs of m_bindings by prefix, the innermost last ("" for the default namespace).
+    std::map<std::u32string, std::vector<std::optional<std::u32string>>, std::less<>>
+        m_bindingsByPrefix;
     /// The QNames Xerces last read into its element and attribute QName objects ("null" before).
     QName m_lastElementName{.rawname = U"null", .prefix = {}, .localpart = U"null", .uri = {}};
     QName m_lastAttributeName{.rawname = U"null", .prefix = {}, .localpart = U"null", .uri = {}};

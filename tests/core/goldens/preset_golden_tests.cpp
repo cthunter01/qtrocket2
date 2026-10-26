@@ -393,8 +393,13 @@ TEST(PresetGolden, TheComparisonSeesEveryDifference)
     EXPECT_NE(
         goldenPresetMismatches(*tube, changed(*expected, "/properties/Material/group", "Metals")),
         "");
-    // An integer is no double.
-    EXPECT_NE(goldenPresetMismatches(*tube, changed(*expected, "/properties/Length", 1)), "");
+    // An integer is no double, even one of the same value (T2-34's shear modulus is 0.0).
+    const Json& shearModulus = expected->at("properties").at("Material").at("shearModulus");
+    ASSERT_TRUE(shearModulus.is_number_float());
+    ASSERT_EQ(shearModulus.get<double>(), 0.0);
+    EXPECT_NE(
+        goldenPresetMismatches(*tube, changed(*expected, "/properties/Material/shearModulus", 0)),
+        "");
     // The same keys in the same order.
     EXPECT_NE(goldenPresetMismatches(*tube, withoutProperty(*expected, "Thickness")), "");
     EXPECT_NE(goldenPresetMismatches(*tube, withPropertyFirst(*expected, "Thickness")), "");

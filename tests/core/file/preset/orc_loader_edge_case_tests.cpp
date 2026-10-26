@@ -8,8 +8,8 @@
 // files included, where QtRocket refuses the one file (bug 18). The other differences are the
 // deviations OpenRocketComponentLoader.h documents: no <PartNumber> refuses the file and a
 // <LineCount> that is no integer skips the preset (D5), a number that is not finite skips it (bug
-// 19), and those of ComponentPresetFactory (the recovery devices' material types) and of XmlScanner
-// (a document type declaration that declares an entity).
+// 19), a recovery device whose material is of another type skips it (ComponentPresetFactory would
+// refuse it), and XmlScanner's (a document type declaration that declares an entity).
 //
 // orc_edge_case_tests.cpp pins the same documents one level down (OrcDocument, OrcElement,
 // JaxbLexical).
@@ -235,10 +235,10 @@ constexpr std::string_view kTubeOfNewCardboard =
         refused("57", "PARSE: Unable to parse component preset file: case.orc: the Parachute 'PK' (component 1) is not a valid preset: Invalid preset specification. No LineLength specified"),
         // 58 parachute DragCoefficient Unit in
         read("58", {"Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; DragCoefficient=0.02032; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=b43376e5721121aad391c4d12f51338c"}),
-        // 59 parachute line material BULK: ComponentPresetFactory's deviation (a recovery device's materials must be of their types): OpenRocket loads it
-        refused("59", "PARSE: Unable to parse component preset file: case.orc: the Parachute 'PK' (component 1) is not a valid preset: Invalid preset specification. LineMaterial \"Cardboard\" is not a LINE material"),
-        // 60 parachute canopy BULK: ComponentPresetFactory's deviation (a recovery device's materials must be of their types): OpenRocket loads it
-        refused("60", "PARSE: Unable to parse component preset file: case.orc: the Parachute 'PK' (component 1) is not a valid preset: Invalid preset specification. Material \"Cardboard\" is not a SURFACE material"),
+        // 59 parachute line material BULK: deviation (a recovery device's materials must be of their types, which ComponentPresetFactory checks): OpenRocket loads it, and the preset fails when it is applied
+        read("59", {}, {"Component preset file case.orc: the Parachute 'PK' (component 1) was skipped: its <LineMaterial> 'Cardboard' is not a LINE material"}),
+        // 60 parachute canopy BULK: deviation (a recovery device's materials must be of their types, which ComponentPresetFactory checks): OpenRocket loads it, and the preset fails when it is applied
+        read("60", {}, {"Component preset file case.orc: the Parachute 'PK' (component 1) was skipped: its <Material> 'Cardboard' is not a SURFACE material"}),
         // 61 nose cone bad shape: OpenRocket: NullPointerException "Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null", which ends its whole preset load
         refused("61", "PARSE: Unable to parse component preset file: case.orc: the NoseCone 'NC' (component 1) has the <Shape> 'BLUNT', which is none of CONICAL, OGIVE, ELLIPSOID, POWER, PARABOLIC and HAACK"),
         // 62 nose cone shape lowercase: OpenRocket: NullPointerException "Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null", which ends its whole preset load

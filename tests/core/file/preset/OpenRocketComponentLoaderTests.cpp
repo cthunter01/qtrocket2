@@ -57,11 +57,13 @@ constexpr auto kFixtures = std::to_array<FixtureDocument>({
     {.file = "every-kind.orc", .size = 7363, .sha256 = "bcd4e51559ba04ab2a41607d0862e69e8a633321c294e36b11d50bbb11bf3fe7"},
     {.file = "legacy.orc", .size = 1293, .sha256 = "2ae5ad5308ae0589f37085a7c7f147ab17390265c20a126ab34742f66813bc61"},
     {.file = "materials.orc", .size = 5351, .sha256 = "6bc711c52ea64cd4b29d212d528d892248e13015a823312f4718ad98a70afa31"},
+    {.file = "recovery-materials.orc", .size = 2354, .sha256 = "8bc706d8d8979fdd47e2fefe8e822407d1a96bc774b1711521ba059e1ee17320"},
     {.file = "replaced-materials.orc", .size = 1101, .sha256 = "eccefeadbf251f89b854c0aa61a463e931d52d0e7628b66a640d888fb5696456"},
     {.file = "section-order.orc", .size = 1524, .sha256 = "fdd7eeaab1616be0ac207a7ba60adc03dfd38ef0941ecb202c2625f3a9a145f9"},
     {.file = "skipped.orc", .size = 1938, .sha256 = "cc91eec23839ffae2d3640e426880c434f06ebec88b179c8d2b942238dae3dcd"},
     {.file = "thumbnail.orc", .size = 850, .sha256 = "9662f73e39d0cce5eab314132cee78f92d7cbebb801ef60f97d94744e9adf8c0"},
     {.file = "unknown-group.orc", .size = 741, .sha256 = "d33ece27a4bd824f8da8dd07cd44a81ea871f279592d19df77894f99ccc74c8d"},
+    {.file = "xsi-type.orc", .size = 817, .sha256 = "aa469b2b4d501fbcd5585b641a4abb5e9af33af3e6af5c7cce14f2950ca8e04c"},
 });
 
 /// OpenRocket's presets of every-kind.orc.
@@ -108,6 +110,15 @@ constexpr auto kSectionOrder = std::to_array<std::string_view>({
 /// OpenRocket's presets of thumbnail.orc.
 constexpr auto kThumbnail = std::to_array<std::string_view>({
     "Legacy=false; Manufacturer=manufacturer; PartNo=partno; Mass=100.0; Image=bytes76:89504e470d0a1a0a0000000d494844520000000200000002080600000072b60d24000000134944415478da63f8cfc0f01f0c813408340000494909789c5117920000000049454e44ae426082; InnerDiameter=1.0; OuterDiameter=2.0; Length=2.0; Type=BODY_TUBE; Thickness=0.5; Material=[Bulk 'TubeCustom' 21.22065907891938 shear 0.0 Custom user]; digest=51382687eda9ff0e822918c836cb4b21",
+});
+
+/// OpenRocket's presets of recovery-materials.orc.
+constexpr auto kRecoveryMaterials = std::to_array<std::string_view>({
+    "Legacy=false; Manufacturer=Estes; PartNo=BT-20; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=f91a6ac72879c0e22d5aa2f0c75537af",
+    "Manufacturer=Estes; PartNo=ST-1; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Legacy=false; Width=0.0508; Thickness=2.54E-5; Length=0.9144; Type=STREAMER; digest=ca87457eef3afb367633c539c4eeff45",
+    "Legacy=false; Manufacturer=Estes; PartNo=PK-1; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; digest=d1f4ba24cc9566864d8193b7556ab37c",
+    "Legacy=false; Manufacturer=Estes; PartNo=PK-2; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Elastic cord (round 2 mm, 1/16 in)' 0.0018 shear 0.0 Elastics builtin]; digest=44cf14ef3f71aaaeb2eb3c6be07448eb",
+    "Legacy=false; Manufacturer=Estes; PartNo=BT-50; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=f86ed849f2b7f7ace3c5e44f3030d7bb",
 });
 
 /// OpenRocket's presets of skipped.orc.
@@ -340,6 +351,42 @@ TEST(OpenRocketComponentLoader, SkipsThePresetsOpenRocketCannotUseWithAWarning)
                   "(Infinity)"}));
 }
 
+TEST(OpenRocketComponentLoader, SkipsARecoveryDeviceOfAnotherMaterialTypeAndReadsTheRest)
+{
+    // OpenRocket loads all five presets (kRecoveryMaterials): a recovery device's material of
+    // another type fails only when the preset is applied (RecoveryDevice casts it to
+    // Material.Surface). QtRocket's factory refuses such a preset, so the loader skips it with a
+    // warning, and the body tubes before and after it load.
+    const LoadedFixture loaded = loadFixture("recovery-materials.orc");
+    EXPECT_EQ(linesOf(loaded), (std::vector<std::string>{std::string(kRecoveryMaterials[0]),
+                                                         std::string(kRecoveryMaterials[4])}));
+    EXPECT_EQ(warningTexts(loaded.warnings),
+              (std::vector<std::string>{
+                  "Component preset file recovery-materials.orc: the Streamer 'ST-1' (component "
+                  "2) was skipped: its <Material> 'Cardboard' is not a SURFACE material",
+                  "Component preset file recovery-materials.orc: the Parachute 'PK-1' (component "
+                  "3) was skipped: its <LineMaterial> 'Cardboard' is not a LINE material",
+                  "Component preset file recovery-materials.orc: the Parachute 'PK-2' (component "
+                  "4) was skipped: its <Material> 'Cardboard' is not a SURFACE material"}));
+}
+
+TEST(OpenRocketComponentLoader, TakesTheKindOfAComponentFromItsElementAlone)
+{
+    // OpenRocket's JAXB makes a centering ring of this <BodyTube xsi:type="centeringRingDTO">: the
+    // probe's line ends "Type=CENTERING_RING; Thickness=0.0027177999999999994;
+    // digest=8297936398a0e71c6c084cd230559586". QtRocket ignores xsi:type
+    // (OpenRocketComponentLoader.h, the deviations).
+    const LoadedFixture loaded = loadFixture("xsi-type.orc");
+    EXPECT_EQ(
+        linesOf(loaded),
+        std::vector<std::string>{
+            "Legacy=false; Manufacturer=Estes; PartNo=RA-2050; Material=[Bulk 'Cardboard' 680.0 "
+            "shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.0186944; OuterDiameter=0.02413; "
+            "Length=0.0015875; Type=BODY_TUBE; Thickness=0.0027177999999999994; "
+            "digest=4f483145e85c3eaa8625d6d95090145b"});
+    EXPECT_TRUE(loaded.warnings.empty());
+}
+
 TEST(OpenRocketComponentLoader, KeepsANonFiniteValueTheFactoryDerives)
 {
     // internal/semroc-legacy.orc's transition BC-08542 [R] has no volume, so the density of the
@@ -465,10 +512,11 @@ TEST(OpenRocketComponentLoader, RefusesAFileLargerThanItsBound)
     EXPECT_EQ(failureOf(smaller.load(bytes, "every-kind.orc", warnings)),
               "UNSUPPORTED_FORMAT: Unable to parse component preset file: every-kind.orc: the "
               "file is larger than 7362 bytes");
-    // A file is refused before it is read.
+    // A file is refused before it is opened, with the same error.
+    EXPECT_TRUE(loader.loadFile(presetFixture("every-kind.orc"), warnings));
     EXPECT_EQ(failureOf(smaller.loadFile(presetFixture("every-kind.orc"), warnings)),
-              "IO: Unable to parse component preset file: every-kind.orc: Input exceeds maximum "
-              "size of 7362 bytes");
+              "UNSUPPORTED_FORMAT: Unable to parse component preset file: every-kind.orc: the "
+              "file is larger than 7362 bytes");
     EXPECT_TRUE(warnings.empty());
 }
 
