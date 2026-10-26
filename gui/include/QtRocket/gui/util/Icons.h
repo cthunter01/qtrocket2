@@ -16,8 +16,9 @@ class QFont;
 namespace QtRocket::Gui
 {
 
-/// OpenRocket's icons (Icons.java) that the GUI shows: the File and Edit actions, the component
-/// tree's markers, the figure's tools and the window icon. Each is one of OpenRocket's SVGs, in
+/// OpenRocket's icons (Icons.java) that the GUI shows: the File and Edit actions (and the flight
+/// configuration tab's Rename), the component tree's markers, the figure's tools and the window
+/// icon. Each is one of OpenRocket's SVGs, in
 /// the resources at :/icons/actions/ (lower-case names: Icons.java asks for cd-override.svg, the
 /// file is CD-override.svg), drawn by an SvgIconEngine with the same colour mapping as
 /// Icons.java's loadIcon()/loadSvgIcon(): black is OR.icons.default unless the icon names another
@@ -44,6 +45,7 @@ public:
         EDIT_UNDO,
         EDIT_REDO,
         EDIT_EDIT,
+        EDIT_RENAME,
         EDIT_CUT,
         EDIT_COPY,
         EDIT_PASTE,
@@ -90,6 +92,7 @@ public:
         Id::EDIT_UNDO,
         Id::EDIT_REDO,
         Id::EDIT_EDIT,
+        Id::EDIT_RENAME,
         Id::EDIT_CUT,
         Id::EDIT_COPY,
         Id::EDIT_PASTE,

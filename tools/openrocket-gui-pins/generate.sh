@@ -18,6 +18,7 @@
 #   component-editing  the ActionsProbe and ClipboardProbe tables of tests/gui/main/ComponentEditingTests.cpp
 #   component-drop     the DndProbe table of tests/gui/tree/ComponentDropTests.cpp
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
+#   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -50,11 +51,11 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, xvfb-run.
+# .clang-format) and, for rocket-panel and thrust-curves, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
-    material-combo component-editing component-drop actions-rules)
+    material-combo component-editing component-drop actions-rules thrust-curves)
 
 check=false
 families=()
@@ -112,10 +113,12 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-if [[ " ${families[*]} " == *" rocket-panel "* ]] && ! command -v xvfb-run > /dev/null; then
-    echo "error: xvfb-run is not on PATH (rocket-panel's probe needs a display)" >&2
-    exit 1
-fi
+for family in rocket-panel thrust-curves; do
+    if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
+        echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
+        exit 1
+    fi
+done
 
 # Double.toString, which writes many numbers of the transcripts, changed in JDK 19 (JDK-4511638).
 java_version="$("${java}" -XshowSettings:properties -version 2>&1 |
@@ -394,6 +397,13 @@ for family in "${families[@]}"; do
         spliced="$(generated "${file}")"
         python3 -I "${here}/${family}/gen_actions_rules.py" "${work}/ActionsRulesProbe.txt" "${spliced}"
         format "${spliced}"
+        ;;
+    thrust-curves)
+        # ThrustCurveMotorPlotDialog is a JDialog, which a headless AWT refuses to make (it is never shown).
+        run_probe "${family}" ThrustCurvesProbe xvfb
+        file=tests/gui/plot/ThrustCurvePins.h
+        python3 -I "${here}/${family}/gen_thrust_curve_pins.py" "${work}/ThrustCurvesProbe.txt" \
+            "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

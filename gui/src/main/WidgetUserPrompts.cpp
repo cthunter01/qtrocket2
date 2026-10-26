@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
+#include <utility>
 #include <vector>
 
 #include <QChar>
@@ -86,16 +88,9 @@ void addDescription(QFileDialog& dialog, const QString& description)
     }
 }
 
-/// The files @p dialog was accepted with and the directory it was in, or nullopt when it was not
-/// accepted (or destroyed).
-[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chosenFiles(
-    ModalDialog<QFileDialog>& dialog)
+/// The files @p chooser was accepted with and the directory it was in, or nullopt for none.
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> acceptedFiles(const QFileDialog& chooser)
 {
-    if (dialog.exec() != QDialog::Accepted || dialog.get() == nullptr)
-    {
-        return std::nullopt;
-    }
-    const QFileDialog&          chooser = *dialog.get();
     UserPrompts::OpenFileAnswer answer;
     // With the platform's separators, as Java's File has them: Qt names files with '/' on
     // Windows too.
@@ -110,6 +105,18 @@ void addDescription(QFileDialog& dialog, const QString& description)
     answer.directory =
         QtStrings::toPath(QDir::toNativeSeparators(chooser.directory().absolutePath()));
     return answer;
+}
+
+/// The files @p dialog was accepted with and the directory it was in, or nullopt when it was not
+/// accepted (or destroyed).
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chosenFiles(
+    ModalDialog<QFileDialog>& dialog)
+{
+    if (dialog.exec() != QDialog::Accepted || dialog.get() == nullptr)
+    {
+        return std::nullopt;
+    }
+    return acceptedFiles(*dialog.get());
 }
 
 /// A file chooser in OPEN mode (JFileChooser.showOpenDialog()) for @p request.
@@ -133,6 +140,10 @@ void addDescription(QFileDialog& dialog, const QString& description)
                                                                       : request.selectedNameFilter);
     }
     chooser.setDirectory(startDirectory(request.directory));
+    if (!request.approveButtonText.isEmpty())
+    {
+        chooser.setLabelText(QFileDialog::Accept, request.approveButtonText);
+    }
     if (!request.description.isEmpty())
     {
         addDescription(chooser, request.description);
@@ -152,10 +163,12 @@ void addDescription(QFileDialog& dialog, const QString& description)
 }
 
 /// A file chooser in SAVE mode (JFileChooser.showSaveDialog()) for @p request, starting in
-/// @p directory with the name @p fileName proposed.
-[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseFileToSave(
+/// @p directory with the name @p fileName proposed and the name filter @p nameFilter chosen (the
+/// first for an empty one): the file, the directory and the name filter it was accepted with
+/// (no storage option yet), or nullopt when it was not accepted (or destroyed).
+[[nodiscard]] std::optional<UserPrompts::SaveFileAnswer> chooseFileToSave(
     QWidget* parent, const UserPrompts::SaveFileRequest& request,
-    const std::filesystem::path& directory, const QString& fileName)
+    const std::filesystem::path& directory, const QString& fileName, const QString& nameFilter)
 {
     ModalDialog<QFileDialog> dialog(parent);
     QFileDialog&             chooser = *dialog.get();
@@ -174,14 +187,29 @@ void addDescription(QFileDialog& dialog, const QString& description)
     if (!request.nameFilters.isEmpty())
     {
         chooser.setNameFilters(request.nameFilters);
-        chooser.selectNameFilter(request.nameFilters.front());
+        chooser.selectNameFilter(nameFilter.isEmpty() ? request.nameFilters.front() : nameFilter);
     }
     chooser.setDirectory(startDirectory(directory));
     if (!fileName.isEmpty())
     {
         chooser.selectFile(fileName);
     }
-    return chosenFiles(dialog);
+    if (dialog.exec() != QDialog::Accepted || dialog.get() == nullptr)
+    {
+        return std::nullopt;
+    }
+    const QFileDialog&                               accepted = *dialog.get();
+    const std::optional<UserPrompts::OpenFileAnswer> files    = acceptedFiles(accepted);
+    if (!files.has_value())
+    {
+        return std::nullopt;
+    }
+    return UserPrompts::SaveFileAnswer{.file               = files->files.front(),
+                                       .directory          = files->directory,
+                                       .saveSimulationData = std::nullopt,
+                                       .selectedNameFilter = request.nameFilters.isEmpty()
+                                                                 ? QString()
+                                                                 : accepted.selectedNameFilter()};
 }
 
 /// A question with Yes and No (JOptionPane.showConfirmDialog(YES_NO_OPTION)) of @p type, titled
@@ -442,21 +470,25 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askDecalFile(
 std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
     QWidget* parent, const OpenFileRequest& request)
 {
+    if (request.selection == OpenFileSelection::FILES_AND_DIRECTORIES)
+    {
+        // Run 3 of Milestone 3 (the preferences' user files): the menu "File..." /
+        // "Directory..." and the platform's dialog for the choice. Until then: cancelled.
+        return std::nullopt;
+    }
     return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
 }
 
 std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
     QWidget* parent, const SaveFileRequest& request)
 {
-    const QPointer<QWidget>             guard(parent);
-    const std::optional<OpenFileAnswer> chosen = askLegalFileToSave(parent, request);
+    const QPointer<QWidget>       guard(parent);
+    std::optional<SaveFileAnswer> chosen = askLegalFileToSave(parent, request);
     if (!chosen.has_value())
     {
         return std::nullopt;
     }
-    SaveFileAnswer answer{.file               = chosen->files.front(),
-                          .directory          = chosen->directory,
-                          .saveSimulationData = std::nullopt};
+    SaveFileAnswer answer = std::move(*chosen);
     if (request.saveSimulationData.has_value())
     {
         // The StorageOptionChooser accessory, asked once the file is chosen.
@@ -473,30 +505,31 @@ std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
     return answer;
 }
 
-std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askLegalFileToSave(
+std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askLegalFileToSave(
     QWidget* parent, const SaveFileRequest& request)
 {
     const QPointer<QWidget> guard(parent);
     std::filesystem::path   directory = request.directory;
     QString                 fileName  = request.fileName;
+    QString                 nameFilter;
     while (true)
     {
-        std::optional<OpenFileAnswer> chosen =
-            chooseFileToSave(parent, request, directory, fileName);
+        std::optional<SaveFileAnswer> chosen =
+            chooseFileToSave(parent, request, directory, fileName, nameFilter);
         if (!chosen.has_value() || !request.refuseIllegalNames)
         {
             return chosen;
         }
         // SaveFileChooser.approveSelection(): the name as the chooser reads it
         // (getFilenameInput(), relative to the directory the dialog ended in).
-        const QString name = SaveFileNames::filenameInput(chosen->files.front(), chosen->directory);
+        const QString name = SaveFileNames::filenameInput(chosen->file, chosen->directory);
         const std::optional<QChar> illegal = SaveFileNames::illegalCharacter(name);
         if (!illegal.has_value())
         {
             return chosen;
         }
         // showIllegalFilenameWarning(); Java's chooser stays open: here it is shown again, in its
-        // directory with the name.
+        // directory with the name and the name filter chosen.
         showMessage(parent, {.severity = Severity::WARNING,
                              //: SaveAsFileChooser.illegalFilename.title
                              .title = tr("Illegal filename"),
@@ -505,8 +538,9 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askLegalFileToSave
         {
             return std::nullopt;
         }
-        directory = chosen->directory;
-        fileName  = name;
+        directory  = chosen->directory;
+        fileName   = name;
+        nameFilter = chosen->selectedNameFilter;
     }
 }
 
@@ -515,6 +549,50 @@ void WidgetUserPrompts::editDesignInformation(QWidget* parent, const GuiServices
 {
     // BasicFrame.saveAsAction() goes on to the file chooser however the dialog closed.
     static_cast<void>(SaveDesignInfoDialog::edit(parent, services, document));
+}
+
+std::optional<UserPrompts::IgnitionChoice> WidgetUserPrompts::askIgnition(
+    QWidget* /*parent*/, const IgnitionRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: IgnitionSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+std::optional<UserPrompts::DeploymentChoice> WidgetUserPrompts::askDeployment(
+    QWidget* /*parent*/, const DeploymentRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: DeploymentSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+std::optional<UserPrompts::SeparationChoice> WidgetUserPrompts::askSeparation(
+    QWidget* /*parent*/, const SeparationRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: SeparationSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+UserPrompts::RenameConfigurationAnswer WidgetUserPrompts::askRenameConfiguration(
+    QWidget* /*parent*/, const RenameConfigurationRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: RenameConfigDialog. Until then: cancelled.
+    return {.action = RenameAction::CANCEL, .name = QString()};
+}
+
+std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
+    QWidget* /*parent*/, const GuiServices& /*services*/, const MotorMount& /*mount*/,
+    const FlightConfigurationId& /*configurationId*/)
+{
+    // Run 2 of Milestone 3: MotorChooserDialog, one per top-level window. Until then: cancelled.
+    return std::nullopt;
+}
+
+UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget* /*parent*/,
+                                                          const GuiServices& /*services*/,
+                                                          const PresetRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: ComponentPresetChooserDialog. Until then: closed without a choice.
+    return {.outcome = PresetOutcome::CLOSED, .preset = nullptr};
 }
 
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)
@@ -533,6 +611,13 @@ void WidgetUserPrompts::showErrorsAndWarnings(QWidget*                        pa
 {
     ErrorWarningDialog::showErrorsAndWarnings(parent, message.lines, message.title, message.errors,
                                               message.warnings);
+}
+
+void WidgetUserPrompts::showDatabaseProblems(QWidget* /*parent*/,
+                                             std::span<const DatabaseProblem> /*problems*/)
+{
+    // Run 3 of Milestone 3 (the start-up): one message with OpenRocket's MotorDbLoaderDlg and
+    // ComponentDbLoaderDlg texts. Until then: nothing is shown.
 }
 
 UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*              parent,

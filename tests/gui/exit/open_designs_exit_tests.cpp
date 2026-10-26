@@ -130,7 +130,7 @@
 #include "QtRocket/mass/MassCalculator.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialStorage.h"
-#include "QtRocket/motor/MotorDatabase.h"
+#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
@@ -144,6 +144,7 @@
 #include "QtRocket/rocket/StabilityUnits.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -411,14 +412,14 @@ constexpr std::array                      kOpeningChanges{
 
 /// The services of the windows (see the top of the file): a DesignFileEnvironment without
 /// component presets over @p motors, OpenRocket's built-in materials as the application's
-/// materials, and the scripted questions.
+/// materials, no component presets for the windows either, and the scripted questions.
 class DesignServices
 {
 public:
-    explicit DesignServices(const MotorDatabase& motors)
+    explicit DesignServices(const ThrustCurveMotorSetDatabase& motors)
       : m_environment(DesignFileEnvironment::Presets::NONE, motors),
-        m_services(m_environment.preferences(), m_materials, motors, m_environment.context(),
-                   m_prompts)
+        m_services(m_environment.preferences(), m_materials, motors, m_presets,
+                   m_environment.context(), m_prompts)
     {
         addBuiltinMaterials(m_materials);
     }
@@ -433,6 +434,7 @@ public:
 private:
     DesignFileEnvironment          m_environment;
     MaterialStorage                m_materials;
+    ComponentPresetDatabase        m_presets;
     Gui::Test::ScriptedUserPrompts m_prompts;
     GuiServices                    m_services;
 };
@@ -513,10 +515,9 @@ protected:
     MainWindow* open()
     {
         const OpenDesign& design = GetParam();
-        m_services               = std::make_unique<DesignServices>(
-            design.source == DesignSource::TEST_ROCKET
-                ? static_cast<const MotorDatabase&>(QtRocket::Test::testRocketMotors())
-                : static_cast<const MotorDatabase&>(QtRocket::Test::bundledMotorDatabase()));
+        m_services = std::make_unique<DesignServices>(design.source == DesignSource::TEST_ROCKET
+                                                          ? QtRocket::Test::testRocketMotors()
+                                                          : QtRocket::Test::bundledMotorDatabase());
         m_windows  = std::make_unique<WindowManager>(m_services->services(), m_clipboard,
                                                      WindowManager::LastWindowBehaviour::EXIT);
         m_requests = std::make_unique<ConfigDialogRequests>(*m_windows);

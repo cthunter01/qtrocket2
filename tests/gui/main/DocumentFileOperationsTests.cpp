@@ -5,6 +5,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -47,6 +48,8 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/Decal.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -1076,10 +1079,45 @@ public:
                                OpenRocketDocument& /*document*/) override
     {
     }
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(
+        QWidget* /*parent*/, const IgnitionRequest& /*request*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* /*parent*/, const DeploymentRequest& /*request*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* /*parent*/, const SeparationRequest& /*request*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* /*parent*/, const RenameConfigurationRequest& /*request*/) override
+    {
+        return {};
+    }
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* /*parent*/, const GuiServices& /*services*/, const MotorMount& /*mount*/,
+        const FlightConfigurationId& /*configurationId*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* /*parent*/, const GuiServices& /*services*/,
+                                            const PresetRequest& /*request*/) override
+    {
+        return {};
+    }
     void showMessage(QWidget* /*parent*/, const Message& /*message*/) override { }
     void showWarnings(QWidget* /*parent*/, const WarningsMessage& /*message*/) override { }
     void showErrorsAndWarnings(QWidget* /*parent*/,
                                const ErrorsAndWarningsMessage& /*message*/) override
+    {
+    }
+    void showDatabaseProblems(QWidget* /*parent*/,
+                              std::span<const DatabaseProblem> /*problems*/) override
     {
     }
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget* /*parent*/,
@@ -1101,7 +1139,7 @@ TEST_F(DocumentFileOperationsTest, ASaveWhoseWindowClosesDuringAQuestionStops)
     ClosingPrompts         closing;
     const GuiServices      base = services();
     const GuiServices      closingServices(base.preferences(), base.materials(), base.motors(),
-                                           base.loadingContext(), closing);
+                                           base.presets(), base.loadingContext(), closing);
     WindowManager          windows(closingServices);
     DocumentFileOperations fileOperations(windows, closingServices);
     MainWindow&            window = windows.newDesign();

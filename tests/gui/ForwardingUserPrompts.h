@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 
 #include <QString>
 
@@ -13,8 +14,10 @@ class QWidget;
 
 namespace QtRocket
 {
+class FlightConfigurationId;
+class MotorMount;
 class OpenRocketDocument;
-}
+}  // namespace QtRocket
 
 namespace QtRocket::Gui::Test
 {
@@ -79,6 +82,37 @@ public:
     {
         m_delegate->editDesignInformation(parent, services, document);
     }
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(QWidget*               parent,
+                                                            const IgnitionRequest& request) override
+    {
+        return m_delegate->askIgnition(parent, request);
+    }
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override
+    {
+        return m_delegate->askDeployment(parent, request);
+    }
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* parent, const SeparationRequest& request) override
+    {
+        return m_delegate->askSeparation(parent, request);
+    }
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override
+    {
+        return m_delegate->askRenameConfiguration(parent, request);
+    }
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* parent, const GuiServices& services, const MotorMount& mount,
+        const FlightConfigurationId& configurationId) override
+    {
+        return m_delegate->chooseMotor(parent, services, mount, configurationId);
+    }
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
+                                            const PresetRequest& request) override
+    {
+        return m_delegate->choosePreset(parent, services, request);
+    }
     void showMessage(QWidget* parent, const Message& message) override
     {
         m_delegate->showMessage(parent, message);
@@ -90,6 +124,10 @@ public:
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override
     {
         m_delegate->showErrorsAndWarnings(parent, message);
+    }
+    void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override
+    {
+        m_delegate->showDatabaseProblems(parent, problems);
     }
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override
@@ -104,8 +142,8 @@ private:
 /// @p services with the questions of @p prompts.
 [[nodiscard]] inline GuiServices withPrompts(const GuiServices& services, UserPrompts& prompts)
 {
-    return {services.preferences(), services.materials(), services.motors(),
-            services.loadingContext(), prompts};
+    return {services.preferences(), services.materials(),      services.motors(),
+            services.presets(),     services.loadingContext(), prompts};
 }
 
 }  // namespace QtRocket::Gui::Test

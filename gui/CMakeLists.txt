@@ -6,7 +6,8 @@
 add_library(QtRocket_gui STATIC)
 add_library(QtRocket::gui ALIAS QtRocket_gui)
 target_include_directories(QtRocket_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(QtRocket_gui PUBLIC QtRocket::core Qt6::Widgets Qt6::Svg)
+# rocketplot (cmake/Dependencies.cmake): PUBLIC, as the headers of the area plot/ hold its widgets.
+target_link_libraries(QtRocket_gui PUBLIC QtRocket::core Qt6::Widgets Qt6::Svg rocketplot::rocketplot)
 # Also every program that includes a GUI header must compile without Qt's keywords: the core's headers call
 # Signal::emit(), which Qt's emit macro would break.
 target_compile_definitions(QtRocket_gui PUBLIC QT_NO_KEYWORDS)
@@ -18,6 +19,7 @@ add_subdirectory(src/util)
 add_subdirectory(src/settings)
 add_subdirectory(src/binding)
 add_subdirectory(src/widgets)
+add_subdirectory(src/plot)
 add_subdirectory(src/tree)
 add_subdirectory(src/figure)
 add_subdirectory(src/configdialog)

@@ -80,9 +80,12 @@ private:
     TestGuiServices         m_services;
     HookedUserPrompts       m_prompts;
     /// The test services with the hooked questions.
-    GuiServices m_hookedServices{m_services.preferences(), m_services.services().materials(),
-                                 m_services.services().motors(),
-                                 m_services.services().loadingContext(), m_prompts};
+    GuiServices                             m_hookedServices{m_services.preferences(),
+                                                             m_services.services().materials(),
+                                                             m_services.services().motors(),
+                                                             m_services.services().presets(),
+                                                             m_services.services().loadingContext(),
+                                                             m_prompts};
     std::unique_ptr<WindowManager>          m_manager;
     std::unique_ptr<DocumentFileOperations> m_operations;
 };

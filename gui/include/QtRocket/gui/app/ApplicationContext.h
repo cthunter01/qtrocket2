@@ -38,7 +38,8 @@ class UserPrompts;
 /// 4. the motor database: every "*.db" of the data directory's motors/ (MotorDatabaseLoader,
 ///    synchronously: 0.03 s in a Release build, so no splash and no loading thread, O15);
 ///    what could not be read is kept for the user (motorDatabaseProblems());
-/// 5. an empty component preset database (the .orc files come in Milestone 3), the bundled
+/// 5. an empty component preset database (the bundled and the user's .orc files come in run 3
+///    of Milestone 3; the services' presets() and the loading context's), the bundled
 ///    simulation extensions, and the loading context of the designs over all of these, as the
 ///    command-line tool's (CliEnvironment);
 /// 6. the questions and messages (the UserPrompts it is given: the dialogs of the application,
@@ -76,6 +77,7 @@ public:
     [[nodiscard]] const DataPaths&     dataPaths() const noexcept { return m_dataPaths; }
     [[nodiscard]] MaterialStorage&     materials() noexcept { return m_materials; }
     [[nodiscard]] const ThrustCurveMotorSetDatabase& motors() const noexcept { return m_motors; }
+    [[nodiscard]] const ComponentPresetDatabase&     presets() const noexcept { return m_presets; }
     [[nodiscard]] const DocumentLoadingContext&      loadingContext() const noexcept
     {
         return m_loadingContext;

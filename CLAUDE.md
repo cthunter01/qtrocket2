@@ -96,7 +96,7 @@ the workflow or create a tag only when the user asks.
 - `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy),
   `QtRocket_configure_qt_target()` and `QtRocket_automoc_follows_sources()`;
   `cmake/Dependencies.cmake`: third-party libraries via FetchContent (pugixml, minizip-ng with zlib, SQLite,
-  fast_float; GoogleTest and nlohmann_json for the tests only)
+  fast_float; GoogleTest and nlohmann_json for the tests only; with the GUI, Qt's lookup and rocketplot)
 
 ## Layers
 The subsystems of `QtRocket_core`, in the order of `src/CMakeLists.txt`; each includes only those before it:
@@ -143,7 +143,7 @@ subsystem or area is added there too.
   change only through their generators
 - Tests are deterministic and leave no process-wide state behind (default units, the flight data type registry,
   shared preferences, the current directory). An optional measurement or a tool run by hand is a `DISABLED_` test
-- Plots (from Milestone 3) come from rocketplot by FetchContent at tag `v0.6.0`, with `SYSTEM` and without
+- Plots come from rocketplot by FetchContent at tag `v0.6.0` (only with the GUI), with `SYSTEM` and without
   `EXCLUDE_FROM_ALL` (which would drop its licence files' install rules); `ROCKETPLOT_SANITIZERS` is set from
   `QTROCKET_SANITIZERS` before `FetchContent_MakeAvailable`, and the `asan`, `tsan` and `coverage` presets set
   `FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER` (an installed rocketplot has no sanitizer instrumentation)
@@ -152,10 +152,16 @@ subsystem or area is added there too.
 Qt 6 Widgets, Qt 6.8 or newer (Core, Gui, Widgets, Svg; Test for the tests). The option `QTROCKET_BUILD_GUI` (ON,
 with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the CLI alone.
 - Areas of `gui/`, in include order (each includes only those before it, and any subsystem of the core):
-  `util` → `settings` → `binding` → `widgets` → `tree` → `figure` → `configdialog` → `dialogs` → `main` → `app`,
-  with `gui/main.cpp` on top. `binding/` is Qt-free (no Qt header, no other area); a lower area reaches a higher
-  one only through signals or injected interfaces; the GUI never includes `QtRocket/cli/`. Namespace
-  `QtRocket::Gui` (test helpers `QtRocket::Gui::Test`), `#include "QtRocket/gui/util/MakeChild.h"`
+  `util` → `settings` → `binding` → `widgets` → `plot` → `tree` → `figure` → `configdialog` → `dialogs` →
+  `flightconfig` → `main` → `app`, with `gui/main.cpp` on top. `binding/` is Qt-free (no Qt header, no other area);
+  a lower area reaches a higher one only through signals or injected interfaces; the GUI never includes
+  `QtRocket/cli/`. Namespace `QtRocket::Gui` (test helpers `QtRocket::Gui::Test`),
+  `#include "QtRocket/gui/util/MakeChild.h"`
+- rocketplot: only `plot/` includes it, as `<rocketplot/X.h>` (`lint.layers`, which also refuses a quoted
+  include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
+  forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text
+  given to rocketplot goes through `rocketplot::literalText()`: a `$` starts math, of which rocketplot, built
+  without its math font, warns once per process (a test would fail or pass by test order)
 - Every Qt target calls `QtRocket_configure_qt_target()`: per-target AUTOMOC and `QT_NO_KEYWORDS` (also PUBLIC on
   `QtRocket_gui`: the core's `Signal::emit()`), `QT_ENABLE_STRICT_MODE_UP_TO=0x060800`,
   `QT_WARN_DEPRECATED_UP_TO=0x060800`, `QT_NO_CAST_FROM_ASCII`. So `Q_SIGNALS`/`Q_EMIT`, no `Q_SLOTS` (connect
@@ -256,6 +262,8 @@ The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
   then after a `tidy` preset build `<dir>/bin/clang-tidy -p build/tidy --quiet <file>` on every `.cpp` you created
   or changed and `<dir>/bin/clang-format --dry-run --Werror <files>`; both versions of both tools must be clean
   (reshape code that the two clang-formats format differently)
+- A sweep by hand (clang-tidy over `compile_commands.json`, the duplicate-symbol scan of the object files for the
+  macOS trap of section Portability) skips `build/<preset>/_deps/`: rocketplot's sources and objects are there
 
 ## Portability
 Code must build warning-free and pass its tests on Linux, macOS and Windows (the `ci-*`, `tidy` and `dist-*` presets

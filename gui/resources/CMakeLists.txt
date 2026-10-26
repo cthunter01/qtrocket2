@@ -34,6 +34,7 @@ qt_add_resources(QtRocket_gui "gui_resources"
     icons/actions/move.svg
     icons/actions/power.svg
     icons/actions/redo.svg
+    icons/actions/rename.svg
     icons/actions/rotate-cw.svg
     icons/actions/ruler-dimension-line.svg
     icons/actions/save-as.svg

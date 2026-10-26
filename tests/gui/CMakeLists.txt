@@ -14,6 +14,7 @@ add_executable(QtRocket_gui_tests
     GuiTestSupport.cpp
     GuiTestSupportTests.cpp
     HookedUserPrompts.cpp
+    HookedUserPromptsTests.cpp
     NextModalDialog.cpp
     RecordingGuardHook.cpp
     ScopedApplicationPalette.cpp
@@ -25,6 +26,7 @@ add_subdirectory(util)
 add_subdirectory(settings)
 add_subdirectory(binding)
 add_subdirectory(widgets)
+add_subdirectory(plot)
 add_subdirectory(tree)
 add_subdirectory(figure)
 add_subdirectory(configdialog)

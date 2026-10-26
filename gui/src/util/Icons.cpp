@@ -110,6 +110,7 @@ constexpr std::array<Entry, Icons::kAllIds.size()> kEntries{{
     single(Id::EDIT_UNDO, "EDIT_UNDO", "undo", Key::ICONS_UNDO),
     single(Id::EDIT_REDO, "EDIT_REDO", "redo", Key::ICONS_REDO),
     tinted(Id::EDIT_EDIT, "EDIT_EDIT", "square-pen", 0xFAC132, Key::ICONS_PENCIL),
+    tinted(Id::EDIT_RENAME, "EDIT_RENAME", "rename", 0x2D2DBD, Key::ICONS_TINT_COLOR),
     plain(Id::EDIT_CUT, "EDIT_CUT", "scissors"),
     plain(Id::EDIT_COPY, "EDIT_COPY", "copy"),
     tinted(Id::EDIT_PASTE, "EDIT_PASTE", "clipboard-paste", 0xc80000, Key::ICONS_IMPORT),

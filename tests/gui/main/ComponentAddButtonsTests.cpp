@@ -104,7 +104,8 @@ class AddServices
 public:
     AddServices()
       : m_services(m_test.preferences(), m_materials, m_test.services().motors(),
-                   m_test.services().loadingContext(), m_test.prompts())
+                   m_test.services().presets(), m_test.services().loadingContext(),
+                   m_test.prompts())
     {
         addBuiltinMaterials(m_materials);
         loadDefaultComponentMaterials(m_test.preferences(), m_materials);

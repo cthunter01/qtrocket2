@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -59,6 +60,8 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/Finish.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
@@ -917,6 +920,37 @@ public:
     {
         m_delegate->editDesignInformation(parent, services, document);
     }
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(QWidget*               parent,
+                                                            const IgnitionRequest& request) override
+    {
+        return m_delegate->askIgnition(parent, request);
+    }
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override
+    {
+        return m_delegate->askDeployment(parent, request);
+    }
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* parent, const SeparationRequest& request) override
+    {
+        return m_delegate->askSeparation(parent, request);
+    }
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override
+    {
+        return m_delegate->askRenameConfiguration(parent, request);
+    }
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* parent, const GuiServices& services, const MotorMount& mount,
+        const FlightConfigurationId& configurationId) override
+    {
+        return m_delegate->chooseMotor(parent, services, mount, configurationId);
+    }
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
+                                            const PresetRequest& request) override
+    {
+        return m_delegate->choosePreset(parent, services, request);
+    }
     void showMessage(QWidget* parent, const Message& message) override
     {
         m_delegate->showMessage(parent, message);
@@ -924,6 +958,10 @@ public:
     void showWarnings(QWidget* parent, const WarningsMessage& message) override
     {
         m_delegate->showWarnings(parent, message);
+    }
+    void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override
+    {
+        m_delegate->showDatabaseProblems(parent, problems);
     }
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override
@@ -959,8 +997,8 @@ private:
 /// The services of @p services with the questions of @p prompts.
 [[nodiscard]] GuiServices withPrompts(const GuiServices& services, UserPrompts& prompts)
 {
-    return {services.preferences(), services.materials(), services.motors(),
-            services.loadingContext(), prompts};
+    return {services.preferences(), services.materials(),      services.motors(),
+            services.presets(),     services.loadingContext(), prompts};
 }
 
 /// Undoes @p document (NestedLoopPrompts' action): an UNDO change, which closes the dialog.

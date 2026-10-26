@@ -9,10 +9,11 @@
 #    command-line tool's commands) on top. A subsystem the order does not name is a violation too: a new one is
 #    added here and in CLAUDE.md. figure/ may be there or not.
 # 2. The GUI (gui/include/QtRocket/gui/<area>/, gui/src/<area>/): an area includes only itself and the areas before
-#    it, in the order of plan section 9.2: util, settings, binding, widgets, tree, figure, configdialog, dialogs,
-#    main, app, with gui/main.cpp on top; any subsystem of the core, but never QtRocket/cli (the GUI does not link
-#    the command-line tool's library).
-# 3. The core is Qt-free: no Qt header in include/ or src/.
+#    it, in the order of CLAUDE.md (plan sections 9.2 and 10.2): util, settings, binding, widgets, plot, tree, figure,
+#    configdialog, dialogs, flightconfig, main, app, with gui/main.cpp on top; any subsystem of the core, but never
+#    QtRocket/cli (the GUI does not link the command-line tool's library). rocketplot's headers (<rocketplot/...>)
+#    are included only in plot/: the areas after it use rocketplot through plot/'s classes.
+# 3. The core is Qt-free: no Qt header and no header of rocketplot (a Qt library) in include/ or src/.
 # 4. In gui/: no `new` outside gui/include/QtRocket/gui/util/MakeChild.h (makeChild() and makeQtOwned() hold the
 #    GUI's only `new`), no Q_SLOTS (function-pointer connect() needs none), no <windows.h> (its macros ABSOLUTE,
 #    RELATIVE and ERROR clash with enum constants of the core), no .ui file (layouts are built in code), no .qrc
@@ -32,7 +33,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/LintSupport.cmake)
 
 set(core_order util unit logging preferences material motor rocket models mass aero simulation document file figure
     cli)
-set(gui_order util settings binding widgets tree figure configdialog dialogs main app)
+set(gui_order util settings binding widgets plot tree figure configdialog dialogs flightconfig main app)
 list(LENGTH gui_order gui_top)   # gui/main.cpp, above every area
 
 set(violations "")
@@ -73,11 +74,14 @@ foreach(file IN LISTS core_files)
         endif()
         qtrocket_lint_include_path_problem(problem "${file}" "${path}" ${quoted})
         qtrocket_lint_is_qt_include(qt "${path}")
+        qtrocket_lint_is_rocketplot_include(rocketplot "${path}")
         if(NOT problem STREQUAL "")
             qtrocket_lint_unescape(shown "${path}")
             add_violation("${file}" ${number} "\"${shown}\": ${problem}")
         elseif(qt)
             add_violation("${file}" ${number} "the core includes the Qt header <${path}>: the core is Qt-free")
+        elseif(rocketplot)
+            add_violation("${file}" ${number} "the core includes rocketplot's header <${path}>: the core is Qt-free")
         elseif(path MATCHES "^QtRocket/gui/")
             add_violation("${file}" ${number} "the core includes the GUI header \"${path}\"")
         elseif(path MATCHES "^QtRocket/([^/]+)/")
@@ -131,6 +135,7 @@ foreach(file IN LISTS gui_files)
         if(NOT path STREQUAL "")
             qtrocket_lint_include_path_problem(problem "${file}" "${path}" ${quoted})
             qtrocket_lint_is_qt_include(qt "${path}")
+            qtrocket_lint_is_rocketplot_include(rocketplot "${path}")
             string(TOLOWER "${path}" lower_path)
             if(NOT problem STREQUAL "")
                 qtrocket_lint_unescape(shown "${path}")
@@ -138,6 +143,9 @@ foreach(file IN LISTS gui_files)
             elseif(lower_path STREQUAL "windows.h" OR lower_path STREQUAL "qt_windows.h")
                 add_violation("${file}" ${number}
                     "<${path}>: its macros (ABSOLUTE, RELATIVE, ERROR, ...) clash with enum constants of the core")
+            elseif(rocketplot AND NOT area STREQUAL "plot")
+                add_violation("${file}" ${number}
+                    "<${path}>: rocketplot's headers are included only in plot/ (the other areas use its classes)")
             elseif(qt AND area STREQUAL "binding")
                 add_violation("${file}" ${number} "binding/ includes the Qt header <${path}>: binding/ is Qt-free")
             elseif(path MATCHES "^QtRocket/cli/")

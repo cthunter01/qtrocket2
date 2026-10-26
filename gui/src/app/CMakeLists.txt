@@ -1,4 +1,4 @@
-# GUI area 10, app: the application's start-up, its services and its data directory.
+# GUI area 12, app: the application's start-up, its services and its data directory.
 # Each source with its header (${gui_include_dir}/app/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
     Application.cpp ${gui_include_dir}/app/Application.h

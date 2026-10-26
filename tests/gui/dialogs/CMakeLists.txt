@@ -18,6 +18,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     PreferencesStoreTests.cpp
     SaveDesignInfoDialogTests.cpp
     StorageOptionsDialogTests.cpp
+    ThrustCurveMotorPlotDialogTests.cpp
     UnitsPreferencesPanelTests.cpp
     WarningDialogTests.cpp
 )

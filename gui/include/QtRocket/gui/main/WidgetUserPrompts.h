@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 
 #include <QChar>
 #include <QCoreApplication>
@@ -14,8 +15,10 @@ class QWidget;
 
 namespace QtRocket
 {
+class FlightConfigurationId;
+class MotorMount;
 class OpenRocketDocument;
-}
+}  // namespace QtRocket
 
 namespace QtRocket::Gui
 {
@@ -44,7 +47,9 @@ class GuiServices;
 /// - askOpenFiles(), askSaveFile(): the platform's file dialog (QFileDialog), titled as asked (the
 ///   platform's "Open" / "Save" title without one), with the name filters (the one asked for
 ///   chosen, else the first), starting in the given directory (the user's home directory without
-///   one), the proposed name chosen; the save dialog does not ask itself whether to overwrite a
+///   one), the proposed name chosen, the accepting button named as asked (the platform's name
+///   without a text); the save dialog answers the name filter chosen in it too (asked again, it
+///   starts with that one), and does not ask itself whether to overwrite a
 ///   file (the caller forces the extension first and asks askOverwrite()), so on macOS, whose
 ///   save panel always asks, it is Qt's own dialog; with a description (the image import's), a
 ///   Qt file dialog with the description beside the files (the JFileChooser accessory); a save
@@ -60,6 +65,14 @@ class GuiServices;
 ///   without details);
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
 /// - showInternalError(): the internal error dialog (InternalErrorDialog).
+///
+/// Milestone 3's questions are declared, and until the runs that build their dialogs they give
+/// their cancelling answer at once, without a dialog: askIgnition(), askDeployment(),
+/// askSeparation() and askRenameConfiguration() (run 2: the value dialogs of the
+/// flight configurations), chooseMotor() (run 2: the motor chooser), choosePreset() (run 2: the
+/// parts library), an askOpenFiles() for files and directories (run 3: the preferences' user
+/// files) and showDatabaseProblems() (run 3: the start-up), which shows nothing yet.
+///
 /// Each dialog is made for its question (ModalDialog), so that it survives its parent being
 /// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no
 /// file), and a question of two dialogs does not show the second one.
@@ -112,16 +125,31 @@ public:
         QWidget* parent, const SaveFileRequest& request) override;
     void editDesignInformation(QWidget* parent, const GuiServices& services,
                                OpenRocketDocument& document) override;
-    void showMessage(QWidget* parent, const Message& message) override;
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(
+        QWidget* parent, const IgnitionRequest& request) override;
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override;
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* parent, const SeparationRequest& request) override;
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override;
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* parent, const GuiServices& services, const MotorMount& mount,
+        const FlightConfigurationId& configurationId) override;
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
+                                            const PresetRequest& request) override;
+    void                       showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
+    void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override;
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override;
 
 private:
     /// The file chooser of askSaveFile(), asked again after the warning while the request
-    /// refuses the name chosen; nullopt when it was cancelled (or its parent destroyed).
-    [[nodiscard]] std::optional<OpenFileAnswer> askLegalFileToSave(QWidget*               parent,
+    /// refuses the name chosen: the file, the directory and the name filter chosen (no storage
+    /// option yet); nullopt when it was cancelled (or its parent destroyed).
+    [[nodiscard]] std::optional<SaveFileAnswer> askLegalFileToSave(QWidget*               parent,
                                                                    const SaveFileRequest& request);
 };
 

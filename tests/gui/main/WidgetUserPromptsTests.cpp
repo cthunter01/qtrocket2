@@ -51,8 +51,12 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
+#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "ScriptedUserPrompts.h"
+#include "TestGuiServices.h"
 #include "TestTempDir.h"
 #include "configdialog/ConfigDialogTestSupport.h"
 
@@ -625,6 +629,7 @@ struct FileDialogSeen
     bool                    confirmsOverwrite = true;
     bool                    qtDialog          = false;
     QString                 description;
+    QString                 acceptLabel;
 };
 
 /// Records the modal file dialog and chooses @p file in it, or cancels it for
@@ -665,10 +670,32 @@ struct ChooseFile
         seen->acceptMode        = dialog.acceptMode();
         seen->confirmsOverwrite = !dialog.testOption(QFileDialog::DontConfirmOverwrite);
         seen->qtDialog          = dialog.testOption(QFileDialog::DontUseNativeDialog);
+        seen->acceptLabel       = dialog.labelText(QFileDialog::Accept);
         if (const auto* const area = dialog.findChild<DescriptionArea*>(); area != nullptr)
         {
             seen->description = area->description();
         }
+    }
+};
+
+/// Records the modal file dialog as it opened, chooses the name filter @p filter in it and then
+/// @p file (ChooseFile).
+struct ChooseFileAs
+{
+    QString         file;
+    QString         filter;
+    FileDialogSeen* seen = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<QFileDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            ChooseFile{.file = file, .seen = seen}.record(*dialog);
+        }
+        dialog->selectNameFilter(filter);
+        ChooseFile{.file = file, .seen = nullptr}(widget);
     }
 };
 
@@ -831,6 +858,12 @@ private:
     return answer.has_value() ? answer->directory : std::filesystem::path();
 }
 
+/// The name filter of @p answer, empty without an answer.
+[[nodiscard]] QString nameFilterOf(const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->selectedNameFilter : QString();
+}
+
 /// The storage option of @p answer, nullopt without an answer.
 [[nodiscard]] std::optional<bool> storageOf(
     const std::optional<UserPrompts::SaveFileAnswer>& answer)
@@ -852,7 +885,9 @@ TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
                       .directory          = directory().path(),
                       .multipleFiles      = true,
                       .description        = QString(),
-                      .selectedNameFilter = QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")});
+                      .selectedNameFilter = QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
+                      .selection          = UserPrompts::OpenFileSelection::FILES,
+                      .approveButtonText  = QString()});
     }
     ASSERT_TRUE(answer.has_value());
     EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("a.ork")));
@@ -872,7 +907,8 @@ TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
     EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptOpen);
     EXPECT_TRUE(seen.description.isEmpty());
 
-    // Without a filter asked for, the first is chosen.
+    // Without a filter asked for, the first is chosen; the accepting button named as asked
+    // (JFileChooser.showDialog(parent, "Add")).
     {
         const Gui::Test::NextModalDialog cancel{ChooseFile{.file = QString(), .seen = &seen}};
         EXPECT_EQ(prompts.askOpenFiles(nullptr, {.title       = QStringLiteral("Open"),
@@ -881,10 +917,13 @@ TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
                                                  .directory   = directory().path(),
                                                  .multipleFiles      = false,
                                                  .description        = QString(),
-                                                 .selectedNameFilter = QString()}),
+                                                 .selectedNameFilter = QString(),
+                                                 .selection = UserPrompts::OpenFileSelection::FILES,
+                                                 .approveButtonText = QStringLiteral("Add")}),
                   std::nullopt);
     }
     EXPECT_EQ(seen.selectedFilter, QStringLiteral("All Files (*)"));
+    EXPECT_EQ(seen.acceptLabel, QStringLiteral("Add"));
 }
 
 TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)
@@ -900,7 +939,9 @@ TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)
                                        .directory     = directory().path(),
                                        .multipleFiles = false,
                                        .description   = QStringLiteral("The image will be ..."),
-                                       .selectedNameFilter = QString()});
+                                       .selectedNameFilter = QString(),
+                                       .selection          = UserPrompts::OpenFileSelection::FILES,
+                                       .approveButtonText  = QString()});
     ASSERT_TRUE(answer.has_value());
     EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("b.png")));
     EXPECT_EQ(seen.title, QStringLiteral("Import"));
@@ -1019,6 +1060,57 @@ TEST_F(WidgetFileDialogTest, ASaveThatRefusesIllegalNamesWarnsAndAsksAgain)
     UserPrompts::SaveFileRequest     plain = request;
     plain.refuseIllegalNames               = false;
     EXPECT_EQ(savedFileOf(prompts.askSaveFile(nullptr, plain)).filename(), "x|y.ork");
+}
+
+TEST_F(WidgetFileDialogTest, ASaveAnswersTheNameFilterChosenAndKeepsItWhenAskedAgain)
+{
+    // JFileChooser.getFileFilter() after the save dialog (a plot's export gives the name the
+    // chosen kind's suffix); SaveFileChooser's chooser stays open after "Illegal filename", with
+    // its filter: shown again here, the dialog starts with the filter chosen.
+    WidgetUserPrompts                          prompts;
+    const QString                              png = QStringLiteral("PNG image (*.png)");
+    const QString                              svg = QStringLiteral("SVG files (*.svg)");
+    std::optional<Gui::Test::NextModalDialog>  warning;
+    std::optional<Gui::Test::NextModalDialog>  again;
+    QStringList                                lines;
+    QString                                    title;
+    FileDialogSeen                             first;
+    FileDialogSeen                             second;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    const UserPrompts::SaveFileRequest         request{.title              = QString(),
+                                                       .nameFilters        = {png, svg},
+                                                       .directory          = directory().path(),
+                                                       .fileName           = QString(),
+                                                       .saveSimulationData = std::nullopt,
+                                                       .refuseIllegalNames = true};
+    {
+        const Gui::Test::NextModalDialog choose(ThenNext{
+            .first = ChooseFileAs{.file = path("x|y"), .filter = svg, .seen = &first},
+            .second =
+                ThenNext{
+                    .first  = CloseMessage{.lines = &lines, .title = &title},
+                    .second = ChooseFileAs{.file = path("plot"), .filter = svg, .seen = &second},
+                    .next   = &again},
+            .next = &warning});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    warning.reset();
+    again.reset();
+    EXPECT_EQ(first.selectedFilter, png);
+    EXPECT_EQ(title, QStringLiteral("Illegal filename"));
+    EXPECT_EQ(second.selectedFilter, svg);
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_EQ(savedFileOf(answer).filename(), "plot");
+    EXPECT_EQ(nameFilterOf(answer), svg);
+
+    // Without filters, none.
+    const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("plain"), .seen = nullptr});
+    UserPrompts::SaveFileRequest     plain = request;
+    plain.nameFilters.clear();
+    const std::optional<UserPrompts::SaveFileAnswer> unfiltered =
+        prompts.askSaveFile(nullptr, plain);
+    ASSERT_TRUE(unfiltered.has_value());
+    EXPECT_TRUE(nameFilterOf(unfiltered).isEmpty());
 }
 
 TEST_F(WidgetUserPromptsTest, TheIllegalNameTextPutsInTheNameAsItIs)
@@ -1219,6 +1311,65 @@ TEST_F(WidgetFileDialogTest, AFileQuestionWhoseParentIsDestroyedAsksNothingMore)
                   std::nullopt);
     }
     EXPECT_EQ(parent, nullptr);
+}
+
+/// A rename's "Save as default" callback that counts its calls.
+struct CountSaveAsDefault
+{
+    int* count;
+
+    void operator()(QWidget* /*dialog*/, const QString& /*name*/) const { ++*count; }
+};
+
+TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
+{
+    // Run 2 of Milestone 3 brings the value dialogs, the motor chooser and the parts library, run
+    // 3 the preferences' user files and the start-up's problems: until then every one of these
+    // gives its cancelling answer without a dialog (one would hang here: nothing answers it).
+    WidgetUserPrompts                prompts;
+    const Gui::Test::TestGuiServices services;
+    EXPECT_FALSE(
+        prompts.askIgnition(nullptr, {.configurationName = QStringLiteral("[B4-4]"), .initial = {}})
+            .has_value());
+    EXPECT_FALSE(prompts
+                     .askDeployment(nullptr, {.configurationName = QStringLiteral("[B4-4]"),
+                                              .initial           = {},
+                                              .bottomStage       = true})
+                     .has_value());
+    EXPECT_FALSE(
+        prompts
+            .askSeparation(nullptr, {.configurationName = QStringLiteral("[B4-4]"), .initial = {}})
+            .has_value());
+    int savedAsDefault = 0;
+    EXPECT_EQ(prompts
+                  .askRenameConfiguration(
+                      nullptr, {.name          = QStringLiteral("[{motors}]"),
+                                .saveAsDefault = CountSaveAsDefault{.count = &savedAsDefault}})
+                  .action,
+              UserPrompts::RenameAction::CANCEL);
+    EXPECT_EQ(savedAsDefault, 0);
+    const InnerTube mount;
+    EXPECT_FALSE(prompts
+                     .chooseMotor(nullptr, services.services(), mount,
+                                  FlightConfigurationId::defaultValueId())
+                     .has_value());
+    const UserPrompts::PresetAnswer preset =
+        prompts.choosePreset(nullptr, services.services(),
+                             {.componentKind   = ComponentKind::NOSE_CONE,
+                              .foreDiameter    = std::nullopt,
+                              .aftDiameter     = 0.0248,
+                              .flippedNoseCone = false});
+    EXPECT_EQ(preset.outcome, UserPrompts::PresetOutcome::CLOSED);
+    EXPECT_EQ(preset.preset, nullptr);
+    UserPrompts::OpenFileRequest files;
+    files.selection         = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
+    files.approveButtonText = QStringLiteral("Add");
+    EXPECT_EQ(prompts.askOpenFiles(nullptr, files), std::nullopt);
+    const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
+         .file     = "broken.orc",
+         .message  = QStringLiteral("Unexpected end of file")}};
+    prompts.showDatabaseProblems(nullptr, problems);
 }
 }  // namespace
 
