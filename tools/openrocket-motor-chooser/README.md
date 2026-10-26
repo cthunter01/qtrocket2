@@ -9,7 +9,7 @@ the table.
 | Family | Table | Probe | Generator | Read by |
 |---|---|---|---|---|
 | `correlation` | `tests/core/motor/MotorCorrelationPins.h` | `MotorCorrelationProbe` | `gen_motor_correlation_pins.py` | `MotorCorrelationTests.cpp` (`MotorCorrelationPinsGolden`, `MotorCorrelationPairsGolden`) |
-| `chooser` | `tests/core/motor/chooser/MotorChooserPins.h` | `MotorChooserProbe` (with `ChooserScenarios`) | `gen_motor_chooser_pins.py` | `motor_chooser_golden_tests.cpp` (`MotorChooserPinsGolden`, `MotorChooserCurvesGolden`) |
+| `chooser` | `tests/core/motor/chooser/MotorChooserPins.h` | `MotorChooserProbe` (with `ChooserScenarios`) | `gen_motor_chooser_pins.py` | `motor_chooser_golden_tests.cpp` (`MotorChooserPinsGolden`, `MotorChooserCurvesGolden`, `MotorChooserCurveBoxGolden`) |
 
 ## What the probes pin
 
@@ -41,20 +41,26 @@ and fill a `ThrustCurveMotorSetDatabase` with `addMotor()` in the order read, as
   column, a motor of no set, "Hide motors already used in the mount" for two mounts, and inches; the
   filter's limits; the filter panel's manufacturers and diameter labels; for each of the 107 sets of
   more than one curve the curve selected through the table and the curve list, with "Hide very similar
-  thrust curves" on and off; the selections, delay texts and curve-list choices of the scout's probe
-  (M3 scouting, motor-chooser) and more; `setMotorMountAndConfig()` for configurations with standard,
+  thrust curves" on and off; the curve box's re-entry (its first item's action event re-enters `select()`
+  when `updateData()` runs outside the box's own event): a sweep that opens the panel for every curve of
+  those sets and lists the curves it does not end on, then, for every curve of the sets it lists, the
+  panel after the three paths that run `updateData()` so (opened for the curve, the curve preferred, "Hide
+  very similar thrust curves" turned on), with the curve list and what `getFilteredCurves()` gives for the
+  curve; the selections, delay texts and curve-list choices of the scout's probe (M3 scouting,
+  motor-chooser) and more; `setMotorMountAndConfig()` for configurations with standard,
   non-standard, NaN and plugged delays and custom motors; the preferred-curve node after OK; and
   `MotorClass` for 22 impulses. Each group of steps starts from cleared preferences and default units
   (the preferences node is cleared, not removed: `FlightConfiguration` keeps a `SwingPreferences` of its
   own), and the rockets it builds have seeded UUIDs (`DeterministicUuids` of `tools/openrocket-gui-pins`,
   compiled with the probe). The test replays every group on a `ThrustCurveMotorSelection` and compares;
   where QtRocket fixes one of OpenRocket's bugs (M3's bugs 8, 9 and 11: the configured delay kept on
-  reopening, the used motors of the current mount only, a typed NaN refused) it expects QtRocket's
-  answer, derived from OpenRocket's. The custom motor is `tests/data/motors/test1.eng`. The probe needs
-  OpenRocket's swing classes, and runs on Linux only, as `tools/openrocket-gui-pins` does: its
+  reopening, the used motors of the current mount only, a typed NaN refused; and the curve box's
+  re-entry: the selected curve kept, with the list `getFilteredCurves()` gives for it) it expects
+  QtRocket's answer, derived from OpenRocket's. The custom motor is `tests/data/motors/test1.eng`. The
+  probe needs OpenRocket's swing classes, and runs on Linux only, as `tools/openrocket-gui-pins` does: its
   `SwingPreferences` live in the `java.util.prefs` store the script isolates in the work directory,
   which only Linux's implementation reads from there (elsewhere it would clear the user's own
-  OpenRocket preferences). It takes about ten seconds.
+  OpenRocket preferences). It takes about fifteen seconds.
 
 ## Running
 

@@ -57,6 +57,16 @@ import probe.DeterministicUuids;
  * <li>CURVES set-index selected-curve curves: a set selected through the table, and the curve
  * list (the set indices of its curves, in its order); CURVESALL the same with "Hide very similar
  * thrust curves" off</li>
+ * <li>CURVEBOXELSEWHERE set-index curve selected-curve: a curve the panel, opened for it
+ * (setMotorMountAndConfig()), does not end on; CURVEBOXSWEPT curves: how many curves that sweep
+ * opened (every curve of every set of more than one curve)</li>
+ * <li>CURVEBOX path set-index curve selected-curve curves holder-indices curve-selection
+ * filtered-curves: for every curve of the sets of the CURVEBOXELSEWHERE lines, the panel after the
+ * path (C: opened for the curve; B: the curve stored as the set's preferred one, then the set
+ * selected through the table of a new panel; A: the set selected through the table, "Hide very
+ * similar thrust curves" off, the curve chosen in the curve list, the box on again): the selected
+ * curve, the curve list's items (their curves and their MotorHolder indices) and selected item,
+ * and what getFilteredCurves() gives with the curve selected</li>
  * <li>SELECT label set-index curve digest delay curves-enabled curves curve-selection delay-items
  * delay-text nozzle: the panel after a step</li>
  * <li>DELAY typed delay text: the delay box after the text is typed</li>
@@ -97,6 +107,7 @@ public final class ChooserScenarios {
 		scenarios.customMotor(customMotor);
 		scenarios.hideUsed();
 		scenarios.curves();
+		scenarios.curveBoxReentry();
 		scenarios.selections();
 		scenarios.opens();
 		scenarios.preferred();
@@ -118,6 +129,12 @@ public final class ChooserScenarios {
 			}
 		}
 		throw new NoSuchFieldException(name);
+	}
+
+	private static void set(Object o, String name, Object value) throws Exception {
+		Field f = o.getClass().getDeclaredField(name);
+		f.setAccessible(true);
+		f.set(o, value);
 	}
 
 	/**
@@ -522,6 +539,110 @@ public final class ChooserScenarios {
 				selectSet(set);
 				out.println("CURVESALL\t" + setIndex(set) + "\t" + set.getMotors().indexOf(panel.getSelectedMotor())
 						+ "\t" + curveList(set));
+			}
+		}
+	}
+
+	/** Opens the panel for a configuration whose motor is curve @p curve of @p set, with a 4 s delay. */
+	private void openForCurve(String label, ThrustCurveMotorSet set, int curve) throws Exception {
+		DeterministicUuids.reseed(label);
+		Rocket rocket = new Rocket();
+		BodyTube mount = bodyTubeMount(rocket);
+		FlightConfigurationId fcid = rocket.createFlightConfiguration(null).getId();
+		configure(mount, fcid, set.getMotors().get(curve), 4, 0);
+		panel.setMotorMountAndConfig(fcid, mount);
+	}
+
+	/** A CURVEBOX line: the panel after @p path for @p curve of @p set. */
+	private void curveBoxLine(String path, ThrustCurveMotorSet set, ThrustCurveMotor curve) throws Exception {
+		if (selectedSet() != set || !hideSimilarBox().isSelected()) {
+			throw new IllegalStateException("curve box " + path + ": another set, or Hide similar off");
+		}
+		JComboBox<MotorHolder> box = curveBox();
+		StringBuilder curves = new StringBuilder();
+		StringBuilder holders = new StringBuilder();
+		for (int i = 0; i < box.getItemCount(); i++) {
+			if (i > 0) {
+				curves.append(',');
+				holders.append(',');
+			}
+			curves.append(set.getMotors().indexOf(box.getItemAt(i).getMotor()));
+			holders.append(box.getItemAt(i).getIndex());
+		}
+		// The list getFilteredCurves() makes for the curve: what updateData() shows when the curve
+		// box's own action selects the curve (no re-entry), read with the curve as the selected one.
+		Object selected = get(panel, "selectedMotor");
+		set(panel, "selectedMotor", curve);
+		List<ThrustCurveMotor> filtered = panel.getFilteredCurves();
+		set(panel, "selectedMotor", selected);
+		StringBuilder filteredCurves = new StringBuilder();
+		for (ThrustCurveMotor m : filtered) {
+			if (filteredCurves.length() > 0) {
+				filteredCurves.append(',');
+			}
+			filteredCurves.append(set.getMotors().indexOf(m));
+		}
+		out.println("CURVEBOX\t" + path + "\t" + setIndex(set) + "\t" + set.getMotors().indexOf(curve) + "\t"
+				+ set.getMotors().indexOf(panel.getSelectedMotor()) + "\t" + curves + "\t" + holders + "\t"
+				+ box.getSelectedIndex() + "\t" + filteredCurves);
+	}
+
+	/**
+	 * The curve box's re-entry: updateData() refills the curve box; its first addElement() selects
+	 * the first item, whose action event (unless updateData() runs inside the box's own action
+	 * event) calls select() for that curve, which refills the box, and the outer updateData() then
+	 * appends its remaining curves and selects the item at the selected curve's old index. First a
+	 * sweep that opens one panel for every curve of every set of more than one curve and lists the
+	 * curves it ends elsewhere than on; then, for every curve of those sets, the three paths that
+	 * run updateData() outside the curve box's event with "Hide very similar thrust curves" on.
+	 */
+	private void curveBoxReentry() throws Exception {
+		freshPanel();
+		int swept = 0;
+		List<ThrustCurveMotorSet> sets = new ArrayList<>();
+		for (ThrustCurveMotorSet set : db.getMotorSets()) {
+			if (set.getMotorCount() < 2) {
+				continue;
+			}
+			for (int k = 0; k < set.getMotorCount(); k++) {
+				openForCurve("curve box sweep " + setIndex(set) + " " + k, set, k);
+				swept++;
+				if (panel.getSelectedMotor() != set.getMotors().get(k)) {
+					out.println("CURVEBOXELSEWHERE\t" + setIndex(set) + "\t" + k + "\t"
+							+ set.getMotors().indexOf(panel.getSelectedMotor()));
+					if (!sets.contains(set)) {
+						sets.add(set);
+					}
+				}
+			}
+		}
+		out.println("CURVEBOXSWEPT\t" + swept);
+		for (ThrustCurveMotorSet set : sets) {
+			for (int k = 0; k < set.getMotorCount(); k++) {
+				ThrustCurveMotor curve = set.getMotors().get(k);
+				freshPanel();
+				openForCurve("curve box open " + setIndex(set) + " " + k, set, k);
+				curveBoxLine("C", set, curve);
+
+				freshPanel();
+				panel.selectedMotor(curve);
+				newPanel();
+				selectSet(set);
+				curveBoxLine("B", set, curve);
+
+				freshPanel();
+				selectSet(set);
+				hideSimilarBox().doClick();
+				JComboBox<MotorHolder> box = curveBox();
+				int position = -1;
+				for (int i = 0; i < box.getItemCount(); i++) {
+					if (box.getItemAt(i).getMotor() == curve) {
+						position = i;
+					}
+				}
+				box.setSelectedIndex(position);
+				hideSimilarBox().doClick();
+				curveBoxLine("A", set, curve);
 			}
 		}
 	}

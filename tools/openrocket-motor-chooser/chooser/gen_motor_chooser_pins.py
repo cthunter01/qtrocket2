@@ -97,6 +97,43 @@ struct MotorChooserCurvePin
     std::string_view curves;
 }};
 
+/// A curve of a set of more than one curve that OpenRocket's panel, opened for it
+/// (setMotorMountAndConfig()), does not end on: its curve box re-enters select() (see
+/// ThrustCurveMotorSelection's deviations).
+struct MotorChooserCurveBoxElsewherePin
+{{
+    std::size_t setIndex;
+    /// The curve opened for: an index into the set's getMotors().
+    std::size_t curve;
+    /// The curve OpenRocket ends on.
+    std::size_t selectedCurve;
+}};
+
+/// The selection panel after a path that refills the curve list outside the curve box's own
+/// action event, with "Hide very similar thrust curves" on.
+struct MotorChooserCurveBoxPin
+{{
+    /// 'C': opened for the curve (setMotorMountAndConfig()); 'B': the curve stored as its set's
+    /// preferred one (OK), then the set selected through the table of a new panel; 'A': the set
+    /// selected through the table, "Hide very similar thrust curves" off, the curve chosen in the
+    /// curve list, the box on again.
+    char path;
+    std::size_t setIndex;
+    /// The curve the path selects: an index into the set's getMotors().
+    std::size_t curve;
+    /// The curve OpenRocket ends on.
+    std::size_t selectedCurve;
+    /// The curve list: the set indices of its items' curves, separated by ','.
+    std::string_view curves;
+    /// The MotorHolder indices of the items (the plot colours), separated by ','.
+    std::string_view holderIndices;
+    /// The selected item of the curve list.
+    std::size_t curveSelection;
+    /// What getFilteredCurves() gives with the path's curve selected: the list the curve box's
+    /// own choice of that curve shows (no re-entry), set indices separated by ','.
+    std::string_view filteredCurves;
+}};
+
 /// The selection panel after a step.
 struct MotorChooserSelectionPin
 {{
@@ -227,6 +264,9 @@ class Transcript:
         self.filters = []
         self.curves = []
         self.all_curves = []
+        self.curve_box_elsewhere = []
+        self.curve_box_swept = None
+        self.curve_box = []
         self.selections = []
         self.delays = []
         self.opens = []
@@ -284,6 +324,21 @@ def parse(lines):
         elif kind == "CURVESALL":
             expect(number, fields, 4)
             t.all_curves.append((int(fields[1]), int(fields[2]), fields[3]))
+        elif kind == "CURVEBOXELSEWHERE":
+            expect(number, fields, 4)
+            t.curve_box_elsewhere.append(tuple(int(f) for f in fields[1:]))
+        elif kind == "CURVEBOXSWEPT":
+            expect(number, fields, 2)
+            if t.curve_box_swept is not None:
+                fail(number, "a second CURVEBOXSWEPT line")
+            t.curve_box_swept = int(fields[1])
+        elif kind == "CURVEBOX":
+            expect(number, fields, 9)
+            if fields[1] not in ("A", "B", "C") or len(fields[5].split(",")) != len(fields[6].split(",")):
+                fail(number, "a malformed CURVEBOX line")
+            t.curve_box.append({"path": fields[1], "set": int(fields[2]), "curve": int(fields[3]),
+                                "selected": int(fields[4]), "curves": fields[5], "holders": fields[6],
+                                "selection": int(fields[7]), "filtered": fields[8]})
         elif kind == "SELECT":
             expect(number, fields, 12)
             t.selections.append(fields[1:])
@@ -308,7 +363,34 @@ def parse(lines):
             sys.exit("error: scenario %s has %d printed rows" % (s["name"], s["count"]))
     if not t.curves or len(t.curves) != len(t.all_curves):
         sys.exit("error: the CURVES and CURVESALL lines do not pair up")
+    check_curve_box(t)
     return t
+
+
+def curve_box_sets(t):
+    """The sets of the CURVEBOXELSEWHERE lines, each once, in their order."""
+    sets = []
+    for set_index, _, _ in t.curve_box_elsewhere:
+        if set_index not in sets:
+            sets.append(set_index)
+    return sets
+
+
+def check_curve_box(t):
+    """The CURVEBOX lines are every curve of the CURVEBOXELSEWHERE lines' sets, each with the paths C, B and A
+    in that order, and their C lines end elsewhere exactly where the sweep's do."""
+    if t.curve_box_swept is None or not t.curve_box_elsewhere:
+        sys.exit("error: the transcript lacks the CURVEBOXSWEPT or CURVEBOXELSEWHERE lines")
+    expected = []
+    for set_index in curve_box_sets(t):
+        curves = max(line["curve"] for line in t.curve_box if line["set"] == set_index) + 1
+        expected += [(path, set_index, curve) for curve in range(curves) for path in ("C", "B", "A")]
+    if [(line["path"], line["set"], line["curve"]) for line in t.curve_box] != expected:
+        sys.exit("error: the CURVEBOX lines are not the paths of every curve of the CURVEBOXELSEWHERE sets")
+    elsewhere = [(line["set"], line["curve"], line["selected"]) for line in t.curve_box
+                 if line["path"] == "C" and line["selected"] != line["curve"]]
+    if elsewhere != t.curve_box_elsewhere:
+        sys.exit("error: the CURVEBOX lines of path C and the sweep's CURVEBOXELSEWHERE lines disagree")
 
 
 def optional_double(text):
@@ -368,6 +450,31 @@ def main():
             out.append("    {%d, %d, %s}," % (set_index, selected, cpp_string(curves)))
         out.append("});")
         out.append("")
+
+    out.append("/// How many curves the sweep of the curve box's re-entry opened the panel for: every curve of every set")
+    out.append("/// of more than one curve.")
+    out.append("inline constexpr std::size_t kMotorChooserCurveBoxSweptCurves = %d;" % t.curve_box_swept)
+    out.append("")
+    out.append("/// The curves of the sweep that OpenRocket's panel, opened for them, does not end on.")
+    out.append("inline constexpr auto kMotorChooserCurveBoxElsewherePins =")
+    out.append("    std::to_array<MotorChooserCurveBoxElsewherePin>({")
+    for set_index, curve, selected in t.curve_box_elsewhere:
+        out.append("        {%d, %d, %d}," % (set_index, curve, selected))
+    out.append("    });")
+    out.append("")
+    out.append("/// The sets of kMotorChooserCurveBoxElsewherePins, each once, in database order.")
+    out.append("inline constexpr auto kMotorChooserCurveBoxSets = std::to_array<std::size_t>({")
+    out.append("    %s," % ", ".join(str(s) for s in curve_box_sets(t)))
+    out.append("});")
+    out.append("")
+    out.append("/// Every curve of those sets after the paths C, B and A, in the probe's order.")
+    out.append("inline constexpr auto kMotorChooserCurveBoxPins = std::to_array<MotorChooserCurveBoxPin>({")
+    for line in t.curve_box:
+        out.append("    {'%s', %d, %d, %d, %s, %s, %d, %s}," % (
+            line["path"], line["set"], line["curve"], line["selected"], cpp_string(line["curves"]),
+            cpp_string(line["holders"]), line["selection"], cpp_string(line["filtered"])))
+    out.append("});")
+    out.append("")
 
     out.append("/// The selection panel after each step of the selections, in the probe's order.")
     out.append("inline constexpr auto kMotorChooserSelectionPins = std::to_array<MotorChooserSelectionPin>({")

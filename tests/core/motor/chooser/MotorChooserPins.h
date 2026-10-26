@@ -82,6 +82,43 @@ struct MotorChooserCurvePin
     std::string_view curves;
 };
 
+/// A curve of a set of more than one curve that OpenRocket's panel, opened for it
+/// (setMotorMountAndConfig()), does not end on: its curve box re-enters select() (see
+/// ThrustCurveMotorSelection's deviations).
+struct MotorChooserCurveBoxElsewherePin
+{
+    std::size_t setIndex;
+    /// The curve opened for: an index into the set's getMotors().
+    std::size_t curve;
+    /// The curve OpenRocket ends on.
+    std::size_t selectedCurve;
+};
+
+/// The selection panel after a path that refills the curve list outside the curve box's own
+/// action event, with "Hide very similar thrust curves" on.
+struct MotorChooserCurveBoxPin
+{
+    /// 'C': opened for the curve (setMotorMountAndConfig()); 'B': the curve stored as its set's
+    /// preferred one (OK), then the set selected through the table of a new panel; 'A': the set
+    /// selected through the table, "Hide very similar thrust curves" off, the curve chosen in the
+    /// curve list, the box on again.
+    char        path;
+    std::size_t setIndex;
+    /// The curve the path selects: an index into the set's getMotors().
+    std::size_t curve;
+    /// The curve OpenRocket ends on.
+    std::size_t selectedCurve;
+    /// The curve list: the set indices of its items' curves, separated by ','.
+    std::string_view curves;
+    /// The MotorHolder indices of the items (the plot colours), separated by ','.
+    std::string_view holderIndices;
+    /// The selected item of the curve list.
+    std::size_t curveSelection;
+    /// What getFilteredCurves() gives with the path's curve selected: the list the curve box's
+    /// own choice of that curve shows (no re-entry), set indices separated by ','.
+    std::string_view filteredCurves;
+};
+
 /// The selection panel after a step.
 struct MotorChooserSelectionPin
 {
@@ -620,6 +657,96 @@ inline constexpr auto kMotorChooserAllCurvePins = std::to_array<MotorChooserCurv
     {716, 0, "0,1"},     {732, 0, "0,1"},     {759, 0, "0,1"},     {803, 0, "0,1"},
     {805, 0, "0,1"},     {807, 0, "0,1"},     {878, 0, "0,1"},     {881, 0, "0,1"},
     {885, 0, "0,1"},     {890, 0, "0,1"},     {893, 0, "0,1"},
+});
+
+/// How many curves the sweep of the curve box's re-entry opened the panel for: every curve of every
+/// set of more than one curve.
+inline constexpr std::size_t kMotorChooserCurveBoxSweptCurves = 237;
+
+/// The curves of the sweep that OpenRocket's panel, opened for them, does not end on.
+inline constexpr auto kMotorChooserCurveBoxElsewherePins =
+    std::to_array<MotorChooserCurveBoxElsewherePin>({
+        {20, 2, 1},
+        {99, 2, 3},
+        {99, 3, 1},
+        {284, 2, 1},
+        {291, 2, 1},
+        {338, 3, 2},
+        {399, 2, 1},
+    });
+
+/// The sets of kMotorChooserCurveBoxElsewherePins, each once, in database order.
+inline constexpr auto kMotorChooserCurveBoxSets = std::to_array<std::size_t>({
+    20,
+    99,
+    284,
+    291,
+    338,
+    399,
+});
+
+/// Every curve of those sets after the paths C, B and A, in the probe's order.
+inline constexpr auto kMotorChooserCurveBoxPins = std::to_array<MotorChooserCurveBoxPin>({
+    {'C', 20, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'B', 20, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'A', 20, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'C', 20, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'B', 20, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'A', 20, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'C', 20, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'B', 20, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'A', 20, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'C', 99, 0, 0, "0,2,3", "0,1,2", 0, "0,2,3"},
+    {'B', 99, 0, 0, "0,2,3", "0,1,2", 0, "0,2,3"},
+    {'A', 99, 0, 0, "0,2,3", "0,1,2", 0, "0,2,3"},
+    {'C', 99, 1, 1, "1,2,3", "0,1,2", 0, "1,2,3"},
+    {'B', 99, 1, 1, "1,2,3", "0,1,2", 0, "1,2,3"},
+    {'A', 99, 1, 1, "1,2,3", "0,1,2", 0, "1,2,3"},
+    {'C', 99, 2, 3, "0,1,2,3", "0,1,2,3", 3, "0,1,2,3"},
+    {'B', 99, 2, 3, "0,1,2,3", "0,1,2,3", 3, "0,1,2,3"},
+    {'A', 99, 2, 3, "0,1,2,3", "0,1,2,3", 3, "0,1,2,3"},
+    {'C', 99, 3, 1, "1,2,3", "0,1,2", 0, "0,1,2,3"},
+    {'B', 99, 3, 1, "1,2,3", "0,1,2", 0, "0,1,2,3"},
+    {'A', 99, 3, 1, "1,2,3", "0,1,2", 0, "0,1,2,3"},
+    {'C', 284, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'B', 284, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'A', 284, 0, 0, "0,2", "0,1", 0, "0,2"},
+    {'C', 284, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'B', 284, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'A', 284, 1, 1, "1,2", "0,1", 0, "1,2"},
+    {'C', 284, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'B', 284, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'A', 284, 2, 1, "1,2", "0,1", 0, "0,1,2"},
+    {'C', 291, 0, 0, "0,1,2", "0,1,2", 0, "0,1,2"},
+    {'B', 291, 0, 0, "0,1,2", "0,1,2", 0, "0,1,2"},
+    {'A', 291, 0, 0, "0,1,2", "0,1,2", 0, "0,1,2"},
+    {'C', 291, 1, 1, "0,1", "0,1", 1, "0,1"},
+    {'B', 291, 1, 1, "0,1", "0,1", 1, "0,1"},
+    {'A', 291, 1, 1, "0,1", "0,1", 1, "0,1"},
+    {'C', 291, 2, 1, "0,1", "0,1", 1, "0,2"},
+    {'B', 291, 2, 1, "0,1", "0,1", 1, "0,2"},
+    {'A', 291, 2, 1, "0,1", "0,1", 1, "0,2"},
+    {'C', 338, 0, 0, "0,1,2,3", "0,1,2,3", 0, "0,1,2,3"},
+    {'B', 338, 0, 0, "0,1,2,3", "0,1,2,3", 0, "0,1,2,3"},
+    {'A', 338, 0, 0, "0,1,2,3", "0,1,2,3", 0, "0,1,2,3"},
+    {'C', 338, 1, 1, "0,1,2,3", "0,1,2,3", 1, "0,1,2,3"},
+    {'B', 338, 1, 1, "0,1,2,3", "0,1,2,3", 1, "0,1,2,3"},
+    {'A', 338, 1, 1, "0,1,2,3", "0,1,2,3", 1, "0,1,2,3"},
+    {'C', 338, 2, 2, "0,1,2", "0,1,2", 2, "0,1,2"},
+    {'B', 338, 2, 2, "0,1,2", "0,1,2", 2, "0,1,2"},
+    {'A', 338, 2, 2, "0,1,2", "0,1,2", 2, "0,1,2"},
+    {'C', 338, 3, 2, "0,1,2", "0,1,2", 2, "0,1,3"},
+    {'B', 338, 3, 2, "0,1,2", "0,1,2", 2, "0,1,3"},
+    {'A', 338, 3, 2, "0,1,2", "0,1,2", 2, "0,1,3"},
+    {'C', 399, 0, 0, "0,1", "0,1", 0, "0,1"},
+    {'B', 399, 0, 0, "0,1", "0,1", 0, "0,1"},
+    {'A', 399, 0, 0, "0,1", "0,1", 0, "0,1"},
+    {'C', 399, 1, 1, "0,1,2", "0,1,2", 1, "0,1,2"},
+    {'B', 399, 1, 1, "0,1,2", "0,1,2", 1, "0,1,2"},
+    {'A', 399, 1, 1, "0,1,2", "0,1,2", 1, "0,1,2"},
+    {'C', 399, 2, 1, "0,1,2,2", "0,1,2,1", 1, "1,2"},
+    {'B', 399, 2, 1, "0,1,2,2", "0,1,2,1", 1, "1,2"},
+    {'A', 399, 2, 1, "0,1,2,2", "0,1,2,1", 1, "1,2"},
 });
 
 /// The selection panel after each step of the selections, in the probe's order.

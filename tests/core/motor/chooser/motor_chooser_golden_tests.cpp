@@ -3,8 +3,9 @@
 // driven headless over the bundled motor database by tools/openrocket-motor-chooser (family
 // "chooser", ChooserScenarios.java). Each test below replays a group of the probe's steps on a
 // ThrustCurveMotorSelection, in the same order and from the same fresh preferences and default
-// units, and compares. Where QtRocket fixes one of OpenRocket's bugs (M3's bugs 8, 9 and 11) the
-// test says so and expects QtRocket's answer, derived from OpenRocket's.
+// units, and compares. Where QtRocket fixes one of OpenRocket's bugs (M3's bugs 8, 9 and 11, and
+// the curve box's re-entry, see ThrustCurveMotorSelection's deviations) the test says so and
+// expects QtRocket's answer, derived from OpenRocket's.
 
 #include <algorithm>
 #include <array>
@@ -54,6 +55,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Md5.h"
+#include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
 #include "goldens/GoldenData.h"
 #include "motor/TestMotorDatabase.h"
@@ -980,6 +982,195 @@ std::string curveShardDifferences(std::size_t shard)
     return differences;
 }
 
+// ---- the curve box's re-entry
+
+/// The curve list after a path, as the curve-box pins write it.
+struct CurveBoxState
+{
+    /// The selected curve: an index into the set's getMotors().
+    std::size_t curve;
+    /// The set indices of the items' curves, joined by ','.
+    std::string curves;
+    /// The items' MotorHolder indices, joined by ','.
+    std::string holderIndices;
+    /// The selected item.
+    std::size_t curveSelection;
+};
+
+/// @p state in one line, for the comparisons and their messages.
+std::string curveBoxText(const CurveBoxState& state)
+{
+    return std::format("curve {}, list [{}], holders [{}], item {}", state.curve, state.curves,
+                       state.holderIndices, state.curveSelection);
+}
+
+/// The curve list of @p selection.
+CurveBoxState curveBoxState(ThrustCurveMotorSelection& selection)
+{
+    std::string holderIndices;
+    for (const MotorHolder& holder : selection.getCurveItems())
+    {
+        holderIndices += std::format("{}{}", holderIndices.empty() ? "" : ",", holder.getIndex());
+    }
+    return {.curve  = curveIndex(*selection.getSelectedMotorSet(), selection.getSelectedMotor()),
+            .curves = curveListText(selection),
+            .holderIndices  = holderIndices,
+            .curveSelection = curveSelection(selection)};
+}
+
+/// What QtRocket shows after the path of @p pin: OpenRocket's curve list where OpenRocket ends on
+/// the path's curve, and otherwise the path's curve with the list OpenRocket's getFilteredCurves()
+/// gives for it (what OpenRocket shows when its curve box itself selects that curve).
+CurveBoxState expectedCurveBoxState(const Pins::MotorChooserCurveBoxPin& pin)
+{
+    if (pin.selectedCurve == pin.curve)
+    {
+        return {.curve          = pin.curve,
+                .curves         = std::string(pin.curves),
+                .holderIndices  = std::string(pin.holderIndices),
+                .curveSelection = pin.curveSelection};
+    }
+    const std::vector<std::string> curves = QtRocket::Strings::split(pin.filteredCurves, ',');
+    CurveBoxState                  state{.curve          = pin.curve,
+                                         .curves         = std::string(pin.filteredCurves),
+                                         .holderIndices  = "",
+                                         .curveSelection = std::numeric_limits<std::size_t>::max()};
+    for (std::size_t index = 0; index < curves.size(); index++)
+    {
+        state.holderIndices += std::format("{}{}", index == 0 ? "" : ",", index);
+        if (curves[index] == std::to_string(pin.curve))
+        {
+            state.curveSelection = index;
+        }
+    }
+    return state;
+}
+
+/// Runs the path of @p pin on @p selection (whose preferences hold the path's preferred curve for
+/// path B), as the probe's curveBoxReentry() does on a new panel.
+void runCurveBoxPath(ThrustCurveMotorSelection& selection, const Pins::MotorChooserCurveBoxPin& pin,
+                     BodyTubeMount& mount)
+{
+    const ThrustCurveMotorSet& set   = bundledMotorDatabase().getMotorSets().at(pin.setIndex);
+    const MotorPtr&            curve = set.getMotors().at(pin.curve);
+    if (pin.path == 'C')
+    {
+        const FlightConfigurationId fcid = mount.configure(curve, 4, 0);
+        selection.setMotorMountAndConfig(
+            QtRocket::MotorChooserInput::fromMount(mount.mount(), fcid));
+        return;
+    }
+    selection.selectMotorFromTable(selection.getModel().getIndex(set).value_or(pin.setIndex));
+    if (pin.path == 'A')
+    {
+        selection.setHideSimilar(false);
+        selection.select(curve);
+        selection.setHideSimilar(true);
+    }
+}
+
+/// How the curve list after the path of @p pin differs from what QtRocket expects (see
+/// expectedCurveBoxState()).
+std::string curveBoxDifferences(const Pins::MotorChooserCurveBoxPin& pin)
+{
+    InMemoryPreferences preferences;
+    if (pin.path == 'B')
+    {
+        ThrustCurveMotorSelection first(bundledMotorDatabase(), preferences);
+        first.storeSelectedMotor(
+            *bundledMotorDatabase().getMotorSets().at(pin.setIndex).getMotors().at(pin.curve));
+    }
+    ThrustCurveMotorSelection selection(bundledMotorDatabase(), preferences);
+    BodyTubeMount             mount;
+    runCurveBoxPath(selection, pin, mount);
+    if (selection.getSelectedMotorSet() != &bundledMotorDatabase().getMotorSets().at(pin.setIndex))
+    {
+        return std::format("{} set {} curve {}: another set\n", pin.path, pin.setIndex, pin.curve);
+    }
+    const std::string ours     = curveBoxText(curveBoxState(selection));
+    const std::string expected = curveBoxText(expectedCurveBoxState(pin));
+    return ours == expected
+               ? ""
+               : std::format(
+                     "{} set {} curve {}: {}; expected {} (OpenRocket: curve "
+                     "{}, list [{}], holders [{}], item {})\n",
+                     pin.path, pin.setIndex, pin.curve, ours, expected, pin.selectedCurve,
+                     pin.curves, pin.holderIndices, pin.curveSelection);
+}
+
+/// curveBoxDifferences() of every pin of the set @p setIndex.
+std::string curveBoxSetDifferences(std::size_t setIndex)
+{
+    std::string differences;
+    for (const Pins::MotorChooserCurveBoxPin& pin : Pins::kMotorChooserCurveBoxPins)
+    {
+        if (pin.setIndex == setIndex)
+        {
+            differences += curveBoxDifferences(pin);
+        }
+    }
+    return differences;
+}
+
+/// The curves the pins of the path @p path end elsewhere than on, as "<set>:<curve>><curve>" each,
+/// separated by spaces.
+std::string curveBoxElsewhereText(char path)
+{
+    std::string text;
+    for (const Pins::MotorChooserCurveBoxPin& pin : Pins::kMotorChooserCurveBoxPins)
+    {
+        if (pin.path == path && pin.selectedCurve != pin.curve)
+        {
+            text += std::format("{}:{}>{} ", pin.setIndex, pin.curve, pin.selectedCurve);
+        }
+    }
+    return text;
+}
+
+/// The sweep's curves that OpenRocket ends elsewhere than on, as curveBoxElsewhereText() writes
+/// them.
+std::string curveBoxSweepElsewhereText()
+{
+    std::string text;
+    for (const Pins::MotorChooserCurveBoxElsewherePin& pin :
+         Pins::kMotorChooserCurveBoxElsewherePins)
+    {
+        text += std::format("{}:{}>{} ", pin.setIndex, pin.curve, pin.selectedCurve);
+    }
+    return text;
+}
+
+/// The pins whose curve list holds an item twice, as "<path> <set>:<curve>" each, separated by
+/// spaces.
+std::string curveBoxDuplicatesText()
+{
+    std::string text;
+    for (const Pins::MotorChooserCurveBoxPin& pin : Pins::kMotorChooserCurveBoxPins)
+    {
+        std::vector<std::string> items = QtRocket::Strings::split(pin.curves, ',');
+        std::ranges::sort(items);
+        if (std::ranges::adjacent_find(items) != items.end())
+        {
+            text += std::format("{} {}:{} ", pin.path, pin.setIndex, pin.curve);
+        }
+    }
+    return text;
+}
+
+/// How many curves the sets of more than one curve of the bundled database hold.
+std::size_t curvesOfMultiCurveSets()
+{
+    std::size_t curves = 0;
+    for (const ThrustCurveMotorSet& set : bundledMotorDatabase().getMotorSets())
+    {
+        if (set.getMotorCount() > 1)
+        {
+            curves += set.getMotorCount();
+        }
+    }
+    return curves;
+}
+
 /// MotorClass of every pinned impulse, with the default units.
 std::string motorClassDifferences()
 {
@@ -1167,5 +1358,41 @@ TEST_P(MotorChooserCurvesGolden, ChoosesOpenRocketsCurves)
 
 INSTANTIATE_TEST_SUITE_P(Shards, MotorChooserCurvesGolden,
                          ::testing::Range<std::size_t>(0, kCurveShards));
+
+/// OpenRocket's curve box re-enters select() when updateData() refills it outside the box's own
+/// action event (see ThrustCurveMotorSelection's deviations): the probe's sweep, which opens the
+/// panel for every curve of every set of more than one curve, ends elsewhere for 7 curves of 6
+/// sets (AeroTech E15W, G80T, M1850W, M2500T, Animal Motor Works GG, Cesaroni 117G69-14A), and the
+/// three paths pinned for every curve of those sets (opened for it, preferred, "Hide very similar
+/// thrust curves" turned on) end elsewhere for the same 7. For Cesaroni 117G69-14A's third curve
+/// OpenRocket's curve list holds a curve twice. QtRocket fixes this (MotorChooserCurveBoxGolden).
+TEST(MotorChooserPinsGolden, PinWhereOpenRocketsCurveBoxEndsOnAnotherCurve)
+{
+    EXPECT_EQ(Pins::kMotorChooserCurveBoxSweptCurves, curvesOfMultiCurveSets());
+    EXPECT_EQ(Pins::kMotorChooserCurveBoxElsewherePins.size(), 7U);
+    EXPECT_EQ(Pins::kMotorChooserCurveBoxSets.size(), 6U);
+    const std::string sweep = curveBoxSweepElsewhereText();
+    EXPECT_EQ(curveBoxElsewhereText('C'), sweep);
+    EXPECT_EQ(curveBoxElsewhereText('B'), sweep);
+    EXPECT_EQ(curveBoxElsewhereText('A'), sweep);
+    EXPECT_EQ(setIndex(&findSet("Cesaroni Technology Inc.", "117G69-14A")), 399U);
+    EXPECT_EQ(curveBoxDuplicatesText(), "C 399:2 B 399:2 A 399:2 ");
+}
+
+class MotorChooserCurveBoxGolden : public ::testing::TestWithParam<std::size_t>
+{ };
+
+/// Every curve of a set of kMotorChooserCurveBoxSets after each of the three paths: where
+/// OpenRocket ends on the path's curve, QtRocket shows what OpenRocket shows; where OpenRocket's
+/// curve box ends on another curve (M3 run 1's review: an OpenRocket bug QtRocket fixes),
+/// QtRocket keeps the path's curve and shows the list OpenRocket's getFilteredCurves() gives for
+/// it, as OpenRocket does when its curve box itself selects that curve.
+TEST_P(MotorChooserCurveBoxGolden, KeepsTheCurveOpenRocketsCurveBoxLeaves)
+{
+    EXPECT_EQ(curveBoxSetDifferences(Pins::kMotorChooserCurveBoxSets.at(GetParam())), "");
+}
+
+INSTANTIATE_TEST_SUITE_P(Sets, MotorChooserCurveBoxGolden,
+                         ::testing::Range<std::size_t>(0, Pins::kMotorChooserCurveBoxSets.size()));
 
 }  // namespace

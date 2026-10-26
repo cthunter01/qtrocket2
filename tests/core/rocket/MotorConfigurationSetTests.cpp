@@ -19,6 +19,7 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfigurableParameterSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
@@ -28,6 +29,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestRockets.h"
 
@@ -217,6 +219,14 @@ TEST(MotorConfigurationSet, TheCopyKeepsTheDefaultsOverrideFlag)
     return dynamic_cast<const MotorMount&>(*document.getRocket().findComponent(id));
 }
 
+/// The length of the body tube of @p document's rocket whose id is @p id, or -1 without one.
+[[nodiscard]] double bodyLengthIn(const QtRocket::OpenRocketDocument& document,
+                                  const QtRocket::Uuid&               id)
+{
+    const auto* body = dynamic_cast<const BodyTube*>(document.getRocket().findComponent(id));
+    return body != nullptr ? body->getLength() : -1;
+}
+
 // Undo and redo load copies of the rocket (Rocket::loadFrom()), which keep the default ignition
 // now. OpenRocket's undo() and redo() give "AUTOMATIC delay 0.0 override false" for the default of
 // the probe's mount after an unrelated change (the probe: the body tube's length).
@@ -226,6 +236,7 @@ TEST(MotorConfigurationSet, UndoAndRedoKeepTheDefaultIgnition)
     QtRocket::AxialStage&       stage  = rocket->addChild(std::make_unique<QtRocket::AxialStage>());
     BodyTube&                   body   = stage.addChild(std::make_unique<BodyTube>(0.3, 0.012));
     QtRocket::InnerTube&        tube   = body.addChild(std::make_unique<QtRocket::InnerTube>());
+    const QtRocket::Uuid        bodyId = body.getId();
     const QtRocket::Uuid        tubeId = tube.getId();
     const FlightConfigurationId withMotor;
     rocket->createFlightConfiguration(withMotor);
@@ -237,10 +248,49 @@ TEST(MotorConfigurationSet, UndoAndRedoKeepTheDefaultIgnition)
     body.setLength(0.5);
 
     const MotorConfigurationId mid{tubeId, FlightConfigurationId::defaultValueId().key()};
+    // The undo and the redo load other rockets (the lengths show which), so the ignitions below
+    // come from the copies, not from the rocket the scenario set them on.
+    ASSERT_TRUE(document->isUndoAvailable());
     document->undo();
+    EXPECT_EQ(bodyLengthIn(*document, bodyId), 0.3);
     expectScenarioIgnitions(mountIn(*document, tubeId), withMotor, mid);
+    ASSERT_TRUE(document->isRedoAvailable());
     document->redo();
+    EXPECT_EQ(bodyLengthIn(*document, bodyId), 0.5);
     expectScenarioIgnitions(mountIn(*document, tubeId), withMotor, mid);
+}
+
+// The tubes of a split cluster (InnerTube::makeIndividualClusterComponent(), a copy with new
+// ids) keep the cluster's default ignition too (M3's bug 6, fixed), and own their configurations.
+// OpenRocket's split goes through copy(): the probe of M3 run 1's fixer of group C
+// (SplitProbe.java: a 3-ring cluster with the scenario's ignitions) gives every split tube
+// "AUTOMATIC delay 0.0 override false" for the default and for a configuration without a motor,
+// and "LAUNCH delay 0.0 override true motor C6 ejection 5.0" for the one with the motor, as
+// QtRocket does.
+TEST(MotorConfigurationSet, TheTubesOfASplitClusterKeepTheDefaultIgnition)
+{
+    QtRocket::Rocket            rocket;
+    QtRocket::AxialStage&       stage = rocket.addChild(std::make_unique<QtRocket::AxialStage>());
+    BodyTube&                   body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
+    QtRocket::InnerTube&        tube  = body.addChild(std::make_unique<QtRocket::InnerTube>());
+    const FlightConfigurationId withMotor;
+    tube.setOuterRadius(0.009);
+    const QtRocket::ClusterConfiguration* ring =
+        QtRocket::ClusterConfiguration::fromXmlName("3-ring");
+    ASSERT_NE(ring, nullptr);
+    tube.setClusterConfiguration(*ring);
+    rocket.createFlightConfiguration(withMotor);
+    setScenarioIgnitions(tube, withMotor);
+    const MotorConfigurationId mid{tube.getId(), FlightConfigurationId::defaultValueId().key()};
+
+    const std::vector<QtRocket::Coordinate> locations = tube.getComponentLocations();
+    ASSERT_EQ(locations.size(), 3U);
+    for (const QtRocket::Coordinate& location : locations)
+    {
+        const std::unique_ptr<QtRocket::InnerTube> split =
+            QtRocket::InnerTube::makeIndividualClusterComponent(location, "MMT", tube);
+        expectScenarioIgnitions(*split, withMotor, mid);
+    }
 }
 
 TEST(MotorConfigurationSet, CopiedMountsOwnTheirConfigurations)

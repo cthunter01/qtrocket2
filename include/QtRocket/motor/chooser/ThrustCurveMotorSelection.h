@@ -71,6 +71,22 @@ class ThrustCurveMotorSetDatabase;
 ///   OpenRocket takes NaN as the delay, shows "NaN" and writes it).
 /// - "Hide motors already used in the mount" hides the motors of the current mount only (bug 9,
 ///   MotorRowFilter::setUsedMotors()).
+/// - The selection stays on the curve selected (an OpenRocket bug QtRocket fixes, found by M3 run
+///   1's review, beyond the 19 of U-M3-5). OpenRocket's updateData() refills the curve box, whose
+///   first addElement() selects the first item; unless updateData() runs inside the box's own
+///   action event, that item's action event re-enters select() for the front curve F of the
+///   selected curve S's filtered list O. The box then holds F's filtered list followed by O[1..],
+///   and setSelectedIndex(O.indexOf(S)) selects the item at that index. With "Hide very similar
+///   thrust curves" on, OpenRocket so ends on another curve when S is not first in O and that
+///   item is not S: after selectMotorFromTable() of a set whose preferred curve is S, after
+///   setHideSimilar(true) with S selected, and after setMotorMountAndConfig() for a configuration
+///   of S (OK then writes the other curve). In the bundled database that happens for 7 curves of
+///   6 sets (AeroTech E15W, G80T (two curves), M1850W, M2500T, Animal Motor Works GG and Cesaroni
+///   117G69-14A); for 117G69-14A's third curve the item is F, and OpenRocket stays on F with a
+///   list of four items, one curve twice. QtRocket keeps S, with S's filtered list, as OpenRocket
+///   shows when its curve box itself selects S (the curve-box pins of
+///   tests/core/motor/chooser/MotorChooserPins.h, ChooserScenarios.curveBoxReentry() of
+///   tools/openrocket-motor-chooser).
 /// - The constructor stores nothing: OpenRocket's runs the listeners of "Hide very similar thrust
 ///   curves" and "Hide motors which are not in regular production" once, which writes their
 ///   preferences with the values it read (SwingPreferences also writes a default it reads;
@@ -197,12 +213,15 @@ public:
     /// among equals); empty when no set is selected.
     [[nodiscard]] std::vector<std::shared_ptr<const ThrustCurveMotor>> getFilteredCurves();
 
-    /// The items of the curve list (updateData()): MotorHolder(getFilteredCurves()[i], i).
+    /// The items of the curve list (updateData()): MotorHolder(getFilteredCurves()[i], i). A
+    /// curve list that refills itself from them passes no selection of its own refill back to
+    /// select() (OpenRocket's does, see the class comment's deviations).
     [[nodiscard]] std::vector<MotorHolder> getCurveItems();
 
     /// "Hide very similar thrust curves".
     [[nodiscard]] bool isHideSimilar() const noexcept { return m_hideSimilar; }
-    /// Sets "Hide very similar thrust curves" and stores it (MotorPreferences::setHideSimilar()).
+    /// Sets "Hide very similar thrust curves" and stores it (MotorPreferences::setHideSimilar());
+    /// the selected curve stays (OpenRocket's can change, see the class comment's deviations).
     void setHideSimilar(bool hideSimilar);
 
     /// "Hide motors which are not in regular production" (the filter's).

@@ -24,7 +24,8 @@ class Preferences;
 /// the source's default made anew for the new mount, so a mount's default ignition (its event,
 /// delay and override flag, which the motor tab of the component dialog edits and an .ork file
 /// stores) survives every copy of the mount: an undo state, an undo or redo (Rocket::loadFrom()),
-/// a copy and paste, a duplicate, a simulation's copy of the rocket.
+/// a copy and paste, a duplicate, a simulation's copy of the rocket, and each tube of a split
+/// cluster (InnerTube::makeIndividualClusterComponent(), a copy with new ids).
 ///
 /// Deviations from OpenRocket:
 /// - The (source, newMount) constructor keeps the source's default (QtRocket fixes M3's bug 6,
@@ -33,8 +34,10 @@ class Preferences;
 ///   through set(), which ignores the default id: so in OpenRocket an undo, a redo, a copy and
 ///   paste of a mount lose the default ignition the user set (probe of part C5, M3 run 1: a
 ///   default of BURNOUT + 2.5 s comes back from copy(), undo() and redo() as AUTOMATIC + 0 s
-///   without an override). The default's motor, ejection delay and nozzle exit diameter are kept
-///   too; nothing sets them on a default (it never has a motor), so they are the empty ones.
+///   without an override), and so does each tube of a split cluster (Java's
+///   makeIndividualClusterComponent() goes through copy(); QtRocket's split tubes keep the
+///   cluster's default ignition). The default's motor, ejection delay and nozzle exit diameter are
+///   kept too; nothing sets them on a default (it never has a motor), so they are the empty ones.
 /// - setDefault() throws UnsupportedOperationException in Java; here it is deleted, and through
 ///   a reference to the base class it throws BugError (MotorConfiguration::kFixedDefaultMessage).
 /// - toDebug() takes the Preferences that choose the motor names; the base class's toDebug()

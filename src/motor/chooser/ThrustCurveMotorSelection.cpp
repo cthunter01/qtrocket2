@@ -149,6 +149,9 @@ void ThrustCurveMotorSelection::select(const std::shared_ptr<const ThrustCurveMo
     }
     const bool updateDelays = set != m_selectedMotorSet;
 
+    // OpenRocket's select() runs updateData() here, whose curve box re-enters select() for the
+    // front curve of the filtered list and can leave another curve selected; QtRocket keeps the
+    // motor (see the class comment's deviations).
     m_selectedMotor             = motor;
     m_selectedMotorSet          = set;
     m_maximumNozzleExitDiameter = motor->getDiameter();
@@ -255,6 +258,8 @@ std::vector<MotorHolder> ThrustCurveMotorSelection::getCurveItems()
 
 void ThrustCurveMotorSelection::setHideSimilar(bool hideSimilar)
 {
+    // OpenRocket's listener runs updateData(), whose curve box can re-enter select() (see the
+    // class comment's deviations); the selected curve stays here.
     m_hideSimilar = hideSimilar;
     MotorPreferences::setHideSimilar(m_preferences, hideSimilar);
 }
