@@ -30,6 +30,7 @@
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
 #include "TestTempDir.h"
+#include "motor/TestMotorDatabase.h"
 
 namespace
 {
@@ -283,6 +284,35 @@ TEST_F(BundledMotorDatabase, QuestB6WCommonName)
     const std::vector<const ThrustCurveMotorSet*> questB6WSets = sets("B6W", "Quest");
     ASSERT_FALSE(questB6WSets.empty()) << "No Quest B6W motor set found in the bundled database";
     EXPECT_EQ(questB6WSets.front()->getCommonName(), "B6");
+}
+
+/// The digests of @p database's motors that do not have MotorDigest's form
+/// (QtRocket::Test::hasMotorDigestForm()), separated by spaces, and how many motors it holds.
+[[nodiscard]] std::pair<std::string, std::size_t> malformedDigests(
+    const ThrustCurveMotorSetDatabase& database)
+{
+    std::string malformed;
+    std::size_t motors = 0;
+    for (const ThrustCurveMotorSet& set : database.getMotorSets())
+    {
+        for (const MotorPtr& motor : set.getMotors())
+        {
+            ++motors;
+            if (!QtRocket::Test::hasMotorDigestForm(motor->getDigest()))
+            {
+                malformed += motor->getDigest() + " ";
+            }
+        }
+    }
+    return {malformed, motors};
+}
+
+// Risk 13 of the plan: the digest of every motor of the bundled database, the one the reader
+// computes (computeDigest(), MotorDigest), is 32 lowercase hexadecimal characters, which the
+// saver can put into the zip entry name thrustcurves/<digest>.rse.
+TEST_F(BundledMotorDatabase, EveryDigestIs32LowercaseHexCharacters)
+{
+    EXPECT_EQ(malformedDigests(*s_database), (std::pair<std::string, std::size_t>{"", 1588}));
 }
 
 // Estes C6 must have exactly two thrust curves and the delays 0, 3, 5, 7 and plugged.

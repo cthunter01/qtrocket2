@@ -1,4 +1,5 @@
 target_sources(QtRocket_core PRIVATE
+    AlphanumComparator.cpp
     BigDecimal.cpp
     BoundingBox.cpp
     BugError.cpp
@@ -13,6 +14,7 @@ target_sources(QtRocket_core PRIVATE
     GaussianRandom.cpp
     GeodeticComputationStrategy.cpp
     Geometry2D.cpp
+    JavaCollator.cpp
     L10N.cpp
     LinearInterpolator.cpp
     LineStyle.cpp

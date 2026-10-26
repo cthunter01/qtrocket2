@@ -13,11 +13,15 @@
 
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
+#include "QtRocket/rocket/preset/ComponentPresetFavorites.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Strings.h"
 
 // OpenRocket has no JUnit test of ComponentPresetDatabase, ComponentPresetDao or Database. Every
 // expectation below (the index a preset is added at, the lists, what find() gives, the digests)
@@ -32,8 +36,12 @@ using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetDatabase;
 using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
+using QtRocket::InMemoryPreferences;
 using QtRocket::Manufacturer;
+using QtRocket::Preferences;
 using QtRocket::TypedPropertyMap;
+namespace ComponentPresetFavorites = QtRocket::ComponentPresetFavorites;
+using QtRocket::ComponentPresetFavorites::FavoriteKeys;
 
 using PresetPtr = ComponentPresetDatabase::PresetPtr;
 using Lines     = std::vector<std::string>;
@@ -540,6 +548,129 @@ TEST(ComponentPresetDatabase, ListForTypesGivesEachPresetOnceInListOrder)
     const std::vector<ComponentPresetType> types{ComponentPresetType::TUBE_COUPLER,
                                                  ComponentPresetType::PARACHUTE};
     EXPECT_EQ(lines(database.listForTypes(types)), chutesAndCouplers);
+}
+
+// ================================================================================== favourites
+//
+// listForType(type, favorites) is Java's listForType(type, true). The lists are what
+// ComponentPresetDatabase.listForType(type, true) gives in PrefsProbe.java of the M3 run 1
+// probes of part C3 (section "favourites"), with SwingPreferences' favourites, for the same five
+// presets added in the same order.
+
+/// One preset as the probe prints it: "<manufacturer's display name> <part number> <type>
+/// <length>".
+[[nodiscard]] std::string withLength(const ComponentPreset& preset)
+{
+    return std::format("{} {} {} {}", preset.getManufacturer().getDisplayName(), preset.getPartNo(),
+                       componentPresetTypeName(preset.getType()),
+                       QtRocket::Strings::javaDoubleToString(preset.get(ComponentPreset::kLength)));
+}
+
+[[nodiscard]] Lines withLengths(std::span<const PresetPtr> presets)
+{
+    Lines result;
+    result.reserve(presets.size());
+    for (const PresetPtr& preset : presets)
+    {
+        result.push_back(withLength(*preset));
+    }
+    return result;
+}
+
+/// The probe's five presets: two lengths of Estes BT-20, a coupler of that part number, a LOC
+/// tube and a Cesaroni one (by its alias "cs").
+[[nodiscard]] ComponentPresetDatabase probeFavoritesDatabase()
+{
+    ComponentPresetDatabase database;
+    database.add(tube("Estes", "BT-20", 0.4572));
+    database.add(tube("LOC/Precision", "LT-1.52", 0.762));
+    database.add(coupler("Estes", "BT-20", 0.05));
+    database.add(tube("Estes", "BT-20", 0.2286));
+    database.add(tube("cs", "Pro-38 tube", 0.3));
+    return database;
+}
+
+TEST(ComponentPresetDatabase, ListForTypeWithFavoritesListsThePresetsOfTheFavouriteKeys)
+{
+    const ComponentPresetDatabase database = probeFavoritesDatabase();
+    EXPECT_EQ(withLengths(database.listAll()),
+              (Lines{"Cesaroni Technology Inc. Pro-38 tube BODY_TUBE 0.3",
+                     "Estes BT-20 TUBE_COUPLER 0.05", "Estes BT-20 BODY_TUBE 0.2286",
+                     "Estes BT-20 BODY_TUBE 0.4572", "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
+
+    // Both lengths of a favourite part number, in the list's order; only presets of the type.
+    const FavoriteKeys favorites{"Estes|BT-20", "LOC/Precision|LT-1.52"};
+    EXPECT_EQ(withLengths(database.listForType(ComponentPresetType::BODY_TUBE, favorites)),
+              (Lines{"Estes BT-20 BODY_TUBE 0.2286", "Estes BT-20 BODY_TUBE 0.4572",
+                     "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
+    EXPECT_EQ(withLengths(database.listForType(ComponentPresetType::TUBE_COUPLER, favorites)),
+              Lines{"Estes BT-20 TUBE_COUPLER 0.05"});
+    EXPECT_TRUE(database.listForType(ComponentPresetType::NOSE_CONE, favorites).empty());
+    EXPECT_TRUE(database.listForType(ComponentPresetType::BODY_TUBE, FavoriteKeys{}).empty());
+
+    // The key names the manufacturer by its display name, not its simple name.
+    EXPECT_EQ(withLengths(database.listForType(
+                  ComponentPresetType::BODY_TUBE,
+                  FavoriteKeys{"Cesaroni Technology Inc.|Pro-38 tube", "LOC/Precision|LT-1.52"})),
+              (Lines{"Cesaroni Technology Inc. Pro-38 tube BODY_TUBE 0.3",
+                     "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
+    EXPECT_TRUE(database
+                    .listForType(ComponentPresetType::BODY_TUBE,
+                                 FavoriteKeys{"Cesaroni Technology|Pro-38 tube"})
+                    .empty());
+
+    // listForType(type, false) is listForType(type).
+    EXPECT_EQ(
+        withLengths(database.listForType(ComponentPresetType::BODY_TUBE)),
+        (Lines{"Cesaroni Technology Inc. Pro-38 tube BODY_TUBE 0.3", "Estes BT-20 BODY_TUBE 0.2286",
+               "Estes BT-20 BODY_TUBE 0.4572", "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
+}
+
+/// listForType(@p type, favorites) with the favourites @p prefs stores for @p type, as lines.
+[[nodiscard]] Lines storedFavorites(const ComponentPresetDatabase& database,
+                                    const Preferences& prefs, ComponentPresetType type)
+{
+    return withLengths(
+        database.listForType(type, ComponentPresetFavorites::getFavorites(prefs, type)));
+}
+
+// The probe's sequence through the preferences: favourites set and unset with
+// ComponentPresetDao.setFavorite(), then keys written by hand with other values.
+TEST(ComponentPresetDatabase, ListForTypeWithTheStoredFavorites)
+{
+    const ComponentPresetDatabase database = probeFavoritesDatabase();
+    const PresetPtr bt20 = database.find("Estes", "BT-20").at(2);  // the tube of length 0.4572
+    const PresetPtr loc  = database.find("LOC", "LT-1.52").at(0);
+    ASSERT_EQ(withLength(*bt20), "Estes BT-20 BODY_TUBE 0.4572");
+
+    InMemoryPreferences prefs;
+    const auto          tubes    = ComponentPresetType::BODY_TUBE;
+    const auto          couplers = ComponentPresetType::TUBE_COUPLER;
+    EXPECT_EQ(storedFavorites(database, prefs, tubes), Lines{});
+
+    ComponentPresetFavorites::setFavorite(prefs, *bt20, ComponentPresetType::BODY_TUBE, true);
+    ComponentPresetFavorites::setFavorite(prefs, *loc, ComponentPresetType::BODY_TUBE, true);
+    EXPECT_EQ(storedFavorites(database, prefs, tubes),
+              (Lines{"Estes BT-20 BODY_TUBE 0.2286", "Estes BT-20 BODY_TUBE 0.4572",
+                     "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
+    EXPECT_EQ(storedFavorites(database, prefs, couplers), Lines{});
+
+    // The tube's key in the coupler's node makes the coupler of that part number a favourite.
+    ComponentPresetFavorites::setFavorite(prefs, *bt20, ComponentPresetType::TUBE_COUPLER, true);
+    EXPECT_EQ(storedFavorites(database, prefs, couplers), Lines{"Estes BT-20 TUBE_COUPLER 0.05"});
+
+    ComponentPresetFavorites::setFavorite(prefs, *bt20, ComponentPresetType::BODY_TUBE, false);
+    EXPECT_EQ(storedFavorites(database, prefs, tubes),
+              Lines{"LOC/Precision LT-1.52 BODY_TUBE 0.762"});
+
+    // Every key counts, whatever its value.
+    Preferences& node = prefs.getNode("favoritePresets/BODY_TUBE");
+    node.put("Cesaroni Technology Inc.|Pro-38 tube", "false");
+    node.put("Estes|BT-20", "nonsense");
+    EXPECT_EQ(
+        storedFavorites(database, prefs, tubes),
+        (Lines{"Cesaroni Technology Inc. Pro-38 tube BODY_TUBE 0.3", "Estes BT-20 BODY_TUBE 0.2286",
+               "Estes BT-20 BODY_TUBE 0.4572", "LOC/Precision LT-1.52 BODY_TUBE 0.762"}));
 }
 
 // =================================================================================== ownership

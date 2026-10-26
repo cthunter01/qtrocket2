@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "QtRocket/rocket/preset/ComponentPresetFavorites.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 
 namespace QtRocket
@@ -40,12 +41,16 @@ class ComponentPreset;
 /// - listForType(null) and find(null, ...) give an empty list in Java; a ComponentPresetType and
 ///   a std::string_view cannot be null.
 ///
-/// Not ported, until the preset chooser of Milestone 3 needs them: the favourites
-/// (listForType(type, favorite) and setFavorite(), which read and write the application
-/// preferences), the database listeners (DatabaseListener, Database.fireAddEvent() and
-/// fireRemoveEvent()), and what else Database and AbstractSet offer (get(index), indexOf(),
-/// contains(), remove(), clear() and removal through the iterator). Reading .orc preset files
-/// is Milestone 3 too: until then only tests fill a database.
+/// The favourites: listForType(type, favorites) is Java's listForType(type, true), with the
+/// favourites passed in where Java reads them from the application preferences; Java's
+/// setFavorite(), which stores a favourite in the preferences and fires the database's add
+/// event, is ComponentPresetFavorites::setFavorite() (ComponentPresetFavorites.h), with no event.
+///
+/// Not ported: the database listeners (DatabaseListener, Database.fireAddEvent() and
+/// fireRemoveEvent()), which only OpenRocket's preset combo box uses, to see a favourite change
+/// (QtRocket's GUI reads the favourites again instead: plan decision O-M3-12), and what else
+/// Database and AbstractSet offer (get(index), indexOf(), contains(), remove(), clear() and
+/// removal through the iterator). The .orc reader (file/preset/) fills a database from files.
 ///
 /// Not thread-safe: the thread that owns the database changes it; a loader only reads it.
 class ComponentPresetDatabase
@@ -73,8 +78,17 @@ public:
     /// until the database changes.
     [[nodiscard]] const std::vector<PresetPtr>& listAll() const noexcept { return m_list; }
 
-    /// The presets of @p type, in the list's order (listForType(type)).
+    /// The presets of @p type, in the list's order (listForType(type), and listForType(type,
+    /// false)).
     [[nodiscard]] std::vector<PresetPtr> listForType(ComponentPresetType type) const;
+
+    /// The favourite presets of @p type, in the list's order (listForType(type, true)): those
+    /// whose ComponentPreset::preferenceKey() is one of @p favorites, which the caller takes from
+    /// ComponentPresetFavorites::getFavorites(preferences, type) (Java reads
+    /// Application.getPreferences().getComponentFavorites(type) itself). Every preset of a
+    /// favourite key is listed, so two presets of one part number both are.
+    [[nodiscard]] std::vector<PresetPtr> listForType(
+        ComponentPresetType type, const ComponentPresetFavorites::FavoriteKeys& favorites) const;
 
     /// The presets whose type is one of @p types, in the list's order, each once
     /// (listForTypes(types)); none for no type.

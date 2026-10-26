@@ -5,6 +5,8 @@
 # (CliRunSupport runs the command-line tool's commands), GoogleTest (the helpers report through ADD_FAILURE() and
 # EXPECT_*), and pugixml and nlohmann_json (the golden data). Listed per subsystem in the same order as src/.
 add_library(QtRocket_test_support STATIC
+    util/RandomTextPairs.cpp
+    motor/TestMotorDatabase.cpp
     rocket/preset/ExamplePresets.cpp
     rocket/TestRockets.cpp
     aero/BarrowmanTestRockets.cpp
@@ -44,6 +46,7 @@ QtRocket_configure_target(QtRocket_test_support)
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/AlphanumComparatorTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
     util/BugErrorTests.cpp
@@ -58,6 +61,7 @@ add_executable(QtRocket_core_tests
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/JavaCollatorTests.cpp
     util/JavaRandomTests.cpp
     util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp
@@ -111,13 +115,28 @@ add_executable(QtRocket_core_tests
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
     motor/CaseInfoTests.cpp
+    motor/chooser/ImpulseClassTests.cpp
+    motor/chooser/motor_chooser_golden_tests.cpp
+    motor/chooser/MotorClassTests.cpp
+    motor/chooser/MotorFilterSlidersTests.cpp
+    motor/chooser/MotorHolderTests.cpp
+    motor/chooser/MotorRowFilterTests.cpp
+    motor/chooser/MotorSimilarityCacheTests.cpp
+    motor/chooser/MotorTableSorterTests.cpp
+    motor/chooser/ThrustCurveMotorColumnsTests.cpp
+    motor/chooser/ThrustCurveMotorComparatorTests.cpp
+    motor/chooser/ThrustCurveMotorDatabaseModelTests.cpp
+    motor/chooser/ThrustCurveMotorSelectionTests.cpp
     motor/DesignationComparatorTests.cpp
     motor/IgnitionEventTests.cpp
     motor/ManufacturerTests.cpp
     motor/MotorConfigurationIdTests.cpp
+    motor/MotorCorrelationTests.cpp
     motor/MotorDigestTests.cpp
+    motor/MotorPreferencesTests.cpp
     motor/MotorTests.cpp
     motor/SqliteMotorDatabaseReaderTests.cpp
+    motor/test_motor_database_tests.cpp
     motor/ThrustCurveMotorSetDatabaseTests.cpp
     motor/ThrustCurveMotorSetTests.cpp
     motor/ThrustCurveMotorTests.cpp
@@ -161,6 +180,7 @@ add_executable(QtRocket_core_tests
     rocket/PodSetTests.cpp
     rocket/preset/ComponentPresetDatabaseTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
+    rocket/preset/ComponentPresetFavoritesTests.cpp
     rocket/preset/ComponentPresetReferenceTests.cpp
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp
@@ -298,7 +318,9 @@ add_executable(QtRocket_core_tests
     document/DecalImageTests.cpp
     document/DecalRegistryTests.cpp
     document/events/DocumentChangeEventTests.cpp
+    document/MotorChooserInputTests.cpp
     document/open_rocket_document_material_tests.cpp
+    document/open_rocket_document_name_pinning_tests.cpp
     document/open_rocket_document_preferences_tests.cpp
     document/open_rocket_document_simulation_undo_redo_tests.cpp
     document/open_rocket_document_unresolved_preset_tests.cpp

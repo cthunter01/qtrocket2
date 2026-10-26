@@ -1,10 +1,12 @@
 #include "QtRocket/motor/MotorDigest.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <random>
 #include <span>
 #include <string>
 #include <string_view>
@@ -19,6 +21,7 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Md5.h"
 #include "QtRocket/util/Strings.h"
+#include "motor/TestMotorDatabase.h"
 
 namespace
 {
@@ -305,6 +308,102 @@ TEST(MotorDigest, RoundingAbsorbsTinyDifferences)
     MotorDigest d;
     d.update(DataType::TIME_ARRAY, {0.0, 0.1, 0.2});
     EXPECT_NE(c.getDigest(), d.getDigest());
+}
+
+// ---- Risk 13 of the plan (closed by reading in the M3 scouting): every digest is 32 hex ----
+//
+// The .ork saver embeds a motor as the zip entry thrustcurves/<digest>.rse, and the zip writer
+// refuses a name with a backslash or a NUL (ZipWriter; GeneralRocketSaverTests has the save that
+// fails then). A digest is a motor's own (getDigest()), which the motor loaders and the database
+// reader compute with MotorDigest, and which the .ork loader replaces only by a digest equal to
+// one MotorDigest computes for the curve (isDigestCompatible()): so every digest a saved motor
+// can have is one of MotorDigest's, which this property test checks over random input.
+
+/// A double of every kind, drawn from @p random: any bit pattern (NaN, the infinities, subnormal
+/// numbers, both zeros), a value of a curve's range (-1000 to 1000 with three decimals), or one
+/// beyond what a digested int holds.
+[[nodiscard]] double anyDouble(std::mt19937_64& random)
+{
+    const std::uint64_t bits = random();
+    switch (bits % 3U)
+    {
+        case 0:
+            return std::bit_cast<double>(random());
+        case 1:
+            return (static_cast<double>(random() % 2000001U) - 1000000.0) / 1000.0;
+        default:
+            return (static_cast<double>(random() % 2001U) - 1000.0) * 1e9;
+    }
+}
+
+/// The digest of a MotorDigest fed from @p random: each data type in its order, or not, with 0 to
+/// 40 values of anyDouble().
+[[nodiscard]] std::string randomDigest(std::mt19937_64& random)
+{
+    MotorDigest digest;
+    for (const DataType type :
+         {DataType::TIME_ARRAY, DataType::MASS_SPECIFIC, DataType::MASS_PER_TIME,
+          DataType::CG_SPECIFIC, DataType::CG_PER_TIME, DataType::FORCE_PER_TIME})
+    {
+        if (random() % 2U == 0U)
+        {
+            continue;
+        }
+        std::vector<double> values(random() % 41U);
+        for (double& value : values)
+        {
+            value = anyDouble(random);
+        }
+        digest.update(type, values);
+    }
+    return digest.getDigest();
+}
+
+/// A text of 0 to 80 bytes of any value (NUL, controls, whitespace, malformed UTF-8), drawn from
+/// @p random.
+[[nodiscard]] std::string randomComment(std::mt19937_64& random)
+{
+    std::string text(random() % 81U, '\0');
+    for (char& c : text)
+    {
+        c = static_cast<char>(static_cast<unsigned char>(random() & 0xFFU));
+    }
+    return text;
+}
+
+/// The first of @p count random digests (randomDigest(), digestComment() of randomComment()) that
+/// does not have the form, or "" when all have it.
+[[nodiscard]] std::string firstMalformedDigest(std::mt19937_64& random, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        for (const std::string& digest :
+             {randomDigest(random), MotorDigest::digestComment(randomComment(random))})
+        {
+            if (!QtRocket::Test::hasMotorDigestForm(digest))
+            {
+                return digest;
+            }
+        }
+    }
+    return {};
+}
+
+// Every digest MotorDigest gives is 32 lowercase hexadecimal characters: of nothing, of a motor,
+// of 2000 random feeds (any doubles, any data types) and of 2000 random comments. The generator
+// (std::mt19937_64, its raw output) gives the same numbers on every platform.
+TEST(MotorDigest, EveryDigestIs32LowercaseHexCharacters)
+{
+    EXPECT_TRUE(QtRocket::Test::hasMotorDigestForm(MotorDigest().getDigest()));
+    EXPECT_TRUE(QtRocket::Test::hasMotorDigestForm(MotorDigest::digestMotor(a8Motor())));
+    EXPECT_TRUE(QtRocket::Test::hasMotorDigestForm(MotorDigest::digestComment("")));
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): the same input in every run is the point
+    std::mt19937_64 random{20261025U};
+    EXPECT_EQ(firstMalformedDigest(random, 2000), "");
+    // The form itself.
+    EXPECT_FALSE(QtRocket::Test::hasMotorDigestForm("8D4FA1320788059CC60A2C0B320C5414"));
+    EXPECT_FALSE(QtRocket::Test::hasMotorDigestForm("8d4fa1320788059cc60a2c0b320c541"));
+    EXPECT_FALSE(QtRocket::Test::hasMotorDigestForm("8d4fa1320788059cc60a2c0b320c541\\"));
 }
 
 }  // namespace

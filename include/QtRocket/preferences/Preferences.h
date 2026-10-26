@@ -85,12 +85,11 @@ using ComponentDefaults = std::span<const std::pair<std::string_view, std::strin
 /// Not ported, to be added by the groups that own their types (each mirrors a method of
 /// ApplicationPreferences.java, in its order there):
 /// - getPreferences(): the raw java.util.prefs node is this object itself.
-/// - getUserComponentPresetFiles(), getUserComponentPresetFilesAsString(),
-///   getDefaultUserComponentFile(), setUserComponentPresetFiles(List<File>),
-///   getUserThrustCurveFiles(), getUserThrustCurveFilesAsString(), getDefaultUserThrustCurveFile(),
-///   setUserThrustCurveFiles(List<File>): need SystemInfo.getUserApplicationDirectory() and create
-///   directories; the keys (kUserComponentPresetsKey, kUserThrustCurvesKey) and the separator
-///   (kSplitCharacter) are in PreferenceKeys.
+/// - getDefaultUserComponentFile() and getDefaultUserThrustCurveFile(): the directories under
+///   SystemInfo.getUserApplicationDirectory() (~/.openrocket/Components, ...). The core knows no
+///   user directory: the caller passes the default directory to the user file getters below,
+///   and the application makes it (kUserComponentPresetsDirectoryName and
+///   kUserThrustCurvesDirectoryName name its last element).
 /// - getAverageWindModel(), loadWindModelState(), storeWindModelState(), stateChanged(): the
 ///   PinkNoiseWindModel round trip; the wind keys are read and written directly here
 ///   (getWindAverage() and friends), and a wind model can be loaded from and stored to them.
@@ -109,7 +108,11 @@ using ComponentDefaults = std::span<const std::pair<std::string_view, std::strin
 ///   check and the three built-in fallbacks. The string halves of the first pair stay here as
 ///   getDefaultComponentMaterialString()/setDefaultComponentMaterialString().
 /// - setComponentFavorite(ComponentPreset, Type, boolean), getComponentFavorites(Type): abstract in
-///   Java, typed on ComponentPreset.
+///   Java (SwingPreferences implements them) and typed on ComponentPreset, which sits above
+///   preferences/: free functions taking a Preferences in
+///   QtRocket/rocket/preset/ComponentPresetFavorites.h. The motor chooser's stored state
+///   (SwingPreferences' excluded manufacturers, the preferred thrust curves, the filter flags) is
+///   in QtRocket/motor/MotorPreferences.h the same way.
 /// - getUITheme()/setUITheme(Object): the GUI's.
 /// - saveOBJExportOptions(OBJExportOptions)/loadOBJExportOptions(Rocket): typed on the OBJ export
 ///   options and Rocket; the node and key names are in PreferenceKeys (kObj...).
@@ -272,6 +275,72 @@ public:
     /// The text stored is the path's UTF-8 form (path::u8string()), so a name outside the
     /// Windows code page survives the round trip as Java's UTF-16 String does.
     void setDefaultDirectory(const std::optional<std::filesystem::path>& directory);
+
+    // ------------------------------------------------ user thrust curves and presets
+    //
+    // The files and directories the application loads, after its bundled ones, as the user's
+    // thrust curves (key kUserThrustCurvesKey, "UserThrustCurves") and component presets
+    // (kUserComponentPresetsKey, "UserComponentPresets"): ApplicationPreferences.java:1323-1479.
+    // Stored as one text, the absolute paths joined by '|' (kSplitCharacter) in their UTF-8 form;
+    // an absent key means the user's default directory, an empty text no file at all.
+    //
+    // A path in a list is what Java's new File(text) makes of its text: runs of separators as one
+    // and no separator at the end (withoutRedundantSeparators(), util/FileIo.h); a relative path
+    // stays relative until the ...AsString() text or a setter makes it absolute against the
+    // current directory (absolutePath(), Java's File.getAbsolutePath()).
+    //
+    // Deviations from OpenRocket:
+    // - The default directory is the caller's (OpenRocket: SystemInfo.getUserApplicationDirectory()
+    //   plus "ThrustCurves" or "Components"), and no getter creates it: Java's getters (and
+    //   getDefaultUserComponentFile()) make the directory when it is missing. QtRocket's
+    //   application makes it at start when the key is absent.
+    // - java.util.prefs refuses a stored text over 8192 characters or with the character U+0000
+    //   (IllegalArgumentException, which reaches OpenRocket's error dialog from the preferences
+    //   page and stores nothing); QtRocket's stores take any text, so such a list is stored.
+    // Neither setter emits changed(), as in Java (putString() fires no change event).
+
+    /// The last element of OpenRocket's default directories (getDefaultUserThrustCurveFile() and
+    /// getDefaultUserComponentFile() add them to the user application directory).
+    static constexpr std::string_view kUserThrustCurvesDirectoryName     = "ThrustCurves";
+    static constexpr std::string_view kUserComponentPresetsDirectoryName = "Components";
+
+    /// getUserThrustCurveFiles(): when kUserThrustCurvesKey is absent, @p defaultDirectory alone
+    /// (Java's File normalisation applied, never created); otherwise the stored text split at
+    /// every '|', each part trimmed as String.trim() does (characters at or below U+0020 at
+    /// either end) and the empty ones skipped, as paths (see the section comment). So "" and
+    /// " | " give no file, and a path that contains '|' comes back as two.
+    [[nodiscard]] std::vector<std::filesystem::path> getUserThrustCurveFiles(
+        const std::filesystem::path& defaultDirectory) const;
+    /// getUserThrustCurveFilesAsString(): the absolutePath() of every path of
+    /// getUserThrustCurveFiles(@p defaultDirectory), as UTF-8 text joined by ';' (the
+    /// preferences page's text field; parseUserFilesText() reads it back).
+    [[nodiscard]] std::string getUserThrustCurveFilesAsString(
+        const std::filesystem::path& defaultDirectory) const;
+    /// setUserThrustCurveFiles(List<File>): stores the absolute form of every path of @p files
+    /// (Java's File normalisation, then absolutePath()), UTF-8, joined by '|'; an empty span stores
+    /// the empty text, which means no file. Nothing is trimmed: a path that starts with a space is
+    /// relative and stored resolved, its space kept.
+    void setUserThrustCurveFiles(std::span<const std::filesystem::path> files);
+    /// setUserThrustCurveFiles(null): removes the key, so the default directory is used again.
+    void resetUserThrustCurveFiles();
+
+    /// The same four for the user's component preset files (getUserComponentPresetFiles(),
+    /// getUserComponentPresetFilesAsString(), setUserComponentPresetFiles(List<File>) and
+    /// setUserComponentPresetFiles(null)).
+    [[nodiscard]] std::vector<std::filesystem::path> getUserComponentPresetFiles(
+        const std::filesystem::path& defaultDirectory) const;
+    [[nodiscard]] std::string getUserComponentPresetFilesAsString(
+        const std::filesystem::path& defaultDirectory) const;
+    void setUserComponentPresetFiles(std::span<const std::filesystem::path> files);
+    void resetUserComponentPresetFiles();
+
+    /// What OpenRocket's preferences page makes of the text in its field (GeneralPreferencesPanel's
+    /// DocumentListener, for both lists): @p text split at every ';', each part trimmed as
+    /// String.trim() does and the empty ones skipped, as paths with Java's File normalisation (the
+    /// page passes them to setUserThrustCurveFiles(), which makes them absolute). A path that
+    /// contains ';' comes back as two.
+    [[nodiscard]] static std::vector<std::filesystem::path> parseUserFilesText(
+        std::string_view text);
 
     // ------------------------------------------------------------- flight configurations
 

@@ -1,5 +1,6 @@
 #include "QtRocket/preferences/Preferences.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <filesystem>
@@ -21,14 +22,17 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Signal.h"
+#include "TestTempDir.h"
 #include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
 
 namespace Keys = QtRocket::PreferenceKeys;
+using QtRocket::absolutePath;
 using QtRocket::BugError;
 using QtRocket::Color;
 using QtRocket::ComponentClassChain;
@@ -42,7 +46,9 @@ using QtRocket::Unit;
 using QtRocket::unitGroup;
 using QtRocket::UnitGroup;
 using QtRocket::UnitGroupId;
+using QtRocket::Test::CurrentDirectoryGuard;
 using QtRocket::Test::DefaultUnitsGuard;
+using QtRocket::Test::TempDir;
 
 constexpr double kPi  = std::numbers::pi;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -740,6 +746,235 @@ TEST(Preferences, DefaultDirectoryKeepsNonAsciiCharacters)
         std::filesystem::current_path() / std::filesystem::path(u8"\u8a2d\u8a08");
     prefs.setDefaultDirectory(japanese);
     EXPECT_EQ(prefs.getDefaultDirectory(), japanese);
+}
+
+// ------------------------------------------------ user thrust curves and presets
+//
+// The stored texts and lists below are what OpenRocket's ApplicationPreferences stores and gives
+// back for the same calls: PrefsProbe.java of the M3 run 1 probes of part C3 (section "file
+// lists"), run against the compiled core and swing of commit 5f164fd0e (JDK 17, SwingPreferences
+// over java.util.prefs) with absolute paths under a directory of its own. Here they are made under
+// a test directory, so that they are absolute on every platform; "./x/../y" is left out, since
+// absolutePath() resolves the dots on Windows (util/FileIo.h).
+
+/// @p path as UTF-8 with '/' for the platform's separator.
+[[nodiscard]] std::string spelled(const std::filesystem::path& path)
+{
+    std::string text = QtRocket::pathToUtf8(path);
+    std::ranges::replace(text, '\\', '/');
+    return text;
+}
+
+[[nodiscard]] std::vector<std::string> spelled(const std::vector<std::filesystem::path>& paths)
+{
+    std::vector<std::string> texts;
+    texts.reserve(paths.size());
+    for (const std::filesystem::path& path : paths)
+    {
+        texts.push_back(spelled(path));
+    }
+    return texts;
+}
+
+/// The UTF-8 texts of @p paths joined by @p separator.
+[[nodiscard]] std::string joined(const std::vector<std::filesystem::path>& paths, char separator)
+{
+    std::string text;
+    for (const std::filesystem::path& path : paths)
+    {
+        if (!text.empty())
+        {
+            text += separator;
+        }
+        text += QtRocket::pathToUtf8(path);
+    }
+    return text;
+}
+
+// The probe's "TC absent" and "CP absent", without the directory Java makes.
+TEST(Preferences, UserFilesDefaultToTheGivenDirectoryWhichNoGetterMakes)
+{
+    const TempDir               directory;
+    const std::filesystem::path home         = directory.resolve("QtRocket");
+    const std::filesystem::path thrustCurves = home / Preferences::kUserThrustCurvesDirectoryName;
+    const std::filesystem::path presets = home / Preferences::kUserComponentPresetsDirectoryName;
+
+    const InMemoryPreferences prefs;
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(thrustCurves)),
+              std::vector{spelled(thrustCurves)});
+    EXPECT_EQ(prefs.getUserThrustCurveFilesAsString(thrustCurves),
+              QtRocket::pathToUtf8(absolutePath(thrustCurves)));
+    EXPECT_EQ(spelled(prefs.getUserComponentPresetFiles(presets)), std::vector{spelled(presets)});
+    EXPECT_EQ(prefs.getUserComponentPresetFilesAsString(presets),
+              QtRocket::pathToUtf8(absolutePath(presets)));
+    EXPECT_FALSE(std::filesystem::exists(home));
+    EXPECT_TRUE(prefs.empty());
+
+    EXPECT_EQ(Keys::kUserThrustCurvesKey, "UserThrustCurves");
+    EXPECT_EQ(Keys::kUserComponentPresetsKey, "UserComponentPresets");
+    EXPECT_EQ(Preferences::kUserThrustCurvesDirectoryName, "ThrustCurves");
+    EXPECT_EQ(Preferences::kUserComponentPresetsDirectoryName, "Components");
+}
+
+// The probe's "TC set three", "TC set empty" and "TC set null".
+TEST(Preferences, UserThrustCurveFilesAreStoredAbsoluteAndJoinedByBars)
+{
+    const TempDir               directory;
+    const CurrentDirectoryGuard cwd(directory.resolve("cwd"));
+    const std::filesystem::path base     = QtRocket::withoutRedundantSeparators(directory.path());
+    const std::filesystem::path current  = std::filesystem::current_path();
+    const std::filesystem::path fallback = base / "default";
+
+    InMemoryPreferences                      prefs;
+    const ChangeCounter                      counter(prefs);
+    const std::vector<std::filesystem::path> files{
+        base / "data" / "a.eng", std::filesystem::path("rel/dir"),
+        QtRocket::pathFromUtf8(QtRocket::pathToUtf8(base) + "/c//d/")};
+    prefs.setUserThrustCurveFiles(files);
+    const std::vector<std::filesystem::path> absolute{base / "data" / "a.eng",
+                                                      current / "rel" / "dir", base / "c" / "d"};
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), joined(absolute, '|'));
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(fallback)), spelled(absolute));
+    EXPECT_EQ(prefs.getUserThrustCurveFilesAsString(fallback), joined(absolute, ';'));
+
+    // An empty list is the empty text: no file at all, not the default directory.
+    prefs.setUserThrustCurveFiles({});
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), "");
+    EXPECT_EQ(prefs.getUserThrustCurveFiles(fallback), std::vector<std::filesystem::path>{});
+    EXPECT_EQ(prefs.getUserThrustCurveFilesAsString(fallback), "");
+
+    // Java's setUserThrustCurveFiles(null).
+    prefs.resetUserThrustCurveFiles();
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), std::nullopt);
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(fallback)), std::vector{spelled(fallback)});
+
+    // new File("").getAbsolutePath() is the current directory (the probe's "TC set empty path").
+    const std::vector<std::filesystem::path> empty{std::filesystem::path{}};
+    prefs.setUserThrustCurveFiles(empty);
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), QtRocket::pathToUtf8(current));
+
+    // putString() fires no change event.
+    EXPECT_EQ(counter.count(), 0);
+}
+
+// The probe's "TC set bar inside" and "TC set semicolon inside": the separators are not
+// escaped, so a '|' in a path splits it when it is read back, and a ';' when the preferences page
+// reads its text.
+TEST(Preferences, UserFilesAreNotEscaped)
+{
+    const TempDir               directory;
+    const CurrentDirectoryGuard cwd(directory.resolve("cwd"));
+    const std::filesystem::path base     = QtRocket::withoutRedundantSeparators(directory.path());
+    const std::filesystem::path current  = std::filesystem::current_path();
+    const std::filesystem::path fallback = base / "default";
+
+    InMemoryPreferences                      prefs;
+    const std::vector<std::filesystem::path> bar{base / "a|b"};
+    prefs.setUserThrustCurveFiles(bar);
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), QtRocket::pathToUtf8(base / "a|b"));
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(fallback)),
+              (std::vector{spelled(base / "a"), std::string("b")}));
+    EXPECT_EQ(prefs.getUserThrustCurveFilesAsString(fallback),
+              joined({base / "a", current / "b"}, ';'));
+
+    const std::vector<std::filesystem::path> semicolon{base / "x;y"};
+    prefs.setUserThrustCurveFiles(semicolon);
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(fallback)), std::vector{spelled(base / "x;y")});
+    const std::string text = prefs.getUserThrustCurveFilesAsString(fallback);
+    EXPECT_EQ(text, QtRocket::pathToUtf8(base / "x;y"));
+    EXPECT_EQ(spelled(Preferences::parseUserFilesText(text)),
+              (std::vector{spelled(base / "x"), std::string("y")}));
+}
+
+// Stored as UTF-8 on every platform, as the default directory is.
+TEST(Preferences, UserFilesKeepNonAsciiCharacters)
+{
+    const TempDir               directory;
+    const std::filesystem::path base = QtRocket::withoutRedundantSeparators(directory.path());
+    // An accented Latin name and a CJK character, as UTF-8.
+    const std::filesystem::path file =
+        base / QtRocket::pathFromUtf8("\xC3\xA9t\xC3\xA9") / QtRocket::pathFromUtf8("\xE6\x96\x87");
+
+    InMemoryPreferences                      prefs;
+    const std::vector<std::filesystem::path> files{file};
+    prefs.setUserComponentPresetFiles(files);
+    const std::string stored = prefs.get(Keys::kUserComponentPresetsKey).value_or("");
+    EXPECT_TRUE(stored.ends_with("\xC3\xA9t\xC3\xA9/\xE6\x96\x87") ||
+                stored.ends_with("\xC3\xA9t\xC3\xA9\\\xE6\x96\x87"))
+        << stored;
+    EXPECT_EQ(prefs.getUserComponentPresetFiles(base), files);
+}
+
+/// getUserThrustCurveFiles(@p fallback) after storing @p stored, spelled().
+[[nodiscard]] std::vector<std::string> storedThrustCurveFiles(Preferences&                 prefs,
+                                                              std::string_view             stored,
+                                                              const std::filesystem::path& fallback)
+{
+    prefs.put(Keys::kUserThrustCurvesKey, stored);
+    return spelled(prefs.getUserThrustCurveFiles(fallback));
+}
+
+// The probe's raw stored texts: each part trimmed as String.trim() does, the empty ones skipped,
+// each normalised as new File() does; the getters make nothing absolute.
+TEST(Preferences, StoredUserFilesAreTrimmedAndNormalised)
+{
+    const TempDir               directory;
+    const CurrentDirectoryGuard cwd(directory.resolve("cwd"));
+    const std::filesystem::path fallback = directory.resolve("default");
+
+    InMemoryPreferences prefs;
+    using Texts = std::vector<std::string>;
+    EXPECT_EQ(storedThrustCurveFiles(prefs, " /a | |/b/ |", fallback), (Texts{"/a", "/b"}));
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "|||", fallback), Texts{});
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "", fallback), Texts{});
+    EXPECT_EQ(storedThrustCurveFiles(prefs, " ", fallback), Texts{});
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "\t/x\x01|  ", fallback), Texts{"/x"});
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "/a;/b", fallback), Texts{"/a;/b"});
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "/ /lead|/trail ", fallback),
+              (Texts{"/ /lead", "/trail"}));
+    EXPECT_EQ(storedThrustCurveFiles(prefs, "rel", fallback), Texts{"rel"});
+    EXPECT_EQ(prefs.getUserThrustCurveFilesAsString(fallback),
+              QtRocket::pathToUtf8(std::filesystem::current_path() / "rel"));
+}
+
+// GeneralPreferencesPanel's DocumentListener: the text split at ';'.
+TEST(Preferences, ParseUserFilesTextSplitsAtSemicolons)
+{
+    using Texts = std::vector<std::string>;
+    EXPECT_EQ(spelled(Preferences::parseUserFilesText(" /x ; ;/y/ ")), (Texts{"/x", "/y"}));
+    EXPECT_EQ(spelled(Preferences::parseUserFilesText("")), Texts{});
+    EXPECT_EQ(spelled(Preferences::parseUserFilesText(";;")), Texts{});
+    EXPECT_EQ(spelled(Preferences::parseUserFilesText("a|b; c//d")), (Texts{"a|b", "c/d"}));
+}
+
+// The probe's "CP set two", "CP set empty" and "CP set null": the same rules, under a key of
+// their own.
+TEST(Preferences, UserComponentPresetFilesHaveAKeyOfTheirOwn)
+{
+    const TempDir               directory;
+    const CurrentDirectoryGuard cwd(directory.resolve("cwd"));
+    const std::filesystem::path base     = QtRocket::withoutRedundantSeparators(directory.path());
+    const std::filesystem::path current  = std::filesystem::current_path();
+    const std::filesystem::path fallback = base / "Components";
+
+    InMemoryPreferences                      prefs;
+    const std::vector<std::filesystem::path> two{base / "presets" / "one.orc",
+                                                 std::filesystem::path("more")};
+    prefs.setUserComponentPresetFiles(two);
+    const std::vector<std::filesystem::path> absolute{base / "presets" / "one.orc",
+                                                      current / "more"};
+    EXPECT_EQ(prefs.get(Keys::kUserComponentPresetsKey), joined(absolute, '|'));
+    EXPECT_EQ(prefs.getUserComponentPresetFilesAsString(fallback), joined(absolute, ';'));
+    EXPECT_EQ(prefs.get(Keys::kUserThrustCurvesKey), std::nullopt);
+    EXPECT_EQ(spelled(prefs.getUserThrustCurveFiles(base)), std::vector{spelled(base)});
+
+    prefs.setUserComponentPresetFiles({});
+    EXPECT_EQ(prefs.get(Keys::kUserComponentPresetsKey), "");
+    EXPECT_EQ(prefs.getUserComponentPresetFiles(fallback), std::vector<std::filesystem::path>{});
+
+    prefs.resetUserComponentPresetFiles();
+    EXPECT_EQ(prefs.get(Keys::kUserComponentPresetsKey), std::nullopt);
+    EXPECT_EQ(prefs.getUserComponentPresetFilesAsString(fallback), QtRocket::pathToUtf8(fallback));
 }
 
 TEST(Preferences, PlainSettersStoreWithoutEmitting)

@@ -30,6 +30,7 @@ class DecalImage;
 class FlightConfiguration;
 class FlightConfigurationId;
 class FlightDataType;
+class Preferences;
 class Rocket;
 class RocketComponent;
 class Simulation;
@@ -298,6 +299,30 @@ public:
     /// The selected configuration of the rocket.
     [[nodiscard]] FlightConfiguration&       getSelectedConfiguration();
     [[nodiscard]] const FlightConfiguration& getSelectedConfiguration() const;
+
+    /// Gives every flight configuration that has no name of its own
+    /// (FlightConfiguration::getStoredName() is nullopt) the default name of @p preferences
+    /// (Preferences::getDefaultFlightConfigName()) as its name: the configurations of the rocket,
+    /// the default one among them, and those of every state of the undo history, the redo states
+    /// included. Call it for every open document right before the default name changes ("Save as
+    /// default" of the rename dialog, Preferences::setDefaultFlightConfigName(); a reset of all
+    /// preferences), so that the existing configurations keep the name they show and only those
+    /// made afterwards take the new default, before and after an undo or a redo, as in OpenRocket.
+    /// Java stores the default name in every FlightConfiguration it constructs (an undo state is
+    /// a copy of the rocket, so its configurations hold the name of their time too); QtRocket's
+    /// FlightConfiguration looks the default up when it is asked (see its class comment), so the
+    /// names are pinned here instead (decision O-M3-7 of Milestone 3).
+    ///
+    /// It changes nothing a user sees and nothing else: no event is emitted, the document stays
+    /// saved or unsaved and clean or dirty as it was, the undo history keeps its states and
+    /// descriptions. A configuration so named is overridden once the default has changed
+    /// (FlightConfiguration::isNameOverridden()), so a save writes its name, as Java's does.
+    ///
+    /// Deviations from OpenRocket: an empty default name cannot be stored
+    /// (FlightConfiguration::setName() takes "" for the default), so with an empty default the
+    /// configurations go on following the preference, where Java keeps "". The name of the error
+    /// id's configuration, which no rocket holds, cannot be set either.
+    void pinFlightConfigurationNames(const Preferences& preferences);
 
     // ------------------------------------------------------------------------ the file
 

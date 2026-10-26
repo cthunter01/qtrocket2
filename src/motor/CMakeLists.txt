@@ -1,11 +1,24 @@
 target_sources(QtRocket_core PRIVATE
     CaseInfo.cpp
+    chooser/ImpulseClass.cpp
+    chooser/MotorClass.cpp
+    chooser/MotorFilterSliders.cpp
+    chooser/MotorHolder.cpp
+    chooser/MotorRowFilter.cpp
+    chooser/MotorSimilarityCache.cpp
+    chooser/MotorTableSorter.cpp
+    chooser/ThrustCurveMotorColumns.cpp
+    chooser/ThrustCurveMotorComparator.cpp
+    chooser/ThrustCurveMotorDatabaseModel.cpp
+    chooser/ThrustCurveMotorSelection.cpp
     DesignationComparator.cpp
     IgnitionEvent.cpp
     Manufacturer.cpp
     Motor.cpp
     MotorConfigurationId.cpp
+    MotorCorrelation.cpp
     MotorDigest.cpp
+    MotorPreferences.cpp
     SqliteMotorDatabaseReader.cpp
     ThrustCurveMotor.cpp
     ThrustCurveMotorSet.cpp
