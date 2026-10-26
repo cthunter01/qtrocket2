@@ -4,6 +4,7 @@ target_sources(QtRocket_core PRIVATE
     ComponentCopy.cpp
     DecalImage.cpp
     DecalRegistry.cpp
+    MotorChooserInput.cpp
     OpenRocketDocument.cpp
     OpenRocketDocumentFactory.cpp
     StorageOptions.cpp

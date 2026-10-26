@@ -7,6 +7,8 @@
 #
 # The families (all of them when none is named):
 #   correlation   tests/core/motor/MotorCorrelationPins.h
+#   chooser       tests/core/motor/chooser/MotorChooserPins.h (OpenRocket's real Swing selection panel, headless;
+#                 Linux only, see below)
 #
 # Every table is written into the work directory first and compared with the committed file byte for byte: an
 # equal table leaves the committed file as it is, another one replaces it. The probes print the same on every
@@ -20,11 +22,13 @@
 #   OPENROCKET_CLASSPATH  the runtime class path of OpenRocket's core module (its compiled classes and
 #                         resources and the jars of its dependencies; the swing module's class path, which
 #                         holds it, does as well), built from the checkout's HEAD (its build.properties says
-#                         which commit). When it is not set, the script runs:
-#                           1. ./gradlew :core:classes in the checkout (incremental: the classes match the
+#                         which commit); the chooser family needs the swing module's. When it is not set, the
+#                         script runs, for the module the families need (core, or swing for chooser):
+#                           1. ./gradlew :<module>:classes in the checkout (incremental: the classes match the
 #                              checked-out sources)
-#                           2. ./gradlew --init-script <tmp> :core:qtrocketPrintRuntimeClasspath (a task defined
-#                              only in a temporary init script; OpenRocket's build files are not changed)
+#                           2. ./gradlew --init-script <tmp> :<module>:qtrocketPrintRuntimeClasspath (a task
+#                              defined only in a temporary init script; OpenRocket's build files are not
+#                              changed)
 #   CLANG_FORMAT          the clang-format executable (default: clang-format on PATH)
 #   ALLOW_DIRTY=1         accept an OpenRocket checkout with modified tracked files
 #   ALLOW_OTHER_COMMIT=1  accept a checkout at another commit than the manifest's, or classes built from
@@ -35,10 +39,14 @@
 #
 # Requires python3 and clang-format (the generators format what they write with the repository's
 # .clang-format). The probes read data/motors/initial_motors.db, the database the tests read (OpenRocket's
-# bundled one, byte for byte), and nothing of the user's: they keep no preferences.
+# bundled one, byte for byte), and nothing of the user's: each runs with a home directory and a
+# java.util.prefs store of its own in the work directory. The chooser probe keeps OpenRocket's preferences
+# there (SwingPreferences), which only Linux's java.util.prefs implementation reads from that place: it runs
+# on Linux only (elsewhere it would clear the user's own OpenRocket preferences), as
+# tools/openrocket-gui-pins does.
 set -euo pipefail
 
-all_families=(correlation)
+all_families=(correlation chooser)
 
 check=false
 families=()
@@ -56,6 +64,21 @@ if ((${#families[@]} == 0)); then
     families=("${all_families[@]}")
 fi
 
+# The chooser probe needs OpenRocket's Swing classes and its preferences store isolated (see above).
+needs_swing=false
+if [[ " ${families[*]} " == *" chooser "* ]]; then
+    needs_swing=true
+    if [[ "$(uname -s)" != Linux ]]; then
+        echo "error: the chooser probe runs on Linux only: $(uname -s) ignores java.util.prefs.userRoot, and" \
+            "it would clear your own OpenRocket preferences" >&2
+        exit 1
+    fi
+fi
+module=core
+if [[ "${needs_swing}" == true ]]; then
+    module=swing
+fi
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "${here}/../.." && pwd)"
 # The main working tree of the QtRocket repository (a worktree's common git directory is the main one's .git).
@@ -67,6 +90,10 @@ javac="${JAVAC:-javac}"
 clang_format="${CLANG_FORMAT:-clang-format}"
 export CLANG_FORMAT="${clang_format}"
 motors="${repo}/data/motors/initial_motors.db"
+custom_motor="${repo}/tests/data/motors/test1.eng"
+services="${openrocket}/core/src/test/java/info/openrocket/core/ServicesForTesting.java"
+swing_services="${openrocket}/swing/src/test/java/info/openrocket/swing/ServicesForTesting.java"
+uuids="${repo}/tools/openrocket-gui-pins/shared/probe/DeterministicUuids.java"
 
 if [[ ! -f "${openrocket}/core/src/main/java/info/openrocket/core/utils/MotorCorrelation.java" ]]; then
     echo "error: ${openrocket} is not an OpenRocket checkout (set OPENROCKET_DIR)" >&2
@@ -123,11 +150,11 @@ mkdir -p "${out}"
 
 classpath="${OPENROCKET_CLASSPATH:-}"
 if [[ -z "${classpath}" ]]; then
-    (cd "${openrocket}" && ./gradlew -q :core:classes)
-    cat > "${work}/classpath.init.gradle" <<'GRADLE'
+    (cd "${openrocket}" && ./gradlew -q ":${module}:classes")
+    sed "s/@MODULE@/${module}/" > "${work}/classpath.init.gradle" <<'GRADLE'
 allprojects {
     afterEvaluate { project ->
-        if (project.path == ':core') {
+        if (project.path == ':@MODULE@') {
             project.tasks.register('qtrocketPrintRuntimeClasspath') {
                 def classpath = project.sourceSets.main.runtimeClasspath
                 doLast {
@@ -139,9 +166,9 @@ allprojects {
 }
 GRADLE
     classpath="$("${openrocket}/gradlew" -p "${openrocket}" -q --init-script "${work}/classpath.init.gradle" \
-        :core:qtrocketPrintRuntimeClasspath | sed -n 's/^QTROCKET_CP=//p')"
+        ":${module}:qtrocketPrintRuntimeClasspath" | sed -n 's/^QTROCKET_CP=//p')"
     if [[ -z "${classpath}" ]]; then
-        echo "error: could not get OpenRocket's core runtime classpath from Gradle" >&2
+        echo "error: could not get OpenRocket's ${module} runtime classpath from Gradle" >&2
         exit 1
     fi
 fi
@@ -163,8 +190,10 @@ if [[ "${build_hash}" == "${build_version}" || ! "${build_hash}" =~ ^[0-9a-f]{7,
 fi
 
 # Runs the probe of a family headless, its transcript (standard output) into ${work}/<class>.txt, its log
-# (OpenRocket's warnings and errors) into ${work}/<class>.log.
-#   run_probe <family> <class> [<argument>...]
+# (OpenRocket's warnings and errors) into ${work}/<class>.log. The family's probe/*.java are compiled with
+# the sources in the array extra_sources (OpenRocket's test bootstrap classes, compiled from its test
+# sources, not copied, and the seeded UUIDs of tools/openrocket-gui-pins).
+#   extra_sources=(<source>...); run_probe <family> <class> [<argument>...]
 run_probe() {
     local family="$1" class="$2"
     shift 2
@@ -172,16 +201,20 @@ run_probe() {
     rm -rf "${work}/classes/${family}"
     mkdir -p "${work}/classes/${family}"
     "${javac}" --release 17 -encoding UTF-8 -nowarn -proc:none -cp "${classpath}" \
-        -d "${work}/classes/${family}" "${here}/${family}"/probe/*.java 2> "${work}/${class}.javac.log" || {
+        -d "${work}/classes/${family}" ${extra_sources[@]+"${extra_sources[@]}"} "${here}/${family}"/probe/*.java \
+        2> "${work}/${class}.javac.log" || {
         cat "${work}/${class}.javac.log" >&2
         exit 1
     }
-    # A fixed locale, time zone and encoding; SQLite's native library and every other temporary file in the
-    # work directory; no display.
-    rm -rf "${work}/tmp"
-    mkdir -p "${work}/tmp"
+    # A fixed locale, time zone and encoding; a fresh home directory and java.util.prefs store (OpenRocket's
+    # preferences at their defaults, nothing written to the user's home); SQLite's native library and every
+    # other temporary file in the work directory; no display.
+    rm -rf "${work}/tmp" "${work}/prefs" "${work}/home"
+    mkdir -p "${work}/tmp" "${work}/prefs" "${work}/home"
     env -u DISPLAY -u WAYLAND_DISPLAY "${java}" -Xmx2g -Djava.awt.headless=true \
         -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
+        -Duser.home="${work}/home" \
+        -Djava.util.prefs.userRoot="${work}/prefs" -Djava.util.prefs.systemRoot="${work}/prefs" \
         -Djava.io.tmpdir="${work}/tmp" -Dorg.sqlite.tmpdir="${work}/tmp" \
         -Dlogback.configurationFile="${repo}/tools/openrocket-gui-pins/logback.xml" \
         -cp "${work}/classes/${family}:${classpath}" "probe.${class}" "$@" \
@@ -216,9 +249,18 @@ status=0
 for family in "${families[@]}"; do
     case "${family}" in
     correlation)
+        extra_sources=()
         run_probe "${family}" MotorCorrelationProbe "${motors}"
         file=tests/core/motor/MotorCorrelationPins.h
         python3 -I "${here}/${family}/gen_motor_correlation_pins.py" "${work}/MotorCorrelationProbe.txt" \
+            "${out}/$(basename "${file}")" "${commit}"
+        finish "${file}"
+        ;;
+    chooser)
+        extra_sources=("${services}" "${swing_services}" "${uuids}")
+        run_probe "${family}" MotorChooserProbe "${motors}" "${custom_motor}"
+        file=tests/core/motor/chooser/MotorChooserPins.h
+        python3 -I "${here}/${family}/gen_motor_chooser_pins.py" "${work}/MotorChooserProbe.txt" \
             "${out}/$(basename "${file}")" "${commit}"
         finish "${file}"
         ;;

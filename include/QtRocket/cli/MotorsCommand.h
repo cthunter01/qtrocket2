@@ -51,9 +51,11 @@ public:
     /// ExitCode::LOAD; the motors that were read are listed all the same.
     [[nodiscard]] static ExitCode load(std::string_view file, CliOutput& output);
 
-    /// The words of @p text (MotorRowFilter.setSearchTerms() of text.trim().split("\\s+")): split
-    /// at runs of Java regex whitespace (space, tab, line feed, vertical tab, form feed,
-    /// carriage return), empty words left out, each case-folded (Strings::javaCaseFold()).
+    /// The words of @p text as the motor chooser's search field makes them
+    /// (MotorRowFilter::searchTerms(), MotorRowFilter.setSearchTerms() of
+    /// text.trim().split("\\s+")): @p text trimmed (String.trim), split at runs of Java regex
+    /// whitespace (space, tab, line feed, vertical tab, form feed, carriage return), each word
+    /// trimmed and case-folded (Strings::javaCaseFold()), the empty ones left out.
     [[nodiscard]] static std::vector<std::string> searchTerms(std::string_view text);
 
     /// Whether every one of @p terms (from searchTerms()) is contained in one of the texts of

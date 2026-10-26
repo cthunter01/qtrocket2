@@ -114,6 +114,18 @@ add_executable(QtRocket_core_tests
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
     motor/CaseInfoTests.cpp
+    motor/chooser/ImpulseClassTests.cpp
+    motor/chooser/motor_chooser_golden_tests.cpp
+    motor/chooser/MotorClassTests.cpp
+    motor/chooser/MotorFilterSlidersTests.cpp
+    motor/chooser/MotorHolderTests.cpp
+    motor/chooser/MotorRowFilterTests.cpp
+    motor/chooser/MotorSimilarityCacheTests.cpp
+    motor/chooser/MotorTableSorterTests.cpp
+    motor/chooser/ThrustCurveMotorColumnsTests.cpp
+    motor/chooser/ThrustCurveMotorComparatorTests.cpp
+    motor/chooser/ThrustCurveMotorDatabaseModelTests.cpp
+    motor/chooser/ThrustCurveMotorSelectionTests.cpp
     motor/DesignationComparatorTests.cpp
     motor/IgnitionEventTests.cpp
     motor/ManufacturerTests.cpp
@@ -304,6 +316,7 @@ add_executable(QtRocket_core_tests
     document/DecalImageTests.cpp
     document/DecalRegistryTests.cpp
     document/events/DocumentChangeEventTests.cpp
+    document/MotorChooserInputTests.cpp
     document/open_rocket_document_material_tests.cpp
     document/open_rocket_document_preferences_tests.cpp
     document/open_rocket_document_simulation_undo_redo_tests.cpp

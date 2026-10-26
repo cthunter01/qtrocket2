@@ -20,6 +20,7 @@
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/motor/chooser/ThrustCurveMotorSelection.h"
 #include "QtRocket/util/BugError.h"
 #include "goldens/GoldenData.h"
 #include "motor/MotorCorrelationPins.h"
@@ -48,7 +49,8 @@ constexpr double kEpsilon = 1e-9;
 
 /// ThrustCurveMotorSelectionPanel.MOTOR_SIMILARITY_THRESHOLD: "Hide very similar thrust curves"
 /// keeps a curve whose similarity with the selected one is below it.
-constexpr double kMotorSimilarityThreshold = 0.95;
+constexpr double kMotorSimilarityThreshold =
+    QtRocket::ThrustCurveMotorSelection::kMotorSimilarityThreshold;
 
 /// MotorCorrelationTest's StubMotor: a motor whose thrust is a function of the time and whose
 /// estimates are given; everything else is a constant.
