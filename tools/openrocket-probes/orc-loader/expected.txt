@@ -1,0 +1,1375 @@
+== 01 baseline
+document 664 bytes, sha256 70a5f89fda7646349bebde4fb8d1a6cc620a97360bb654d70977f987f1d1da43
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 02 unknown element in component
+document 682 bytes, sha256 c14dfbd8cb66d5365ab720d83406bd3274982d95a3f10bcc5ef372d8fe7742d2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 03 unknown component kind
+document 715 bytes, sha256 a8a18fe216a8df4fed70c95deb14d0ce37c40dc0489f7305af66b6d182d422e2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 04 missing Length
+document 633 bytes, sha256 edfb7b2728ab8961c2e14053cc34a53fd4a63ab2a6971f6954388e56ebbcba27
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.length" is null
+== 05 missing Manufacturer
+document 560 bytes, sha256 70099c09cd2179b8847fa239927be9b3c80aebc24ffca41836117bbb6df1b9e7
+THROWS java.lang.NullPointerException: Cannot invoke "String.toLowerCase(java.util.Locale)" because "str" is null
+== 06 missing PartNumber
+document 565 bytes, sha256 48adbd2a8c298b04f532d2cc001d3a65d5cfcb2abc58d28532e6fbe6c92fa488
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=<null>; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6e1fe145dba9cf82d0d6fe227aaee0a7
+== 07 bad number abc
+document 663 bytes, sha256 0f735a99dc9c8f88686767d3384d71f3d29ba4e15778f333a71e1429c69603ea
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== 08 empty number
+document 660 bytes, sha256 f23f028a4d6d36d46309ef3e56557c466d37f4189ace2b29e553a83e8e65c2d6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== 09 number with spaces
+document 668 bytes, sha256 e6136208ff22179940766afe98a32d709ac9ca0a495a1b4c2219b44be3e99b71
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 10 number 1.8e1
+document 665 bytes, sha256 b88464a5de300f2f266c854aeb969c0812765de623b4815ddf9a0fef305c0524
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 11 number +18
+document 663 bytes, sha256 6395d4b93e7df5da73ad5edfb218e70ea855ad57f880d88bb095bd55977babfa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 12 number NaN
+document 663 bytes, sha256 1fdae6f4db92dfbd956b1d3908adf4f6b5be8c9065b7cd4471e56e1d33930413
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=NaN; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=7f8e6bd172e3b16e411fcd6577f7eb9a
+== 13 number INF
+document 663 bytes, sha256 4ba5fbdaa0ccc6447b8531e7cb522a714a0101dfdbd9550e00bc3a487facfe2f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9893c54119b87d977917ae08da2f3a5a
+== 14 number Infinity
+document 668 bytes, sha256 989e4f934fbb0db30f1a80917b5b06ae4c4dd52258c53c40cc1e0fbe2244ca2a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== 15 number 18d
+document 663 bytes, sha256 cf859eaf9c20c2ed798c7fb8733c87170e2099250f91bd7ecf14050c06861129
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== 16 number 0x12p0
+document 666 bytes, sha256 baab082da71154806e68b462be75197e474f6a3abdd46bb2dff9fcc3f05aab99
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 17 number 18,0
+document 664 bytes, sha256 3c525785a1c663dcd631a14d6069a3a1e968159d9ee03c8182e2bf4891875ea9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== 18 number .5
+document 662 bytes, sha256 1d3a39460231992c2124693e3352a58d2c49f2c14533bd7a5648cdca943a1f58
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0127; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=a75959542b6d25a662703a42e6bd996d
+== 19 number -0
+document 662 bytes, sha256 4838f3270c69ae41d79b33b44bcfcceaaa3861f750ef958f73a28b76fd9807ca
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=-0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=d5dc9346e19ce2131dcf0b4e40f9c766
+== 20 unknown Unit
+document 669 bytes, sha256 2e8147f7b2bae77ab58c98b70422a91c81a9acbb7aba27c12dbe31d279e1d31b
+THROWS java.lang.IllegalArgumentException: name=furlong
+== 21 no Unit attribute
+document 654 bytes, sha256 8b47e1336b04f1e00ba2c8c6bf1b8ae0c151158169ad720b9ab759677284686d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== 22 Unit in/64
+document 667 bytes, sha256 2c5d472de45f608ae193ba79faa6fedcd24634c13fd83cdd5203f7c135407371
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 23 Unit ft
+document 664 bytes, sha256 1a05f9dba903e45fe3056a91cb5d795c0af432cc985b126890f43ef233ec9d20
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=5.486400000000001; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=d2668ba2878241eb834e83dcf1d86460
+== 24 Unit with space
+document 665 bytes, sha256 33fb3eda588b2c05ea6750c3a5314cb9a2f59948b208548a7fc1c5ccc257aeb2
+THROWS java.lang.IllegalArgumentException: name= in
+== 25 two Length elements
+document 695 bytes, sha256 f269c11808aabcc681a63d9571bb2856b6ad6bdc9f981ce81f30c458c0fa32d1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.508; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=805b055d1f5476804dbf23bc298f8214
+== 26 material not in section
+document 666 bytes, sha256 bf8e571e1d48f1133b23595f8ad73218a6166b2ac78cedee6321e6eb73a197f8
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Unobtainium' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== 27 material bad Type
+document 663 bytes, sha256 77cb4734930ff2be26ca57a894e0abc45b6edf6ed8e6324dd1f0d7533b268b57
+THROWS java.lang.IllegalArgumentException: Invalid material type FOO specified for Component
+== 28 material no Type
+document 652 bytes, sha256 2695bbc2abc36f0775c8fbf7a64e10aa3237f47f382c23eb97f4a8f6329e325a
+THROWS java.lang.IllegalArgumentException: Invalid material type null specified for Component
+== 29 material g/cm3 section
+document 665 bytes, sha256 003251b656ebfa1c01f53fd0ff90418c7f0abe4c170f1bf6ee1874c884491591
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Paper test' 800.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=f9abefe80b9ef1eb37a60c38b0728689
+== 30 material name with spaces
+document 666 bytes, sha256 5b9defd1a777cc90b374e6e9edc77b6af75f173ea123009a0e3dd7a11ad2c731
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 31 no Material
+document 622 bytes, sha256 5a158e556de0df4592a9209603aa824d772e8fb87ac406271a3e0f256720679e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=dc56ba2a478295eecb6dbefb922099ab
+== 32 Mass in g
+document 688 bytes, sha256 28fdb82d55a99f35618e2c09f9c6e8d577adbb839c206b597819ad6ed0b11e50
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 861.9991407417643 shear 0.0 Custom user]; Mass=0.01; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=7117d447de7276b615c78c205225181c
+== 33 Mass unknown unit
+document 692 bytes, sha256 9af7736ae7fa6bc8288b0a84ebfa63a78acae15ca6f3e71b54ae7e4e881448b4
+THROWS java.lang.IllegalArgumentException: name=stone
+== 34 wrong root
+document 374 bytes, sha256 8239b4f3e5cc1459af6a8bcd05294b718c50dd4f10cce1b894658f358f72068d
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 35 malformed
+document 371 bytes, sha256 745543c5ee116d2fca7a9a504031bdb8fb2212968cf9420f9201b5a9734df5cf
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 36 empty
+document 0 bytes, sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 37 namespace root
+document 420 bytes, sha256 d56b588b91cfe02e44b5890669d25ada2bd828926b2e1575a9d1727121e0f247
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 38 no Version
+document 642 bytes, sha256 c92df6c6462b2ad824e6e3677adcfed78d79dab40b3d42479fabe9520acb0451
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 39 Version 9.9
+document 664 bytes, sha256 eb07fdef03b57464c647f0084371a73b3056cc9d6224f7fc20e573210eba6849
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 40 Legacy element
+document 683 bytes, sha256 25c436e2c7fbc85d62e152b2af2875c922d5ca1c1d1162713e8755c6b603952c
+OK 1 presets
+  Legacy=true; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 41 no Components
+document 357 bytes, sha256 a9f960b1d229176c4a706066f7087099ed59bd6501a1ef3b679266c63bc9f50a
+OK 0 presets
+== 42 components outside wrapper
+document 381 bytes, sha256 ff1b3c13cfb9a8eae689e5cacf43f5a7bd14b7dfb409205931e216a78713a3b9
+OK 0 presets
+== 43 two Components wrappers
+document 713 bytes, sha256 5a8232fc94a38e84d03a69deb7665dd08369b8a91ce2a93651cf82b7f8abd5a2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-Y; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=7267980a8c6635ef22ab5b5063eef2f4
+== 44 material section bad uom
+document 665 bytes, sha256 da563dd66bdc8868a2d6fff7aad56cba92e21a121f621d445db5debf30470448
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 45 material section bad density
+document 660 bytes, sha256 77ed5a66d4061c8b745d8e6f758dc98462be68239bc5836ec1bda8ba2271c597
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== 46 material section no uom
+document 641 bytes, sha256 5912fe81b799395cacc085da57b70bad9b473cec265295bfb314b7c4fa53563d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 47 material section Group
+document 704 bytes, sha256 eb08de93a469be23e7490aba2be4207faf65d9244b1f7b2690071dad883fa23a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 48 material section bad Group
+document 704 bytes, sha256 047dbb19e22e0ad7b7536d317e713fdaae5f343478cf01d085912dd686962bb8
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 49 material section bad Type
+document 664 bytes, sha256 8972f4608fb2d3f168dae4fbd56895b83c37e05371065162288089deea919999
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.MaterialTypeDTO.name()" because the return value of "info.openrocket.core.preset.xml.MaterialDTO.getType()" is null
+== 50 Filled yes
+document 544 bytes, sha256 41fd7b75571bb253edb754f3f0211a0436e40ab5519c0eb65340f6c247ed1709
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== 51 Filled 1
+document 542 bytes, sha256 2ffcc1c9e0c13b64743805e4e7ae41e7f07b6ec1833b34eb32d0d1982042d843
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== 52 Filled TRUE
+document 545 bytes, sha256 333fa96d64a4440f7996863306a12d96d667dc0ded6b0a30e8ac08830cc31c93
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== 53 parachute baseline
+document 711 bytes, sha256 d2865ea6b3d95318176432103a23b4bb9081c7aab17366e8bacd06db31c4d4ad
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=a657bb6f2c87ca026839fe4f148dbb64
+== 54 parachute no LineCount
+document 687 bytes, sha256 2bc23f9f027183d7cb85b58ea611d99dae3579aa3f7ead9b39937ebf5467c56f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=<null>; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=a657bb6f2c87ca026839fe4f148dbb64
+== 55 parachute LineCount 6.0
+document 713 bytes, sha256 23f030c32c18b9160c607207220771a87acef2f7ef14e0cad7b0c14f0c72a13c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=<null>; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=a657bb6f2c87ca026839fe4f148dbb64
+== 56 parachute LineCount abc
+document 713 bytes, sha256 98f73cc4c1162302b8f2bb0ef6fb4e9ffafc82d3cec5504ae2abbd128c1c7609
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=<null>; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=a657bb6f2c87ca026839fe4f148dbb64
+== 57 parachute no LineLength
+document 674 bytes, sha256 d066bd11779af1de357e3bccf20875877b3e5f86bcaa9292a00fa7ee3323a256
+THROWS java.io.IOException: Unable to parse component preset file: case.orc
+  cause info.openrocket.core.preset.InvalidComponentPresetException: Invalid preset specification.
+== 58 parachute DragCoefficient Unit in
+document 759 bytes, sha256 d31159435ecfe4806de02f34ad347b646e5171eba9514ef5252f91f48fb3a207
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; DragCoefficient=0.02032; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=b43376e5721121aad391c4d12f51338c
+== 59 parachute line material BULK
+document 707 bytes, sha256 0cab81211fd7004708818c3d8d74b39b639da07613217840e696e7f5d954cb8a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; digest=910396083f4698d6a3e7b4e5f9e689ea
+== 60 parachute canopy BULK
+document 704 bytes, sha256 b86ade4a95b259e80ec00c6950c860b6da495bd8a01733135e0311e7aa4f2f6b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Description=chute; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Carpet Thread' 0.0 shear 0.0 Other user]; digest=82a9222cede2b28175aae2c21c231b85
+== 61 nose cone bad shape
+document 665 bytes, sha256 8c2042d52f8d1632ce86fc523e331a44c048ddaeb89a4c9b163a8c136ffbea0e
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== 62 nose cone shape lowercase
+document 665 bytes, sha256 f429922f52b2a0bcc5a83d8510c2eea74be7997501e9818e1355ec98fc27cdd6
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== 63 nose cone no shoulder
+document 603 bytes, sha256 674e0f846611122342c634e51c00d260c8421b33b96d3cbf9ee65f8208d1f062
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 2738.3331024360555 shear 0.0 Custom user]; Mass=0.01; Shape=Ogive; AftOuterDiameter=0.02; Length=0.05; Type=NOSE_CONE; digest=fe42923918d613480bf01b5973bfe520
+== 64 transition no fore shoulder
+document 736 bytes, sha256 8adae79fcc573aa1941f3d10ea8089d169735eab7417ee39e624edb117d1c156
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.foreShoulderDiameter" is null
+== 65 streamer no thickness
+document 550 bytes, sha256 ca01b4126b65ac98858e44d897888017fd668d1a68c3ce08a707fbf9d1bad9f9
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.thickness" is null
+== 66 rail button no NutMass
+document 726 bytes, sha256 247b5af5911acd5824bceccc42f148a5efee75ba2d813b24c62a3c88dff5ce47
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedMassDTO.getValue()" because "this.nutMass" is null
+== 67 tube no OD and no ID
+document 484 bytes, sha256 8c39c55de796aed70d1c5be11006e1ba6e40b302f122b74872a8634519791d7d
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.insideDiameter" is null
+== 68 element order reversed
+document 636 bytes, sha256 125210d4b0113da32718d519dcf2eb25a418b40f75ccdc02a07fe5fe370067ad
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=b1227727dcbcf858fef8d5ddf5bbb34e
+== 69 CDATA and comment in number
+document 686 bytes, sha256 e96d8d0172f64c0ca23cce6983ddbd53004b438d627d4156dbc7f1b3076f8bfe
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4699; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9cb2433c7f787148bb8484f2fea22a80
+== 70 attribute with namespace prefix
+document 682 bytes, sha256 ad0440ba1285db4fcca4c8c80ec643020f4b71467c5541018ea17d7a306d5428
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== 71 element in other namespace
+document 703 bytes, sha256 a021073120e4a220c6bbd6aaaa4d7488f5e95c7199b1991e9abeb1fda82b0887
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 72 DOCTYPE with entity
+document 460 bytes, sha256 42e717b41f114d9304d9445a0db02a77e69ad7526f5ffbc9a3c83920ab0742e5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 73 Manufacturer with spaces
+document 668 bytes, sha256 44cd79542e08ba6cb9ef346488db71bae06359d0faf6bd9a12723728d1b603e9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 74 same preset twice
+document 946 bytes, sha256 12ec408a5a2cbe9d7f779f062a745f689744b84299723389eb769af79e2dbc42
+OK 2 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 75 thumbnail
+document 695 bytes, sha256 bdb8dd8cdf88e91494513524aee5e21a2217d2cc6d46a4051c62b5a81bb95dac
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes5:68656c6c6f; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== 76 thumbnail bad base64
+document 690 bytes, sha256 9d97a692081107ace7d95aa72d06ceeccb357aef06a140c9ef1daf1d6baeaa14
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 77 version attribute on root
+document 676 bytes, sha256 143667bd2df5feb822aa52f253947658b144a20978439cad274a83030152aefa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== 78 utf8 BOM
+document 667 bytes, sha256 79284746dca0aae58b24aede8ef5f09113dd65545245e115f033c425f325904f
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== 79 negative length
+document 665 bytes, sha256 11f20a66948888aa0037741dbc165424bc54f0a684ff8f827abc6c9873858c21
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=-0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=d9871327698cc4cc3f1d3f5f35e7fc13
+== 80 huge exponent
+document 665 bytes, sha256 b8ac28499ec6cf729d664c1c777c4800f6260a15e267208e7e738afeb9acf11f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9893c54119b87d977917ae08da2f3a5a
+== 81 latin1 bytes in name (invalid UTF-8)
+document 667 bytes, sha256 7773b3302d18d5564f83b6cb0afa9d21b07a004e583dc56a675eb316b034676e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=caf�; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=5aec841c8238d6a6e2b0a8e603ea7f8a
+== 82 UTF-16 document
+document 1332 bytes, sha256 86a5a8cec7353f2b2d24873a36461b2458e8f88cf38a7cf28dea02a0da566721
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== N00 double [18]
+document 661 bytes, sha256 e2085ac9317c04df2a29ba12069e879c411e2e91390690bbbb535b30c75fb616
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N01 double [18.]
+document 662 bytes, sha256 d09a699a3c1a14347cc1d1c8d19fa73c7051e5ec49393b93670f3825abe02279
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N02 double [1.8E1]
+document 664 bytes, sha256 f8737bdb2432d452d6a977749658365d148f89be25852db7423b34ef3051ff88
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N03 double [1.8e+1]
+document 665 bytes, sha256 8c22bc5e7f5b3fbb95eb6678a41d1738f529f97dfebf618dedd3b52737d0d324
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N04 double [0x1.2p4]
+document 666 bytes, sha256 5830055f3271fef9822d8b9dc8d38da7ac5797d1b13c6d50c25ac7e596f32241
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N05 double [0X12]
+document 663 bytes, sha256 d9e1b6fe3fba2b376db56c69b5c1519b98b5b16c5fc593b56b934651408ceb32
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N06 double [18f]
+document 662 bytes, sha256 630a77fa96e933620c8c8c6640fc33eeaeca43c2c21944152fd8ae8921283f68
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N07 double [18 ]
+document 662 bytes, sha256 ebdbf2a0b91e77cc161574d9b871b52f3913fc5bea8fefa01e147b5b029bbcd4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N08 double [\t18\n]
+document 663 bytes, sha256 ab2f33eb46eeb69e868b1489c270aa848e49f5a261f7ce79c21ebd97d7fd49fd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N09 double [1 8]
+document 662 bytes, sha256 8e1167d1e1aa40604d4e159e59f777a73799746beb716a85c9f760d6366116a1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N10 double [--18]
+document 663 bytes, sha256 2fa4e9bb33608d8180ab4d30e6e30e72af80f22b760d4c4937616c4e230274b4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N11 double [+-18]
+document 663 bytes, sha256 44dc6efdef5d952335a7744e5aec2b941c0a41ac273f2905f2368c187e1e9a2e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N12 double [1e]
+document 661 bytes, sha256 fb401c9c98d8b774ad4ede3456d69755e75ff2b433e82f02090e1847b1294d65
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N13 double [e1]
+document 661 bytes, sha256 96c2c3ce5e767e6c128ee60c60d0e2f100f42e6381efd5270ee28b670a332fbb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N14 double [.]
+document 660 bytes, sha256 64373942273ed9461e555e74a3466b0642e2d55f341c5ecb94513d8fdc4e4d64
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N15 double [-.5]
+document 662 bytes, sha256 f4097452c022ee6b84e6199719667b4c25c4a30e0964c241c2b6886788e07af1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=-0.5; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=67192a3fd4f10d58e34d071ce0d189e5
+== N16 double [5.-]
+document 662 bytes, sha256 c0750aed9c6cc487dcbdbe604a57ba19b9a67be5638cae5d8d5278934b1e313f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N17 double [ 18]
+document 663 bytes, sha256 f0d9409d53b9d08a9640f78e699f4490337bff300db2bfb661cd9966b42a84b3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N18 double [ 18]
+document 664 bytes, sha256 24ab5b9c4d7f3adf2e900b90db26ee63c68d0b57a9ff24c9c1c12e6f0f79f4c7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N19 double [١٨]
+document 663 bytes, sha256 6876b145e851a0da56789e25ab157569d36e17b8773e3ba3051c99f46c99f778
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N20 double [18 ]
+document 663 bytes, sha256 19bf664014005e1992c27cf139cc3b8dfe80c1ccfd2df608bd9bb8fd331e7cc6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N21 double [1_8]
+document 662 bytes, sha256 ff000d171b430c15085ab9d4b106a36fd8539f522956e461f4b428e8598cf771
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N22 double [0018]
+document 663 bytes, sha256 472da3f829fba0a2d7ddae2b7a669c9023eac10af0c7c8d543524de4f2259f45
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== N23 double [-INF]
+document 663 bytes, sha256 920e9b114c9e6488cafe64f0767893caba3712530dd128fb0bbf40075e72092b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=-Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=aa95ec9996eb453944ae3fc0247e00e6
+== N24 double [ INF ]
+document 664 bytes, sha256 84a4af34f4aab57ee22ab21e06c71abdc8968aad92b1436cd4da2acf5f8ed7db
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9893c54119b87d977917ae08da2f3a5a
+== N25 double [NaN ]
+document 663 bytes, sha256 f8a0b2199333f3aa9d08f80efe9a4a0dc20b9fff3061fd54e94a3312cd4598e2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=NaN; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=7f8e6bd172e3b16e411fcd6577f7eb9a
+== N26 double [+NaN]
+document 663 bytes, sha256 6ef9c87a2b31ee201d7017739eb719bd10fbfcc572f79e1c9174ce47ee8e2a48
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N27 double [1e-400]
+document 665 bytes, sha256 9bc973eccd7058ab4b85b0ff32120e54f8bbcc63ec58488a523c65c924d19fdc
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== N28 double [4.9e-324]
+document 667 bytes, sha256 aea895e7373cd086c75869c7761ab6c3233092b03679b0c2a5bd2e50762f0488
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=4.9E-324; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=aabd944c32e07c9cb7c07f64b15f5994
+== N29 double [2.2250738585072011e-308]
+document 682 bytes, sha256 eec3f37b8af90eb62fa1393e56c133598a67324fa8be5826bed8a7bb8c4203dd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=2.225073858507201E-308; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=4d0f03d2d9432e58e257d8b5f519944b
+== N30 double [9007199254740993]
+document 675 bytes, sha256 cfc314e6f6b71b456033c9aa7a5c18463f5767a367c0b2e417f25ec75c30f34c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=9.007199254740992E15; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=db2389053d6b9ff703f648a4eb997a19
+== N31 double [0.1]
+document 662 bytes, sha256 36cbd247be8e689360fa37ab514d08e438c3758e30735ecfee2c7881cde7e82e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.1; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=7da6751dc5a9822076e4bdb667d8a767
+== N32 double [1.7976931348623157e309]
+document 681 bytes, sha256 d131ce7b4c6863139aef328f8d5d87e9580257bb8318659a10da95892cd6180c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9893c54119b87d977917ae08da2f3a5a
+== I00 int [6]
+document 607 bytes, sha256 04ef100a472616f94763723fba3fb4cf108f39948c2e72b0457e5ffb5ed63166
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== I01 int [ 6 ]
+document 609 bytes, sha256 93477e77e8173ad216aba0934c84039a842bb83fc398bac8c4ca28066e4447aa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== I02 int [+6]
+document 608 bytes, sha256 2005ad4719f4b82d0cbad2bf3e13a9cb035a1231f429588d71bb40c4c1663825
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== I03 int [-6]
+document 608 bytes, sha256 c4baaad0f2eb6bb5b55750b5f03c303aa1a79cf4e6c07a89c5de1953c2ed7b51
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-6; digest=64105d09f4e36a62435ff424e47da97f
+== I04 int [6.0]
+document 609 bytes, sha256 58ca6b3763457458e0805e77249693fa1d585ea5bb28d8ad0ea1f372ccc36cb9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== I05 int [1 2]
+document 609 bytes, sha256 c02395be646e2678feee9a5dfad9ad41774cd755a005c9aec66fa59299a30a1e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=12; digest=64105d09f4e36a62435ff424e47da97f
+== I06 int [5-]
+document 608 bytes, sha256 cddf86bc8b487c21504121b8471c3d18e72dd505c3f20ca9738655bbd3451f7f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-5; digest=64105d09f4e36a62435ff424e47da97f
+== I07 int [--5]
+document 609 bytes, sha256 e757bb61be9a4a681dfd8d618eb18ceac353c71b72507aae5e0789f391937db4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-5; digest=64105d09f4e36a62435ff424e47da97f
+== I08 int [2147483648]
+document 616 bytes, sha256 5198d8d5e2b46310410d05152f9e1173eac704892a84250624a1ef973ac776aa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-2147483648; digest=64105d09f4e36a62435ff424e47da97f
+== I09 int [99999999999]
+document 617 bytes, sha256 456803883dfb8ea2a5f11c2a7b231672b819d8044877581dd7446f91156f1242
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=1215752191; digest=64105d09f4e36a62435ff424e47da97f
+== I10 int []
+document 606 bytes, sha256 55f4a27de04a2adb56c2baa778a55bd906a9b73a37d1b53236ede4cdf8eb5d55
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== I11 int [0x6]
+document 609 bytes, sha256 c89696d957e5f33cff34201c4b0b5427594362aed67022d348c213338ff2ac91
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== I12 int [٦]
+document 608 bytes, sha256 b41a06ea574504ad6a1799c4d9c229ea121655fd8d1a6391e4041b97ac86631e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== I13 int [6e0]
+document 609 bytes, sha256 88d8fa27c9324d2170cd7aee1365a5b6c98a819aad5996f173cf1d14b4cb73a0
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== I14 int [+]
+document 607 bytes, sha256 fc9ebf12e26842c1450f267d228bda452f23dbdbba0937328260f689d2c7c91f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== I15 int [-]
+document 607 bytes, sha256 2fa0b997b7085fe1bc7107e842e100ba66f8af77c27a64a44951223c4e61ba0d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== B00 bool [true]
+document 545 bytes, sha256 8c3e2f5024e12f2b2db270ab86dda3b975013300bea2f0516e8ac302cc5b8875
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== B01 bool [false]
+document 546 bytes, sha256 74d753773afe4e9178ecada0fb0c711c5728a1d2429f206a7883a745b0a9dc75
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== B02 bool [1]
+document 542 bytes, sha256 2ffcc1c9e0c13b64743805e4e7ae41e7f07b6ec1833b34eb32d0d1982042d843
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== B03 bool [0]
+document 542 bytes, sha256 3219c939d4129562701ccf90e8d9e233577246630e1fd616ad02845eb4a1ddfa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== B04 bool [ true ]
+document 547 bytes, sha256 a0a751112bb5dd6a66bda4a45ef1c7fd4f98bcc0cf8a7310428fe02cd3002175
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== B05 bool [\ntrue\n]
+document 547 bytes, sha256 c0081f8de3c4b75306df950a92c5e659f8ec7432506b35624180818556081347
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== B06 bool [True]
+document 545 bytes, sha256 ee389bf2a6dbe3387b460b42560516f04e9bd181972d04fea43b3af19acd6104
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B07 bool [t]
+document 542 bytes, sha256 267ad58e723c322964a6f5e261a1b6a11f449ec63dba86a42c983decb3f8887f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B08 bool [tr]
+document 543 bytes, sha256 6105a824f2004e3b34d88254f75e348d0f9caa3943e3af7cc0b43e23fa8f0849
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B09 bool [truex]
+document 546 bytes, sha256 894bf46952eb7a2e4893061e56161f7bf28e4b4cd05b1a8fd95ef1a4802e42c6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B10 bool [true1]
+document 546 bytes, sha256 35ce3c85f3caa35add9cc54738bb87b490932898f8360f7a2d5c6e93e5ca5b8b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B11 bool [f]
+document 542 bytes, sha256 aa61edeb4cf16d257be17c80cac5b25849c549b3f677d2810b0dcb29c9f31084
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B12 bool [fals]
+document 545 bytes, sha256 afe0ebca95d017146c9c1ce9005ec5a628069fddfd911ecc5045f12fc5246574
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B13 bool [falsey]
+document 547 bytes, sha256 96abfa512bc6181bd68a9795a2b42c74cbc9e529f28530dc240c449f0a1ac580
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B14 bool [2]
+document 542 bytes, sha256 3ddf792d5a7de89e476d1c2adadb353cb080262850f6bab97f97b85360d85595
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== B15 bool []
+document 541 bytes, sha256 1f5fdeedf718faa545b45f7c0e7a478c117a0e996bb327c093dc1f0c968a7639
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B16 bool [yes]
+document 544 bytes, sha256 41fd7b75571bb253edb754f3f0211a0436e40ab5519c0eb65340f6c247ed1709
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B17 bool [01]
+document 543 bytes, sha256 7bda236968074a3bf152f38772fc45b6c85d539351efd5e0af06d9e757e81188
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B18 bool [10]
+document 543 bytes, sha256 1f9df6837642830357322a1dd21171c361a8745b9dcb8ce6a249b23bbbcaee9f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== B19 bool [ 1 ]
+document 544 bytes, sha256 b468e19d176fd228d2f1557ffae23cd0ebe4e47f3f61d8a9158e0ec1158d9be1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== S00 shape [OGIVE]
+document 665 bytes, sha256 20f80884c150bd2d6dd1938abb312fd981d2a9c2351e482c31dc79594f5511a2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Ogive; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=193af28d454e03cdd20ef59d9510f0b4
+== S01 shape [ OGIVE ]
+document 667 bytes, sha256 5cce84088a5744c7747bd7c1105c9d16ec4bad1c9a0f2f913e1cd9a86606e362
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== S02 shape [\nOGIVE\n]
+document 667 bytes, sha256 d0484e6e9e83e60368fbfb2d891c02e80769bfa70f757e1aaead777203f6fac0
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== S03 shape [OGIVE ]
+document 667 bytes, sha256 e337171b39c9504dab9de98890c7012216bde8d8a9ca40bfdce59852368c608e
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== S04 shape [Ogive]
+document 665 bytes, sha256 07fc803dc40334fad34aac68c13a6fa3ecc4bc0224ac75c72f180a3d92ddeb5c
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== S05 shape [HAACK]
+document 665 bytes, sha256 4bd965c36e6def199f4289d07cb44e923ad6ce9244986f1d797cbb3bcb119538
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Haack series; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=42401b6a1f7d56e27dfdb748b702e900
+== S06 shape [POWER]
+document 665 bytes, sha256 2dceca98dbca30fc5feb4ced11d04f4e3668a7f4b5a263a9679f476392a41fee
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Power series; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=2e3351b419eb13199fa1c009eff62da0
+== T01 text split by child element
+document 666 bytes, sha256 afacafdb62ab6110a29521dc733251f9f41f65b010044b21678bf8a044907460
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.2032; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9f88af1392f21a76a76c671be47bd392
+== T02 empty Description
+document 650 bytes, sha256 1190006624016df64878e5981345085f85eb2fcb46d68b6a7e631955c9e86b11
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=36f0262d8a3bf80f30a5ea3aca49bfdc
+== T03 Description with entity and CR LF
+document 679 bytes, sha256 bde296c79e1cc13c519ca4fe3cf34762196590d477aba40af92f571da9ffc43a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description= a&b\nc\t; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=89bd44c404f448154e37a8f60c60f5d9
+== T04 Material type attribute with spaces
+document 665 bytes, sha256 77619d5ec0566b143ced1d77199323ae97b05578766cfe6e786c23b235b04c03
+THROWS java.lang.IllegalArgumentException: Invalid material type  BULK specified for Component
+== T05 Unit attribute lb on Mass
+document 690 bytes, sha256 60fb29633f4363986b684ffa9d90459e422ff190e73418d272af40ee660db2f6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 19549.81165935102 shear 0.0 Custom user]; Mass=0.226796185; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=c9c453dba3b0e1c564962eab21a506a3
+== T06 Unit kg on Length
+document 664 bytes, sha256 8734434bc6109f18c45f0f329874e1035c7db0989275142ce5ed369f3214bd99
+THROWS java.lang.IllegalArgumentException: name=kg
+== T07 two Materials wrappers
+document 789 bytes, sha256 0a30d618f0c46da5f1febae64130e235e5d594fceae9bf6f1202325c3155a822
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Paper test' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== T08 Legacy empty
+document 651 bytes, sha256 cbe6506f8506b445fb6935af05321e2a948b72a24970e7f16b10a719709e387d
+OK 1 presets
+  Legacy=true; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== T09 text inside Components
+document 682 bytes, sha256 23274c4249ea0a04f2b2c9f3b26d903b31e1b50c834bf37d5c157aa4260acd28
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== T10 Material element with child element
+document 668 bytes, sha256 0d47a8c70d04fa4440101aeae968a402ad747da37f703e6845e459b3fea7bb55
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'board' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== T11 Manufacturer empty
+document 659 bytes, sha256 216285bc0752c6a52f141f0cbb3800da16a0db1d8e5e7ae85964ed32320e4464
+OK 1 presets
+  Legacy=false; Manufacturer=; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=d79d1cdbc36b18463dba7a8c17127717
+== T12 PartNumber empty
+document 660 bytes, sha256 c2a1d4b5840da4b7a32783bfe4861da41a4036aeae47b3e978da568e09a0bbcd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=415b49856ebf005544ac21ee95b04a3b
+== T13 section density uom g/m2 for BULK
+document 663 bytes, sha256 43b3ab777bbcb9bf8806d394b063909700724d13e85d12f14bb3b66fb77e3f7d
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== T14 section Material Type with spaces
+document 666 bytes, sha256 cdfa47e9eb69b20742473e30af64c287b0e19c54faa11d788e8b2439fb95c623
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.MaterialTypeDTO.name()" because the return value of "info.openrocket.core.preset.xml.MaterialDTO.getType()" is null
+== T15 section ShearModulus
+document 696 bytes, sha256 9208d627abe7b3d1bc8837346053292a0eeadc65feace515d213047d855c0d1c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 1.0E9 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== T16 attribute Unit on root ignored and unknown attribute
+document 674 bytes, sha256 c36fc04cd0255ac3ce26c6e97369fa11f09eaa8d88fec7972738f45736baf419
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== T17 component with xmlns default
+document 678 bytes, sha256 04feb09cebfa3f6209e12941e60751ab2cd811f9eee302193c6657824be0fb66
+OK 0 presets
+== T18 Length with xmlns empty
+document 673 bytes, sha256 a510cf309eebb21a26eb929b494eb39a7def76985472503b815462ad4f9e39fd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== T19 Length with xmlns default other
+document 678 bytes, sha256 4ce020a1e70c85635282dbd90a919317215bcd2dd829f0424e0420c88dfdf4dc
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.length" is null
+== T20 Version element with child
+document 665 bytes, sha256 57df8101cb85f2e2b5ab250e208fde45d1343e7e3fc93943c06b4dbf6c8d186f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XN00 double [+INF]
+document 663 bytes, sha256 f6a7c5cbfaf5b42bf0a2b2f686641ade58e308a28ac72cafa76f73623848acf4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN01 double [inf]
+document 662 bytes, sha256 528010377871f075d4878518374843fac94130c48ae22c70160c855642eb4f51
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN02 double [-NaN]
+document 663 bytes, sha256 07e864a0ac0ecd47e04037a330c3b328b10ab77108b05e090621b9ff4bc67d53
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN03 double [INF\t]
+document 663 bytes, sha256 85cecbdc5f663b201224a82d491788e6b0fc6a5ce8fd9dfa3583cc04f61a6c27
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=Infinity; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9893c54119b87d977917ae08da2f3a5a
+== XN04 double [&#13;18&#13;]
+document 671 bytes, sha256 e627dd26dd680d7f433fb0ee7d134f55150510dec2fe95d2b8816b37df30e678
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== XN05 double [ ]
+document 660 bytes, sha256 11ace31e103135f0c81cf12fddbcd2a5b8e8349cac0772a3530cbc6125eabd63
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN06 double [+.5]
+document 662 bytes, sha256 2c7fd325c9caf6b61ded74ac68746b13a598066cd42cb7d15c7916e72813a937
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.5; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=5a5112dd7b1a408ec855a2b64e7d5d7e
+== XN07 double [1e+]
+document 662 bytes, sha256 4a7d003d02e64494d1e8f3fc9b4d9ed6a5f3e4f9ebda2d327065f8e24f610c24
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN08 double [-0x1.8p1]
+document 667 bytes, sha256 61c5fc1f084e46ca65e079ce18f116341735730ad14f7ece5361c53ccc225d07
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=-3.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=bca05d5dd4d96b47eca7a083c0aa1afe
+== XN09 double [1&#160;]
+document 666 bytes, sha256 7e796bf14f137a71639ef8061e2dadbe03976a762ce6c5fd2a00e89213654696
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN10 double [\n]
+document 660 bytes, sha256 2f1bc1a5c5cddda60a0883880747a4a321e0587badeef16bca02606e0a506958
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XN11 double [18<b/>x]
+document 666 bytes, sha256 5f6ad49964f04a0d18044e4604772c424e78b9b50b0c0fa8ac7b9929ff9170bb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== XN12 double [<b/>18]
+document 665 bytes, sha256 9959ca92df1353e5c762391984f9f61ed2d03e7cdf75498a2f771182957cd9d7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=18.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=118972bc33c03b817e2567ce3d4aabf4
+== XI00 int [+-6]
+document 609 bytes, sha256 322902b10a873ba8f57159f538a8eb7aed2950c793c699b345c6bb9c4684954f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-6; digest=64105d09f4e36a62435ff424e47da97f
+== XI01 int [-+6]
+document 609 bytes, sha256 e5cc0909ee5e81745ec767e15fae28daf5575a3fc079c0626794aae8bd1e5688
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-6; digest=64105d09f4e36a62435ff424e47da97f
+== XI02 int [6\t]
+document 608 bytes, sha256 27a97a5665d5e3feec576b50caf91ab146366b115ef497f8ac877b7a49e584af
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI03 int [\n6\n]
+document 609 bytes, sha256 8b0a44f73ebab3eaf85eeed4fc7722da713179d15ef733152e7ee2b2d6b8848b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI04 int [&#13;6]
+document 612 bytes, sha256 aa8f93accbb6ec48b3286d62aa9e5274410773be64472e6651ecb57db14bc73c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI05 int [-0]
+document 608 bytes, sha256 eae225224fc6f07233b681145833a5b222886ab3db030b5f0c0c21fe3a42b770
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== XI06 int [4294967302]
+document 616 bytes, sha256 c9c8c0df63c89788b956561e35203160677fe426d1546e9cbb3955b7fb1f6857
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI07 int [-2147483649]
+document 617 bytes, sha256 4e82e5d3f1ac74bed6a4e42e6e7fc9519017de9d1b11099899a52c9e57cbc670
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=2147483647; digest=64105d09f4e36a62435ff424e47da97f
+== XI08 int [ ]
+document 607 bytes, sha256 106ce95853f357613621b3889707ef8cea1b6fd0fd2e2225414e0729f310d927
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== XI09 int [6 -]
+document 609 bytes, sha256 631750464fdbfd24ba689bfc78e2b7c3a4a452afb6d8299357cad7f3a21ecaa3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=-6; digest=64105d09f4e36a62435ff424e47da97f
+== XI10 int [0006]
+document 610 bytes, sha256 6d18a793da4e5bac9bd5883b9ff72cca189e03bd3e57269e13dda501fa171948
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI11 int [&#160;6]
+document 613 bytes, sha256 16b293b82891d905a96784cd8201ebdad6c7e42785e92175c3977d199c3d2e5b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== XI12 int [6<b/>x]
+document 612 bytes, sha256 ce511d0705fe253d970bf1306854b2214aa3efa4c787c8624ab7e9c055c0fd40
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI13 int [<b/>x]
+document 611 bytes, sha256 fc4317136e3eccebd1af1d78c476ddf5d008a83bb91d623d8e87a66c416b2010
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== XI14 int [6<b/>]
+document 611 bytes, sha256 aa2bc13e56cc1ed8991ca3dce9622973de3add8162f5294d6d58b626aeb67e40
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== XI15 int [x<b/>6]
+document 612 bytes, sha256 cb982e510f91b076e4e45235cfa7f710bac8ad1169ff8b2fc720a1995a13616e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI16 int [6<b/><c/>x]
+document 616 bytes, sha256 36025a56b789d7c6aa222ed2b3bdf9b6b864bee1a6845bde596861e314a575a8
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XI17 int [ <b/>x]
+document 612 bytes, sha256 fccffb7688462e12200119f4e70d82dda39bab177df2ac5d80dd2c8b8d6f3184
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== XB00 bool [ ]
+document 542 bytes, sha256 f96c6bd8df2f387f5b8c38b6175bf5cc6b6d40764ee970af30115757a3ffd59a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB01 bool [\t\t]
+document 543 bytes, sha256 35e1d9c8d3a266f6592e17bcc45741d8c765fee880ba456ecb148990a66cd252
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB02 bool [\n]
+document 542 bytes, sha256 bf83b519c556e80d0dfcfd4dd264deb467acdcb9412e2037f05b187b2cdfb5a9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB03 bool [x]
+document 542 bytes, sha256 6516397bf51e8155c48e632624bde75da6571be7be94c9d882ce8907c3e17732
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB04 bool [x ]
+document 543 bytes, sha256 bd9a7eab24462e1bab8f64f0744648afc36a679254f1b42ea137befffaa8ca8f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB05 bool [ 2 ]
+document 544 bytes, sha256 9f2b1555c0e00893d0007f0046b5f0bcf97f37838fb4ee530bb2e7261478fe79
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB06 bool [&#13;1]
+document 547 bytes, sha256 54dd22773d6d112592b983c35f9e6c5d67637867bc6a17a21dfb53dc22e7d86a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB07 bool [true\t]
+document 546 bytes, sha256 c9008cdb08905f048ff855f20d31c2f1e1e6c1f63a896b13af7589e91580522e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB08 bool [false ]
+document 547 bytes, sha256 1fc79290a0335960f6cbd230d7f5283857c921db98dab7a1a332097335476ab7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB09 bool [0 0]
+document 544 bytes, sha256 4fd7495aca67ade4de55c1c8c8c82f4817a8e154f6b224967f96212019f026d7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB10 bool [1\n]
+document 543 bytes, sha256 270daf1330348cd571b7ba0fa881f096bd72d67866d2880d8b9f9000cf026c50
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB11 bool [Z]
+document 542 bytes, sha256 11e43c3a500d1cb1c38e854d77fb222a98df2294fb7b17c858452d911c167695
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB12 bool [t rue]
+document 546 bytes, sha256 574b034eba35ac2136210cd5bb08109ea8dee274601cc09f0563f0c6b64c4681
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB13 bool [&#160;1]
+document 548 bytes, sha256 b5c5547606a1f7586832b18f2946353544db5b32534f9d3ddbbdfe176a25775e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB14 bool [ f]
+document 543 bytes, sha256 6d136ce24c3d439aec9a527d4619fcf5acdd4307ef5b49521b560b2780634cb2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB15 bool [-]
+document 542 bytes, sha256 67cc9cc2b78866dbf8ed8968eca55004e17d93caa3d881edb32cc8a1627efb2d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB16 bool [falsetrue]
+document 550 bytes, sha256 1a811f345a548bc515ff872708a0b9bfa12845834ad2827652be113d268d3c29
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB17 bool [true<b/>x]
+document 550 bytes, sha256 f283c78800efbe9babfeb04d7532da3a2d6a1c4c2713a87fcbb315a7b7d4ff49
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB18 bool [true<b/>]
+document 549 bytes, sha256 c5c9e98044478e7826faa6ac113732c2bf7b6da240c131efac968d4813224abc
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB19 bool [x<b/>true]
+document 550 bytes, sha256 02f600c65992d6b545803e08e65fbf02ca92cfbbbb6e9b7a404b2ce55a5e5505
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB20 bool [true<b/>t]
+document 550 bytes, sha256 1e25d39d6a920064359d46d418c439010eb0a1df183bfee746b12d858e0da85a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB21 bool [true<b/>01]
+document 551 bytes, sha256 9076af23df1bf0a3a96545af78a6019ea57ec0058c4cac028250fbedce4d470b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB22 bool [true<b/>trux]
+document 553 bytes, sha256 2ddfec1cfd4e331ffb3ede662c791962fa2dd160513cab879988d29f7e553b96
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB23 bool [true<b/>fals]
+document 553 bytes, sha256 b7f7117134055a7f7ff54d783a3608e4f8e4dedd678b6f612d3b45a47c9a8237
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB24 bool [true<b/>tr]
+document 551 bytes, sha256 4c505a4434f85e3b7c1bae4e434b7f062b6f0b08ea0e5d3270a6dadfec3d8c5c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB25 bool [true<b/>tru]
+document 552 bytes, sha256 6c108b4087251cd71195a5bd30fdde1c5a3a26a4715015e14655c2dfd62724e4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB26 bool [true<b/>f]
+document 550 bytes, sha256 cc0be3212981318017b77ff7edfa9564f997cfae0902cac089bc8f11c6b4a425
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB27 bool [true<b/>fa]
+document 551 bytes, sha256 9b79f48e1bb75b48b67c0aeefbf15d5292b53aa6166c1faaddc08c3c6fd6fbf6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB28 bool [true<b/>fal]
+document 552 bytes, sha256 d76900f9c753fc62e0e644851e1cce0b4216594d7b4c2c132da82668b2ed5ef0
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB29 bool [true<b/>tx]
+document 551 bytes, sha256 c1b82339e18c0b7cf55bfb043e6765859a8fef65f118fda733a8e405da610dae
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB30 bool [true<b/>fx]
+document 551 bytes, sha256 ca851c1964b309b3f61164296443b2e65b956845358e20dc23a5ab86b49198d7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB31 bool [true<b/> t]
+document 551 bytes, sha256 36cb797b3b38ccd6fc187ecabe887f8bf9c93bd07e75bfe18ab52f7162c6a08a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XB32 bool [true<b/>t ]
+document 551 bytes, sha256 abf4c7244809dfe444ca1f31c83cdb7078f74fa40926ab1219fdab798ea16256
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB33 bool [ ]
+document 543 bytes, sha256 e15d5209db1c922d7ecdb697730f6fa91b2037ffd333ffabe938270a76b56d29
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XB34 bool [🚀]
+document 545 bytes, sha256 ed50b96096e0088e381cf449ae1ff4a0afcd747d77fbd4db442de5256564082d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XB35 bool [é]
+document 543 bytes, sha256 119ec0529edad350d467fa4dd55b8e85dbe5c745b9be0662e43ae5c15e4fb864
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=false; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=a22ee1904a8ff6c2690f8199cb0a2421
+== XS00 shape [<![CDATA[OGIVE]]>]
+document 677 bytes, sha256 b30412bd6e1b68c3e478c5da7710f4c2fb4e22e6320018b6cbbfa8680bd01c30
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Ogive; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=193af28d454e03cdd20ef59d9510f0b4
+== XS01 shape [OG<!-- c -->IVE]
+document 675 bytes, sha256 706b8670ce017cd556d8ffb4e84047f3baae2d57775f1d58406dc0b0064c8927
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Ogive; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=193af28d454e03cdd20ef59d9510f0b4
+== XS02 shape [X<b/>OGIVE]
+document 670 bytes, sha256 3ddc581ac441aecaf4e161a7665636bf186b7131fc2d6b9a4253eacd596be3e5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Ogive; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=193af28d454e03cdd20ef59d9510f0b4
+== XS03 shape [OGIVE<b/>]
+document 669 bytes, sha256 4529311c036d8f3171a263036653a9d43fe9d4f70c6d52a030489c788b7e5c42
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== XS04 shape []
+document 660 bytes, sha256 d47211118f163dc5350296739075fd8301aa6295d192c00366d92cdc4f7973d6
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== XS05 shape [&#79;GIVE]
+document 669 bytes, sha256 29846afcf8e84a90ba155b07ec9eee3cabf82c6d59db3f61cde7b173a2c2a30a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=NC; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Shape=Ogive; AftOuterDiameter=0.02; AftShoulderLength=0.01; AftShoulderDiameter=0.019; Length=0.05; Type=NOSE_CONE; digest=193af28d454e03cdd20ef59d9510f0b4
+== XS06 shape [OGIVE<b>x</b>]
+document 673 bytes, sha256 7d3af6f2439976a05d273f428b37f5ff003784edff25b2aeb162eaba7c8d503f
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== XT01 text around a child element with text
+document 670 bytes, sha256 d94c0dfd71e7d9cd1e9088cd4471f8472be0273ef54c39291b20fc626299a5fd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.2032; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9f88af1392f21a76a76c671be47bd392
+== XT02 text before an empty child only
+document 666 bytes, sha256 88705a6a2dcb05b8e0fac5c2d071a2b63412b30d6c6115d4bcab6c5a9d40648a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT03 processing instruction in number
+document 670 bytes, sha256 2ffd9ba72f5c3a466375301c1ab6a06387894ea99822e83fa0c8f82447f5e9d4
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT04 comment between digits
+document 672 bytes, sha256 69867c9f9af6da207daece181e6a25cf69b026f11b94fe794e1571bb0f6307d2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT05 Description with child element text
+document 672 bytes, sha256 ae9dd46dd6ae973935905959a87c137e3de27c45c2c378f4844fb94e22050ce7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=36f0262d8a3bf80f30a5ea3aca49bfdc
+== XT06 Description in CDATA
+document 678 bytes, sha256 c17c14d795aa83fc327cfd495d2152f1142a79412bb6e5d72ad06670d12ab6fa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=x<y; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=83da73c88012c14446b90f51cf976d28
+== XT07 Description in two text runs around a comment
+document 676 bytes, sha256 3caa6681c5296d816cd6e0e18b8eec6e839ac52c70b11d9acd4dc8768eef1d87
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=a b; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=eeba39297d9a6af2deaab8f2547a2808
+== XT08 Description with characters beyond the BMP
+document 676 bytes, sha256 3490951bfefa87da3b4e0dde54cc5c8e35487ed70f00d02b21d7c620c9afa0dd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=🚀🚀; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=a3d8ddf0694b7f2ea3aa25de4df40b7c
+== XT09 xsi:nil on Length
+document 733 bytes, sha256 606d283fb87557b8631b96e1e07cdf5fc704ec08a8e3fa7fe73de4375cbd38e6
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT10 xsi:nil on Description
+document 733 bytes, sha256 3b555e0c4a151683ccf6b27b4b73aa96851bda980086abcc1cb8cef54a38c3ba
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT11 character reference in Unit
+document 669 bytes, sha256 ba6275be0a1910e4fdcd1e0ccc63ced59a215ce3e040b290da5811e3ef3bfd4b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT12 tab in Unit
+document 665 bytes, sha256 e7dddf15e3abf8449e931b98f6baf0b8cebd21ec4e2964f3e9f6eb248410bf0f
+THROWS java.lang.IllegalArgumentException: name=in 
+== XT13 tab reference in Unit
+document 668 bytes, sha256 34f86b2ff3b1ceeb9415005fcd1f0ef4b3e70c307ace1bbec9716be6b546ac6d
+THROWS java.lang.IllegalArgumentException: name=in\t
+== XT14 two Unit attributes by prefix
+document 692 bytes, sha256 6091d4023153f2d4aca68b08647c199f4ea4b5e5048219e006fa054f7c20e0bb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.18; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=f967404d6770a04f3beda06074d95060
+== XT15 Material Type attribute by reference
+document 668 bytes, sha256 6b022b5b57c88b3dd4c7078b2ee68e2a9067efa8c5e54389acbbf51187ce4a05
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT16 PartNumber with trailing space and tab
+document 666 bytes, sha256 9ef08da8aaa360bdbf249611e90aeee4e1adebc51cf624d394f060a140234991
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X \t; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=202757020efe2b931bc7d9ad101f13f8
+== XT17 Legacy with a namespace
+document 665 bytes, sha256 276c693061c259612bee61e0e2fec8355a3e9027e0f74cc6742b06e7a89b15be
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT18 Materials wrapper in another namespace
+document 679 bytes, sha256 e7cdcc060f83e2685a1ba2c1a5f581e7001c4ed4af78bbfedf9e6059ee87b8a2
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Paper test' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== XT19 root with an empty default namespace
+document 673 bytes, sha256 be223366711822f518f24a01b472e7b53ea32393e3e05ac7a3c33ecfb0d093dc
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT20 root in a prefixed namespace
+document 426 bytes, sha256 fa28efb74b3e2abbfca52529d98d8f2232467f8deff3734b5eaa4f944e705dc7
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== XT21 empty Components wrapper after a full one
+document 419 bytes, sha256 16ac9ead8aa33a86e3691b40999a4796e9ce8e1326de3f2be4e20b1e85a63abc
+OK 0 presets
+== XT22 component element with text only
+document 407 bytes, sha256 fc0d58646b13a55a57d896f6d40d4afbf5d3540317bb87a705b41dad4f04d14a
+THROWS java.lang.NullPointerException: Cannot invoke "String.toLowerCase(java.util.Locale)" because "str" is null
+== XT23 document with only a root
+document 78 bytes, sha256 6a035d5ee9e09f61177e0bc4d1b61b4204febbc315d9ebef97a0234a7d85f3a3
+OK 0 presets
+== XT24 comment and PI before the root
+document 683 bytes, sha256 02fce8c14c766210fa43b736b20f14c31282fdbb03745072629eaa11dc7c1b53
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT25 Description with an empty child only
+document 667 bytes, sha256 e7abd28b2facfea7c7a557e7ebbb603e5f4b0a07ae0f21a21d8e6ee65724b2a3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=36f0262d8a3bf80f30a5ea3aca49bfdc
+== XT26 XML 1.1 control character before a number
+document 667 bytes, sha256 42c004b1ede0233977ae545e41d3db8b87803acab547508ec0d09f4081589a6e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XT27 XML 1.1 control character after a number
+document 667 bytes, sha256 ef1ded0f002d55fba5ee572ca1fb4e80b1ea2157964a313d48f62d31c6880568
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XT28 XML 1.1 control character before an int
+document 612 bytes, sha256 92a80b5c23588cfa5809cf4bee49bbec13b257e86d1ba0badce08b8ff7f35c3f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; digest=95bb232c226d7ab682eb7e48623e2ca7
+== XT29 XML 1.1 control character before a boolean
+document 547 bytes, sha256 4f742a6bc2f5f95fb190b85058d5691d7f66742943c73776773d8bb5bebab6db
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=afb643882af5d920147e5096ea3f10a3
+== XT30 two Length elements, the second not a number
+document 692 bytes, sha256 1e99770de32c145279f17ddae81f4e97134ce42b369a74047bf45240f1b234d5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.0; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6f55dff0a66120b43013d935550d14b9
+== XT31 two Sides elements, the second not a number
+document 623 bytes, sha256 0c76bdbc27b0d5b99df42aa579c7baf9bf0424a02e34b69e0d45ef0c83cc9b6b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=6; digest=64105d09f4e36a62435ff424e47da97f
+== XT32 two Sides elements, the second empty
+document 622 bytes, sha256 5f566bc00eb3b1b178b74da586f45239a20b4f5eea012129eb9848568db7d141
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=PK; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.3; LineCount=6; LineLength=0.3; Sides=0; digest=64105d09f4e36a62435ff424e47da97f
+== XT33 two Density elements, the second not a number
+document 684 bytes, sha256 055a897b6d0b40ba86505c80a605d8c8a1f70c6e51230f2dd6078725e9e9b0d3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== XT34 two Filled elements, the second malformed
+document 563 bytes, sha256 6f9b27240fcc773f73be9d332be16a35f673cbd6525c7b2e929484a956765cfb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BH; Filled=true; OuterDiameter=0.02; Length=0.01; Type=BULK_HEAD; digest=8ba07ee49dacf916529b8367daff00bd
+== XT35 two Description elements, the second empty
+document 691 bytes, sha256 1622155e8215becc6fe31ba74fa5b19b687c98f110fc3e452b4fb8dc01040c2e
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=36f0262d8a3bf80f30a5ea3aca49bfdc
+== XT36 two Shape elements, the second unknown
+document 685 bytes, sha256 f10ce3f687627ee448a2c60d97d6bfe16663745077ba02f89f5efd3ef14d6465
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.ShapeDTO.getORShape()" because "this.shape" is null
+== XT37 two ShearModulus elements, the second not a number
+document 726 bytes, sha256 5976018fb0532e86df6cd2528592d3a5a4db94bdce8ba7fa355e1bebb3a9d5d9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 1.0E9 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT38 Density with text after a child element
+document 669 bytes, sha256 a2c71e05ada536024f8e704315824e715758d0f522601c9fdbb2f9c00ac36398
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT39 two Density elements, the second empty
+document 683 bytes, sha256 c458063d3dc4b9d8ac47bcfd6f2df863b07f1e384e339cd5c353cdc870c8ea6b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=3bf52f38f0e90551382cc4f1ab1ed1f7
+== XT40 two Density elements, the first not a number
+document 684 bytes, sha256 a2c05d4f5e3bf72a5f035acc2a732ca42a28c2db785ab6f2644813de68f6ff75
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT41 two ShearModulus elements, the second empty
+document 725 bytes, sha256 47edda8c440099e7f84e102d1d84e90f1a2782c4739fa3d5fdd51c7dfc56b5f7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 1.0E9 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT42 ShearModulus with text after a child element
+document 701 bytes, sha256 53cde73264ae92d4b0d3e178fae00c5560bd896990566e7806dc6cae81ec08bf
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 1.0E9 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT43 ShearModulus not a number
+document 694 bytes, sha256 ce3082920e03b5b1bd0c66707032d340726575cb8886b7d151725171e1e2798c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT44 two Length elements, the first not a number
+document 692 bytes, sha256 07fb7ad059d2636ba1d4ba0fe71f582c9fe490bcf49fe3a19cf947785575253d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XT45 Description with white space before a child element
+document 669 bytes, sha256 35844564d92788145c037b8f7c8b9f977155bfe7308e50e9387793e6cac74a80
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=x; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=6276507e3e2598b08cc38d2b1346272b
+== XT46 Description with white space after a child element
+document 669 bytes, sha256 eebe388b459f70080a5bff3df82187ca95a1afbe175716f73c64e51f246755bb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description= ; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=a6bbb49f06d35cf45f55298dc8b10b3d
+== XT47 Description with text between two child elements
+document 673 bytes, sha256 4b513ae83ba7343a32474157c546a42547173ab78a743013fa1a7a0782891285
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=36f0262d8a3bf80f30a5ea3aca49bfdc
+== XT48 Description with a carriage return by reference
+document 683 bytes, sha256 42aea76e375c09cb61582e470f8b9b20e8df48e164dd1900fa4e977408f22d90
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=a\rb\r\nc\nd; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=b6721e0aff6781d1e6e958fe0d0da331
+== XH00 thumbnail [aGVsbG8]
+document 694 bytes, sha256 0974c56c6973288168b7933f151d7a97e9ffec6068ce749353138596050242a0
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH01 thumbnail [aGVs bG8=]
+document 696 bytes, sha256 65cc502ff6f3a88d06b83513d76515e3ffaf67fcaa6ceb4e87702ada984a98cd
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH02 thumbnail [aGVsbG8=\n]
+document 696 bytes, sha256 06e25d3ea8ecaabcd3066ca26090ab85cfc3e33b99ea2d68e7968f3f2d363b36
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH03 thumbnail []
+document 687 bytes, sha256 9b00191de476d538c0fd5fc65c27037e0ee0d57827cc707ec11e862bbeb794e5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes0:; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH04 thumbnail [QQ==]
+document 691 bytes, sha256 859b63e5bdb00d719cab34f140a3582beb8212e09f2e751990d9374ecc2461b3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:41; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH05 thumbnail [QQ]
+document 689 bytes, sha256 27e9a35bb29127dd75e6a4db750cb40753fa9d8e50efbf095738da3f82690423
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH06 thumbnail [Q]
+document 688 bytes, sha256 049d1c22c3a9230cb19dd92bc90ef3b9b3e0a31194eabeedb08baee85826e07a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH07 thumbnail [aGV!sbG8=]
+document 696 bytes, sha256 f48352be5a4c2d5fec735a675076a76b6240091f0590a17d0a96623c10cd1dc1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH08 thumbnail [====]
+document 691 bytes, sha256 f0910b4b00176713813128d975ea768cb8ff352c9a00da3df8aa9867bb9dddd8
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:ff; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH09 thumbnail [QUJD]
+document 691 bytes, sha256 04bfb5f8a7350d385d55170a68dbdaf4737affd0ca4279f374110ae26ebf1909
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:414243; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH10 thumbnail [ QUJD ]
+document 693 bytes, sha256 718b8a1282867979edcd424c6be981a6a762154a08364f74336edbf4c933c0a7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH11 thumbnail [QUJD=]
+document 692 bytes, sha256 c187fd478eec559e0ff883bd9839a107d9cea6b38383ee1de3dc363722b8d86f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH12 thumbnail [QU=JD]
+document 692 bytes, sha256 5930122ca47ee925069bf6631614b072e3d35690236f94371f388f534a7c00a9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH13 thumbnail [4pyI]
+document 691 bytes, sha256 dfb5f089749e4dc16cd636b8717651f0a7eda9274ce90d2d52b1a679dae35657
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:e29c88; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH14 thumbnail [QU==]
+document 691 bytes, sha256 31f95a447c185cf74de76fc9c317ad4a5e6552614f179f576e696dec26437399
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:41; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH15 thumbnail [QUI=]
+document 691 bytes, sha256 736924cb946701a98758235c918b62d938840ec5caf8d142e25cbefbe970683f
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes2:4142; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH16 thumbnail [QUJDQQ==]
+document 695 bytes, sha256 c67b50b44085a0751565231b1d64cb9bd4dddf8a0dbe38d698c8edd65833af0d
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes4:41424341; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH17 thumbnail [Q===]
+document 691 bytes, sha256 5bbd0c424ee6d50aa601138c63701ce26d7ccc140d218fb0254341a32e0a11f5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:47; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH18 thumbnail [=QUJ]
+document 691 bytes, sha256 fc78ecd0bd1cab13bde6d73276178e8e666652371f416d6cbcadbf2ce06e9ab1
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:fd0509; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH19 thumbnail [QU=D]
+document 691 bytes, sha256 9a27ffb018d12f0fd23992856ad28dde6939c0b501e7ec7b6570e8d9d2274c6b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes2:41c3; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH20 thumbnail [QQ==QUJD]
+document 695 bytes, sha256 3ed5c84f673c30640180c4390f80b074c58e9a598d32f79280fa3a9873072c7c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes4:41414243; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH21 thumbnail [QUJD====]
+document 695 bytes, sha256 9807555bd0dc95ab13a3366aaba3fc0ed6f312611a2757ea210bb5d2083d99b5
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes4:414243ff; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH22 thumbnail [AAAA]
+document 691 bytes, sha256 a5d9cc5d39c9a125579fc17cea894e478c61923f4401154d5dafc25acd0b5d0a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:000000; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH23 thumbnail [////]
+document 691 bytes, sha256 a9eff09822463255643f7629da8f39dfaebcc44dc7f08f28d5fe62396011bac3
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:ffffff; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH24 thumbnail [++++]
+document 691 bytes, sha256 8e62cbd2ca5ac41148740d96d39fb8ae514b8305bf102210444f31fd0664a84c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes3:fbefbe; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH25 thumbnail [-_-_]
+document 691 bytes, sha256 da29830e90991aed66cbb665b707892bffd51e0c0ea1abcfb88eed20b7394ea9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes0:; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH26 thumbnail [QU!D]
+document 691 bytes, sha256 5c8e7321561aea1c890d5130c48b05b9e6397b1552a141c000d6b9382d1106af
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes0:; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH27 thumbnail [QU D]
+document 691 bytes, sha256 d6e9dc737f10510a283fe18ce38333e4d9e71a5947f7483a3c112109a48f1fe7
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes0:; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH28 thumbnail [QQ=]
+document 690 bytes, sha256 e2ef0a487dc73c7a86277515d35847de66a7e27cc31ebec6372ae6054141928a
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH29 thumbnail [QQ=A]
+document 691 bytes, sha256 002c7f72e9865ac6b006759edbf344486204589f554557198a06fa697afe72fa
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes2:41c0; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH30 thumbnail [A===]
+document 691 bytes, sha256 a23b43dfd494179fee8f879274e8662138e4866286ae0faa8c9e7306d86ac57b
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:07; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH31 thumbnail [AA==]
+document 691 bytes, sha256 dccba52df1435d4f3397c0a2b91f8f165db556a8ae9674ecf4a82844dab59e48
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:00; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH32 thumbnail [QUJé]
+document 692 bytes, sha256 83e7f2f5fd41f624fe93069d231f568301d9b12251c62b941b209f744a828f97
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH33 thumbnail [QUJDQUJD]
+document 695 bytes, sha256 b28038fca991785cb10d631cfd65ac4f588a31642eb3f2a583ca57eff7c90f79
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes6:414243414243; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH34 thumbnail [QUJD\tQUJD]
+document 696 bytes, sha256 69a136e890d1d429e0407e75d056ae915b5a06532137658631ef00828b99f8fb
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=72e2ef64f8f85e6788d7c9919d4ca7d2
+== XH35 thumbnail [QR==]
+document 691 bytes, sha256 234f9ef2179ef360f43fd15aeaf1d6d2c2ccf8ae3bc7bfa0eeb62716576cca47
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes1:41; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== XH36 thumbnail [QUK=]
+document 691 bytes, sha256 6706b7c4bce3aea048a156061ad4464dbcefc6bf7894d66443765a230be44550
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-X; Description=d; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Image=bytes2:4142; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=88ddbe03a488913456ab8159a7674a61
+== file broken.orc
+document 1010 bytes, sha256 12cb1962d660ab177c5b5ad32a785abc4f3e65077a314fc2e0f75bae8ed682d3
+THROWS java.lang.NullPointerException: Cannot invoke "info.openrocket.core.preset.xml.BaseComponentDTO$AnnotatedLengthDTO.getValue()" because "this.length" is null
+== file every-kind.orc
+document 7363 bytes, sha256 bcd4e51559ba04ab2a41607d0862e69e8a633321c294e36b11d50bbb11bf3fe7
+OK 11 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-20; Description=Body tube, BT-20, 18 in.; Material=[Bulk 'Paper, spiral kraft glassine, bulk' 799.0 shear 0.0 Other user]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=09167b248e4c15bda33af70e9c6e3f0c
+  Legacy=false; Manufacturer=Estes; PartNo=JT-20C; Description=Tube coupler, BT-20; Material=[Bulk 'Paper, spiral kraft glassine, bulk' 1746.1570899225069 shear 0.0 Custom user]; Mass=0.0012; InnerDiameter=0.017; OuterDiameter=0.018000000000000002; Length=0.025; Type=TUBE_COUPLER; Thickness=5.000000000000004E-4; digest=d69911afe519f415b438e81de0e64589
+  Legacy=false; Manufacturer=Estes; PartNo=PNC-20A; Description=Nose cone, plastic, BT-20; Material=[Bulk 'Polystyrene, cast, bulk' 1510.3112310514273 shear 0.0 Custom user]; Mass=0.008504856929999999; Filled=false; Shape=Ogive; AftOuterDiameter=0.0186944; AftShoulderLength=0.019049999999999997; AftShoulderDiameter=0.017983199999999998; Length=0.06985; Type=NOSE_CONE; Thickness=0.0015748; digest=5de47e4676546d8251eaf85c61a17b6f
+  Legacy=false; Manufacturer=Estes; PartNo=TA-2050; Description=Transition, BT-20 to BT-50, balsa; Material=[Bulk 'Balsa, bulk' 128.0 shear 2.5E8 Woods user]; Filled=true; Shape=Conical; ForeOuterDiameter=0.0186944; ForeShoulderDiameter=0.018033999999999998; ForeShoulderLength=0.0127; AftOuterDiameter=0.024790399999999997; AftShoulderDiameter=0.02413; AftShoulderLength=0.0127; Length=0.03175; Type=TRANSITION; digest=d6f9f2c9e909ee3703bb8a510464d0ea
+  Legacy=false; Manufacturer=Estes; PartNo=BHB-20; Description=Bulkhead, balsa, BT-20; Material=[Bulk 'Balsa' 170.0 shear 2.3E8 Woods builtin]; OuterDiameter=0.0178562; Length=0.00635; Type=BULK_HEAD; digest=d03550910bc350944141d3a3d6220a2f
+  Legacy=false; Manufacturer=Estes; PartNo=RA-1320; Description=Centering ring, BT-5 to BT-20; Material=[Bulk 'Paper, spiral kraft glassine, bulk' 799.0 shear 0.0 Other user]; InnerDiameter=0.013792200000000001; OuterDiameter=0.018033999999999998; Length=0.0015875; Type=CENTERING_RING; Thickness=0.0021208999999999985; digest=4d941f84d87b0120898a95067f017ae0
+  Legacy=false; Manufacturer=Estes; PartNo=EB-20A; Description=Engine block, BT-20; Material=[Bulk 'Paper, spiral kraft glassine, bulk' 799.0 shear 0.0 Other user]; InnerDiameter=0.0127; OuterDiameter=0.018033999999999998; Length=0.00635; Type=ENGINE_BLOCK; Thickness=0.0026669999999999992; digest=44a0958809a12bd4227562f98e5ff8d7
+  Legacy=false; Manufacturer=Estes; PartNo=LL-2A; Description=Launch lug, 1/8 in. x 2 in.; Material=[Bulk 'Paper, spiral kraft glassine, bulk' 799.0 shear 0.0 Other user]; InnerDiameter=0.003302; OuterDiameter=0.0039624; Length=0.0508; Type=LAUNCH_LUG; Thickness=3.301999999999999E-4; digest=ba3f9e2b52385c9b00021fd1b7ab2dc8
+  Legacy=false; Manufacturer=Rail-Buttons.com; PartNo=1010; Description=Standard 1010 rail button; Material=[Bulk 'Delrin' 964.3031373843921 shear 0.0 Custom user]; Mass=4.4500000000000003E-4; InnerDiameter=0.0058039; OuterDiameter=0.011112499999999999; Height=0.007556499999999999; BaseHeight=0.0018541999999999999; FlangeHeight=0.0018541999999999999; ScrewHeight=0.0; ScrewMass=0.001395; NutMass=0.0010251187562; Type=RAIL_BUTTON; digest=a23528ffd1abf44cc53660506846b880
+  Manufacturer=Top Flight Recovery; PartNo=STR-2; Description=Streamer, 2 in. x 40 in.; Material=[Surface 'Nylon fabric, ripstop, 1.7 oz actual' 0.067 shear 0.0 Other user]; Legacy=false; Width=0.0508; Thickness=5.08E-5; Length=1.016; Type=STREAMER; digest=dabe0419e37198eb99aff3de2bdb58e0
+  Legacy=false; Manufacturer=Estes; PartNo=PK-12; Description=Parachute, 12 in., 6 lines; Material=[Surface 'Nylon fabric, ripstop, 1.7 oz actual' 0.067 shear 0.0 Other user]; Type=PARACHUTE; Diameter=0.30479999999999996; PackedDiameter=0.017779999999999997; PackedLength=0.038099999999999995; DragCoefficient=0.75; LineCount=6; LineLength=0.30479999999999996; Sides=6; LineMaterial=[Line 'Nylon Paracord, 110 lb, 1/16 in. dia.' 9.7E-4 shear 0.0 Other user]; digest=9be18762756e64763ddd6d596be33706
+== file legacy.orc
+document 1293 bytes, sha256 2ae5ad5308ae0589f37085a7c7f147ab17390265c20a126ab34742f66813bc61
+OK 2 presets
+  Manufacturer=Quest; PartNo=ST-1; Description=Streamer, mylar, 1 in. x 30 in.; Material=[Surface 'Mylar, 1 mil' 0.0355 shear 0.0 Other user]; Legacy=true; Width=0.0254; Thickness=2.54E-5; Length=0.762; Type=STREAMER; digest=95f0645fac39b372d91b27153c48035a
+  Legacy=true; Manufacturer=Quest; PartNo=BH-1 ; Description=Bulkhead\tplywood; Material=[Bulk 'Plywood (birch)' 1952.5290437923866 shear 0.0 Custom user]; Mass=0.00283495231; OuterDiameter=0.02413; Length=0.003175; Type=BULK_HEAD; digest=b7a56afadef920f03c13d529a5e9828b
+== file materials.orc
+document 5351 bytes, sha256 6bc711c52ea64cd4b29d212d528d892248e13015a823312f4718ad98a70afa31
+OK 11 presets
+  Legacy=false; Manufacturer=Estes; PartNo=section; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=32a6b34a24a512190d43b707def28ebd
+  Legacy=false; Manufacturer=Estes; PartNo=section g/cm3; Material=[Bulk 'Paper test' 800.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=b69186f83e32067c81af0ceac0360f14
+  Legacy=false; Manufacturer=Estes; PartNo=section shear and group; Material=[Bulk 'Balsa, bulk' 128.0 shear 2.5E8 Woods user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=69730fd07d38ff1afc7c48baf0089267
+  Legacy=false; Manufacturer=Estes; PartNo=section SI; Material=[Bulk 'Basswood, bulk' 500.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=b99a22867a2dcc0166dcefec4ba0f011
+  Legacy=false; Manufacturer=Estes; PartNo=built-in ignoring case; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=2c997c2024d51d4b06ebe8648a91c747
+  Legacy=false; Manufacturer=Estes; PartNo=other type; Material=[Surface 'Paper test' 0.0 shear 0.0 Other user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=db64a725e0e29b31e2c4ea9351972ef9
+  Legacy=false; Manufacturer=Estes; PartNo=new in a group; Material=[Bulk 'Unobtainium' 0.0 shear 0.0 Woods user]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=9583bc6cba6f7089dddc42f5504deca0
+  Legacy=false; Manufacturer=Estes; PartNo=ThreadsLines elastic; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Elastic cord (round 2 mm, 1/16 in)' 0.0018 shear 0.0 Elastics builtin]; digest=5a7dabe32b3f51fa85d06af73a154912
+  Legacy=false; Manufacturer=Estes; PartNo=ThreadsLines other; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Thread (heavy-duty)' 0.0 shear 0.0 Other user]; digest=faaad9bf0df02015bbd2bd5ecc71d287
+  Legacy=false; Manufacturer=Estes; PartNo=ThreadsLines unknown; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Mystery cord' 0.0 shear 0.0 Other user]; digest=3dc78a83f310341b9cac64f634bf991f
+  Legacy=false; Manufacturer=Estes; PartNo=Kevlars unknown; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Mystery cord' 0.0 shear 0.0 Kevlars user]; digest=4f9981cc936ed88d6c9462cc3f9a8e8b
+== file recovery-materials.orc
+document 2354 bytes, sha256 8bc706d8d8979fdd47e2fefe8e822407d1a96bc774b1711521ba059e1ee17320
+OK 5 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-20; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=f91a6ac72879c0e22d5aa2f0c75537af
+  Manufacturer=Estes; PartNo=ST-1; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Legacy=false; Width=0.0508; Thickness=2.54E-5; Length=0.9144; Type=STREAMER; digest=ca87457eef3afb367633c539c4eeff45
+  Legacy=false; Manufacturer=Estes; PartNo=PK-1; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; digest=d1f4ba24cc9566864d8193b7556ab37c
+  Legacy=false; Manufacturer=Estes; PartNo=PK-2; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=6; LineLength=0.30479999999999996; LineMaterial=[Line 'Elastic cord (round 2 mm, 1/16 in)' 0.0018 shear 0.0 Elastics builtin]; digest=44cf14ef3f71aaaeb2eb3c6be07448eb
+  Legacy=false; Manufacturer=Estes; PartNo=BT-50; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.02413; OuterDiameter=0.024790399999999997; Length=0.4572; Type=BODY_TUBE; Thickness=3.3019999999999924E-4; digest=f86ed849f2b7f7ace3c5e44f3030d7bb
+== file replaced-materials.orc
+document 1101 bytes, sha256 eccefeadbf251f89b854c0aa61a463e931d52d0e7628b66a640d888fb5696456
+THROWS java.io.IOException: Unable to parse component preset file: case.orc (invalid format or corrupted file)
+== file section-order.orc
+document 1524 bytes, sha256 fdd7eeaab1616be0ac207a7ba60adc03dfd38ef0941ecb202c2625f3a9a145f9
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-20; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=f91a6ac72879c0e22d5aa2f0c75537af
+== file skipped.orc
+document 1938 bytes, sha256 cc91eec23839ffae2d3640e426880c434f06ebec88b179c8d2b942238dae3dcd
+OK 4 presets
+  Legacy=false; Manufacturer=Estes; PartNo=BT-20; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=0.4572; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=f91a6ac72879c0e22d5aa2f0c75537af
+  Legacy=false; Manufacturer=Estes; PartNo=PK-12; Material=[Surface 'Ripstop nylon' 0.067 shear 0.0 Fabrics builtin]; Type=PARACHUTE; Diameter=0.30479999999999996; LineCount=<null>; LineLength=0.30479999999999996; digest=d8619facbd8acc1e5f6f646bbb100275
+  Legacy=false; Manufacturer=Estes; PartNo=BT-INF; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.018033999999999998; OuterDiameter=0.0186944; Length=Infinity; Type=BODY_TUBE; Thickness=3.30200000000001E-4; digest=1cfc2185bdbd91328b274d3e5649ff01
+  Legacy=false; Manufacturer=Estes; PartNo=BH-N; Material=[Bulk 'Neutronium' Infinity shear 0.0 Other user]; OuterDiameter=0.02413; Length=0.003175; Type=BULK_HEAD; digest=e589aec13d41a87f686bc91ea26bf7fa
+== file thumbnail.orc
+document 850 bytes, sha256 9662f73e39d0cce5eab314132cee78f92d7cbebb801ef60f97d94744e9adf8c0
+OK 1 presets
+  Legacy=false; Manufacturer=manufacturer; PartNo=partno; Mass=100.0; Image=bytes76:89504e470d0a1a0a0000000d494844520000000200000002080600000072b60d24000000134944415478da63f8cfc0f01f0c813408340000494909789c5117920000000049454e44ae426082; InnerDiameter=1.0; OuterDiameter=2.0; Length=2.0; Type=BODY_TUBE; Thickness=0.5; Material=[Bulk 'TubeCustom' 21.22065907891938 shear 0.0 Custom user]; digest=51382687eda9ff0e822918c836cb4b21
+== file unknown-group.orc
+document 741 bytes, sha256 d33ece27a4bd824f8da8dd07cd44a81ea871f279592d19df77894f99ccc74c8d
+THROWS java.lang.IllegalArgumentException: Unknown material group: Rocks
+== file xsi-type.orc
+document 817 bytes, sha256 aa469b2b4d501fbcd5585b641a4abb5e9af33af3e6af5c7cce14f2950ca8e04c
+OK 1 presets
+  Legacy=false; Manufacturer=Estes; PartNo=RA-2050; Material=[Bulk 'Cardboard' 680.0 shear 4.0E8 PaperProducts builtin]; InnerDiameter=0.0186944; OuterDiameter=0.02413; Length=0.0015875; Type=CENTERING_RING; Thickness=0.0027177999999999994; digest=8297936398a0e71c6c084cd230559586

@@ -6,11 +6,14 @@
 
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/material/BuiltinMaterials.h"
+#include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/MotorDatabase.h"
 #include "QtRocket/motor/SqliteMotorDatabaseReader.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
 #include "QtRocket/util/Error.h"
 
@@ -40,14 +43,35 @@ Result<ThrustCurveMotorSetDatabase> CliEnvironment::readMotorDatabase(
     return database;
 }
 
-CliEnvironment::CliEnvironment(const MotorDatabase& motors)
+std::filesystem::path CliEnvironment::defaultComponentPresetDirectory(
+    const std::filesystem::path& dataDirectory)
+{
+    return dataDirectory / ComponentPresetDatabaseLoader::kBundledDirectory;
+}
+
+CliEnvironment::ComponentPresets CliEnvironment::readComponentPresets(
+    const std::filesystem::path& directory)
+{
+    // The presets hold copies of the materials they found (OpenRocketComponentLoader), so the
+    // storage goes with the loader.
+    MaterialStorage materials;
+    addBuiltinMaterials(materials);
+    ComponentPresetDatabaseLoader loader(materials);
+    loader.loadPresetComponents(directory);
+    ComponentPresets presets{.database = loader.takeDatabase(),
+                             .problems = loader.getProblems(),
+                             .warnings = loader.getWarnings()};
+    return presets;
+}
+
+CliEnvironment::CliEnvironment(const MotorDatabase& motors, const ComponentPresetDatabase& presets)
   : m_motorFinder(motors), m_extensions(SimulationExtensionRegistry::bundled())
 {
     addBuiltinMaterials(m_materials);
     m_context.setMotorFinder(&m_motorFinder);
     m_context.setApplicationMaterials(&m_materials);
     m_context.setPreferences(&m_preferences);
-    m_context.setComponentPresetDatabase(&m_presets);
+    m_context.setComponentPresetDatabase(&presets);
     m_context.setSimulationExtensionRegistry(&m_extensions);
 }
 

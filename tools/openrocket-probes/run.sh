@@ -112,7 +112,7 @@ for probe in "$@"; do
             -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
             -Duser.home="${work}/${probe}/home" -Djava.io.tmpdir="${work}/${probe}/tmp" \
             -Djava.util.prefs.userRoot="${work}/${probe}/prefs" -Djava.util.prefs.systemRoot="${work}/${probe}/prefs" \
-            -Dlogback.configurationFile="${repo}/tools/openrocket-gui-pins/logback.xml" \
+            -Dlogback.configurationFile="${repo}/tools/openrocket-gui-pins/logback.xml" -Dqtrocket.repo="${repo}" \
             -cp "${work}/${probe}/classes:${classpath}" "${class}" \
             >> "${work}/${probe}/transcript.txt" 2>> "${work}/${probe}/log.txt" || {
             echo "error: ${class} failed (its log: ${work}/${probe}/log.txt)" >&2

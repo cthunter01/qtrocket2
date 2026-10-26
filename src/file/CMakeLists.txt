@@ -1,6 +1,7 @@
 target_sources(QtRocket_core PRIVATE
     CsvExport.cpp
     DatabaseMotorFinder.cpp
+    DirectoryIterator.cpp
     DocumentLoadingContext.cpp
     FileSystemAttachmentFactory.cpp
     GeneralRocketLoader.cpp
@@ -74,6 +75,11 @@ target_sources(QtRocket_core PRIVATE
     openrocket/StringSetter.cpp
     openrocket/WarningHandler.cpp
     openrocket/WindHandler.cpp
+    preset/ComponentPresetDatabaseLoader.cpp
+    preset/JaxbLexical.cpp
+    preset/OpenRocketComponentLoader.cpp
+    preset/OrcDocument.cpp
+    preset/OrcElement.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp

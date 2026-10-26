@@ -353,6 +353,39 @@ TEST(XmlScanner, ReadsDeepDocumentsWithoutRecursion)
     EXPECT_EQ(report.elementEvents, 2U * kDepth);
 }
 
+// Every element declares the prefix p again: the innermost declaration counts (two attributes
+// whose prefixes are bound to the same namespace repeat each other), and each end tag takes its
+// declarations out of scope again. The bindings are looked up through an index of the prefixes:
+// a walk through all the declarations in scope made such a document quadratic to scan.
+TEST(XmlScanner, ResolvesTheNamespacesOfManyNestedDeclarations)
+{
+    constexpr int kDepth = 10000;
+    std::string   open;
+    std::string   close;
+    for (int i = 0; i < kDepth; i++)
+    {
+        open += std::format(R"(<a xmlns:p="urn:{}">)", i);
+        close += "</a>";
+    }
+    const auto document = [&](std::string_view inner, std::string_view after) {
+        return "<r>" + open + std::string(inner) + close + std::string(after) + "</r>";
+    };
+    const std::string innermost = std::format("urn:{}", kDepth - 1);
+    const std::string outer     = std::format("urn:{}", kDepth - 2);
+
+    EXPECT_EQ(errorOf(XmlScanner::scan(
+                  document(std::format(R"(<b xmlns:q="{}" p:x="1" q:x="2"/>)", innermost), ""))),
+              std::format(R"(Attribute "x" bound to namespace "{}" was already specified for )"
+                          R"(element "b".)",
+                          innermost));
+    const XmlScanner::Report report = XmlScanner::scan(
+        document(std::format(R"(<b xmlns:q="{}" p:x="1" q:x="2"/>)", outer), "<c/>"));
+    EXPECT_EQ(errorOf(report), "");
+    EXPECT_EQ(report.elementEvents, (2U * kDepth) + 6U);
+    EXPECT_EQ(errorOf(XmlScanner::scan(document("<p:b/>", "<p:c/>"))),
+              R"(The prefix "p" for element "p:c" is not bound.)");
+}
+
 TEST(XmlScanner, LeavesDeclarationsAndExternalSubsetsUnread)
 {
     // The JDK's parser would read these (and expand, default or fetch); XmlScanner stops.

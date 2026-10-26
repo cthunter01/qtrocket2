@@ -92,6 +92,12 @@ const DesignFileEnvironment& goldenExampleEnvironment(DesignFileEnvironment::Pre
         static DesignFileEnvironment s_withoutPresets(DesignFileEnvironment::Presets::NONE);
         return s_withoutPresets;
     }
+    if (presets == DesignFileEnvironment::Presets::BUNDLED)
+    {
+        // NOLINTNEXTLINE(misc-const-correctness): written to through its context, see above
+        static DesignFileEnvironment s_withBundledPresets(DesignFileEnvironment::Presets::BUNDLED);
+        return s_withBundledPresets;
+    }
     // NOLINTNEXTLINE(misc-const-correctness): written to through its context, see above
     static DesignFileEnvironment s_withPresets(DesignFileEnvironment::Presets::EXAMPLES);
     return s_withPresets;

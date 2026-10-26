@@ -5,7 +5,9 @@
 //
 // The commands that need motors are handed the bundled motor database (bundledMotorDatabase(),
 // read once per test process), as the executable reads it from its data directory; --db still
-// reads its own file. The binary itself is run by tests/core/cli/CMakeLists.txt.
+// reads its own file. The commands that open a design are handed component presets too, the six
+// of the examples unless a test asks for the bundled ones (runCliWithMotors()). The binary
+// itself is run by tests/core/cli/CMakeLists.txt.
 
 #include <cstdint>
 #include <cstdio>
@@ -18,6 +20,7 @@
 
 #include "QtRocket/cli/Cli.h"
 #include "QtRocket/cli/ExitCode.h"
+#include "file/DesignFileEnvironment.h"
 
 namespace QtRocket::Test
 {
@@ -36,8 +39,16 @@ struct CliRun
                             const Cli::Settings&            settings);
 
 /// Runs the tool with @p arguments over the bundled motor database, with data/ of the source
-/// tree as its data directory.
-[[nodiscard]] CliRun runCliWithMotors(const std::vector<std::string>& arguments);
+/// tree as its data directory, and with the component presets @p presets
+/// (DesignFileEnvironment::presetDatabase()) for 'info' and 'simulate'. By default these are the
+/// six presets of the example designs, made at no cost, with which every example loads as with
+/// the bundled presets the tool reads from its data directory
+/// (ExampleFilesWithTheBundledPresets); Presets::BUNDLED hands in the bundled presets themselves,
+/// read once per test process (a second and a half in a debug build, several seconds under the
+/// sanitizers: keep such tests few).
+[[nodiscard]] CliRun runCliWithMotors(
+    const std::vector<std::string>& arguments,
+    DesignFileEnvironment::Presets  presets = DesignFileEnvironment::Presets::EXAMPLES);
 
 /// The example design @p name of data/examples ("A simple model rocket.ork") as an argument of
 /// the tool (UTF-8).

@@ -15,6 +15,7 @@
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
 #include "motor/TestMotorDatabase.h"
 #include "rocket/preset/ExamplePresets.h"
+#include "rocket/preset/TestPresetDatabase.h"
 #include "simulation/SimulationRunSupport.h"
 
 namespace QtRocket::Test
@@ -26,9 +27,11 @@ namespace QtRocket::Test
 ///   does it: the bundled one (bundledMotorDatabase(), read once per test process) unless the
 ///   test hands in another, which must outlive the environment;
 /// - the component presets are the six the example designs refer to
-///   (makeExamplePresetDatabase()), or none: OpenRocket's own database holds 5228, of which a
-///   design of tests/data/ork or data/examples can find these six and six more that QtRocket
-///   cannot have before it reads .orc files (Milestone 3);
+///   (makeExamplePresetDatabase()), the bundled ones (bundledPresetDatabase(): the 5228 of
+///   data/components, OpenRocket's own database, with which its ExampleFilesTest loads the
+///   examples; read once per test process, a second and a half in a debug build), or none. Of
+///   the bundled presets a design of tests/data/ork or data/examples can find the six and six
+///   more, SEMROC and FlisKits parts of three legacy files;
 /// - the preference store holds what OpenRocket's tests read from theirs
 ///   (storeJavaTestPreferences()) and shows a motor by its common name
 ///   (setMotorNameColumn(false): ServicesForTesting answers false for every flag). It names NO
@@ -51,6 +54,8 @@ public:
         NONE,
         /// The six presets of the example designs.
         EXAMPLES,
+        /// The bundled presets (bundledPresetDatabase()), a copy that shares them.
+        BUNDLED,
     };
 
     /// An environment with the bundled motor database.
@@ -61,8 +66,7 @@ public:
 
     /// An environment whose motors come from @p motors, which must outlive it.
     DesignFileEnvironment(Presets presets, const MotorDatabase& motors)
-      : m_presets(presets == Presets::EXAMPLES ? makeExamplePresetDatabase()
-                                               : ComponentPresetDatabase()),
+      : m_presets(presetDatabase(presets)),
         m_motorFinder(motors),
         m_extensions(SimulationExtensionRegistry::bundled())
     {
@@ -91,6 +95,22 @@ public:
     /// the store and cannot write to it; the loads write through the context.
     [[nodiscard]] InMemoryPreferences&       preferences() noexcept { return m_preferences; }
     [[nodiscard]] const InMemoryPreferences& preferences() const noexcept { return m_preferences; }
+
+    /// A new database of the presets @p presets: empty, the six of the examples, or a copy of the
+    /// bundled ones, which shares them (the first call of a process reads them).
+    [[nodiscard]] static ComponentPresetDatabase presetDatabase(Presets presets)
+    {
+        switch (presets)
+        {
+            case Presets::NONE:
+                return {};
+            case Presets::EXAMPLES:
+                return makeExamplePresetDatabase();
+            case Presets::BUNDLED:
+                return bundledPresetDatabase();
+        }
+        return {};
+    }
 
 private:
     InMemoryPreferences         m_preferences;

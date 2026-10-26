@@ -17,12 +17,14 @@
 //   the number of warnings is that of the golden geometry warnings (none in any example);
 // - geometry.json: the rocket's name, the number of configurations and each one's length
 //   (relative 1e-9).
-// The tool loads with its own environment (CliEnvironment: factory preferences, no component
-// presets), not the harness's: the three examples with a <preset> give their "No matching
-// ComponentPreset" warnings on the standard error, and the numbers are the same, as the
-// components keep the values of the file. The tool settles the automatic dimensions first, as the
-// harness does before it dumps. Once more for 'Two stage high power rocket' at --mach 2, the
-// points at Mach 2.0. One test for all, which reads the motor database once.
+// The tool loads with its own environment (CliEnvironment: factory preferences, the bundled
+// component presets), not the harness's, and is handed the bundled presets the executable reads
+// from its data directory (read once per test process): the three examples with a <preset> find
+// the six presets they name, so that no example prints anything on the standard error, as
+// OpenRocket's harness loads them without a warning. The tool settles the automatic dimensions
+// first, as the harness does before it dumps. Once more for 'Two stage high power rocket' at
+// --mach 2, the points at Mach 2.0. One test for all, which reads the motor database and the
+// presets once.
 //
 // CliGolden.SimulateMeetsTheMilestoneExitCheck is the exit check of Milestone 1 (plan section 7):
 // 'simulate "A simple model rocket.ork" --calm --time-step 0.01 --csv out.csv' gives the apogee
@@ -53,6 +55,7 @@
 #include "QtRocket/util/Strings.h"
 #include "TestTempDir.h"
 #include "cli/CliRunSupport.h"
+#include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenExamples.h"
 #include "goldens/GoldenGeometry.h"
@@ -67,6 +70,7 @@ using QtRocket::Test::CliRun;
 using QtRocket::Test::GoldenExample;
 using QtRocket::Test::GoldenMismatches;
 using QtRocket::Test::runCliWithMotors;
+using Presets = QtRocket::Test::DesignFileEnvironment::Presets;
 
 /// One flight configuration as 'info' printed it.
 struct PrintedConfiguration
@@ -345,15 +349,13 @@ void compareConfiguration(const PrintedConfiguration& printed, const ExampleGold
               printed.warningLines);
 }
 
-/// Whether every line of @p err is a warning ("warning: ..."); the others are added to @p m.
-void expectOnlyWarnings(std::string_view err, GoldenMismatches& m)
+/// Adds every line of the standard error @p err to @p m: with the bundled presets no example
+/// gives a warning.
+void expectNothingOnTheStandardError(std::string_view err, GoldenMismatches& m)
 {
     for (const std::string& line : QtRocket::Test::outputLines(err))
     {
-        if (!line.starts_with("warning: "))
-        {
-            m.note(std::format("standard error: {}", line));
-        }
+        m.note(std::format("standard error: {}", line));
     }
 }
 
@@ -370,14 +372,15 @@ void compareInfo(const GoldenExample& example, std::string& report, InfoCounts& 
 {
     GoldenMismatches                    m(example.file);
     const std::optional<ExampleGoldens> goldens = loadExampleGoldens(example.name, m);
-    const CliRun info = runCliWithMotors({"info", QtRocket::pathToUtf8(example.original)});
+    const CliRun                        info =
+        runCliWithMotors({"info", QtRocket::pathToUtf8(example.original)}, Presets::BUNDLED);
     if (info.code != ExitCode::OK || !goldens.has_value())
     {
         report += std::format("{}: exit code {}\n{}", example.file, QtRocket::exitStatus(info.code),
                               info.err);
         return;
     }
-    expectOnlyWarnings(info.err, m);
+    expectNothingOnTheStandardError(info.err, m);
     const PrintedDesign printed = parseInfo(info.out);
     m.text("rocket", goldens->geometry.at("rocketName").get<std::string>(), printed.rocket);
     const std::size_t count = goldens->mass.at("configurations").size();
@@ -406,7 +409,8 @@ void compareInfo(const GoldenExample& example, std::string& report, InfoCounts& 
     GoldenMismatches                    m(std::format("{} at Mach {}", example.file, mach));
     const std::optional<ExampleGoldens> goldens = loadExampleGoldens(example.name, m);
     const CliRun                        info    = runCliWithMotors(
-        {"info", QtRocket::pathToUtf8(example.original), "--mach", std::format("{}", mach)});
+        {"info", QtRocket::pathToUtf8(example.original), "--mach", std::format("{}", mach)},
+        Presets::BUNDLED);
     int compared = 0;
     if (info.code == ExitCode::OK && goldens.has_value())
     {

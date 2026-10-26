@@ -2,7 +2,8 @@
 
 `tools/openrocket-goldens` runs OpenRocket (Java) on a fixed set of rocket designs and writes what it
 computes into `tests/data/goldens/`: geometry and mass properties, extended-Barrowman aerodynamics,
-complete simulations, OpenRocket's own re-save of each design and what its 2D rocket figure draws.
+complete simulations, OpenRocket's own re-save of each design and what its 2D rocket figure draws,
+and the component presets it reads from its bundled `.orc` files.
 QtRocket's golden tests (`tests/core/goldens/*_golden_tests.cpp`, plan section 6.4) compare the C++
 port against these files. The data is committed; neither CMake nor CI ever needs Java.
 
@@ -16,7 +17,9 @@ port against these files. The data is committed; neither CMake nor CI ever needs
   `SimulationDumper`, `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`,
   `LastBitPerturbation`, `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`, and
   `CoverageDocuments`
-  (the saver-coverage documents, see [Re-saves alone](#re-saves-alone)).
+  (the saver-coverage documents, see [Re-saves alone](#re-saves-alone)), and `PresetDumper`, which
+  writes the preset golden `presets/presets.json` in a full run and runs alone too
+  (`generate.sh --presets`, see [presets/presets.json](#presetspresetsjson)).
 - `src/main/java/info/qtrocket/goldens/CsvExportDumper.java` is not run by `generate.sh`: it writes
   the fixtures of the CSV export test, `tests/data/csv/` (see
   [CSV export fixtures](#csv-export-fixtures)).
@@ -209,8 +212,9 @@ file-system safe the same way as the directory names.
 Conventions for every JSON file:
 
 - Every file starts with `"schema"` (`"manifest"`, `"geometry"`, `"mass"`, `"aero"`,
-  `"figure"`, `"simulation"`), `"schemaVersion"` (currently 1, `GoldenDumper.SCHEMA_VERSION` and
-  `kGoldenSchemaVersion` in `GoldenData.h`) and, except the manifest, `"input"` (the input's name).
+  `"figure"`, `"simulation"`, `"presets"`), `"schemaVersion"` (currently 1,
+  `GoldenDumper.SCHEMA_VERSION` and `kGoldenSchemaVersion` in `GoldenData.h`) and, except the
+  manifest and `presets/presets.json`, which belong to no input, `"input"` (the input's name).
   The version is raised when a field changes its meaning or disappears, not for an addition: the
   stable-step set added files, manifest entries and two keys of `harness` in its own files, and
   left it at 1. (This rule was written down with that addition; before it the README only gave
@@ -275,7 +279,41 @@ re-save with simulation data of an example) and `inputs`: per re-save alone its 
 `archiveEntries` (the entries of OpenRocket's `.ork` archive of the design as loaded, saved with the
 simulation data, in their order) and `archiveError` (when that archive cannot be saved:
 `DecalNotFoundException: <the decal's name>`; then `archiveEntries` is null), a coverage document
-`saveSimulationData` (how its re-save was saved).
+`saveSimulationData` (how its re-save was saved). The last entry, `presets`, is the preset
+golden's (see [presets/presets.json](#presetspresetsjson)): `json` (`presets/presets.json`), its
+`sha256`, `fileCount` (31), `presetCount` (5231) and `databaseCount` (5228); the full run writes
+it, and `generate.sh --presets` replaces its line.
+
+### presets/presets.json
+
+What OpenRocket reads from the bundled component preset files (`PresetDumper`): the 31 `.orc` files
+of the harness's preset database (`GoldenDumper.presetFiles()`: `internal/` from OpenRocket's
+resources, `database/` from the `openrocket-database` submodule; QtRocket ships them, byte for byte,
+in `data/components/`), each read with `OpenRocketComponentLoader` and added to a
+`ComponentPresetDatabase` with `addAll()`, in the order in which QtRocket's
+`ComponentPresetDatabaseLoader` reads the bundled directory: depth first, the entries of each
+directory in the order of their UTF-8 names compared byte by byte (`DirectoryIterator`; for these
+files the order of the sorted paths that `databases.presetFiles` of the manifest lists).
+
+`fileCount`, `presetCount` (5231) and `files`, per file: `file` (its path below the components
+directory, `database/BMS.ORC`), `sha256`, `presetCount` and `presets`, each with `type` (the
+`ComponentPreset.Type` constant), `manufacturer` (the simple name), `manufacturerDisplayName`,
+`partNo`, `digest` and `properties`: every property in the order the loader put it into the
+preset's `TypedPropertyMap` (read through reflection: the preset has no accessor for it), with its
+value in SI units: a double or an integer as such, a boolean, a string, a manufacturer by its simple
+name, a preset type, a shape and a finish by the constant's name, a material as `{"type" (the
+constant), "name", "density", "shearModulus", "group" (its database string), "userDefined",
+"documentMaterial"}` and an image in base64. Then `databaseCount` (5228: three presets of
+`semroc.orc` have the digests of others) and `databaseOrder`, the database's presets in its order,
+each as `"<file>#<index in the file>"`. The UUID sequence is reseeded before the files are read
+(`DeterministicUuids`), although reading presets makes none.
+
+`tests/core/goldens/preset_golden_tests.cpp` (`GoldenPresets.h`) reads every bundled file with
+QtRocket's loader and compares, file by file, every preset exactly (doubles bit for bit), and the
+order of the database. The exception: six nose cones of `internal/semroc-legacy.orc` whose
+material's density OpenRocket's factory derives from the volume of a HAACK or a POWER shape (acos,
+sin, pow: the last bits differ between platforms), compared within a relative 1e-10 and without
+their digests.
 
 ### geometry.json
 
@@ -883,8 +921,19 @@ checkout's commit differs from the one in the existing `manifest.json`. It then 
 `core` (and `ServicesForTesting` and the figure's shape providers) into
 `tools/openrocket-goldens/build/`, runs `GoldenDumper` with a fixed locale and time zone, and prints
 the size of the data. A run takes a few minutes. It deletes
-and rewrites only the `example-*`, `testrocket-*`, `legacy-*` and `coverage-*` directories and
-`manifest.json`.
+and rewrites only the `example-*`, `testrocket-*`, `legacy-*` and `coverage-*` directories,
+`presets/presets.json` and `manifest.json`.
+
+`generate.sh --presets` runs `PresetDumper` alone, with the same checks of the checkout, in a few
+seconds: it rewrites `presets/presets.json` and the line of its entry in `manifest.json` (which must
+have one: an older manifest needs a full run), and nothing else. What it writes depends on the
+preset files and OpenRocket's code alone, so it is what a full run writes, byte for byte; the
+variables of the scratch dumps (`UUID_SALT`, `LAST_BIT`, `STABLE_EXAMPLES`) do not apply to it and
+are refused, `GOLDENS_OUT` is honoured. The rest of the manifest stays, so the checkout must be the
+one it records: a dirty checkout (`ALLOW_DIRTY=1`), another OpenRocket commit or preset commit
+than the manifest's, or a manifest that is dirty itself is refused, and so is a `GOLDENS_OUT`
+without a `manifest.json` that has the entry (copy the committed one there first), all before
+anything is built or written.
 
 The version written into `manifest.json` and `creator=` of the re-saved files is OpenRocket's
 `build.version` with the commit hash appended as OpenRocket's build does, except that the hash is
@@ -966,8 +1015,8 @@ is about 53 MB (JSON 12.4 MB, of which the figures 3.0 MB; time series 37.7 MB; 
 1.2 MB: those of the examples and the test rockets 0.7 MB, of the legacy files 0.4 MB, of the
 coverage documents 0.03 MB; the re-saves with simulation data 0.4 MB), of which the
 stable-step set of the test rockets is 13.4 MB (103 files: JSON 0.6 MB, time series 12.8 MB) and
-that of the example designs 0.9 MB (54 documents); `motors.json`, which the motor harness writes,
-is another 1.5 MB.
+that of the example designs 0.9 MB (54 documents); the preset golden `presets/presets.json` adds
+4.3 MB; `motors.json`, which the motor harness writes, is another 1.5 MB.
 
 After regenerating, run the C++ tests (`goldens_schema_tests.cpp` checks the structure; the golden
 comparison tests check the values) and review the diff: a change of OpenRocket's results changes the

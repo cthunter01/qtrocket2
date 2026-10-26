@@ -31,7 +31,8 @@
 //    above the limit of the warning, not that it has none (kDeploymentsAtTheLimit).
 //
 // 2. OpenRocketCoreTest (core/src/test/java/info/openrocket/core/startup): its twelve methods
-//    that load or simulate an example or ask the motor database.
+//    that load or simulate an example or ask the motor database, and its three that ask the
+//    component preset database (the bundled presets).
 //
 // 3. What those tests do not look at. The state of every example as loaded is OpenRocket's,
 //    line for line (the lines of DesignFileState.h, here in their short form): the file
@@ -41,11 +42,15 @@
 //    every stored column, the decal images with their bytes, the document materials in the
 //    order a save writes them, the photo settings, the storage options and the undo state.
 //
-// 4. The same files without component presets, which is how the product loads them until it
-//    reads preset files: the six warnings OpenRocket gives then, and the state it has then.
+// 4. The same files without component presets (an empty preset database): the six warnings
+//    OpenRocket gives then, and the state it has then.
 //
 // 5. OpenRocket's re-saves of the examples (resave/rocket.ork of their goldens) load without a
 //    warning into the rocket of the original.
+//
+// 6. The same files with the bundled presets (data/components, the 5228 presets of OpenRocket's
+//    database, with which ExampleFilesTest loads them): no warning, the six presets found, and
+//    OpenRocket's state.
 //
 // The expectations of 3 to 5 are OpenRocket's own answers, printed by the Java probe
 // ExampleProbe of the probes of tier 9c, part "examples", and put into ExampleOrkFiles.h by
@@ -99,6 +104,8 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
@@ -115,6 +122,8 @@
 #include "file/openrocket/FlightDataTestSupport.h"
 #include "goldens/GoldenExamples.h"
 #include "motor/TestMotorDatabase.h"
+#include "rocket/preset/ExamplePresets.h"
+#include "rocket/preset/TestPresetDatabase.h"
 #include "simulation/SimulationRunSupport.h"
 #include "unit/DefaultUnitsGuard.h"
 
@@ -1836,6 +1845,26 @@ TEST(OpenRocketCoreTest, FindsItsMotorsAndLoadsTheExamples)
         << "Clustered motors rocket should have motors";
 }
 
+// OpenRocketCoreTest's methods of the component preset database, testComponentPresetDatabaseIs-
+// Populated, testComponentPresetDatabaseHasBodyTubes and testComponentPresetDatabaseHasNoseCones,
+// on the bundled presets, which OpenRocketCore.initialize() loads from datafiles/components as
+// the application does (bundledPresetDatabase(): ComponentPresetDatabaseLoader over
+// data/components). Java's assertNotNull of the list has no counterpart: listAll() gives a
+// reference.
+TEST(OpenRocketCoreTest, HasTheBundledComponentPresets)
+{
+    const QtRocket::ComponentPresetDatabase& dao = QtRocket::Test::bundledPresetDatabase();
+    // testComponentPresetDatabaseIsPopulated
+    EXPECT_FALSE(dao.listAll().empty())
+        << "Component preset database should contain presets after loading";
+    // testComponentPresetDatabaseHasBodyTubes
+    EXPECT_FALSE(dao.listForType(QtRocket::ComponentPresetType::BODY_TUBE).empty())
+        << "Component preset database should contain body tube presets";
+    // testComponentPresetDatabaseHasNoseCones
+    EXPECT_FALSE(dao.listForType(QtRocket::ComponentPresetType::NOSE_CONE).empty())
+        << "Component preset database should contain nose cone presets";
+}
+
 // ================================================================== 3. the state as loaded
 
 /// The document @p document without what its root element holds: the start tag of
@@ -2380,13 +2409,12 @@ TEST(ExampleFiles, TheDualParachuteDesignIsStaleAsLoaded)
     return std::format("{} loads, {} warnings{}", loads, warnings, problems);
 }
 
-// Without component presets (the product has none before it reads preset files, Milestone 3)
-// the sixteen examples load with exactly six warnings, OpenRocket's for a preset its database
-// does not hold: one, two and three in the three designs that name presets. The state of each
-// of the three is the one OpenRocket has then: the six components keep what their elements
-// store and have no preset, the document materials stand in another order (a preset registers
-// its material before the element's own), and two nose cones lose the one value their preset
-// alone supplied (see the next test).
+// Without component presets (an empty preset database) the sixteen examples load with exactly
+// six warnings, OpenRocket's for a preset its database does not hold: one, two and three in the
+// three designs that name presets. The state of each of the three is the one OpenRocket has
+// then: the six components keep what their elements store and have no preset, the document
+// materials stand in another order (a preset registers its material before the element's own),
+// and two nose cones lose the one value their preset alone supplied (see the next test).
 //
 // The other thirteen examples are loaded without presets too, and give no warning. Their
 // state is not compared a second time: their documents have no <preset> element, which is
@@ -2621,6 +2649,124 @@ TEST(ExampleFilesResaves, ThePlainResaveOfTheParallelBoostersReadsNoTexture)
     ASSERT_TRUE(original.has_value()) << original.error().toString();
     EXPECT_TRUE(original->warnings.empty());
     EXPECT_EQ(original->document->getDecalImageCount(), 6U);
+}
+
+// ================================================================ 6. with the bundled presets
+
+/// The components of @p rocket that have a preset, in the order of the tree: "<name>: <type>
+/// <manufacturer> <part number> <digest>" each, and " (another object)" behind one whose preset
+/// is not the very preset of the bundled database that find() gives first.
+[[nodiscard]] Lines bundledPresetsOf(const Rocket& rocket)
+{
+    const QtRocket::ComponentPresetDatabase& bundled = QtRocket::Test::bundledPresetDatabase();
+    Lines                                    lines;
+    rocket.forEach([&lines, &bundled](const RocketComponent& component) {
+        const QtRocket::ComponentPreset* const preset = component.getPresetComponent();
+        if (preset == nullptr)
+        {
+            return;
+        }
+        const std::vector<QtRocket::ComponentPresetDatabase::PresetPtr> found =
+            bundled.find(preset->getManufacturer().getDisplayName(), preset->getPartNo());
+        lines.push_back(std::format(
+            "{}: {} {} {} {}{}", component.getName(),
+            QtRocket::componentPresetTypeName(preset->getType()),
+            preset->getManufacturer().getDisplayName(), preset->getPartNo(), preset->getDigest(),
+            !found.empty() && found.front().get() == preset ? "" : " (another object)"));
+    });
+    return lines;
+}
+
+/// What the six <preset> elements of the examples name (kExamplePresetReferences), in the lines
+/// of bundledPresetsOf(), by file: the components they belong to, as presetWarnings() names them.
+[[nodiscard]] std::map<std::string, Lines> presetReferencesOfTheExamples()
+{
+    const std::map<std::string, Lines> components = presetWarnings();
+    std::map<std::string, Lines>       lines;
+    std::map<std::string, std::size_t> next;
+    for (const QtRocket::Test::ExamplePresetReference& reference :
+         QtRocket::Test::kExamplePresetReferences)
+    {
+        const std::string  file    = std::string(reference.example);
+        const std::size_t  index   = next[file]++;
+        const std::string& warning = components.at(file).at(index);
+        // "No matching ComponentPreset for component <name> found matching ...".
+        constexpr std::string_view kStart = "No matching ComponentPreset for component ";
+        const std::string          name =
+            warning.substr(kStart.size(), warning.find(" found matching ") - kStart.size());
+        lines[file].push_back(
+            std::format("{}: {} {} {} {}", name, QtRocket::componentPresetTypeName(reference.type),
+                        reference.manufacturer, reference.partNo, reference.digest));
+    }
+    return lines;
+}
+
+/// What the examples, opened with the bundled presets, give: a line for each whose warnings are
+/// not those ExampleFilesTest expects (by priority) or that has any, and the presets their
+/// components found (bundledPresetsOf()), by file.
+struct BundledPresetLoads
+{
+    std::string                  wrong;
+    std::map<std::string, Lines> presets;
+};
+
+/// Opens every example with the bundled presets (BundledPresetLoads).
+[[nodiscard]] BundledPresetLoads loadWithTheBundledPresets()
+{
+    const auto         warningTable = allExpectations();
+    BundledPresetLoads loads;
+    for (const GoldenExample& example : goldenExamples())
+    {
+        const Result<LoadedDocument> loaded =
+            loadGoldenExample(example, ExampleSource::ORIGINAL, Presets::BUNDLED);
+        const auto expected = warningTable.find(example.file);
+        if (!loaded || expected == warningTable.end())
+        {
+            loads.wrong += std::format("{}: {}\n", example.file,
+                                       loaded ? "no expected warnings" : loaded.error().toString());
+            continue;
+        }
+        const WarningCounts openWarnings = countRelevantWarnings(loaded->warnings);
+        if (openWarnings != expected->second.open || !loaded->warnings.empty())
+        {
+            loads.wrong += std::format("Warnings when opening {} (expected={}, actual={}):\n{}",
+                                       example.file, expected->second.open.toString(),
+                                       openWarnings.toString(), formatWarnings(loaded->warnings));
+        }
+        Lines found = bundledPresetsOf(loaded->document->getRocket());
+        if (!found.empty())
+        {
+            loads.presets.emplace(example.file, std::move(found));
+        }
+    }
+    return loads;
+}
+
+// ExampleFilesTest.setUp() loads OpenRocket's whole component preset database
+// (loadComponentPresetDatabase(), every .orc file of datafiles/components, 5228 presets) before
+// it opens the examples, and its test of each file asserts that the file opens without a
+// warning ("Warnings when opening": expected.openWarnings, 0 0 0 for every file). The port above
+// opens them with the six presets of the examples, with which OpenRocket gives what it gives
+// with its whole database; here they open with the bundled presets, as in Java's test: every
+// file without a warning, each of the six <preset> elements finds its preset in the bundled
+// database (the very object find() gives), and the three examples that name presets have
+// OpenRocket's state, line for line, the state of the examples with the six presets. (The
+// other thirteen name no preset, so no load of them asks the database for anything:
+// ExampleFilesWithoutPresets.GiveOpenRocketsSixWarningsAndItsState.) One test: the bundled
+// presets are read once per process.
+TEST(ExampleFilesWithTheBundledPresets, OpenWithoutWarningsIntoOpenRocketsState)
+{
+    const BundledPresetLoads loads = loadWithTheBundledPresets();
+    EXPECT_EQ(loads.wrong, "");
+    EXPECT_EQ(loads.presets, presetReferencesOfTheExamples());
+
+    const Lines withPresets{"3D printable nose cone and fins.ork", "Deployable payload.ork",
+                            "Pods--powered with recovery deployment.ork"};
+    const std::vector<ExampleState> states =
+        statesOfTheExamples(ExampleSource::ORIGINAL, Presets::BUNDLED, &withPresets);
+    ASSERT_EQ(states.size(), 3U);
+    EXPECT_EQ(wrongStates(states, false), "");
+    EXPECT_EQ(totalsOf(states).loadWarnings, 0);
 }
 
 // ============================================================ for a comparison with the probe

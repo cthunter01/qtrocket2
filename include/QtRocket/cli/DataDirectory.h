@@ -24,9 +24,10 @@ namespace QtRocket
 ///
 /// The data directory is the installed layout, <prefix>/share/QtRocket beside
 /// <prefix>/bin/QtRocket_cli, so dataDirectory() is <directory of the executable>/../share/
-/// QtRocket. The build puts a copy of the motor database at the same place relative to the
-/// executable in the build tree (src/cli/CMakeLists.txt), and the archives of the dist-*
-/// presets hold that layout. No path of the source tree is built into the program.
+/// QtRocket. The build puts a copy of data/ (the motor database, the component presets, the
+/// example designs) at the same place relative to the executable in the build tree
+/// (src/cli/CMakeLists.txt), and the archives of the dist-* presets hold that layout. No path of
+/// the source tree is built into the program.
 class DataDirectory
 {
 public:

@@ -3,10 +3,11 @@
 # output and error, the bytes of their line ends, and the files written. The tests in this process
 # (CliTests.cpp, cli_golden_tests.cpp) cover the commands in full; these cover what only the
 # executable does: its arguments (UTF-8 on Windows too), its data directory (the build tree's copy of
-# the motor database, which QtRocket_cli_data makes, found beside the program as in an installed
-# archive), its exit status and its standard streams (binary mode on Windows, a standard output that
-# cannot be written). Every exit code is pinned but 5, an internal error, which no input gives
-# (CliTests.cpp provokes it in process). Label "cli"; the milestone run also "golden".
+# the motor database and of the component presets, which QtRocket_data of the top-level
+# CMakeLists.txt makes, found beside the program as in an installed archive), its exit status and
+# its standard streams (binary mode on Windows, a standard output that cannot be written). Every
+# exit code is pinned but 5, an internal error, which no input gives (CliTests.cpp provokes it in
+# process). Label "cli"; the milestone run also "golden".
 
 # The tests run the program: building the test target builds it too (the coverage preset builds the
 # test target alone).
@@ -97,6 +98,15 @@ qtrocket_cli_test(info EXIT 0 ARGS info "${cli_example}"
     STDOUT "\\nRocket: A simple model rocket\\n" "\\nFlight configurations: 6\\n"
         "\\nConfiguration 0: \\[No motors\\] \\(default\\)\\n" "\\n  CG: 0\\.2055[0-9]* m\\n"
         "\\n  CP at Mach 0\\.3, angle of attack 0: 0\\.3305[0-9]* m\\n"
+    EMPTY_STDERR LF_ONLY)
+
+# 0: 'info' of a design that names three component presets: the program reads the bundled presets
+# of its data directory (components/, the build tree's copy of data/components), which hold the
+# three, so the standard error stays empty (without them each would give OpenRocket's warning "No
+# matching ComponentPreset ...").
+qtrocket_cli_test(info_with_presets EXIT 0
+    ARGS info "${PROJECT_SOURCE_DIR}/data/examples/Pods--powered with recovery deployment.ork"
+    STDOUT "\\nRocket: Pods With Recovery\\n" "\\nFlight configurations: 2\\n"
     EMPTY_STDERR LF_ONLY)
 
 # 0: the exit check of Milestone 1 (plan section 7) as the plan writes it, with a relative CSV path;

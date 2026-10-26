@@ -2,6 +2,13 @@
 # Regenerates tests/data/goldens from a local OpenRocket checkout. See README.md.
 #
 #   tools/openrocket-goldens/generate.sh [--only <input name>]...
+#   tools/openrocket-goldens/generate.sh --presets
+#
+# "--presets" runs PresetDumper alone: it rewrites presets/presets.json, the preset golden, and its entry in
+# manifest.json (which must have one), and nothing else; a full run writes the same bytes. The environment
+# variables of the scratch dumps (STABLE_EXAMPLES, UUID_SALT, LAST_BIT) do not change it and are refused with it,
+# and so are ALLOW_DIRTY's dirty checkout and a checkout at other commits than the manifest records (whose other
+# entries stay).
 #
 # Environment:
 #   OPENROCKET_DIR   the OpenRocket checkout (default: "openrocket" next to the QtRocket repository)
@@ -34,11 +41,20 @@ set -euo pipefail
 # replace what this script checks (the output directory, the salt, the perturbation, the examples'
 # stable-step set).
 only=()
+presets_only=false
+usage() {
+    echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
+    echo "       $(basename "${BASH_SOURCE[0]}") --presets" >&2
+    echo "       (see the head of the script for the environment variables)" >&2
+    exit 2
+}
+if [[ $# == 1 && "$1" == --presets ]]; then
+    presets_only=true
+    shift
+fi
 while (($# > 0)); do
     if [[ "$1" != --only || $# -lt 2 || -z "$2" || "$2" == --* ]]; then
-        echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
-        echo "       (see the head of the script for the environment variables)" >&2
-        exit 2
+        usage
     fi
     only+=(--only "$2")
     shift 2
@@ -120,6 +136,10 @@ documents | full | none) ;;
     exit 2
     ;;
 esac
+if [[ "$presets_only" == true && ( -n "$uuid_salt" || -n "$last_bit" || "$stable_examples" != documents ) ]]; then
+    echo "error: --presets writes the preset golden alone; UUID_SALT, LAST_BIT and STABLE_EXAMPLES do not apply" >&2
+    exit 2
+fi
 # What makes a dump that is never the committed data.
 scratch_only=()
 if [[ -n "$uuid_salt" ]]; then
@@ -145,6 +165,28 @@ if [[ -n "$recorded" && "$recorded" != "$commit" ]]; then
     echo "warning: the committed goldens come from OpenRocket $recorded, the checkout is at $commit;" >&2
     echo "         check out $recorded (and run git submodule update --init) to reproduce them" >&2
 fi
+# "--presets" rewrites one entry of the manifest and keeps the others, which say where the whole data come
+# from (the commits, "dirty"): the preset golden must come from that same clean checkout, into a directory
+# whose manifest has the entry to replace. Checked before anything is built or written.
+if [[ "$presets_only" == true ]]; then
+    manifest="$out/manifest.json"
+    if [[ ! -f "$manifest" ]] || ! grep -q '^ "presets": {' "$manifest"; then
+        echo "error: --presets replaces the \"presets\" entry of $manifest, which has none;" >&2
+        echo "       copy the committed manifest.json into GOLDENS_OUT or run the full generate.sh" >&2
+        exit 1
+    fi
+    out_commit="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$manifest")"
+    out_preset_commit="$(sed -n 's/^ *"openrocket": {.*"presetDatabaseCommit": "\([0-9a-f]*\)".*/\1/p' "$manifest")"
+    out_dirty="$(sed -n 's/^ *"openrocket": {.*"dirty": \(true\|false\).*/\1/p' "$manifest")"
+    if [[ "$dirty" == true || "$out_dirty" != false || "$out_commit" != "$commit" ||
+        "$out_preset_commit" != "$preset_commit" ]]; then
+        echo "error: --presets keeps the rest of $manifest, which records OpenRocket ${out_commit:-(none)}" >&2
+        echo "       (presets ${out_preset_commit:-(none)}, dirty ${out_dirty:-(none)}); the checkout is at $commit" >&2
+        echo "       (presets $preset_commit, dirty $dirty): regenerate the presets from that clean checkout, or run" >&2
+        echo "       the full generate.sh" >&2
+        exit 1
+    fi
+fi
 
 # Build with OpenRocket's own Gradle wrapper (no wrapper is vendored here). The project directory
 # is this one, so nothing is written into the checkout.
@@ -155,6 +197,13 @@ mkdir -p "$out" "$work"
 out="$(cd "$out" && pwd)"
 
 # A fixed locale, time zone and encoding; headless AWT (OpenRocket's core touches java.awt.geom).
+if [[ "$presets_only" == true ]]; then
+    "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
+        -Dfile.encoding=UTF-8 \
+        -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.PresetDumper \
+        --openrocket "$openrocket" --out "$out"
+    exit 0
+fi
 "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
     -Dfile.encoding=UTF-8 \
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \

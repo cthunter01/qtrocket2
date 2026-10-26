@@ -25,17 +25,19 @@
 //   <motor> element gets the motor OpenRocket gave it, the seven included that are taken by
 //   their designation because no curve of the database has the file's digest;
 // - the component presets are the six the examples refer to (DesignFileEnvironment::Presets::
-//   EXAMPLES), with which a load gives what OpenRocket's whole preset database gives, or none
-//   (Presets::NONE), which is what the product has before it reads preset files: then three
-//   examples give six "No matching ComponentPreset ..." warnings and the six components have no
-//   preset, each keeping the reference its <preset> makes (getUnresolvedPreset(), decision U8
-//   of 2026-10-08); the other thirteen examples name no preset;
+//   EXAMPLES), with which a load gives what OpenRocket's whole preset database gives; that whole
+//   database, the bundled presets (Presets::BUNDLED, read once per process: about a second and a
+//   half in a debug build), with which a load gives the same; or none (Presets::NONE), as an
+//   application whose database lacks them: then three examples give six "No matching
+//   ComponentPreset ..." warnings and the six components have no preset, each keeping the
+//   reference its <preset> makes (getUnresolvedPreset(), decision U8 of 2026-10-08); the other
+//   thirteen examples name no preset;
 // - the preference store holds what OpenRocket's test preferences answer
 //   (storeJavaTestPreferences()), shows a motor by its common name (setMotorNameColumn(false):
 //   the names of the goldens, "[G40-7]" and not "[G40W-7]") and names no default material;
 // - the application's materials are OpenRocket's own, the extension providers the bundled
 //   ones (RollControl, AirStart, the script and the Java code that never run).
-// There is one environment for each of the two preset choices in a test process, made when it
+// There is one environment for each of the three preset choices in a test process, made when it
 // is first asked for and alive until the process ends: it outlives every document a test
 // loads, so a test keeps a loaded document as long as it likes. The motor database is read
 // once per process (about half a second in a debug build, some seconds under the sanitizers,
@@ -135,8 +137,8 @@ inline void PrintTo(const GoldenExample& example, std::ostream* out)
     const ::testing::TestParamInfo<GoldenExample>& info);
 
 /// The environment the examples are loaded in (see the top of this file), with the six
-/// presets of the examples or with none. One per choice and test process; it lives until the
-/// process ends. It is handed out as a constant: every load of the process shares its
+/// presets of the examples, the bundled ones or none. One per choice and test process; it lives
+/// until the process ends. It is handed out as a constant: every load of the process shares its
 /// preference store, so a test reads the store and does not write to it (a test that needs
 /// other preferences makes a DesignFileEnvironment of its own).
 [[nodiscard]] const DesignFileEnvironment& goldenExampleEnvironment(

@@ -104,10 +104,10 @@ enum class SavedPresets
     /// A design loaded with a preset database that holds them, or a rocket built by a maker: a
     /// component has a preset exactly when the file has a <preset> for it, and it is that one.
     LOADED,
-    /// A design loaded without them (an empty preset database, which is how the product loads
-    /// a design until it reads preset files): no component has a preset, whatever the file
-    /// names, and a component keeps a reference to a preset (RocketComponent::
-    /// getUnresolvedPreset(), the user's decision U8 of 2026-10-08) exactly when the file has a
+    /// A design loaded without them (an empty preset database, as an application whose
+    /// database lacks them): no component has a preset, whatever the file names, and a
+    /// component keeps a reference to a preset (RocketComponent::getUnresolvedPreset(), the
+    /// user's decision U8 of 2026-10-08) exactly when the file has a
     /// <preset> for it, with the four attributes of that element as they are, a missing type or
     /// digest as missing. OpenRocket's loader warns for each and goes on, and keeps nothing;
     /// the warnings are the business of the caller (the "loadWarnings" of geometry.json).

@@ -38,15 +38,16 @@
 // every flight configuration with every stage active, and the length, compared to a relative
 // 1e-9 (the positions of the lugs and fins go through sines and cosines).
 //
-// The component presets. OpenRocket's own preset database holds 5228 presets, among them six
-// that these files name and the tests do not have (five parts of SEMROC in
-// v1.5-preset-usage.ork and v1.6-preset-usage-decals-first.ork, one of FlisKits in
-// v1.7-tube-fin.ork; reading .orc preset files is Milestone 3). With its whole database
-// OpenRocket therefore gives one warning for v1.5-preset-usage.ork (the nose cone's BNC-55F,
-// which it does not find either) and none for v1.7-tube-fin.ork, which is what
-// tests/data/ork/README.md records. With the six presets of the examples, as here, OpenRocket
-// gives the six and the one warning that QtRocket gives, and the components keep what the
-// files store.
+// The component presets. OpenRocket's own preset database, which QtRocket ships as its bundled
+// presets (data/components, 5228 presets), holds six presets that these files name and the six
+// presets of the examples do not (five parts of SEMROC in v1.5-preset-usage.ork and
+// v1.6-preset-usage-decals-first.ork, one of FlisKits in v1.7-tube-fin.ork). With its whole
+// database OpenRocket therefore gives one warning for v1.5-preset-usage.ork (the nose cone's
+// BNC-55F, which it does not find either) and none for v1.7-tube-fin.ork, which is what
+// tests/data/ork/README.md records and what QtRocket gives with the bundled presets
+// (RecordedOrkFilesWarnings.WithTheBundledPresetsAreTheOnesOpenRocketGives). With the six presets
+// of the examples, as in the other tests here, OpenRocket gives the six and the one warning that
+// QtRocket gives, and the components keep what the files store.
 
 #include <algorithm>
 #include <cstddef>
@@ -69,8 +70,11 @@
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
@@ -373,6 +377,49 @@ TEST(RecordedOrkFilesWarnings, AreTheOnesOpenRocketGives)
     EXPECT_EQ(loadWarnings("v1.6-preset-usage-decals-first.ork"), semrocPresetWarnings());
     EXPECT_EQ(loadWarnings("v1.7-tube-fin.ork"), Lines{std::string(tube)});
     EXPECT_EQ(loadWarnings("v1.7-tube-fin.ork", Presets::NONE), Lines{std::string(tube)});
+}
+
+/// The components of @p file, loaded with the bundled presets, that have a preset: "<name>:
+/// <manufacturer> <part number>" each, in the order of the tree.
+[[nodiscard]] Lines bundledPresetsOf(std::string_view file)
+{
+    const DesignFileEnvironment  environment(Presets::BUNDLED);
+    const Result<LoadedDocument> loaded = loadRecorded(environment, file);
+    if (!loaded)
+    {
+        return {"FAILED: " + loaded.error().message};
+    }
+    Lines presets;
+    loaded->document->getRocket().forEach([&presets](const QtRocket::RocketComponent& component) {
+        const QtRocket::ComponentPreset* const preset = component.getPresetComponent();
+        if (preset != nullptr)
+        {
+            presets.push_back(std::format("{}: {} {}", component.getName(),
+                                          preset->getManufacturer().getDisplayName(),
+                                          preset->getPartNo()));
+        }
+    });
+    return presets;
+}
+
+// With the bundled presets, OpenRocket's whole preset database, with which tests/data/ork/
+// README.md measured the files, a design finds every preset it names but the nose cone's BNC-55F,
+// which no database has: one warning for v1.5-preset-usage.ork and for the document of
+// v1.6-preset-usage-decals-first.ork (which QtRocket reads and OpenRocket does not: see the top
+// of this file), none for v1.7-tube-fin.ork; the components get the presets the README lists.
+TEST(RecordedOrkFilesWarnings, WithTheBundledPresetsAreTheOnesOpenRocketGives)
+{
+    const Lines noseCone{semrocPresetWarnings().front()};
+    EXPECT_EQ(loadWarnings("v1.5-preset-usage.ork", Presets::BUNDLED), noseCone);
+    EXPECT_EQ(loadWarnings("v1.6-preset-usage-decals-first.ork", Presets::BUNDLED), noseCone);
+    EXPECT_EQ(loadWarnings("v1.7-tube-fin.ork", Presets::BUNDLED), Lines{});
+    EXPECT_EQ(
+        bundledPresetsOf("v1.5-preset-usage.ork"),
+        (Lines{
+            "Body tube: SEMROC Astronautics BT-55", "Centering ring: SEMROC Astronautics RA-5055",
+            "Centering ring: SEMROC Astronautics RA-5055", "Inner Tube: SEMROC Astronautics BT-50J",
+            "Launch lug: SEMROC Astronautics LL-117", "Parachute: SEMROC Astronautics PN-18"}));
+    EXPECT_EQ(bundledPresetsOf("v1.7-tube-fin.ork"), Lines{"Body tube: FlisKits BT-50-18"});
 }
 
 // Without a motor in the database every motor a design names is missing, with OpenRocket's

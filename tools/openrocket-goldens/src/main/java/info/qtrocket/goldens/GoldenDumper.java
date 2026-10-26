@@ -282,6 +282,11 @@ public final class GoldenDumper {
 			inputs.add(dumpTestRocket(a, name, entry.getKey(), entry.getValue()));
 		}
 
+		// The preset golden (presets/presets.json), in a full run only, with the injector of the inputs
+		// above: what OpenRocket reads of the bundled preset files depends on nothing a run changes, and
+		// PresetDumper alone writes the same bytes.
+		Map<String, Object> presets = a.only.isEmpty() ? PresetDumper.writeTo(core, a.out) : null;
+
 		// The inputs of the re-saves alone, after every other input: nothing they do can change a file of
 		// the inputs above (they switch the injector, and load files no other input loads).
 		List<Object> resaveInputs = Json.array();
@@ -309,7 +314,7 @@ public final class GoldenDumper {
 			resaves.put("legacyPresetDigests", new ArrayList<Object>(new TreeSet<>(EXAMPLE_PRESET_DIGESTS)));
 			resaves.put("withData", withData);
 			resaves.put("inputs", resaveInputs);
-			writeManifest(a, environment.databases(), inputs, resaves);
+			writeManifest(a, environment.databases(), inputs, resaves, presets);
 		} else {
 			log("--only given: manifest.json not written");
 		}
@@ -558,7 +563,7 @@ public final class GoldenDumper {
 	 * and may come from another submodule commit (the copy task can run {@code git submodule update
 	 * --remote}), so it is never read. Symbolic links are followed.
 	 */
-	private static Map<String, Path> presetFiles(Path core) throws IOException {
+	static Map<String, Path> presetFiles(Path core) throws IOException {
 		Path components = core.resolve("src/main/resources/datafiles/components");
 		Path buildCopy = components.resolve(PRESET_DATABASE_DIR);
 		Path submodule = core.resolve("resources-src/datafiles/openrocket-database/orc");
@@ -1028,7 +1033,10 @@ public final class GoldenDumper {
 	// ---------------------------------------------------------------------------------------------
 	// Output
 
-	/** Deletes the directories this dumper writes (all of them, or only the --only ones). */
+	/**
+	 * Deletes the directories this dumper writes (all of them, or only the --only ones), and in a full
+	 * run manifest.json and the preset golden.
+	 */
 	private static void cleanOutput(Path out, Set<String> only) throws IOException {
 		Files.createDirectories(out);
 		List<Path> dirs;
@@ -1049,15 +1057,17 @@ public final class GoldenDumper {
 		}
 		if (only.isEmpty()) {
 			Files.deleteIfExists(out.resolve("manifest.json"));
+			Files.deleteIfExists(out.resolve(PresetDumper.OUTPUT));
 		}
 	}
 
 	/**
 	 * Writes manifest.json. {@code resaves} holds what the re-saves of the legacy files and of the
-	 * saver-coverage documents and the re-saves with simulation data add (README.md, "resaves").
+	 * saver-coverage documents and the re-saves with simulation data add (README.md, "resaves"), and
+	 * {@code presets} the entry of the preset golden (PresetDumper.writeTo()), the last one.
 	 */
 	private static void writeManifest(Arguments a, Map<String, Object> databases, List<Map<String, Object>> inputs,
-			Map<String, Object> resaves) throws IOException {
+			Map<String, Object> resaves, Map<String, Object> presets) throws IOException {
 		Map<String, Object> root = Json.object();
 		root.put("schema", "manifest");
 		root.put("schemaVersion", SCHEMA_VERSION);
@@ -1113,6 +1123,7 @@ public final class GoldenDumper {
 
 		root.put("inputs", new ArrayList<Object>(inputs));
 		root.put("resaves", resaves);
+		root.put(PresetDumper.MANIFEST_KEY, presets);
 		Json.write(a.out.resolve("manifest.json"), root);
 	}
 
