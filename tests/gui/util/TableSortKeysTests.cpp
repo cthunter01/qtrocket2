@@ -165,6 +165,20 @@ TEST_F(TableSortKeysTest, SetKeysKeepsMoreThanThreeKeysUntilTheNextClick)
     EXPECT_TRUE(keys.keys().empty());
 }
 
+TEST_F(TableSortKeysTest, AClickOnThePrimaryKeyCutsKeysSetBeyondThree)
+{
+    // FlipProbe (JDK 17): setSortKeys() of four keys, then toggleSortOrder() of the primary
+    // column, gives [0:DESCENDING, 1:DESCENDING, 2:ASCENDING]; of the third column,
+    // [2:ASCENDING, 0:ASCENDING, 1:DESCENDING].
+    TableSortKeys keys(5);
+    keys.setKeys({ascending(0), descending(1), ascending(2), descending(3)});
+    keys.toggle(0);
+    EXPECT_EQ(keys.keys(), (std::vector<SortKey>{descending(0), descending(1), ascending(2)}));
+    keys.setKeys({ascending(0), descending(1), ascending(2), descending(3)});
+    keys.toggle(2);
+    EXPECT_EQ(keys.keys(), (std::vector<SortKey>{ascending(2), ascending(0), descending(1)}));
+}
+
 TEST_F(TableSortKeysTest, SortsByEveryKeyAndKeepsTheModelOrderOfEqualRows)
 {
     // Ties keep the model order also under a descending key; a null comes first ascending and

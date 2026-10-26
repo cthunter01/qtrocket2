@@ -49,10 +49,14 @@ void TableSortKeys::toggle(int column)
         SortKey& primary = m_keys.front();
         primary.order =
             primary.order == SortOrder::ASCENDING ? SortOrder::DESCENDING : SortOrder::ASCENDING;
-        return;
     }
-    std::erase_if(m_keys, [column](const SortKey& key) { return key.column == column; });
-    m_keys.insert(m_keys.begin(), SortKey{.column = column, .order = SortOrder::ASCENDING});
+    else
+    {
+        std::erase_if(m_keys, [column](const SortKey& key) { return key.column == column; });
+        m_keys.insert(m_keys.begin(), SortKey{.column = column, .order = SortOrder::ASCENDING});
+    }
+    // Every click cuts the keys, a click on the primary key too (keys setKeys() gave beyond the
+    // maximum go with it, as JDK 17's TableRowSorter drops them).
     if (m_keys.size() > kMaxSortKeys)
     {
         m_keys.resize(kMaxSortKeys);

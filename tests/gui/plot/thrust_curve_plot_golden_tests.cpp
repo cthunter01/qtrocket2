@@ -241,16 +241,20 @@ struct SeriesLook
 }
 
 /// What OpenRocket's series @p pin is, plotting @p motor (in seconds and newtons): a filled
-/// square of JFreeChart is rocketplot's SQUARE of that size, drawn at every point without a ring.
+/// square of JFreeChart, the pin's size its side, is rocketplot's SQUARE as wide, drawn at every
+/// point without a ring (rocketplot's marker size is the side over
+/// ThrustCurvePlot::kRocketplotSquareScale, since rocketplot shrinks its squares by it).
 [[nodiscard]] SeriesLook expectedLook(const ThrustCurveSeriesPin& pin,
                                       const ThrustCurveMotor&     motor)
 {
-    const bool marked = pin.marker == ThrustCurveMarker::FILLED_SQUARE;
+    const bool   marked = pin.marker == ThrustCurveMarker::FILLED_SQUARE;
+    const double size =
+        marked ? pin.markerSize / ThrustCurvePlot::kRocketplotSquareScale : pin.markerSize;
     return {.name       = rocketplot::literalText(QtStrings::fromUtf8(pin.name)),
             .color      = kOpaque | pin.color,
             .lineWidth  = pin.lineWidth,
             .marker     = marked ? rocketplot::Marker::SQUARE : rocketplot::Marker::NONE,
-            .markerSize = pin.markerSize,
+            .markerSize = size,
             .markerRing = 0.0,
             .everyPoint = marked,
             .x          = motor.getTimePoints(),

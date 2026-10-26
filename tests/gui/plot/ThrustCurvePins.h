@@ -127,7 +127,7 @@ struct ThrustCurveDialogPin
 // NOLINTBEGIN(modernize-use-std-numbers): Java's values, some of them near a constant
 
 /// The colours of curves 0 to 11 (OpenRocket's ten, then again from the first).
-inline constexpr auto kThrustCurveColors = std::to_array<ThrustCurveColorPin>({
+inline constexpr std::array<ThrustCurveColorPin, 12> kThrustCurveColors{{
     {0, 0x0072bd, 0x00e7ff},
     {1, 0xd95319, 0xffa832},
     {2, 0xedb120, 0xffff40},
@@ -140,7 +140,7 @@ inline constexpr auto kThrustCurveColors = std::to_array<ThrustCurveColorPin>({
     {9, 0x556b2f, 0xacd95f},
     {10, 0x0072bd, 0x00e7ff},
     {11, 0xd95319, 0xffa832},
-});
+}};
 
 /// MotorInformationPanel's chart title.
 inline constexpr std::string_view kThrustCurvePreviewTitle = "Thrust curve:";
@@ -158,13 +158,13 @@ inline constexpr std::string_view kThrustCurveCloseButton = "Close";
 /// The dialog.
 inline constexpr ThrustCurveDialogPin kThrustCurveDialog{"APPLICATION_MODAL", "DISPOSE_ON_CLOSE", true, false, 600, 400, true, true};
 /// The dialog's buttons, in order.
-inline constexpr auto kThrustCurveDialogButtons = std::to_array<std::string_view>({"Close"});
+inline constexpr std::array<std::string_view, 1> kThrustCurveDialogButtons{{"Close"}};
 
 /// The preview after MotorInformationPanel.clearData() (an empty dataset).
 inline constexpr ThrustCurveRangePin kThrustCurveEmptyRange{0x0.0p0, 0x1.0cccccccccccdp0, 0x0.0p0, 0x1.0cccccccccccdp0};
 
 /// The curves of every set, set after set.
-inline constexpr auto kThrustCurves = std::to_array<ThrustCurveKeyPin>({
+inline constexpr std::array<ThrustCurveKeyPin, 1588> kThrustCurves{{
     {"Klima", "A6", "418fa5ae09fdb53a19cd751fe289ba5b", 9},
     {"Klima", "B4", "efcc36a4443c7c6d1121b097394e10bc", 23},
     {"Klima", "B4", "6751784bc56bfc10c5612648afc7e41b", 11},
@@ -1753,10 +1753,10 @@ inline constexpr auto kThrustCurves = std::to_array<ThrustCurveKeyPin>({
     {"HyperTEK", "M1010-4630CCRGMFX", "b8030b7d7fd2772b7b27712b73d3abcb", 32},
     {"HyperTEK", "M1015-3500CCRGMFX", "f2e9d36561ed03eb23d38005919625d2", 31},
     {"HyperTEK", "M1040-4630CCRGMFX", "690de222f383b609da0cbaea75cf564d", 23},
-});
+}};
 
 /// Every motor set of the bundled database, in its order.
-inline constexpr auto kThrustCurveSets = std::to_array<ThrustCurveSetPin>({
+inline constexpr std::array<ThrustCurveSetPin, 1458> kThrustCurveSets{{
     {0, "Klima", "A6", 0, 1, {0x0.0p0, 0x1.7db22d0e56041p-1, 0x0.0p0, 0x1.6006f69446738p3}, {0x0.0p0, 0x1.7db22d0e56041p-1, 0x0.0p0, 0x1.6006f69446738p3}},
     {1, "Klima", "B4", 1, 2, {0x0.0p0, 0x1.83e0ded288ce7p0, 0x0.0p0, 0x1.88617c1bda512p3}, {0x0.0p0, 0x1.83e0ded288ce7p0, 0x0.0p0, 0x1.88617c1bda512p3}},
     {2, "Klima", "C2", 3, 2, {0x0.0p0, 0x1.5593dd97f62b7p2, 0x0.0p0, 0x1.148fc504816fp3}, {0x0.0p0, 0x1.5593dd97f62b7p2, 0x0.0p0, 0x1.148fc504816fp3}},
@@ -3215,10 +3215,10 @@ inline constexpr auto kThrustCurveSets = std::to_array<ThrustCurveSetPin>({
     {1455, "HyperTEK", "M1010-4630CCRGMFX", 1585, 1, {0x0.0p0, 0x1.318ef34d6a162p3, 0x0.0p0, 0x1.c6a05a1cac084p10}, {0x0.0p0, 0x1.318ef34d6a162p3, 0x0.0p0, 0x1.c6a05a1cac084p10}},
     {1456, "HyperTEK", "M1015-3500CCRGMFX", 1586, 1, {0x0.0p0, 0x1.a2a7ef9db22d1p2, 0x0.0p0, 0x1.ad05a9fbe76c8p10}, {0x0.0p0, 0x1.a2a7ef9db22d1p2, 0x0.0p0, 0x1.ad05a9fbe76c8p10}},
     {1457, "HyperTEK", "M1040-4630CCRGMFX", 1587, 1, {0x0.0p0, 0x1.45eb851eb851ep3, 0x0.0p0, 0x1.9fc0b43958106p10}, {0x0.0p0, 0x1.45eb851eb851ep3, 0x0.0p0, 0x1.9fc0b43958106p10}},
-});
+}};
 
 /// The series of every chart, chart after chart (the preview's, then the dialog's).
-inline constexpr auto kThrustCurveSeries = std::to_array<ThrustCurveSeriesPin>({
+inline constexpr std::array<ThrustCurveSeriesPin, 964> kThrustCurveSeries{{
     {"Thrust (0)", 0x0072bd, 0x1.8p1, ThrustCurveMarker::NONE, 0.0, 23},
     {"Thrust (1)", 0xd95319, 0x1.0p0, ThrustCurveMarker::NONE, 0.0, 11},
     {"Klima B4", 0x0072bd, 0x1.8p0, ThrustCurveMarker::FILLED_SQUARE, 6.0, 23},
@@ -4183,10 +4183,10 @@ inline constexpr auto kThrustCurveSeries = std::to_array<ThrustCurveSeriesPin>({
     {"AeroTech G80T (1)", 0x00e7ff, 0x1.8p0, ThrustCurveMarker::NONE, 0.0, 35},
     {"AeroTech G80T (2)", 0xffa832, 0x1.8p0, ThrustCurveMarker::NONE, 0.0, 32},
     {"AeroTech G80T (3)", 0xffff40, 0x1.8p0, ThrustCurveMarker::NONE, 0.0, 31},
-});
+}};
 
 /// The dialog's legend items of every chart, chart after chart.
-inline constexpr auto kThrustCurveLegend = std::to_array<std::string_view>({
+inline constexpr std::array<std::string_view, 482> kThrustCurveLegend{{
     "Klima B4",
     "Klima B4 (1)",
     "Klima B4",
@@ -4669,11 +4669,11 @@ inline constexpr auto kThrustCurveLegend = std::to_array<std::string_view>({
     "AeroTech G80T (1)",
     "AeroTech G80T (2)",
     "AeroTech G80T (3)",
-});
+}};
 
 /// Every set of more than one curve with its first and its last curve selected (light), then
 /// the set with the most curves in the dark theme.
-inline constexpr auto kThrustCurveCharts = std::to_array<ThrustCurveChartPin>({
+inline constexpr std::array<ThrustCurveChartPin, 216> kThrustCurveCharts{{
     {false, 1, 0, 0, 2, 2, 2, 0, 2},
     {false, 1, 1, 4, 2, 6, 2, 2, 2},
     {false, 2, 0, 8, 2, 10, 2, 4, 2},
@@ -4890,17 +4890,17 @@ inline constexpr auto kThrustCurveCharts = std::to_array<ThrustCurveChartPin>({
     {false, 893, 1, 944, 2, 946, 2, 472, 2},
     {true, 99, 0, 948, 4, 952, 4, 474, 4},
     {true, 99, 3, 956, 4, 960, 4, 478, 4},
-});
+}};
 
 /// The set whose dialog the force units are pinned with (its first curve selected): the first set
 /// of more than one curve.
 inline constexpr int kThrustCurveUnitSet = 1;
 /// The dialog's thrust axis with each unit of UNITS_FORCE as the default unit.
-inline constexpr auto kThrustCurveUnits = std::to_array<ThrustCurveUnitPin>({
+inline constexpr std::array<ThrustCurveUnitPin, 3> kThrustCurveUnits{{
     {"N", "Thrust / N", 0x0.0p0, 0x1.88617c1bda512p3},
     {"lbf", "Thrust / lbf", 0x0.0p0, 0x1.88617c1bda512p3},
     {"kgf", "Thrust / kgf", 0x0.0p0, 0x1.88617c1bda512p3},
-});
+}};
 
 // NOLINTEND(modernize-use-std-numbers)
 // NOLINTEND(modernize-use-designated-initializers)

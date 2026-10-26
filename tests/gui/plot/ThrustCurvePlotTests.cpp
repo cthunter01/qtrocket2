@@ -4,6 +4,7 @@
 #include <format>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -14,9 +15,11 @@
 #include <QColor>
 #include <QContextMenuEvent>
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QList>
 #include <QMenu>
 #include <QObject>
+#include <QPalette>
 #include <QPoint>
 #include <QRgb>
 #include <QString>
@@ -29,12 +32,14 @@
 #include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/Series.h>
+#include <rocketplot/Theme.h>
 #include <rocketplot/enums.h>
 #include <rocketplot/text.h>
 
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/plot/PlotExport.h"
 #include "QtRocket/gui/plot/PlotInputBindings.h"
+#include "QtRocket/gui/plot/PlotTheme.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
@@ -82,6 +87,7 @@ constexpr int    kPlotHeight         = 400;
 constexpr double kPeakThrust         = 14.0;
 constexpr double kOtherPeakThrust    = 12.0;
 constexpr QRgb   kUserColor          = 0xff123456;
+constexpr QRgb   kDarkBase           = 0xff202020;
 constexpr double kInfiniteZeroShare  = std::numeric_limits<double>::infinity();
 constexpr double kLbfPerNewtonFactor = 4.44822162;
 
@@ -255,6 +261,48 @@ struct CurveData
     QContextMenuEvent event(QContextMenuEvent::Mouse, middle, plot.mapToGlobal(middle));
     QApplication::sendEvent(&plot, &event);
     return qobject_cast<QMenu*>(QApplication::activePopupWidget());
+}
+
+/// A marker as @p plot's SVG export draws it: the side of a square path (Gui::Test::
+/// centredSquareSide()) and its fill.
+struct SquareMarker
+{
+    double  side = 0.0;
+    QString fill;
+
+    friend bool operator==(const SquareMarker&, const SquareMarker&) = default;
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming): the name GoogleTest looks for
+void PrintTo(const SquareMarker& marker, std::ostream* out)
+{
+    *out << std::format("{{side {} fill {}}}", marker.side, QtStrings::toUtf8(marker.fill));
+}
+
+/// The square paths of @p plot's SVG export (its square markers, the legend's too), in order,
+/// after painting @p plot (QWidget::grab(), which lays out the hidden widgets around it, so that
+/// the plot has its size).
+[[nodiscard]] std::vector<SquareMarker> squareMarkers(rocketplot::PlotWidget& plot)
+{
+    static_cast<void>(plot.grab());
+    std::vector<SquareMarker> squares;
+    for (const Gui::Test::SvgPath& path : Gui::Test::svgPaths(plot))
+    {
+        if (const std::optional<double> side = Gui::Test::centredSquareSide(path))
+        {
+            squares.push_back({.side = *side, .fill = path.fill});
+        }
+    }
+    return squares;
+}
+
+/// The application palette of a light window around dark views: ThemeColors calls it light (dark
+/// text on a light window), rocketplot's ThemeMode::SYSTEM would call it dark (its Base).
+[[nodiscard]] QPalette lightWindowDarkBase()
+{
+    QPalette palette = Palette::light();
+    palette.setColor(QPalette::Base, QColor::fromRgb(kDarkBase));
+    return palette;
 }
 
 TEST_F(ThrustCurvePlotTest, PreviewShowsTheEstesC6AsOpenRocket)
@@ -540,7 +588,9 @@ TEST_F(ThrustCurvePlotTest, PreviewTakesNoGestureAndHasNoContextMenu)
     EXPECT_EQ(preview.contextMenuPolicy(), Qt::PreventContextMenu);
     EXPECT_EQ(preview.objectName(), QStringLiteral("chartPanel"));
     EXPECT_EQ(widget.objectName(), QStringLiteral("chart"));
-    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::SYSTEM);
+    // The theme of the curve colours' rule (PlotTheme), not rocketplot's SYSTEM rule.
+    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::CUSTOM);
+    EXPECT_TRUE(widget.theme() == PlotTheme::forPalette(preview.palette()));
 }
 
 TEST_F(ThrustCurvePlotTest, DialogZoomsAsAChartPanelAndExportsThroughQtRocketsPrompts)
@@ -553,7 +603,8 @@ TEST_F(ThrustCurvePlotTest, DialogZoomsAsAChartPanelAndExportsThroughQtRocketsPr
     EXPECT_EQ(widget.inputBindings(), PlotInputBindings::chartPanel());
     EXPECT_FALSE(widget.isCrosshairEnabled());
     EXPECT_EQ(widget.crosshairMode(), rocketplot::CrosshairMode::SNAP);
-    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::SYSTEM);
+    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::CUSTOM);
+    EXPECT_TRUE(widget.theme() == PlotTheme::forPalette(dialog.palette()));
     EXPECT_EQ(dialog.objectName(), QStringLiteral("chartPanel"));
 
     const Gui::Test::OffscreenPopupWarnings warnings;
@@ -586,6 +637,86 @@ TEST_F(ThrustCurvePlotTest, NamesShowTheirCharactersAsTheyAre)
     dialog.resize(kPlotWidth, kPlotHeight);
     EXPECT_EQ(Gui::Test::readPlotTexts(dialog.plotWidget()).legendEntries,
               (QStringList{QStringLiteral("Estes <b>$5 & A6")}));
+}
+
+TEST_F(ThrustCurvePlotTest, DialogDrawsTheSelectedCurvesMarkersAsJFreeChartsSixPixelSquares)
+{
+    // JFreeChart's Rectangle2D.Double(-3, -3, 6, 6) at every point of the selected curve; the
+    // legend's icon draws one too. rocketplot shrinks a SQUARE to 0.85 of its size, so the size
+    // is the side over that (a rocketplot upgrade that changes the scale fails here).
+    const Gui::Test::TestGuiServices services;
+    const Curves                     motors = estesC6();
+    ThrustCurvePlot                  dialog(services.services());
+    dialog.setCurves(motors, 1);
+    dialog.resize(kPlotWidth, kPlotHeight);
+    ASSERT_EQ(motors.size(), 2U);
+    const QString fill = QColor::fromRgba(kLight1).name();
+    EXPECT_EQ(squareMarkers(dialog.plotWidget()),
+              std::vector<SquareMarker>(motors[1]->getTimePoints().size() + 1,
+                                        SquareMarker{.side = 6.0, .fill = fill}));
+    EXPECT_EQ(ThrustCurvePlot::kDialogMarkerSide, 6.0);
+    EXPECT_EQ(ThrustCurvePlot::kDialogMarkerSize * ThrustCurvePlot::kRocketplotSquareScale, 6.0);
+    // The preview draws no marker.
+    ThrustCurvePlot preview;
+    preview.setCurves(motors, 1);
+    preview.resize(kPlotWidth, kPlotHeight);
+    EXPECT_TRUE(squareMarkers(preview.plotWidget()).empty());
+}
+
+TEST_F(ThrustCurvePlotTest, NoCurvesGiveTheChartOfClear)
+{
+    const Gui::Test::TestGuiServices services;
+    ThrustCurvePlot                  preview;
+    ThrustCurvePlot                  dialog(services.services());
+    preview.setCurves(testCurves(), 0);
+    dialog.setCurves(testCurves(), 0);
+    // JFreeChart's empty dataset, [0, 1.05] (rocketplot autoscales no data to [0, 1]).
+    preview.setCurves({}, -1);
+    dialog.setCurves({}, -1);
+    EXPECT_EQ(Gui::Test::readAxis(*preview.plotWidget().xAxis()), emptyAxis());
+    EXPECT_EQ(Gui::Test::readAxis(*preview.plotWidget().yAxis()), emptyAxis());
+    EXPECT_EQ(Gui::Test::readAxis(*dialog.plotWidget().xAxis()),
+              emptyAxis(QStringLiteral("Time / s")));
+    EXPECT_EQ(Gui::Test::readAxis(*dialog.plotWidget().yAxis()),
+              emptyAxis(QStringLiteral("Thrust / N")));
+    EXPECT_TRUE(preview.plotWidget().series().isEmpty());
+    EXPECT_TRUE(dialog.plotWidget().series().isEmpty());
+    EXPECT_EQ(dialog.curveCount(), 0);
+    EXPECT_EQ(dialog.selectedCurve(), -1);
+    EXPECT_THROW(dialog.setCurves({}, 0), BugError);
+}
+
+TEST_F(ThrustCurvePlotTest, ThePlotsThemeFollowsTheRuleOfItsCurveColours)
+{
+    // OpenRocket takes the chart's look and its curves' colours from one flag; a palette whose
+    // window and Base disagree must not give light curves on a dark theme or the reverse.
+    const Palette                    mixed(lightWindowDarkBase());
+    const Gui::Test::TestGuiServices services;
+    ThrustCurvePlot                  dialog(services.services());
+    dialog.setCurves(testCurves(), 0);
+    EXPECT_EQ(looksOf(dialog),
+              (std::vector<CurveLook>{
+                  look(QStringLiteral("Estes C6"), kLight0, 1.5, rocketplot::Marker::SQUARE),
+                  look(QStringLiteral("Estes C6 (1)"), kLight1, 1.5),
+              }));
+    // rocketplot's light theme on its own background: its dark text would not read on the dark
+    // Base.
+    EXPECT_TRUE(dialog.plotWidget().theme() == rocketplot::Theme::light());
+    {
+        const Palette dark(Palette::dark());
+        QCoreApplication::sendPostedEvents();
+        const rocketplot::Theme& theme = dialog.plotWidget().theme();
+        EXPECT_EQ(dialog.plotWidget().themeMode(), rocketplot::ThemeMode::CUSTOM);
+        EXPECT_TRUE(theme.seriesColors == rocketplot::Theme::dark().seriesColors);
+        EXPECT_EQ(theme.text.rgba(), rocketplot::Theme::dark().text.rgba());
+        // On the dark palette's Base, as rocketplot's SYSTEM look.
+        EXPECT_EQ(theme.background.rgba(),
+                  QGuiApplication::palette().color(QPalette::Active, QPalette::Base).rgba());
+        EXPECT_EQ(looksOf(dialog).front().color, kDark0);
+    }
+    QCoreApplication::sendPostedEvents();
+    EXPECT_TRUE(dialog.plotWidget().theme() == rocketplot::Theme::light());
+    EXPECT_EQ(looksOf(dialog).front().color, kLight0);
 }
 
 }  // namespace

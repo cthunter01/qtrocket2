@@ -242,7 +242,10 @@ order, and they compare byte for byte like the others ("Reproducibility").
 
 Milestone 3 added `thrust-curves` (run 1, part K5, from the M3 plot scout's `ThrustCurveChartProbe`): the
 first family of a probe that runs under `xvfb-run` besides `rocket-panel`, and the first whose table pins
-every motor set of the bundled database.
+every motor set of the bundled database. The run's fixer had its generator write each table as a
+`std::array` of a stated size instead of through `std::to_array` (the repository's other tables of hundreds
+of rows are written so; MSVC had never evaluated a `std::to_array` of over a thousand rows), the rows
+unchanged.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

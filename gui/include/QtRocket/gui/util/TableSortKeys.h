@@ -22,10 +22,11 @@ namespace QtRocket::Gui
 /// set keys and the view orders they give; no JDK source was used):
 /// - toggle(column): the column of the first key (the primary key) changes its order, ascending
 ///   to descending and back; any other column becomes the first key, ascending (also when it was
-///   a later key, descending: it starts again ascending), removed from where it was; then the
-///   keys are cut to kMaxSortKeys (3, DefaultRowSorter's default; OpenRocket never changes it).
+///   a later key, descending: it starts again ascending), removed from where it was; then, after
+///   either, the keys are cut to kMaxSortKeys (3, DefaultRowSorter's default; OpenRocket never
+///   changes it).
 /// - setKeys(): the keys as given, in order, also more than kMaxSortKeys (Java keeps them all
-///   and sorts by all of them; the next toggle() cuts them).
+///   and sorts by all of them; the next toggle() cuts them, of the primary key's column too).
 /// - The order: the first key's column decides, then the next key's for rows it calls equal,
 ///   and so on; rows that every key calls equal keep their model order, in a descending key too
 ///   (the model index is the last key, always ascending). A descending key reverses its column's

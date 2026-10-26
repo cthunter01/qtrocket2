@@ -6,8 +6,10 @@
 #include <format>
 #include <optional>
 #include <ostream>
+#include <utility>
 #include <vector>
 
+#include <QChar>
 #include <QColor>
 #include <QFile>
 #include <QIODevice>
@@ -88,8 +90,29 @@ constexpr double kTolerance = 0.5;
     return attributes.value(name).toDouble();
 }
 
-/// The texts of the SVG document @p file, in its order.
-[[nodiscard]] std::vector<SvgText> readSvgTexts(const QString& file)
+/// What readSvg() reads of an SVG document: its texts and paths, each in the document's order.
+struct SvgContents
+{
+    std::vector<SvgText> texts;
+    std::vector<SvgPath> paths;
+};
+
+/// A group of the SVG document around the element being read: its transform (with its parents')
+/// and its fill (its own or the innermost parent's that has one).
+struct SvgGroup
+{
+    QTransform transform;
+    QString    fill;
+};
+
+/// The fill an element with @p attributes inside @p group paints with: its own, or the group's.
+[[nodiscard]] QString fillOf(const QXmlStreamAttributes& attributes, const SvgGroup& group)
+{
+    return attributes.hasAttribute(u"fill") ? attributes.value(u"fill").toString() : group.fill;
+}
+
+/// The texts and paths of the SVG document @p file, in its order.
+[[nodiscard]] SvgContents readSvg(const QString& file)
 {
     QFile svg(file);
     if (!svg.open(QIODevice::ReadOnly))
@@ -97,9 +120,9 @@ constexpr double kTolerance = 0.5;
         ADD_FAILURE() << "cannot read the SVG export " << QtStrings::toUtf8(file);
         return {};
     }
-    std::vector<SvgText>    texts;
-    std::vector<QTransform> transforms{QTransform()};
-    QXmlStreamReader        reader(&svg);
+    SvgContents           contents;
+    std::vector<SvgGroup> groups{SvgGroup{}};
+    QXmlStreamReader      reader(&svg);
     while (!reader.atEnd())
     {
         reader.readNext();
@@ -114,20 +137,29 @@ constexpr double kTolerance = 0.5;
                               << QtStrings::toUtf8(attribute.toString());
             }
             // The group's own transform first, then its parents'.
-            transforms.push_back(local.value_or(QTransform()) * transforms.back());
+            groups.push_back({.transform = local.value_or(QTransform()) * groups.back().transform,
+                              .fill      = fillOf(attributes, groups.back())});
         }
-        else if (reader.isEndElement() && reader.name() == u"g" && transforms.size() > 1)
+        else if (reader.isEndElement() && reader.name() == u"g" && groups.size() > 1)
         {
-            transforms.pop_back();
+            groups.pop_back();
         }
         else if (reader.isStartElement() && reader.name() == u"text")
         {
             const QXmlStreamAttributes attributes = reader.attributes();
             const QPointF     anchor(numberOf(attributes, u"x"), numberOf(attributes, u"y"));
-            const QTransform& transform = transforms.back();
-            texts.push_back({.text = reader.readElementText(QXmlStreamReader::IncludeChildElements),
-                             .position = transform.map(anchor),
-                             .rotated  = transform.isRotating()});
+            const QTransform& transform = groups.back().transform;
+            contents.texts.push_back(
+                {.text     = reader.readElementText(QXmlStreamReader::IncludeChildElements),
+                 .position = transform.map(anchor),
+                 .rotated  = transform.isRotating()});
+        }
+        else if (reader.isStartElement() && reader.name() == u"path")
+        {
+            const QXmlStreamAttributes attributes = reader.attributes();
+            contents.paths.push_back({.data   = attributes.value(u"d").toString().trimmed(),
+                                      .fill   = fillOf(attributes, groups.back()),
+                                      .origin = groups.back().transform.map(QPointF(0.0, 0.0))});
         }
     }
     if (reader.hasError())
@@ -136,7 +168,66 @@ constexpr double kTolerance = 0.5;
                       << QtStrings::toUtf8(reader.errorString());
         return {};
     }
-    return texts;
+    return contents;
+}
+
+/// @p plot's SVG export read (readSvg()); nothing, with a test failure, when it cannot be written.
+[[nodiscard]] SvgContents exportedSvg(const rocketplot::PlotWidget& plot)
+{
+    const QtRocket::Test::TempDir directory;
+    const QString                 file = QtStrings::fromPath(directory.resolve("plot.svg"));
+    if (!plot.exportSvg(file))
+    {
+        ADD_FAILURE() << "cannot write the SVG export " << QtStrings::toUtf8(file);
+        return {};
+    }
+    return readSvg(file);
+}
+
+/// The point of the path command @p command, @p letter and "x,y" ("M1.5,-2"); nullopt for
+/// another command.
+[[nodiscard]] std::optional<QPointF> commandPoint(QStringView command, QChar letter)
+{
+    if (command.size() < 2 || command.front() != letter)
+    {
+        return std::nullopt;
+    }
+    const QList<QStringView> coordinates = command.sliced(1).split(u',');
+    if (coordinates.size() != 2)
+    {
+        return std::nullopt;
+    }
+    bool         xOk = false;
+    bool         yOk = false;
+    const double x   = coordinates.front().toDouble(&xOk);
+    const double y   = coordinates.back().toDouble(&yOk);
+    if (!xOk || !yOk)
+    {
+        return std::nullopt;
+    }
+    return QPointF(x, y);
+}
+
+/// The points of the path outline @p data if it is a move and straight lines only ("Mx,y Lx,y
+/// ...", closed by a "Z" or not), as QSvgGenerator writes one; nullopt otherwise.
+[[nodiscard]] std::optional<std::vector<QPointF>> straightOutline(QStringView data)
+{
+    QList<QStringView> commands = data.split(u' ', Qt::SkipEmptyParts);
+    if (!commands.isEmpty() && commands.back() == u"Z")
+    {
+        commands.removeLast();
+    }
+    std::vector<QPointF> points;
+    for (const QStringView command : std::as_const(commands))
+    {
+        const std::optional<QPointF> point = commandPoint(command, points.empty() ? u'M' : u'L');
+        if (!point.has_value())
+        {
+            return std::nullopt;
+        }
+        points.push_back(*point);
+    }
+    return points;
 }
 
 /// Whether @p point is in @p box, or within kTolerance of it.
@@ -267,14 +358,46 @@ PlotReadback readPlot(const rocketplot::PlotWidget& plot)
 
 std::vector<SvgText> svgTexts(const rocketplot::PlotWidget& plot)
 {
-    const QtRocket::Test::TempDir directory;
-    const QString                 file = QtStrings::fromPath(directory.resolve("plot.svg"));
-    if (!plot.exportSvg(file))
+    return exportedSvg(plot).texts;
+}
+
+std::vector<SvgPath> svgPaths(const rocketplot::PlotWidget& plot)
+{
+    return exportedSvg(plot).paths;
+}
+
+std::optional<double> centredSquareSide(const SvgPath& path)
+{
+    std::optional<std::vector<QPointF>> outline = straightOutline(path.data);
+    if (!outline.has_value())
     {
-        ADD_FAILURE() << "cannot write the SVG export " << QtStrings::toUtf8(file);
-        return {};
+        return std::nullopt;
     }
-    return readSvgTexts(file);
+    std::vector<QPointF>& points = *outline;
+    // A closed outline may end where it started.
+    constexpr std::size_t kCorners = 4;
+    if (points.size() == kCorners + 1 && points.back() == points.front())
+    {
+        points.pop_back();
+    }
+    if (points.size() != kCorners)
+    {
+        return std::nullopt;
+    }
+    const double half = std::abs(points.front().x());
+    if (!(half > 0.0))
+    {
+        return std::nullopt;
+    }
+    const std::vector<QPointF> corners{{-half, -half}, {half, -half}, {half, half}, {-half, half}};
+    for (const QPointF& corner : corners)
+    {
+        if (std::ranges::count(points, corner) != 1)
+        {
+            return std::nullopt;
+        }
+    }
+    return 2.0 * half;
 }
 
 PlotTexts readPlotTexts(rocketplot::PlotWidget& plot)

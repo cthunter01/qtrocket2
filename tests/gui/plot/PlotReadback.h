@@ -3,10 +3,12 @@
 // Reading a rocketplot plot back in a test, without pixels or fonts (CLAUDE.md, section GUI): what
 // its series, axes and title are, from rocketplot's getters; and, since rocketplot v0.6.0 tells
 // neither its legend's entries nor its axes' ticks (the upstream request N11), the texts it
-// draws, from its SVG export (QXmlStreamReader over the <text> elements). Never pin a tick label
-// or a position: they follow the fonts. Compare a series' name with
-// rocketplot::literalText(expected), as it was given.
+// draws, from its SVG export (QXmlStreamReader over the <text> elements), and from the same export
+// the paths it draws (the size a marker comes out, say). Never pin a tick label or a position:
+// they follow the fonts. Compare a series' name with rocketplot::literalText(expected), as it was
+// given.
 
+#include <optional>
 #include <ostream>
 #include <vector>
 
@@ -104,6 +106,26 @@ struct SvgText
 /// temporary directory that goes again), in the order the export draws them; empty, with a test
 /// failure, when the export cannot be written or read.
 [[nodiscard]] std::vector<SvgText> svgTexts(const rocketplot::PlotWidget& plot);
+
+/// A path a plot draws, as its SVG export has it: its outline (the <path> element's "d", as
+/// written), its fill (the "fill" of the element or of the innermost group around it that has
+/// one, as written: "#rrggbb" or "none"; empty when none has one) and where the path's origin is
+/// (through the transforms of the groups around it), in the plot's widget coordinates. rocketplot
+/// draws a marker of the export as a path around its origin, placed by its group's transform.
+struct SvgPath
+{
+    QString data;
+    QString fill;
+    QPointF origin;
+};
+
+/// Every path of @p plot's SVG export (as svgTexts()), in the order the export draws them.
+[[nodiscard]] std::vector<SvgPath> svgPaths(const rocketplot::PlotWidget& plot);
+
+/// The side of @p path if it is a square around its origin with its sides along the axes, as
+/// rocketplot draws a SQUARE marker ("M-h,-h L h,-h L h,h L -h,h", closed); nullopt for any other
+/// path.
+[[nodiscard]] std::optional<double> centredSquareSide(const SvgPath& path);
 
 /// The texts of a plot sorted by what they are (readPlotTexts()).
 struct PlotTexts

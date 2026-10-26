@@ -285,6 +285,15 @@ def check(data):
         fail("no empty range, units or colours")
 
 
+def table(out, element, name, rows):
+    """Appends the table `name` of `rows` as a std::array of `element` with its size spelt out, as the
+    repository's other generated tables of hundreds of rows are: no std::to_array, whose constant
+    evaluation of a list of over a thousand rows MSVC's limits have never been tried with."""
+    out.append("inline constexpr std::array<%s, %d> %s{{" % (element, len(rows), name))
+    out.extend(rows)
+    out.append("}};")
+
+
 def main():
     probe, header, commit = sys.argv[1:4]
     with open(probe, encoding="utf-8") as f:
@@ -299,10 +308,8 @@ def main():
 
     out.append("/// The colours of curves 0 to %d (OpenRocket's ten, then again from the first)." %
                (len(data["colors"]) - 1))
-    out.append("inline constexpr auto kThrustCurveColors = std::to_array<ThrustCurveColorPin>({")
-    for index, light, dark in data["colors"]:
-        out.append("    {%d, %s, %s}," % (index, light, dark))
-    out.append("});")
+    table(out, "ThrustCurveColorPin", "kThrustCurveColors",
+          ["    {%d, %s, %s}," % (index, light, dark) for index, light, dark in data["colors"]])
     out.append("")
     for key, name, comment in TEXTS:
         out.append("/// %s." % (comment[0].upper() + comment[1:]))
@@ -318,32 +325,29 @@ def main():
         boolean(dialog["closeRightAligned"]), boolean(dialog["closeBelowChart"])))
     buttons = [dialog["buttons"]]
     out.append("/// The dialog's buttons, in order.")
-    out.append("inline constexpr auto kThrustCurveDialogButtons = std::to_array<std::string_view>({%s});" %
-               ", ".join(cpp_string(b) for b in buttons))
+    out.append("inline constexpr std::array<std::string_view, %d> kThrustCurveDialogButtons{{%s}};" %
+               (len(buttons), ", ".join(cpp_string(b) for b in buttons)))
     out.append("")
     out.append("/// The preview after MotorInformationPanel.clearData() (an empty dataset).")
     out.append("inline constexpr ThrustCurveRangePin kThrustCurveEmptyRange%s;" % data["empty"])
     out.append("")
 
     out.append("/// The curves of every set, set after set.")
-    out.append("inline constexpr auto kThrustCurves = std::to_array<ThrustCurveKeyPin>({")
     first = []
-    total = 0
+    curve_rows = []
     for s in data["sets"]:
-        first.append(total)
+        first.append(len(curve_rows))
         for manufacturer, designation, digest, points in s["curves"]:
-            out.append("    {%s, %s, %s, %d}," % (cpp_string(manufacturer), cpp_string(designation),
-                                                  cpp_string(digest), points))
-            total += 1
-    out.append("});")
+            curve_rows.append("    {%s, %s, %s, %d}," % (cpp_string(manufacturer), cpp_string(designation),
+                                                         cpp_string(digest), points))
+    table(out, "ThrustCurveKeyPin", "kThrustCurves", curve_rows)
     out.append("")
     out.append("/// Every motor set of the bundled database, in its order.")
-    out.append("inline constexpr auto kThrustCurveSets = std::to_array<ThrustCurveSetPin>({")
-    for index, s in enumerate(data["sets"]):
-        out.append("    {%d, %s, %s, %d, %d, %s, %s}," % (
+    table(out, "ThrustCurveSetPin", "kThrustCurveSets", [
+        "    {%d, %s, %s, %d, %d, %s, %s}," % (
             index, cpp_string(s["manufacturer"]), cpp_string(s["designation"]), first[index], s["count"],
-            s["ranges"]["preview"], s["ranges"]["dialog"]))
-    out.append("});")
+            s["ranges"]["preview"], s["ranges"]["dialog"])
+        for index, s in enumerate(data["sets"])])
     out.append("")
 
     series_rows = []
@@ -360,32 +364,26 @@ def main():
             "true" if chart["dark"] else "false", chart["set"], chart["selected"], first_preview,
             len(chart["preview"]), first_dialog, len(chart["dialog"]), first_legend, len(chart["legend"])))
     out.append("/// The series of every chart, chart after chart (the preview's, then the dialog's).")
-    out.append("inline constexpr auto kThrustCurveSeries = std::to_array<ThrustCurveSeriesPin>({")
-    for name, paint, width, marker, size, items in series_rows:
-        out.append("    {%s, %s, %s, %s, %s, %d}," % (cpp_string(name), paint, width, marker, size, items))
-    out.append("});")
+    table(out, "ThrustCurveSeriesPin", "kThrustCurveSeries", [
+        "    {%s, %s, %s, %s, %s, %d}," % (cpp_string(name), paint, width, marker, size, items)
+        for name, paint, width, marker, size, items in series_rows])
     out.append("")
     out.append("/// The dialog's legend items of every chart, chart after chart.")
-    out.append("inline constexpr auto kThrustCurveLegend = std::to_array<std::string_view>({")
-    for label in legend_rows:
-        out.append("    %s," % cpp_string(label))
-    out.append("});")
+    table(out, "std::string_view", "kThrustCurveLegend",
+          ["    %s," % cpp_string(label) for label in legend_rows])
     out.append("")
     out.append("/// Every set of more than one curve with its first and its last curve selected (light), then")
     out.append("/// the set with the most curves in the dark theme.")
-    out.append("inline constexpr auto kThrustCurveCharts = std::to_array<ThrustCurveChartPin>({")
-    out.extend(chart_rows)
-    out.append("});")
+    table(out, "ThrustCurveChartPin", "kThrustCurveCharts", chart_rows)
     out.append("")
     out.append("/// The set whose dialog the force units are pinned with (its first curve selected): the first set")
     out.append("/// of more than one curve.")
     multi = next(i for i, s in enumerate(data["sets"]) if s["count"] > 1)
     out.append("inline constexpr int kThrustCurveUnitSet = %d;" % multi)
     out.append("/// The dialog's thrust axis with each unit of UNITS_FORCE as the default unit.")
-    out.append("inline constexpr auto kThrustCurveUnits = std::to_array<ThrustCurveUnitPin>({")
-    for unit, label, y_min, y_max in data["units"]:
-        out.append("    {%s, %s, %s, %s}," % (cpp_string(unit), cpp_string(label), y_min, y_max))
-    out.append("});")
+    table(out, "ThrustCurveUnitPin", "kThrustCurveUnits", [
+        "    {%s, %s, %s, %s}," % (cpp_string(unit), cpp_string(label), y_min, y_max)
+        for unit, label, y_min, y_max in data["units"]])
     out.append("")
     out.append(HEADER_BOTTOM)
     with open(header, "w", encoding="utf-8") as f:

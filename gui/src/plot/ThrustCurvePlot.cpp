@@ -26,6 +26,7 @@
 #include "QtRocket/gui/plot/PlotColors.h"
 #include "QtRocket/gui/plot/PlotExport.h"
 #include "QtRocket/gui/plot/PlotInputBindings.h"
+#include "QtRocket/gui/plot/PlotTheme.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/motor/Manufacturer.h"
@@ -95,7 +96,8 @@ ThrustCurvePlot::ThrustCurvePlot(Style style, QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_plot);
 
-    m_plot->setThemeMode(rocketplot::ThemeMode::SYSTEM);
+    // The look and the curves' colours by one rule (rocketplot's SYSTEM mode has its own).
+    PlotTheme::apply(*m_plot, palette());
     fitLikeJFreeChart(*m_plot->xAxis());
     fitLikeJFreeChart(*m_plot->yAxis());
     if (m_style == Style::PREVIEW)
@@ -127,6 +129,12 @@ void ThrustCurvePlot::setCurves(std::span<const std::shared_ptr<const ThrustCurv
     for (const std::shared_ptr<const ThrustCurveMotor>& motor : motors)
     {
         QTROCKET_ASSERT(motor != nullptr);
+    }
+    if (motors.empty())
+    {
+        // No data to fit: JFreeChart's empty dataset, not rocketplot's [0, 1] of no data.
+        clear();
+        return;
     }
     m_plot->clearSeries();
     m_curves.clear();
@@ -162,6 +170,8 @@ void ThrustCurvePlot::changeEvent(QEvent* event)
     QWidget::changeEvent(event);
     if (event->type() == QEvent::PaletteChange)
     {
+        // This widget's palette: the plot's own follows only after this event.
+        PlotTheme::apply(*m_plot, palette());
         recolor();
     }
 }
