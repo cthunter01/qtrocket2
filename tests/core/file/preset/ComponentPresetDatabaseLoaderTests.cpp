@@ -425,7 +425,7 @@ TEST(ComponentPresetDatabaseLoader, RecordsAWalkedFileThatCannotBeOpenedAsNoRefu
 {
     const TempDir tempDir;
     static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
-    const std::filesystem::path link = tempDir.resolve("user/a.orc");
+    const std::filesystem::path link = tempDir.resolve("user") / "a.orc";
     if (!makePresetLink(tempDir.resolve("nowhere.orc"), link))
     {
         GTEST_SKIP() << "cannot create links here";
@@ -471,7 +471,7 @@ TEST(ComponentPresetDatabaseLoader, DoesNotOpenAWalkedFileThatIsNoRegularFile)
     const TempDir tempDir;
     static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
     const std::filesystem::path device = "/dev/zero";
-    const std::filesystem::path link   = tempDir.resolve("user/zero.orc");
+    const std::filesystem::path link   = tempDir.resolve("user") / "zero.orc";
     std::error_code             error;
     if (!std::filesystem::is_character_file(device, error) || !makePresetLink(device, link))
     {
@@ -496,7 +496,7 @@ TEST(ComponentPresetDatabaseLoader, DoesNotOpenAWalkedFifo)
 {
     const TempDir tempDir;
     static_cast<void>(tempDir.copy(presetFixture("legacy.orc"), "user/b.orc"));
-    const std::filesystem::path fifo = tempDir.resolve("user/a.orc");
+    const std::filesystem::path fifo = tempDir.resolve("user") / "a.orc";
     ASSERT_EQ(::mkfifo(QtRocket::pathToUtf8(fifo).c_str(), S_IRUSR | S_IWUSR), 0);
     const auto                    materials = builtinMaterialStorage();
     ComponentPresetDatabaseLoader loader(*materials);
