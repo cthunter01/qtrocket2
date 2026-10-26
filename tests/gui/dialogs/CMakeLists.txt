@@ -3,10 +3,13 @@
 target_sources(QtRocket_gui_tests PRIVATE
     DecalNotFoundDialogTests.cpp
     DefaultUnitSelectorTests.cpp
+    DeploymentSelectionDialogTests.cpp
     DesignPreferencesPanelTests.cpp
     DetailDialogTests.cpp
     ErrorWarningDialogTests.cpp
+    FlightConfigurationValueDialogTests.cpp
     GeneralPreferencesPanelTests.cpp
+    IgnitionSelectionDialogTests.cpp
     InternalErrorDialogTests.cpp
     MessageListTests.cpp
     ModalDialogTests.cpp
@@ -16,7 +19,9 @@ target_sources(QtRocket_gui_tests PRIVATE
     PreferencesDialogTests.cpp
     PreferencesPageTranscript.cpp
     PreferencesStoreTests.cpp
+    RenameConfigDialogTests.cpp
     SaveDesignInfoDialogTests.cpp
+    SeparationSelectionDialogTests.cpp
     StorageOptionsDialogTests.cpp
     ThrustCurveMotorPlotDialogTests.cpp
     UnitsPreferencesPanelTests.cpp

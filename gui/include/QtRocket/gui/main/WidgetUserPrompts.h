@@ -61,17 +61,21 @@ class GuiServices;
 /// - editDesignInformation(): BasicFrame.showSaveRocketInfoDialog()'s "Save Design Info"
 ///   (SaveDesignInfoDialog, with the services the caller gives), whose outcome changes nothing of
 ///   the Save As that asks it (the user's decision R3-3);
+/// - askIgnition(), askDeployment(), askSeparation(), askRenameConfiguration(): the value dialogs
+///   of the "Motors & Configuration" tab, "Select Ignition Configuration"
+///   (IgnitionSelectionDialog), "Select Deployment Configuration" (DeploymentSelectionDialog),
+///   "Select Separation Configuration" (SeparationSelectionDialog) and "Rename Configuration"
+///   (RenameConfigDialog);
 /// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message (DetailDialog
 ///   without details);
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
 /// - showInternalError(): the internal error dialog (InternalErrorDialog).
 ///
-/// Milestone 3's questions are declared, and until the runs that build their dialogs they give
-/// their cancelling answer at once, without a dialog: askIgnition(), askDeployment(),
-/// askSeparation() and askRenameConfiguration() (run 2: the value dialogs of the
-/// flight configurations), chooseMotor() (run 2: the motor chooser), choosePreset() (run 2: the
-/// parts library), an askOpenFiles() for files and directories (run 3: the preferences' user
-/// files) and showDatabaseProblems() (run 3: the start-up), which shows nothing yet.
+/// Milestone 3's other questions are declared, and until the runs that build their dialogs they
+/// give their cancelling answer at once, without a dialog: chooseMotor() (run 2: the motor
+/// chooser), choosePreset() (run 2: the parts library), an askOpenFiles() for files and
+/// directories (run 3: the preferences' user files) and showDatabaseProblems() (run 3: the
+/// start-up), which shows nothing yet.
 ///
 /// Each dialog is made for its question (ModalDialog), so that it survives its parent being
 /// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no

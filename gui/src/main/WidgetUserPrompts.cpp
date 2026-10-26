@@ -25,12 +25,16 @@
 #include <QtContainerFwd>
 
 #include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
+#include "QtRocket/gui/dialogs/DeploymentSelectionDialog.h"
 #include "QtRocket/gui/dialogs/DetailDialog.h"
 #include "QtRocket/gui/dialogs/ErrorWarningDialog.h"
+#include "QtRocket/gui/dialogs/IgnitionSelectionDialog.h"
 #include "QtRocket/gui/dialogs/InternalErrorDialog.h"
 #include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/dialogs/OptionDialog.h"
+#include "QtRocket/gui/dialogs/RenameConfigDialog.h"
 #include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
+#include "QtRocket/gui/dialogs/SeparationSelectionDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
@@ -552,31 +556,27 @@ void WidgetUserPrompts::editDesignInformation(QWidget* parent, const GuiServices
 }
 
 std::optional<UserPrompts::IgnitionChoice> WidgetUserPrompts::askIgnition(
-    QWidget* /*parent*/, const IgnitionRequest& /*request*/)
+    QWidget* parent, const IgnitionRequest& request)
 {
-    // Run 2 of Milestone 3: IgnitionSelectionDialog. Until then: cancelled.
-    return std::nullopt;
+    return IgnitionSelectionDialog::ask(parent, request);
 }
 
 std::optional<UserPrompts::DeploymentChoice> WidgetUserPrompts::askDeployment(
-    QWidget* /*parent*/, const DeploymentRequest& /*request*/)
+    QWidget* parent, const DeploymentRequest& request)
 {
-    // Run 2 of Milestone 3: DeploymentSelectionDialog. Until then: cancelled.
-    return std::nullopt;
+    return DeploymentSelectionDialog::ask(parent, request);
 }
 
 std::optional<UserPrompts::SeparationChoice> WidgetUserPrompts::askSeparation(
-    QWidget* /*parent*/, const SeparationRequest& /*request*/)
+    QWidget* parent, const SeparationRequest& request)
 {
-    // Run 2 of Milestone 3: SeparationSelectionDialog. Until then: cancelled.
-    return std::nullopt;
+    return SeparationSelectionDialog::ask(parent, request);
 }
 
 UserPrompts::RenameConfigurationAnswer WidgetUserPrompts::askRenameConfiguration(
-    QWidget* /*parent*/, const RenameConfigurationRequest& /*request*/)
+    QWidget* parent, const RenameConfigurationRequest& request)
 {
-    // Run 2 of Milestone 3: RenameConfigDialog. Until then: cancelled.
-    return {.action = RenameAction::CANCEL, .name = QString()};
+    return RenameConfigDialog::ask(parent, request);
 }
 
 std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
