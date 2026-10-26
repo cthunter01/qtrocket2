@@ -4,7 +4,9 @@
 #include <initializer_list>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include "QtRocket/rocket/preset/ComponentPresetFavorites.h"
@@ -51,6 +53,14 @@ class ComponentPreset;
 /// (QtRocket's GUI reads the favourites again instead: plan decision O-M3-12), and what else
 /// Database and AbstractSet offer (get(index), indexOf(), contains(), remove(), clear() and
 /// removal through the iterator). The .orc reader (file/preset/) fills a database from files.
+///
+/// The duplicate test: Java's add() runs ArrayList.contains(), a walk over the whole list, each
+/// time the binary search finds a preset that compares equal, so that a file of many presets
+/// sharing one manufacturer and part number (a user's .orc) loads in quadratic time. Here the
+/// database also keeps the digests of its list in a hash index (updated by add() and insert(),
+/// the only ways in), and contains() asks the index: the same answer in constant time, and the
+/// same order. What stays linear per add() is the insertion into the vector, which ArrayList.add(
+/// index, element) shares (a copy of the presets after the index).
 ///
 /// Not thread-safe: the thread that owns the database changes it; a loader only reads it.
 class ComponentPresetDatabase
@@ -120,10 +130,17 @@ private:
 
     [[nodiscard]] SearchResult binarySearch(const ComponentPreset& key) const;
 
-    /// ArrayList.contains(): whether a preset of the list equals @p preset (the same digest).
-    [[nodiscard]] bool contains(const ComponentPreset& preset) const noexcept;
+    /// Puts @p preset (not null) at @p index of the list and its digest into the index.
+    void insertIndexed(std::size_t index, PresetPtr preset);
+
+    /// ArrayList.contains(): whether a preset of the list equals @p preset (the same digest),
+    /// through m_digests.
+    [[nodiscard]] bool contains(const ComponentPreset& preset) const;
 
     std::vector<PresetPtr> m_list;
+    /// The digest of every preset of m_list, once per preset (insert() may hold one twice): a
+    /// multiset, so that a removal, which nothing ports yet, would drop one entry of a digest.
+    std::unordered_multiset<std::string> m_digests;
 };
 
 }  // namespace QtRocket

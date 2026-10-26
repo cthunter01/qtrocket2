@@ -3,5 +3,6 @@
 target_sources(QtRocket_gui PRIVATE
     ${gui_include_dir}/settings/GuiPreferenceKeys.h
     SettingsPreferences.cpp ${gui_include_dir}/settings/SettingsPreferences.h
+    TableUiPreferences.cpp ${gui_include_dir}/settings/TableUiPreferences.h
     WindowGeometry.cpp ${gui_include_dir}/settings/WindowGeometry.h
 )

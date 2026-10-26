@@ -123,6 +123,31 @@ void ComponentSelection::applyToEach(const std::function<void(RocketComponent&)>
     }
 }
 
+void ComponentSelection::applyToEachUnfrozen(const std::function<void(RocketComponent&)>& f)
+{
+    checkValid();
+    // A listener of a call's event may drop the last owner of the selection.
+    const std::shared_ptr<ComponentSelection> keepAlive = weak_from_this().lock();
+    // The targets are copied: an event that ends the selection clears the lists.
+    std::vector<RocketComponent*> targets = m_others;
+    targets.push_back(m_main);
+    const std::uint64_t events = m_eventCount;
+    for (RocketComponent* target : targets)
+    {
+        // Each call's events are delivered at once; one that ended the selection may have
+        // destroyed the components not reached yet.
+        if (!isValid())
+        {
+            return;
+        }
+        f(*target);
+    }
+    if (m_eventCount == events)
+    {
+        refresh();
+    }
+}
+
 void ComponentSelection::refresh()
 {
     if (!isValid())

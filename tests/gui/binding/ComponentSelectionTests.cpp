@@ -142,6 +142,89 @@ struct DropOwnerWhenInvalidated
     return names;
 }
 
+/// A setter that freezes the rocket itself, as RocketComponent::loadPreset() does: the length of
+/// a body tube inside its own freeze, recording whether the rocket was frozen before.
+struct SetLengthInOwnFreeze
+{
+    double             length;
+    std::vector<bool>* frozenBefore;
+
+    void operator()(RocketComponent& component) const
+    {
+        Rocket& rocket = component.getRocket();
+        frozenBefore->push_back(rocket.isFrozen());
+        rocket.freeze();
+        dynamic_cast<BodyTube&>(component).setLength(length);
+        rocket.thaw();
+    }
+};
+
+/// SetLength for applyToEach() and applyToEachUnfrozen(): every component is a body tube.
+struct SetEachLength
+{
+    double length;
+
+    void operator()(RocketComponent& component) const
+    {
+        dynamic_cast<BodyTube&>(component).setLength(length);
+    }
+};
+
+/// Records each component it is called for, with the number of events the rocket fired so far.
+struct NameAndEventCount
+{
+    const RocketEventRecorder* events;
+    std::vector<std::string>*  log;
+
+    void operator()(RocketComponent& component) const
+    {
+        log->push_back(component.getName() + " after " + std::to_string(events->count()));
+    }
+};
+
+/// Adds a body tube to the stage of the first component it is called for (a TREE change),
+/// recording every component it reaches.
+struct AddTubeToStage
+{
+    std::vector<std::string>* reached;
+
+    void operator()(RocketComponent& component) const
+    {
+        reached->push_back(component.getName());
+        std::ignore = component.getParent()->addChild(std::make_unique<BodyTube>());
+    }
+};
+
+/// Sets the length of a body tube and throws for the one named "B".
+struct SetLengthThenFailOnB
+{
+    double length;
+
+    void operator()(RocketComponent& component) const
+    {
+        dynamic_cast<BodyTube&>(component).setLength(length);
+        if (component.getName() == "B")
+        {
+            throw std::runtime_error("an other component's setter failed");
+        }
+    }
+};
+
+/// A selection listener that releases its selection on Phase::NOTIFY (a dialog closing while the
+/// widgets are told).
+struct ReleaseOnNotify
+{
+    ComponentSelection* selection;
+
+    void operator()(Phase phase) const
+    {
+        if (phase == Phase::NOTIFY)
+        {
+            selection->release();
+        }
+    }
+};
+
 }  // namespace
 
 TEST_F(ComponentSelectionTest, TheMainComponentIsAppliedLastAfterTheOthersInTheirOrder)
@@ -397,6 +480,87 @@ TEST_F(ComponentSelectionTest, ASelectionOutlivingItsRocketIsInvalid)
     const ComponentSelection reset(*design.tubeA);
     design.rocket->resetListeners();
     EXPECT_FALSE(reset.isValid());
+}
+
+TEST_F(ComponentSelectionTest, ApplyToEachUnfrozenCallsEachComponentOutsideAFreeze)
+{
+    // For a setter that freezes the rocket itself (RocketComponent::loadPreset()): the others
+    // first and the main component last, as apply(), but each call's events are delivered at once.
+    const TwoTubeRocket                   design;
+    const std::array<RocketComponent*, 1> others{design.tubeB};
+    ComponentSelection                    selection(*design.tubeA, others);
+    const RocketEventRecorder             events(*design.rocket);
+    std::vector<bool>                     frozenBefore;
+    selection.applyToEachUnfrozen(
+        SetLengthInOwnFreeze{.length = 0.45, .frozenBefore = &frozenBefore});
+    EXPECT_EQ(frozenBefore, (std::vector<bool>{false, false}));
+    EXPECT_EQ(events.sources(), (std::vector<std::string>{"B", "A"}));
+    EXPECT_DOUBLE_EQ(design.tubeA->getLength(), 0.45);
+    EXPECT_DOUBLE_EQ(design.tubeB->getLength(), 0.45);
+    EXPECT_FALSE(design.rocket->isFrozen());
+
+    std::vector<std::string> log;
+    selection.applyToEachUnfrozen(SetEachLength{0.5});
+    selection.applyToEachUnfrozen(NameAndEventCount{.events = &events, .log = &log});
+    EXPECT_EQ(log, (std::vector<std::string>{"B after 4", "A after 4"}));
+
+    // The same setter inside apply() is a second freeze.
+    frozenBefore.clear();
+    EXPECT_THROW(
+        selection.applyToEach(SetLengthInOwnFreeze{.length = 0.6, .frozenBefore = &frozenBefore}),
+        BugError);
+    EXPECT_FALSE(design.rocket->isFrozen());
+}
+
+TEST_F(ComponentSelectionTest, ApplyToEachUnfrozenRefreshesAfterEveryEventOrOnceWithout)
+{
+    const TwoTubeRocket                   design;
+    const std::array<RocketComponent*, 1> others{design.tubeB};
+    ComponentSelection                    selection(*design.tubeA, others);
+    PhaseRecorder                         phases(selection);
+    selection.applyToEachUnfrozen(SetEachLength{0.42});
+    EXPECT_EQ(phases.phases(),
+              (std::vector<Phase>{Phase::READ, Phase::NOTIFY, Phase::READ, Phase::NOTIFY}));
+
+    // No event (the lengths are set already): one refresh of its own.
+    phases.clear();
+    selection.applyToEachUnfrozen(SetEachLength{0.42});
+    EXPECT_EQ(phases.phases(), (std::vector<Phase>{Phase::READ, Phase::NOTIFY}));
+}
+
+TEST_F(ComponentSelectionTest, ApplyToEachUnfrozenStopsWhenAnEventEndsTheSelection)
+{
+    // A TREE change of the first call ends the selection: the main component is not reached (it
+    // could be gone; proved under ASan).
+    const TwoTubeRocket                   design;
+    const std::array<RocketComponent*, 1> others{design.tubeB};
+    ComponentSelection                    selection(*design.tubeA, others);
+    std::vector<std::string>              reached;
+    selection.applyToEachUnfrozen(AddTubeToStage{&reached});
+    EXPECT_EQ(reached, (std::vector<std::string>{"B"}));
+    EXPECT_FALSE(selection.isValid());
+    EXPECT_THROW(selection.applyToEachUnfrozen(SetEachLength{0.1}), BugError);
+
+    // So does a listener that releases the selection on the first component's event.
+    ComponentSelection                                      released(*design.tubeA, others);
+    const ComponentSelection::PhaseSignal::ScopedConnection releaser{
+        released.addListener(ReleaseOnNotify{&released})};
+    released.applyToEachUnfrozen(SetEachLength{0.7});
+    EXPECT_DOUBLE_EQ(design.tubeB->getLength(), 0.7);
+    EXPECT_DOUBLE_EQ(design.tubeA->getLength(), 0.3);
+    EXPECT_FALSE(released.isValid());
+}
+
+TEST_F(ComponentSelectionTest, ApplyToEachUnfrozenLetsAnExceptionThrough)
+{
+    const TwoTubeRocket                   design;
+    const std::array<RocketComponent*, 1> others{design.tubeB};
+    ComponentSelection                    selection(*design.tubeA, others);
+    EXPECT_THROW(selection.applyToEachUnfrozen(SetLengthThenFailOnB{0.55}), std::runtime_error);
+    EXPECT_DOUBLE_EQ(design.tubeB->getLength(), 0.55);
+    EXPECT_DOUBLE_EQ(design.tubeA->getLength(), 0.3);
+    EXPECT_FALSE(design.rocket->isFrozen());
+    EXPECT_TRUE(selection.isValid());
 }
 
 TEST_F(ComponentSelectionTest, AListenerOfTheThawsEventMayDropTheLastOwner)

@@ -1,0 +1,170 @@
+== fresh
+  shown: A Bb Ccc D Eeee F G H
+  all: A Bb Ccc D Eeee F G H
+  preferred: A=20 Bb=50 Ccc=35 D=80 Eeee=80 F=15 G=15 H=15
+== fresh, moved, G hidden, widths set
+  shown: Bb F Ccc D A Eeee H
+  all: Bb F Ccc D A Eeee [G] H
+  preferred: Bb=50 F=15 Ccc=35 D=80 A=20 Eeee=80 H=15
+== store: 22 keys
+  CmpPrst.Probe.co.A = 4
+  CmpPrst.Probe.co.Bb = 0
+  CmpPrst.Probe.co.Ccc = 2
+  CmpPrst.Probe.co.D = 3
+  CmpPrst.Probe.co.Eeee = 5
+  CmpPrst.Probe.co.F = 1
+  CmpPrst.Probe.co.H = 6
+  CmpPrst.Probe.cv.A = true
+  CmpPrst.Probe.cv.Bb = true
+  CmpPrst.Probe.cv.Ccc = true
+  CmpPrst.Probe.cv.D = true
+  CmpPrst.Probe.cv.Eeee = true
+  CmpPrst.Probe.cv.F = true
+  CmpPrst.Probe.cv.G = false
+  CmpPrst.Probe.cv.H = true
+  CmpPrst.Probe.cw.A = 58
+  CmpPrst.Probe.cw.Bb = 30
+  CmpPrst.Probe.cw.Ccc = 44
+  CmpPrst.Probe.cw.D = 51
+  CmpPrst.Probe.cw.Eeee = 65
+  CmpPrst.Probe.cw.F = 37
+  CmpPrst.Probe.cw.H = 72
+== load what was stored
+  shown: Bb F D Ccc A Eeee H
+  all: Bb F D Ccc A Eeee [G] H
+  preferred: Bb=30 F=37 D=51 Ccc=44 A=58 Eeee=65 H=72
+== order 5,0,1,2,3,4,6,7
+  shown: Bb Ccc D Eeee F A G H
+  all: Bb Ccc D Eeee F A G H
+  preferred: Bb=50 Ccc=35 D=80 Eeee=80 F=15 A=20 G=15 H=15
+== order 1,2,3,4,5,6,7,0
+  shown: Bb A D Ccc F Eeee H G
+  all: Bb A D Ccc F Eeee H G
+  preferred: Bb=50 A=20 D=80 Ccc=35 F=15 Eeee=80 H=15 G=15
+== order 7,6,5,4,3,2,1,0
+  shown: H Bb G D F Eeee Ccc A
+  all: H Bb G D F Eeee Ccc A
+  preferred: H=15 Bb=50 G=15 D=80 F=15 Eeee=80 Ccc=35 A=20
+== order 2,0,1,5,3,4,7,6
+  shown: Bb Ccc A Eeee F D H G
+  all: Bb Ccc A Eeee F D H G
+  preferred: Bb=50 Ccc=35 A=20 Eeee=80 F=15 D=80 H=15 G=15
+== order 3,7,0,6,1,5,2,4
+  shown: Ccc Eeee Bb A H G F D
+  all: Ccc Eeee Bb A H G F D
+  preferred: Ccc=35 Eeee=80 Bb=50 A=20 H=15 G=15 F=15 D=80
+== order with duplicates and out of range
+  shown: F Bb Ccc D Eeee A G H
+  all: F Bb Ccc D Eeee A G H
+  preferred: F=15 Bb=50 Ccc=35 D=80 Eeee=80 A=20 G=15 H=15
+== hidden Bb and D, moved
+  shown: Ccc G A F H Eeee
+  all: [Bb] Ccc [D] G A F H Eeee
+  preferred: Ccc=35 G=15 A=20 F=15 H=15 Eeee=80
+== Bb shown again
+  shown: Bb Ccc G A F H Eeee
+  all: Bb Ccc [D] G A F H Eeee
+  preferred: Bb=75 Ccc=35 G=15 A=20 F=15 H=15 Eeee=80
+== D shown again
+  shown: Bb Ccc D G A F H Eeee
+  all: Bb Ccc D G A F H Eeee
+  preferred: Bb=75 Ccc=35 D=75 G=15 A=20 F=15 H=15 Eeee=80
+== A hidden, then the first column moved to 4
+  shown: Ccc D G F Bb H Eeee
+  all: Ccc D G [A] F Bb H Eeee
+  preferred: Ccc=35 D=75 G=15 F=15 Bb=75 H=15 Eeee=80
+== A shown again
+  shown: Ccc D G A F Bb H Eeee
+  all: Ccc D G A F Bb H Eeee
+  preferred: Ccc=35 D=75 G=15 A=20 F=15 Bb=75 H=15 Eeee=80
+== widths, some missing
+  shown: A Bb Ccc D Eeee F G H
+  all: A Bb Ccc D Eeee F G H
+  preferred: A=40 Bb=50 Ccc=15 D=99999 Eeee=80 F=15 G=2000 H=24
+== widths, all stored
+  shown: A Bb Ccc D Eeee F G H
+  all: A Bb Ccc D Eeee F G H
+  preferred: A=21 Bb=22 Ccc=23 D=21 Eeee=75 F=21 G=21 H=21
+== widths of the shown columns stored, Ccc hidden
+  shown: A Bb D Eeee F G H
+  all: A Bb [Ccc] D Eeee F G H
+  preferred: A=31 Bb=32 D=31 Eeee=34 F=31 G=31 H=31
+== order -1 threw java.lang.IllegalArgumentException: moveColumn() - Index out of range
+== order -1
+  shown: A Bb Ccc D Eeee F G H
+  all: A Bb Ccc D Eeee F G H
+  preferred: A=75 Bb=75 Ccc=75 D=75 Eeee=75 F=75 G=75 H=75
+== D removed
+  shown: A Bb Ccc Eeee F G H
+  all: A Bb Ccc Eeee F G H
+  preferred: A=20 Bb=50 Ccc=35 Eeee=80 F=15 G=15 H=15
+== store with D removed: 23 keys
+  CmpPrst.Probe.co.A = 0
+  CmpPrst.Probe.co.Bb = 1
+  CmpPrst.Probe.co.Ccc = 2
+  CmpPrst.Probe.co.D = 0
+  CmpPrst.Probe.co.Eeee = 3
+  CmpPrst.Probe.co.F = 4
+  CmpPrst.Probe.co.G = 5
+  CmpPrst.Probe.co.H = 6
+  CmpPrst.Probe.cv.A = true
+  CmpPrst.Probe.cv.Bb = true
+  CmpPrst.Probe.cv.Ccc = true
+  CmpPrst.Probe.cv.D = true
+  CmpPrst.Probe.cv.Eeee = true
+  CmpPrst.Probe.cv.F = true
+  CmpPrst.Probe.cv.G = true
+  CmpPrst.Probe.cv.H = true
+  CmpPrst.Probe.cw.A = 75
+  CmpPrst.Probe.cw.Bb = 75
+  CmpPrst.Probe.cw.Ccc = 75
+  CmpPrst.Probe.cw.Eeee = 75
+  CmpPrst.Probe.cw.F = 75
+  CmpPrst.Probe.cw.G = 75
+  CmpPrst.Probe.cw.H = 75
+presets 43, body tubes 12
+  0: Estes|30615 OR 0.0254 L 0.3429
+  1: Estes|31360 OR 0.015341599999999999 L 0.2032
+  2: Estes|31361 OR 0.024384 L 0.0127
+  3: Estes|31380 OR 0.03175 L 0.1651
+  4: Estes|31390 OR 0.03175 L 0.3937
+  5: Estes|31751 OR 0.038099999999999995 L 0.254
+  6: Estes|31799 OR 0.038099999999999995 L 0.5461
+  7: Estes|85865 OR 0.03175 L 0.3937
+  8: Estes|85866 OR 0.0254 L 0.3429
+  9: Estes|85867 OR 0.038099999999999995 L 0.601218
+  10: Estes|85868 OR 0.0508 L 0.52705
+  11: Estes|BT-20 OR 0.0093472 L 0.4572
+== items
+  no favourite: size 1: <html><i>Custom</i></html>; selected <html><i>Custom</i></html>
+  favourites [Estes|31361, Estes|85865]
+  two favourites: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected <html><i>Custom</i></html>
+== one tube, a clean session
+  chosen events: 6 A, 1 A
+  chosen: undo 'Use Preset Body Tube' redo null; A Estes 85865 OR 0.03175 L 0.3937; B null OR 0.03175 L 0.2
+  chosen: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected 85865
+  chosen again events: 
+  chosen again: undo 'Use Preset Body Tube' redo null; A Estes 85865 OR 0.03175 L 0.3937; B null OR 0.03175 L 0.2
+  length edited: undo 'Use Preset Body Tube' redo null; A Estes 85865 OR 0.03175 L 0.25; B null OR 0.03175 L 0.2
+  chosen after the edit events: 
+  chosen after the edit: undo 'Use Preset Body Tube' redo null; A Estes 85865 OR 0.03175 L 0.25; B null OR 0.03175 L 0.2
+  one undo: undo 'Use Preset Body Tube' redo 'Use Preset Body Tube'; A Estes 85865 OR 0.03175 L 0.3937; B null OR 0.03175 L 0.2
+  two undos: undo null redo 'Use Preset Body Tube'; A null OR 0.025 L 0.2; B null OR 0.025 L 0.2
+== not a favourite
+  other: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected 85868
+  Custom events: 1 A
+  Custom: undo null redo null; A null OR 0.0508 L 0.52705; B null OR 0.0508 L 0.2
+  Custom: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected <html><i>Custom</i></html>
+  Custom again events: 
+== two tubes, B a config listener of A
+  edited: undo 'Modify Body Tube' redo null; A null OR 0.025 L 0.4; B null OR 0.025 L 0.4
+  chosen events: 6 A, 1 A
+  chosen: undo 'Use Preset Body Tube' redo null; A Estes 31361 OR 0.024384 L 0.0127; B Estes 31361 OR 0.024384 L 0.0127
+  one undo: undo 'Modify Body Tube' redo 'Use Preset Body Tube'; A null OR 0.025 L 0.4; B null OR 0.025 L 0.4
+  redo: undo 'Use Preset Body Tube' redo null; A Estes 31361 OR 0.024384 L 0.0127; B Estes 31361 OR 0.024384 L 0.0127
+== the main component's preset chosen again, the other's another one
+  chosen events: 
+  chosen: undo null redo null; A Estes 85865 OR 0.03175 L 0.3937; B Estes 85865 OR 0.03175 L 0.3937
+  Custom events: 1 A
+  Custom: undo 'Use Preset Body Tube' redo null; A null OR 0.03175 L 0.3937; B null OR 0.03175 L 0.3937
+  Custom: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected <html><i>Custom</i></html>

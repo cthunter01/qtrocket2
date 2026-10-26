@@ -19,6 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
+| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -101,6 +102,16 @@ Java 17's `Double.toString`).
   is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
   `-Djava.awt.headless=false`; no window is shown. The test builds each list from the keys, so it does not
   depend on QtRocket's port of the comparator.
+- `preset-chooser`: the parts library's helpers. `TableUiProbe` runs `TableUIPreferences` (store and load) on a
+  `JTable` of eight columns in the parts library's `XTableColumnModel` (made by reflection: its constructor is
+  package-private) whose renderers' preferred widths are 10 pixels per character, so that no width depends on a
+  font: the restored order, visibility and widths for stored values of every kind (permutations, duplicates,
+  out-of-range and negative indices, hidden columns shown again, missing and fixed widths) and the stored keys.
+  `PresetModelProbe` runs `PresetModel` (the preset combo box's model) over the presets of
+  `TestPresetDatabase.h`'s `smallPresetDatabase()` (the three files generate.sh passes, in its order) with
+  `SwingPreferences` for the favourites: its items, its selected item, and the events, presets and undo history
+  of `setSelectedItem()` for one body tube and for two (the second a config listener). `PresetGuiProbe` runs both;
+  the tests pin its whole transcript by hand.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -193,6 +204,10 @@ difference is reported (exit status 1) and never written: review the tests that 
 copy the new lines (`<work>/<probe>.hand-pinned.txt`) over `hand-pinned.txt`. The three snapshots equal the
 lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-probe.out` and G1's
 `out.txt` in the Milestone 2 handoff).
+
+`PresetGuiProbe` (`preset-chooser`) has no table yet: the tests pin its whole transcript by hand
+(`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part), and
+its `hand-pinned.txt` keeps all of it.
 
 ## Reproducibility
 

@@ -19,6 +19,8 @@
 #   component-drop     the DndProbe table of tests/gui/tree/ComponentDropTests.cpp
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
+#   preset-chooser     the values tests/gui/settings/TableUiPreferencesTests.cpp and
+#                      tests/gui/binding/PresetBindingTests.cpp pin by hand (checked only, see README.md)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -26,7 +28,7 @@
 # OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
-# never rewrite it (README.md, "Values pinned by hand").
+# never rewrite it (README.md, "Values pinned by hand"); so does preset-chooser.
 #
 # Environment:
 #   OPENROCKET_DIR        the OpenRocket checkout (default: "openrocket" next to the main working tree of the
@@ -55,7 +57,7 @@
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
-    material-combo component-editing component-drop actions-rules thrust-curves)
+    material-combo component-editing component-drop actions-rules thrust-curves preset-chooser)
 
 check=false
 families=()
@@ -404,6 +406,13 @@ for family in "${families[@]}"; do
         file=tests/gui/plot/ThrustCurvePins.h
         python3 -I "${here}/${family}/gen_thrust_curve_pins.py" "${work}/ThrustCurvesProbe.txt" \
             "$(generated "${file}")" "${commit}"
+        ;;
+    preset-chooser)
+        # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order.
+        run_probe "${family}" PresetGuiProbe headless "${repo}/tests/data/presets/every-kind.orc" \
+            "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc"
+        check_hand_pins "${family}" PresetGuiProbe "TableUiPreferencesTests.cpp and PresetBindingTests.cpp"
+        continue
         ;;
     esac
     finish "${file}"

@@ -79,9 +79,11 @@ namespace QtRocket::Gui
 /// selected component (the forwarding of the main's setter).
 /// Setters that freeze the rocket themselves (RocketComponent::loadPreset(), splitInstances(true),
 /// FreeformFinSet::convertFinSet(.., true)) must never run inside apply(): the second freeze is a
-/// BugError. Structural operations of several components (convert, split fins, split cluster,
-/// split assembly) never run inside apply(); each freezes as its Java original does (see the
-/// operation's comment in its panel).
+/// BugError. A preset reaches every selected component through applyToEachUnfrozen() (the plan's
+/// decision O-M3-6: RocketComponent::loadPreset() stays Java's, with its own freeze). Structural
+/// operations of several components (convert, split fins, split cluster, split assembly) never run
+/// inside apply(); each freezes as its Java original does (see the operation's comment in its
+/// panel).
 ///
 /// Lifetime: the selection listens to the rocket. On an event of the rocket that is a TREE or
 /// UNDO change it becomes invalid: Rocket::loadFrom() (undo, redo) replaces every component object,
@@ -174,6 +176,21 @@ public:
     /// apply() without the cast: @p f is called on every selected component.
     /// @throws BugError when the selection is invalid; whatever @p f throws, after the thaw
     void applyToEach(const std::function<void(RocketComponent&)>& f);
+
+    /// applyToEach() without the freeze, for a call that freezes the rocket itself
+    /// (RocketComponent::loadPreset(): a second freeze is a BugError): @p f is called on every
+    /// selected component, the others first and the main component last, as Java's forwarding
+    /// loops reach them (loadPreset() forwards to the config listeners before it loads the main
+    /// component). Each call's events reach the rocket's listeners as they fire, so the
+    /// selection refreshes its bindings after each component that changed (Java drops the config
+    /// listeners' events and fires the main component's only: see the deviations in the class
+    /// comment). When an event made the selection invalid (a TREE or UNDO change, or
+    /// a listener that released it), the components not reached yet are left alone: they may be
+    /// gone. When no event reached the selection during the calls, it refreshes its bindings
+    /// itself afterwards, as apply() does.
+    /// @throws BugError when the selection is invalid; whatever @p f throws (the components
+    ///         after the one that threw are left alone)
+    void applyToEachUnfrozen(const std::function<void(RocketComponent&)>& f);
 
     /// Refreshes the bindings (Phase::READ, then Phase::NOTIFY), as an event of the rocket does:
     /// for a change that fires no event (a preference a getter reads, say). Nothing happens once
