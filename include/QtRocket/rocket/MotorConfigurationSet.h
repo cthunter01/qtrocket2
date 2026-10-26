@@ -20,12 +20,21 @@ class Preferences;
 /// every configuration anew for the new mount; the plain copy constructor is deleted, since its
 /// clones would still point at the source's mount (Java's inherited copy constructor does that).
 /// A mount class therefore writes its copy constructor (see RocketComponent). Moving is deleted
-/// too: the configurations point at their mount, which never moves. Note that, as in
-/// Java, the source's default configuration is not carried over: the new set's default is a
-/// fresh empty one, so a default ignition event or delay set on the source's default is lost in
-/// the copy (Java's set() ignores the default id; the loop reaches the default too).
+/// too: the configurations point at their mount, which never moves. The new set's default is
+/// the source's default made anew for the new mount, so a mount's default ignition (its event,
+/// delay and override flag, which the motor tab of the component dialog edits and an .ork file
+/// stores) survives every copy of the mount: an undo state, an undo or redo (Rocket::loadFrom()),
+/// a copy and paste, a duplicate, a simulation's copy of the rocket.
 ///
 /// Deviations from OpenRocket:
+/// - The (source, newMount) constructor keeps the source's default (QtRocket fixes M3's bug 6,
+///   the user's answer U-M3-5 of 2026-10-24). Java's makes a fresh default, AUTOMATIC with no
+///   delay and no override, and its loop over the source's values reaches the default only
+///   through set(), which ignores the default id: so in OpenRocket an undo, a redo, a copy and
+///   paste of a mount lose the default ignition the user set (probe of part C5, M3 run 1: a
+///   default of BURNOUT + 2.5 s comes back from copy(), undo() and redo() as AUTOMATIC + 0 s
+///   without an override). The default's motor, ejection delay and nozzle exit diameter are kept
+///   too; nothing sets them on a default (it never has a motor), so they are the empty ones.
 /// - setDefault() throws UnsupportedOperationException in Java; here it is deleted, and through
 ///   a reference to the base class it throws BugError (MotorConfiguration::kFixedDefaultMessage).
 /// - toDebug() takes the Preferences that choose the motor names; the base class's toDebug()
@@ -42,7 +51,8 @@ public:
 
     /// A set for @p newMount holding, for every override of @p sourceSet, a configuration of
     /// @p newMount with the same flight configuration id and the source's settings. The default
-    /// is a new empty configuration of @p newMount (see the class comment).
+    /// is a configuration of @p newMount with the settings of @p sourceSet's default, its
+    /// ignition among them (a deviation: Java makes a new empty default; see the class comment).
     MotorConfigurationSet(const FlightConfigurableParameterSet<MotorConfiguration>& sourceSet,
                           MotorMount&                                               newMount);
 

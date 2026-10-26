@@ -60,6 +60,7 @@
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
 #include "file/openrocket/OpenRocketSaverTestMotors.h"
+#include "motor/TestMotorDatabase.h"
 
 // GeneralRocketSaver: the .ork archive of a design and its file. The archives of OpenRocket's
 // sixteen examples are compared with OpenRocket's own in the golden test of the saver
@@ -529,6 +530,88 @@ TEST(GeneralRocketSaver, EmbedsTheThrustCurveOfEveryMotorOfAMountOnce)
     EXPECT_EQ(entryNames(*bytes), (std::vector<std::string>{"rocket.ork", "thrustcurves/d1.rse",
                                                             "thrustcurves/d2.rse"}));
     EXPECT_EQ(entryText(*bytes, "thrustcurves/d1.rse"), QtRocket::RockSimMotorWriter::write(*d1));
+}
+
+/// A new design whose inner tube holds @p motor in its one flight configuration.
+[[nodiscard]] std::unique_ptr<OpenRocketDocument> documentWithMotor(
+    std::shared_ptr<const ThrustCurveMotor> motor)
+{
+    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+    QtRocket::Rocket&                   rocket   = document->getRocket();
+    QtRocket::BodyTube&  body = rocket.getChild(0).addChild(std::make_unique<QtRocket::BodyTube>());
+    QtRocket::InnerTube& tube = body.addChild(std::make_unique<QtRocket::InnerTube>());
+    const FlightConfigurationId fcid;
+    rocket.createFlightConfiguration(fcid);
+    putMotor(tube, fcid, std::move(motor));
+    return document;
+}
+
+/// The Error of GeneralRocketSaver::saveToBytes() of documentWithMotor(@p motor), or "" when the
+/// save succeeds.
+[[nodiscard]] std::string refusalOfSave(std::shared_ptr<const ThrustCurveMotor> motor)
+{
+    const std::unique_ptr<OpenRocketDocument> document = documentWithMotor(std::move(motor));
+    const InMemoryPreferences                 preferences;
+    GeneralRocketSaver                        saver(preferences);
+    const Result<std::vector<std::byte>>      bytes =
+        saver.saveToBytes(*document, document->getDefaultStorageOptions());
+    return bytes.has_value()
+               ? ""
+               : std::format("{} {}", static_cast<int>(bytes.error().code), bytes.error().message);
+}
+
+// Risk 13 of the plan (closed by reading in the M3 scouting): the thrust curve of a motor goes
+// into the zip entry thrustcurves/<digest>.rse, a name the zip writer refuses when it holds a
+// backslash or a NUL (Java's ZipOutputStream writes both). The digest of a motor is one MotorDigest
+// computes, 32 lowercase hexadecimal characters (MotorDigest.EveryDigestIs32LowercaseHexCharacters,
+// BundledMotorDatabase.EveryDigestIs32LowercaseHexCharacters): the RockSim loader's for the
+// Estes A8 of Estes_A8.rse, whose entry the save names after it.
+TEST(GeneralRocketSaver, NamesTheThrustCurveEntryAfterTheComputedDigest)
+{
+    const std::shared_ptr<const ThrustCurveMotor> motor = QtRocket::Test::estesA8Motor();
+    ASSERT_NE(motor, nullptr);
+    EXPECT_TRUE(QtRocket::Test::hasMotorDigestForm(motor->getDigest())) << motor->getDigest();
+
+    const std::unique_ptr<OpenRocketDocument> document = documentWithMotor(motor);
+    const InMemoryPreferences                 preferences;
+    GeneralRocketSaver                        saver(preferences);
+    const Result<std::vector<std::byte>>      bytes =
+        saver.saveToBytes(*document, document->getDefaultStorageOptions());
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    EXPECT_EQ(
+        entryNames(*bytes),
+        (std::vector<std::string>{"rocket.ork", "thrustcurves/" + motor->getDigest() + ".rse"}));
+}
+
+// A digest given by hand (ThrustCurveMotor::Builder::setDigest(), which no loader calls with
+// anything but a computed digest) with a backslash or a NUL fails the save with the zip writer's
+// refusal, an Error and no exception, and a save to a file leaves the file as it was.
+TEST(GeneralRocketSaver, ADigestTheZipWriterCannotNameFailsTheSave)
+{
+    EXPECT_EQ(refusalOfSave(motorNamed("A1", "back\\slash")),
+              std::format("{} {}", static_cast<int>(ErrorCode::INVALID_ARGUMENT),
+                          ZipWriter::backslashInName("thrustcurves/back\\slash.rse")));
+    EXPECT_EQ(refusalOfSave(motorNamed("A1", std::string("n\0l", 3))),
+              std::format("{} {}", static_cast<int>(ErrorCode::INVALID_ARGUMENT),
+                          ZipWriter::nulInName(std::string("thrustcurves/n\0l.rse", 20))));
+    EXPECT_EQ(refusalOfSave(motorNamed("A1", "0123456789abcdef0123456789abcdef")), "");
+
+    const TempDir               directory;
+    const std::filesystem::path file = directory.resolve("design.ork");
+    ASSERT_TRUE(QtRocket::writeTextFile(file, "previous").has_value());
+    const std::unique_ptr<OpenRocketDocument> document =
+        documentWithMotor(motorNamed("A1", "back\\slash"));
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver        saver(preferences);
+    const Result<void>        saved = saver.save(file, *document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().message, ZipWriter::backslashInName("thrustcurves/back\\slash.rse"));
+    EXPECT_EQ(QtRocket::bytesToString(QtRocket::readFile(file).value_or(std::vector<std::byte>{})),
+              "previous");
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1)
+        << "no temporary file is left";
 }
 
 /// The digest OpenRocket's RASP motor loader gives the embedded motor of

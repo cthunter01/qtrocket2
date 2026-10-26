@@ -22,10 +22,12 @@
 #include "QtRocket/document/DecalRegistry.h"
 #include "QtRocket/document/events/DocumentChangeEvent.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AppearanceBuilder.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Decal.h"
+#include "QtRocket/rocket/FlightConfigurableParameterSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InsideColorComponent.h"
@@ -57,6 +59,20 @@ constexpr std::array<std::u8string_view, 4> kFileExtensions{u8"ork", u8"ork.gz",
 [[nodiscard]] std::string_view textOf(const std::optional<std::string>& description) noexcept
 {
     return description.has_value() ? std::string_view(*description) : std::string_view("null");
+}
+
+/// Gives every configuration of @p rocket without a name of its own @p defaultName (see
+/// OpenRocketDocument::pinFlightConfigurationNames()). setName() fires nothing and draws no
+/// modification id.
+void pinConfigurationNames(Rocket& rocket, std::string_view defaultName)
+{
+    for (FlightConfiguration& configuration : rocket.getFlightConfigurations().values())
+    {
+        if (!configuration.getStoredName().has_value())
+        {
+            configuration.setName(defaultName);
+        }
+    }
 }
 
 /// Whether @p appearance has a decal of the image named @p name (Java: hasDecal(), which compares
@@ -298,6 +314,17 @@ const FlightConfiguration& OpenRocketDocument::getSelectedConfiguration() const
 {
     const Rocket& rocket = *m_rocket;
     return rocket.getSelectedConfiguration();
+}
+
+void OpenRocketDocument::pinFlightConfigurationNames(const Preferences& preferences)
+{
+    // What Java's FlightConfiguration constructor stored, read once for all the rockets.
+    const std::string defaultName = preferences.getDefaultFlightConfigName();
+    pinConfigurationNames(*m_rocket, defaultName);
+    for (const std::shared_ptr<UndoState>& state : m_undoHistory)
+    {
+        pinConfigurationNames(*state->rocket, defaultName);
+    }
 }
 
 // ---------------------------------------------------------------------------- the file

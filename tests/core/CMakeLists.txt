@@ -6,6 +6,7 @@
 # EXPECT_*), and pugixml and nlohmann_json (the golden data). Listed per subsystem in the same order as src/.
 add_library(QtRocket_test_support STATIC
     util/RandomTextPairs.cpp
+    motor/TestMotorDatabase.cpp
     rocket/preset/ExamplePresets.cpp
     rocket/TestRockets.cpp
     aero/BarrowmanTestRockets.cpp
@@ -135,6 +136,7 @@ add_executable(QtRocket_core_tests
     motor/MotorPreferencesTests.cpp
     motor/MotorTests.cpp
     motor/SqliteMotorDatabaseReaderTests.cpp
+    motor/test_motor_database_tests.cpp
     motor/ThrustCurveMotorSetDatabaseTests.cpp
     motor/ThrustCurveMotorSetTests.cpp
     motor/ThrustCurveMotorTests.cpp
@@ -318,6 +320,7 @@ add_executable(QtRocket_core_tests
     document/events/DocumentChangeEventTests.cpp
     document/MotorChooserInputTests.cpp
     document/open_rocket_document_material_tests.cpp
+    document/open_rocket_document_name_pinning_tests.cpp
     document/open_rocket_document_preferences_tests.cpp
     document/open_rocket_document_simulation_undo_redo_tests.cpp
     document/open_rocket_document_unresolved_preset_tests.cpp

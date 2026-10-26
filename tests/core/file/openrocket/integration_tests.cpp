@@ -52,10 +52,8 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/file/motor/GeneralMotorLoader.h"
 #include "QtRocket/mass/MassCalculator.h"
 #include "QtRocket/mass/RigidBody.h"
-#include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -74,6 +72,7 @@
 #include "QtRocket/util/Uuid.h"
 #include "TestPaths.h"
 #include "file/DesignFileEnvironment.h"
+#include "motor/TestMotorDatabase.h"
 #include "simulation/SimulationRunSupport.h"
 
 namespace
@@ -88,7 +87,6 @@ using QtRocket::FlightConfigurationId;
 using QtRocket::FlightData;
 using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
-using QtRocket::GeneralMotorLoader;
 using QtRocket::GeneralRocketLoader;
 using QtRocket::LoadedDocument;
 using QtRocket::MassCalculator;
@@ -100,7 +98,6 @@ using QtRocket::RigidBody;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Simulation;
-using QtRocket::ThrustCurveMotor;
 using QtRocket::ThrustCurveMotorSetDatabase;
 using QtRocket::Uuid;
 using QtRocket::Test::DesignFileEnvironment;
@@ -175,33 +172,6 @@ constexpr CgCp kMass20{.cgx  = 0.21492432306827772,
                        .cpx  = 0.3308343828245423,
                        .cna  = 14.87897002914394};
 
-/// The one motor of tests/data/motors/Estes_A8.rse (IntegrationTest.readMotor()), or null with
-/// a test failure when the file cannot be read.
-[[nodiscard]] std::shared_ptr<const ThrustCurveMotor> readMotor()
-{
-    const Result<std::vector<std::byte>> bytes =
-        QtRocket::readFile(QtRocket::Test::testDataDir() / "motors" / "Estes_A8.rse");
-    if (!bytes)
-    {
-        ADD_FAILURE() << "Problem in unit test, cannot find Estes_A8.rse";
-        return nullptr;
-    }
-    const Result<std::vector<ThrustCurveMotor::Builder>> motors =
-        GeneralMotorLoader().load(*bytes, "Estes_A8.rse");
-    if (!motors || motors->empty())
-    {
-        ADD_FAILURE() << "Could not load motor";
-        return nullptr;
-    }
-    Result<ThrustCurveMotor> motor = motors->front().build();
-    if (!motor)
-    {
-        ADD_FAILURE() << motor.error().toString();
-        return nullptr;
-    }
-    return std::make_shared<const ThrustCurveMotor>(std::move(*motor));
-}
-
 class IntegrationTest : public ::testing::Test
 {
 protected:
@@ -211,9 +181,7 @@ protected:
     /// the first simulation.
     void SetUp() override
     {
-        const std::shared_ptr<const ThrustCurveMotor> motor = readMotor();
-        ASSERT_NE(motor, nullptr);
-        m_motors.addMotor(motor);
+        m_motors = QtRocket::Test::estesA8Database();
         ASSERT_EQ(m_motors.getMotorSets().size(), 1U);
         m_environment =
             std::make_unique<DesignFileEnvironment>(DesignFileEnvironment::Presets::NONE, m_motors);

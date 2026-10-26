@@ -5,23 +5,30 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/MotorConfigurationId.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfigurableParameterSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -112,9 +119,128 @@ TEST(MotorConfigurationSet, CopyForANewMountRebuildsEveryOverride)
     EXPECT_EQ(copy.getIds(), (std::vector<FlightConfigurationId>{a, b}));
     expectCopiedFor(copy.get(a), source->getMotorConfig(a), *target);
     expectCopiedFor(copy.get(b), source->getMotorConfig(b), *target);
-    // As in Java, the default is a fresh one: the source default's ignition is not carried over.
-    EXPECT_EQ(copy.getDefault().getIgnitionEvent(), IgnitionEvent::AUTOMATIC);
+    // The default is the source's made anew for the target: its ignition is carried over (M3's
+    // bug 6, fixed; Java's copy has a fresh AUTOMATIC default, see TheCopyKeepsTheDefaultIgnition).
+    EXPECT_EQ(copy.getDefault().getIgnitionEvent(), IgnitionEvent::NEVER);
     EXPECT_EQ(&copy.getDefault().getMount(), static_cast<const MotorMount*>(target.get()));
+}
+
+/// "<event> + <delay> override <yes|no>, motor <name|none>, ejection <delay>, nozzle <diameter>"
+/// of @p config, the fields the probe of part C5 prints of a configuration.
+[[nodiscard]] std::string ignitionOf(const MotorConfiguration& config)
+{
+    return std::format("{} + {} override {}, motor {}, ejection {}, nozzle {}",
+                       QtRocket::name(config.getIgnitionEvent()), config.getIgnitionDelay(),
+                       config.hasIgnitionOverride() ? "yes" : "no",
+                       config.getMotor() != nullptr ? config.getMotor()->getDesignation() : "none",
+                       config.getEjectionDelay(), config.getNozzleExitDiameter());
+}
+
+/// The default ignition of the scenario of the probe of part C5 (M3 run 1, probe/C5Probe.java,
+/// defaultIgnition()): BURNOUT + 2.5 s.
+constexpr std::string_view kDefaultIgnition =
+    "BURNOUT + 2.5 override yes, motor none, ejection 0, nozzle 0";
+
+/// The configuration of the scenario that has a motor: a C6-5 that ignites at LAUNCH.
+constexpr std::string_view kLaunchIgnition =
+    "LAUNCH + 0 override yes, motor C6, ejection 5, nozzle 0";
+
+/// Gives @p mount the scenario's ignitions: the default BURNOUT + 2.5 s, and a C6-5 that ignites
+/// at LAUNCH in @p withMotor.
+void setScenarioIgnitions(MotorMount& mount, const FlightConfigurationId& withMotor)
+{
+    addMotor(mount, withMotor, motorC6(), 5).setIgnitionEvent(IgnitionEvent::LAUNCH);
+    mount.getDefaultMotorConfig().setIgnitionEvent(IgnitionEvent::BURNOUT);
+    mount.getDefaultMotorConfig().setIgnitionDelay(2.5);
+}
+
+/// Checks that @p mount has the scenario's ignitions (setScenarioIgnitions() with @p withMotor),
+/// and that its default belongs to it with the mid @p defaultMid (a copy keeps the mids of the
+/// source, also one with new ids, which derives them before it draws the ids: as for every
+/// configuration, see CopiedMountsOwnTheirConfigurations).
+void expectScenarioIgnitions(const MotorMount& mount, const FlightConfigurationId& withMotor,
+                             const MotorConfigurationId& defaultMid)
+{
+    const FlightConfigurationId without;
+    EXPECT_EQ(ignitionOf(mount.getDefaultMotorConfig()), kDefaultIgnition);
+    EXPECT_EQ(ignitionOf(mount.getMotorConfig(without)), kDefaultIgnition)
+        << "a configuration without a motor of its own reads the default";
+    EXPECT_EQ(ignitionOf(mount.getMotorConfig(withMotor)), kLaunchIgnition);
+    EXPECT_EQ(&mount.getDefaultMotorConfig().getMount(), &mount);
+    EXPECT_EQ(mount.getDefaultMotorConfig().getMid(), defaultMid);
+}
+
+// QtRocket fixes M3's bug 6 (U-M3-5): a copy of a mount, with the original ids (an undo state, a
+// simulation's rocket) or with new ones (copy and paste, duplicate), keeps the default ignition,
+// and a configuration without a motor of its own still reads it. OpenRocket's copy() gives
+// "AUTOMATIC delay 0.0 override false" for the default (the probe) and keeps the override
+// ("LAUNCH delay 0.0 override true motor C6 ejection 5.0"), as QtRocket does.
+TEST(MotorConfigurationSet, TheCopyKeepsTheDefaultIgnition)
+{
+    const FlightConfigurationId     withMotor;
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    setScenarioIgnitions(*mount, withMotor);
+    const MotorConfigurationId mid{mount->getId(), FlightConfigurationId::defaultValueId().key()};
+    expectScenarioIgnitions(*mount, withMotor, mid);
+
+    const std::unique_ptr<QtRocket::RocketComponent> sameIds = mount->copyWithOriginalId();
+    expectScenarioIgnitions(dynamic_cast<const BodyTube&>(*sameIds), withMotor, mid);
+    const std::unique_ptr<QtRocket::RocketComponent> newIds = mount->copyWithNewIds();
+    expectScenarioIgnitions(dynamic_cast<const BodyTube&>(*newIds), withMotor, mid);
+    EXPECT_NE(newIds->getId(), mount->getId());
+}
+
+// The default's override flag is carried as it is: a default nobody set stays without an
+// override, and one reset with useDefaultIgnition() (which goes through the setters, as Java's)
+// keeps its override.
+TEST(MotorConfigurationSet, TheCopyKeepsTheDefaultsOverrideFlag)
+{
+    const std::unique_ptr<BodyTube> untouched = std::make_unique<BodyTube>(0.2, 0.01);
+    const std::unique_ptr<BodyTube> target    = std::make_unique<BodyTube>(0.2, 0.01);
+    const MotorConfigurationSet     fresh{untouched->getMotorConfigurationSet(), *target};
+    EXPECT_EQ(ignitionOf(fresh.getDefault()),
+              "AUTOMATIC + 0 override no, motor none, ejection 0, nozzle 0");
+
+    const FlightConfigurationId     fcid;
+    const std::unique_ptr<BodyTube> reset = std::make_unique<BodyTube>(0.2, 0.01);
+    setScenarioIgnitions(*reset, fcid);
+    reset->getDefaultMotorConfig().useDefaultIgnition();
+    const MotorConfigurationSet copy{reset->getMotorConfigurationSet(), *target};
+    EXPECT_EQ(ignitionOf(copy.getDefault()),
+              "AUTOMATIC + 0 override yes, motor none, ejection 0, nozzle 0");
+}
+
+/// The motor mount of @p document's rocket whose id is @p id.
+[[nodiscard]] const MotorMount& mountIn(const QtRocket::OpenRocketDocument& document,
+                                        const QtRocket::Uuid&               id)
+{
+    return dynamic_cast<const MotorMount&>(*document.getRocket().findComponent(id));
+}
+
+// Undo and redo load copies of the rocket (Rocket::loadFrom()), which keep the default ignition
+// now. OpenRocket's undo() and redo() give "AUTOMATIC delay 0.0 override false" for the default of
+// the probe's mount after an unrelated change (the probe: the body tube's length).
+TEST(MotorConfigurationSet, UndoAndRedoKeepTheDefaultIgnition)
+{
+    auto                        rocket = std::make_unique<QtRocket::Rocket>();
+    QtRocket::AxialStage&       stage  = rocket->addChild(std::make_unique<QtRocket::AxialStage>());
+    BodyTube&                   body   = stage.addChild(std::make_unique<BodyTube>(0.3, 0.012));
+    QtRocket::InnerTube&        tube   = body.addChild(std::make_unique<QtRocket::InnerTube>());
+    const QtRocket::Uuid        tubeId = tube.getId();
+    const FlightConfigurationId withMotor;
+    rocket->createFlightConfiguration(withMotor);
+    setScenarioIgnitions(tube, withMotor);
+
+    const std::unique_ptr<QtRocket::OpenRocketDocument> document =
+        QtRocket::OpenRocketDocumentFactory::createDocumentFromRocket(std::move(rocket));
+    document->addUndoPosition("Change length");
+    body.setLength(0.5);
+
+    const MotorConfigurationId mid{tubeId, FlightConfigurationId::defaultValueId().key()};
+    document->undo();
+    expectScenarioIgnitions(mountIn(*document, tubeId), withMotor, mid);
+    document->redo();
+    expectScenarioIgnitions(mountIn(*document, tubeId), withMotor, mid);
 }
 
 TEST(MotorConfigurationSet, CopiedMountsOwnTheirConfigurations)

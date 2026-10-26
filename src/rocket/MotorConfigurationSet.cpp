@@ -20,10 +20,14 @@ MotorConfigurationSet::MotorConfigurationSet(MotorMount& mount)
 
 MotorConfigurationSet::MotorConfigurationSet(
     const FlightConfigurableParameterSet<MotorConfiguration>& sourceSet, MotorMount& newMount)
-  : MotorConfigurationSet(newMount)
+  // QtRocket fixes M3's bug 6 (U-M3-5): the default is the source's, made anew for the new mount,
+  // so that its ignition survives undo, redo, copy and paste. Java starts from a new empty default
+  // (new MotorConfiguration(newMount, DEFAULT_VALUE_FCID)) and loses it.
+  : FlightConfigurableParameterSet<MotorConfiguration>(MotorConfiguration{
+        newMount, FlightConfigurationId::defaultValueId(), sourceSet.getDefault()})
 {
-    // Every value, the default included: set() ignores the default id, so the source's default
-    // is not carried over (as in Java).
+    // Every value, the default included: set() ignores the default id (as in Java), which the
+    // constructor above has taken care of.
     for (const MotorConfiguration& sourceConfig : sourceSet.values())
     {
         const FlightConfigurationId nextFcid = sourceConfig.getFcid();
