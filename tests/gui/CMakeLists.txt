@@ -51,10 +51,18 @@ include(GoogleTest)
 # the discovered ones included): a list given to gtest_discover_tests' PROPERTIES loses its escaped ";" on the way
 # into the generated test file, so that LABELS "gui;golden" became the label gui alone and a property named golden.
 set_property(DIRECTORY PROPERTY LABELS gui)
-gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*"
-    PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "-*Golden*.*:WidgetFileDialogTest.*" PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
     PROPERTIES LABELS golden ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+# The tests that show Qt's own file dialog run one at a time. QFileDialog keeps its history and last directory in the
+# native settings (QSettings(UserScope, "QtProject")), which QSettings::setPath() redirects to main()'s temporary
+# directory only where the native format is an INI file: on Windows (the registry) and macOS (CFPreferences) one test
+# process's dialog watches the temporary directory of another, and Windows warns when that one removes it
+# ("QFileSystemWatcher: FindNextChangeNotification failed ... Access is denied", CI 40317068427).
+gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "WidgetFileDialogTest.*"
+    PROPERTIES RESOURCE_LOCK qt_file_dialog_settings ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
 # The application run as a program (smoke tests, labels gui and lint), through the runner of the command-line tool's
 # tests (tests/core/cli/RunCli.cmake). Nothing may reach the standard error: QT_FORCE_STDERR_LOGGING sends Qt's
