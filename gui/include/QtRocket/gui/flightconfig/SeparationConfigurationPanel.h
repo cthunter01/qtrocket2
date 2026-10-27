@@ -65,6 +65,11 @@ public:
     /// Reset separation of the selected cells.
     void resetSeparation();
 
+protected:
+    /// A NONFUNCTIONAL change of an AxialStage (its name: Java's stage table model's
+    /// componentChanged()).
+    [[nodiscard]] bool restructuresWith(const RocketComponent& source) const override;
+
 private:
     QAction*     m_selectSeparation;
     QAction*     m_resetSeparation;

@@ -119,16 +119,16 @@ QString RenameConfigDialog::infoText()
     return QStringLiteral("<html>") + CommonStrings::dagger() + QLatin1Char(' ') +
            //: RenameConfigDialog.lbl.infoMotors
            tr("The text '<b>{motors}</b>' will be replaced with the <b>motor designation(s).</b> "
-              "<br><pre>\te.g. '{motors} → 'M1350-0'</pre>") +
+              "<br><pre>\te.g. '{motors} \u2192 'M1350-0'</pre>") +
            //: RenameConfigDialog.lbl.infoManufacturers
            tr("The text '<b>{manufacturers}</b>' will be replaced with the <b>motor "
-              "manufacturer(s).</b> <br><pre>\te.g. '{manufacturers}' → 'AeroTech'</pre>") +
+              "manufacturer(s).</b> <br><pre>\te.g. '{manufacturers}' \u2192 'AeroTech'</pre>") +
            //: RenameConfigDialog.lbl.infoCases
            tr("The text '<b>{cases}</b>' will be replaced with the <b>motor case(s).</b> "
-              "<br><pre>\te.g. '{cases}' → 'SU 18.0x70.0'</pre>") +
+              "<br><pre>\te.g. '{cases}' \u2192 'SU 18.0x70.0'</pre>") +
            //: RenameConfigDialog.lbl.infoCombination
            tr("A <b>combination</b> of the above can be used (you may choose the separator). "
-              "<br><pre>\te.g. '{manufacturers motors}' → 'AeroTech M1350-0'</pre>");
+              "<br><pre>\te.g. '{manufacturers motors}' \u2192 'AeroTech M1350-0'</pre>");
 }
 
 UserPrompts::RenameConfigurationAnswer RenameConfigDialog::answer() const

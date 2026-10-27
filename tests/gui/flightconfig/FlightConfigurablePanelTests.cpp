@@ -13,9 +13,13 @@
 
 #include <QAbstractItemView>
 #include <QCoreApplication>
+#include <QEvent>
 #include <QHeaderView>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QObject>
 #include <QPoint>
+#include <QPointF>
 #include <QPushButton>
 #include <QRect>
 #include <QString>
@@ -26,14 +30,18 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "QtRocket/gui/flightconfig/ConfigurationTableView.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/MotorConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RecoveryConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
+#include "QtRocket/gui/flightconfig/SeparationConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/TableTransferKeys.h"
+#include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/IgnitionEvent.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MotorMount.h"
@@ -59,6 +67,13 @@ using Design                      = Tab::Design;
     return {last.center().x(), last.bottom() + 20};
 }
 
+/// Selects rows 1 and 2 of @p panel's table in column 1.
+void selectTwoRows(const FlightConfigurablePanel& panel)
+{
+    panel.tableSelection().setLines({.rows = {1, 2}, .columns = {1}},
+                                    RowColumnSelectionModel::Order::COLUMNS_FIRST);
+}
+
 // ============================================================================ the table
 
 TEST_F(FlightConfigurablePanelTest, TheTableSelectsCellsAndEditsNothing)
@@ -74,7 +89,11 @@ TEST_F(FlightConfigurablePanelTest, TheTableSelectsCellsAndEditsNothing)
     EXPECT_TRUE(table.verticalHeader()->isHidden());
     EXPECT_FALSE(table.horizontalHeader()->sectionsMovable());
     EXPECT_FALSE(table.horizontalHeader()->sectionsClickable());
-    EXPECT_EQ(table.horizontalHeader()->sectionResizeMode(0), QHeaderView::Stretch);
+    // A JTable's columns: resizable by hand, the last one taking the rest of the width.
+    EXPECT_EQ(table.horizontalHeader()->sectionResizeMode(0), QHeaderView::Interactive);
+    EXPECT_TRUE(table.horizontalHeader()->stretchLastSection());
+    // Its mouse and keys select as a JTable's.
+    EXPECT_NE(qobject_cast<const ConfigurationTableView*>(&table), nullptr);
     EXPECT_EQ(table.contextMenuPolicy(), Qt::CustomContextMenu);
     EXPECT_EQ(tab.motors().fullPopupMenu().objectName(), QStringLiteral("popupMenuFull"));
 }
@@ -256,7 +275,7 @@ TEST_F(FlightConfigurablePanelTest, AResetByAMotorEventClearsAndFollowsTheRocket
     dynamic_cast<MotorMount&>(tab.find("Motor tube")).setMotorMount(false);
     EXPECT_EQ(Tab::lines(tab.motors()), "rows=[2] cols=[2]");
     EXPECT_EQ(tab.motors().tableModel().columnCount(), 3);
-    // The other tables keep theirs.
+    // The other tables too (every MOTOR change is one of their structure).
     EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[2] cols=[1]");
 }
 
@@ -280,6 +299,160 @@ TEST_F(FlightConfigurablePanelTest, AConfigurationAddedKeepsTheSelectionOfTheTab
     static_cast<void>(tab.rocket().createFlightConfiguration());
     EXPECT_EQ(tab.motors().tableModel().rowCount(), 5);
     EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+}
+
+TEST_F(FlightConfigurablePanelTest, EveryMotorOrTreeChangeClearsTheTablesAsJavasStructureChange)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    // The M3 run 2 verifier's probe (OpenRocket's real panels, "Two stage high power rocket.ork"):
+    // [1]/[1] becomes the rocket's row in the last column after an external MOTOR change, and
+    // again after a TREE change, the rows and the columns unchanged.
+    Tab::click(tab.motors(), 1, 1);
+    tab.rocket().fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+    Tab::click(tab.motors(), 1, 1);
+    tab.rocket().fireComponentChangeEvent(ComponentChangeEvent::kTreeChange);
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+    EXPECT_EQ(tab.selectedRow(), 1);
+
+    // A NONFUNCTIONAL change of a body tube (whose name heads a motor column) clears the motor
+    // table alone, one of a stage the stage table alone, one of a parachute none (Java's motor
+    // and stage table models' componentChanged()).
+    selectTwoRows(tab.motors());
+    selectTwoRows(tab.recovery());
+    selectTwoRows(tab.stages());
+    tab.find("Chute").setComment("a comment");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.stages()), "rows=[1, 2] cols=[1]");
+    tab.find("Body").setComment("a comment");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+    EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.stages()), "rows=[1, 2] cols=[1]");
+    selectTwoRows(tab.motors());
+    tab.find("Booster").setComment("a comment");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.stages()), "rows=[1] cols=[1]");
+}
+
+TEST_F(FlightConfigurablePanelTest, TheFirstCellIsTheOneSelectedWhenTheOperationFires)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    // The M3 run 2 verifier's probe (OpenRocket's real panels): a selection made from the bottom
+    // up, the rocket on its lower row; after Delete motor(s), Java's first cell, read before the
+    // operation's event (which synchronizes the table to the rocket's row), is the upper row's,
+    // and the rocket follows it.
+    Tab::click(tab.motors(), 2, 1);
+    Tab::click(tab.motors(), 1, 1, Qt::ShiftModifier);
+    ASSERT_EQ(Tab::lines(tab.motors()), "rows=[1, 2] cols=[1]");
+    ASSERT_EQ(tab.selectedRow(), 2);
+    tab.motors().deleteMotorAction()->trigger();
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[1]");
+    EXPECT_EQ(tab.selectedRow(), 1);
+    // From row 0: Java's restoreSelection() synchronizes (row <= 0): the rocket's row in the last
+    // column.
+    Tab::click(tab.motors(), 0, 1, Qt::ShiftModifier);
+    ASSERT_EQ(Tab::lines(tab.motors()), "rows=[0, 1] cols=[1]");
+    ASSERT_EQ(tab.selectedRow(), 1);
+    tab.motors().deleteMotorAction()->trigger();
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+    EXPECT_EQ(tab.selectedRow(), 1);
+}
+
+// ================================================================= the gestures of the mouse
+
+TEST_F(FlightConfigurablePanelTest, AClickIntoAnEmptyTableSelectsItsComponentInTheDesign)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    tab.motors().clearSelection();
+    tab.designSelection().clearComponentSelection();
+    ASSERT_EQ(Tab::lines(tab.motors()), "rows=[] cols=[]");
+    // The review's ClickProbe (BasicTableUI): at the release the rows' change, then the columns'
+    // with the row selected, which selects the column's component in the design.
+    Tab::click(tab.motors(), 1, 2);
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[2]");
+    EXPECT_EQ(tab.selectedRow(), 1);
+    EXPECT_EQ(tab.designSelectionNames(), "[Motor tube]");
+}
+
+TEST_F(FlightConfigurablePanelTest, ADragOverTwoRowsLeavesTheRocketsConfiguration)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    Tab::click(tab.motors(), 0, 1);
+    ASSERT_EQ(tab.selectedRow(), 0);
+    // The review's DragProbe: the press and the drag are adjusting, and the release tells rows of
+    // two: Java's listener selects no configuration.
+    QWidget&     viewport = *tab.motors().table().viewport();
+    const QPoint to       = Tab::cellCenter(tab.motors(), 1, 1);
+    QTest::mousePress(&viewport, Qt::LeftButton, {}, Tab::cellCenter(tab.motors(), 2, 1));
+    EXPECT_EQ(tab.selectedRow(), 0);
+    QMouseEvent move(QEvent::MouseMove, QPointF(to), viewport.mapToGlobal(to), Qt::NoButton,
+                     Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(&viewport, &move);
+    QTest::mouseRelease(&viewport, Qt::LeftButton, {}, to);
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1, 2] cols=[1]");
+    EXPECT_EQ(tab.selectedRow(), 0);
+}
+
+TEST_F(FlightConfigurablePanelTest, ATypedKeySelectsNoRow)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    Tab::click(tab.motors(), 2, 1);
+    ASSERT_EQ(tab.motors().tableModel().index(0, 1).data().toString(), QStringLiteral("C6-5"));
+    // A JTable has no type-ahead search: "C" leaves the selection, and the rocket, on row 2
+    // (Qt's search would select row 0).
+    QTest::keyClicks(&tab.motors().table(), QStringLiteral("C"));
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[2] cols=[1]");
+    EXPECT_EQ(tab.selectedRow(), 2);
+}
+
+// ========================================================================= the columns
+
+TEST_F(FlightConfigurablePanelTest, TheColumnsShareTheWidthUntilOneIsResizedByHand)
+{
+    const Tab tab(Design::TWO_STAGES);
+    tab.show();
+    const QTableView&  table  = tab.motors().table();
+    const QHeaderView& header = *table.horizontalHeader();
+    const int          width  = table.viewport()->width();
+    ASSERT_EQ(header.count(), 4);
+    // Equal widths, the last column taking what the division leaves.
+    EXPECT_EQ(header.sectionSize(0), width / 4);
+    EXPECT_EQ(header.sectionSize(2), width / 4);
+    EXPECT_EQ(header.length(), width);
+    EXPECT_FALSE(tab.motors().columnsResizedByHand());
+
+    // A drag of the border between the first two columns 40 pixels to the right.
+    QWidget&     headerViewport = *header.viewport();
+    const int    border         = header.sectionViewportPosition(1);
+    const QPoint from(border - 1, header.height() / 2);
+    const QPoint to(border + 39, header.height() / 2);
+    QTest::mousePress(&headerViewport, Qt::LeftButton, {}, from);
+    QMouseEvent move(QEvent::MouseMove, QPointF(to), headerViewport.mapToGlobal(to), Qt::NoButton,
+                     Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(&headerViewport, &move);
+    QTest::mouseRelease(&headerViewport, Qt::LeftButton, {}, to);
+    EXPECT_TRUE(tab.motors().columnsResizedByHand());
+    EXPECT_EQ(header.sectionSize(0), (width / 4) + 40);
+
+    // A new row (no change of the structure: the model resets with the same columns) keeps the
+    // widths, as Java's JTable.
+    FlightConfiguration         configuration{tab.rocket(), FlightConfigurationId{}};
+    const FlightConfigurationId id = configuration.getId();
+    tab.rocket().setFlightConfiguration(id, std::move(configuration));
+    ASSERT_EQ(tab.motors().tableModel().rowCount(), 4);
+    EXPECT_EQ(header.sectionSize(0), (width / 4) + 40);
+    // A change of the structure shares the width again.
+    tab.rocket().fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
+    EXPECT_FALSE(tab.motors().columnsResizedByHand());
+    EXPECT_EQ(header.sectionSize(0), width / 4);
+    EXPECT_EQ(header.length(), width);
 }
 
 // ===================================================================== the clipboard keys

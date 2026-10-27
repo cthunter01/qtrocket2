@@ -101,6 +101,11 @@ public:
     /// Reset ignition of the selected cells.
     void resetIgnition();
 
+protected:
+    /// A NONFUNCTIONAL change of a BodyTube or an InnerTube (its name: Java's motor table model's
+    /// componentChanged()).
+    [[nodiscard]] bool restructuresWith(const RocketComponent& source) const override;
+
 private:
     /// The help's text (MotorConfigurationPanel.lbl.nomotors with the design tab's name).
     [[nodiscard]] static QString noMountsText();

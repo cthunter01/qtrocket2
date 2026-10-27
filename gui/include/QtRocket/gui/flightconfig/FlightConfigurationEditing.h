@@ -45,7 +45,10 @@ namespace QtRocket::Gui
 /// rocket (a MotorMount, a RecoveryDevice, an AxialStage), and Select motor refuses the default
 /// configuration's id (Java's IllegalStateException): both are BugErrors. After a question (a
 /// modal dialog, whose event loop may deliver a TREE or UNDO change) the components are looked up
-/// again by id, and one that has gone is left out.
+/// again by id, and one that has gone is left out, as is a configuration the rocket no longer has
+/// (an undo of New Configuration); the operation does nothing when the first cell's component or
+/// configuration went. When this object goes during a question (the tab's window closed by
+/// another event), the operation returns at once and touches nothing more.
 ///
 /// THE QUESTIONS go through the services' UserPrompts with the dialog parent: askIgnition(),
 /// askDeployment(), askSeparation() (each with the request ignitionRequest(),
@@ -115,10 +118,11 @@ namespace QtRocket::Gui
 ///   delay (the overridden ones too, as in Java); for this configuration only, the cell's own
 ///   configuration (made from the mount's default when the cell has none) gets them, through
 ///   the setters (so its ignition is overridden), each value only when it differs from the
-///   question's (Java's dialog edits the configuration live, and a value left as it was is not
-///   set). The other cells then take the event and the delay; with this configuration only, a
-///   cell without a configuration of its own first gets one made from the mount's default. A
-///   change, or another cell, fires MOTOR_CHANGE.
+///   cell's (Java's dialog edits the configuration live, and a value left as it was is not set;
+///   QtRocket's question may show the mount's default's values, bug 2). The other cells then take
+///   the event and the delay; with this configuration only, a cell without a configuration of its
+///   own first gets one made from the mount's default. A change, or another cell, fires
+///   MOTOR_CHANGE.
 /// - resetIgnition() (resetIgnition()): MotorConfiguration::useDefaultIgnition() on each cell's
 ///   own configuration (AUTOMATIC, no delay, through the setters: the ignition stays overridden,
 ///   as in Java); a cell without a configuration of its own is left alone.
@@ -152,14 +156,22 @@ namespace QtRocket::Gui
 ///   cell has an override of its own (an ignition: a motor configuration of its own whose
 ///   ignition is overridden), else "all configurations". Java's deployment and separation
 ///   dialogs always start on "this configuration" (FlightConfigurableParameterSet.isDefault(fcid)
-///   compares by identity), its ignition dialog on "all" exactly when the cell has no motor.
+///   compares by identity), its ignition dialog on "all" exactly when the cell has no motor. An
+///   ignition question that starts on "all configurations" shows the values the cell shows (the
+///   mount's default's), so that an unchanged OK, or Escape, keeps the default; Java's shows the
+///   cell's own configuration's values, which with "all configurations" would replace the
+///   default.
 /// - Bug 3: Cancel and the window's close button change nothing, and nothing reaches the other
 ///   selected cells (the value dialogs answer nullopt). Java's ignition Cancel
 ///   sets the start values back through the setters, which marks the ignition overridden (on a
 ///   cell without a configuration, the mount's default's), its close button keeps the live
 ///   edits, its separation dialog edits an existing override in place (Cancel and close keep the
 ///   edits), and its panels' loops copy the first cell's values into the other cells after a
-///   Cancel too.
+///   Cancel too. The deployment question's Cancel is taken as bug 3 as well (the user's U-M3-5
+///   names the ignition and separation Cancel; to be confirmed): Java's
+///   RecoveryConfigurationPanel.selectDeployment() runs its loop after a Cancel, so that every
+///   other selected cell whose deployment differs from the first cell's takes the first cell's
+///   values, as an override of its own when the question started on "this configuration".
 /// - Bug 4: an ignition for this configuration only on a cell without a motor configuration of
 ///   its own creates that configuration (from the mount's default) and never edits the default:
 ///   Java's dialog edits mount.getMotorConfig(fcid), the mount's default for such a cell, and its
@@ -181,7 +193,8 @@ namespace QtRocket::Gui
 ///   overrides go), and a separation whose altitude alone changes.
 /// - Selection by id: the components are looked up by id before the operation (a BugError for an
 ///   id that is not one of the kind) and again after its question (one that went is left out; the
-///   operation does nothing when the first cell's went), where Java's panels hold the objects.
+///   operation does nothing when the first cell's went), and so are the configurations, where
+///   Java's panels hold the objects.
 class FlightConfigurationEditing final : public QObject
 {
     Q_OBJECT
@@ -273,9 +286,11 @@ public:
     // ------------------------------------------------------------------ the questions
 
     /// What IgnitionSelectionDialog is asked for the cell (@p mount, @p id) of @p rocket: the
-    /// configuration's name, the cell's ignition event and delay (its own configuration's, else
-    /// the mount's default's), and "this configuration" exactly when the cell has a motor
-    /// configuration of its own with an ignition override (bug 2).
+    /// configuration's name, "this configuration" exactly when the cell has a motor configuration
+    /// of its own with an ignition override (bug 2), and the ignition event and delay the cell
+    /// shows: that configuration's, else the mount's default's ("Default (...)", what "all
+    /// configurations" edits; also for a cell whose own configuration does not override the
+    /// ignition, whose stored values Java's dialog shows on "this configuration").
     [[nodiscard]] static UserPrompts::IgnitionRequest ignitionRequest(
         const Rocket& rocket, const MotorMount& mount, const FlightConfigurationId& id,
         const Preferences& preferences);
@@ -295,23 +310,30 @@ Q_SIGNALS:
     /// An operation is about to add an undo position: the component configuration dialog is to
     /// close first (MainWindow::requestConfigDialogClose()).
     void closeConfigDialogRequested();
+    /// An operation is about to fire its change event of the rocket (where Java's
+    /// FlightConfigurablePanel.fireTableDataChanged() reads its table's selection).
+    void changeAboutToFire();
 
 private:
     /// Closes the configuration dialog, then adds the undo position @p description.
     void startStep(const QString& description);
     /// "Save as default" of the rename question with @p name, over @p dialog.
     void saveAsDefaultName(QWidget* dialog, const QString& name) const;
+    /// @p ids without those the rocket no longer has (a question's event loop may remove one: an
+    /// undo of New Configuration); none when the first has gone.
+    [[nodiscard]] std::vector<FlightConfigurationId> stillThere(
+        std::span<const FlightConfigurationId> ids) const;
     /// The selection's components of the type @p T, looked up by id; @p strict throws BugError for
     /// an id that is not one (before a question), else leaves it out (after one).
     template <typename T>
     [[nodiscard]] std::vector<T*> find(std::span<const Uuid> ids, bool strict) const;
     /// Applies the ignition answer @p choice to the first cell (@p mount, @p id) as the dialog's
-    /// OK action, from the question's @p initial values.
+    /// OK action (for this configuration only: each value that differs from the cell's).
     static void applyIgnition(MotorMount& mount, const FlightConfigurationId& id,
-                              const UserPrompts::IgnitionChoice& choice,
-                              const UserPrompts::IgnitionChoice& initial);
-    /// The rocket's change event @p type for @p ids, or for all configurations when nullopt.
-    void fire(int type, std::optional<std::span<const FlightConfigurationId>> ids) const;
+                              const UserPrompts::IgnitionChoice& choice);
+    /// The rocket's change event @p type for @p ids, or for all configurations when nullopt,
+    /// after changeAboutToFire().
+    void fire(int type, std::optional<std::span<const FlightConfigurationId>> ids);
 
     OpenRocketDocument* m_document;
     GuiServices         m_services;

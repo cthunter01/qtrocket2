@@ -1,11 +1,13 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include <QItemSelection>
 #include <QItemSelectionModel>
 #include <QModelIndex>
 #include <QObject>
+#include <QPersistentModelIndex>
 
 class QAbstractItemModel;
 
@@ -29,10 +31,25 @@ namespace QtRocket::Gui
 ///   JTable's Ctrl+click toggles a selected cell off by removing its row and its column);
 /// - Toggle: a selected cell's row and column are removed, those of a cell that is not selected
 ///   added (Ctrl+Space);
-/// - Current (a drag, Shift+click, Shift+arrow): the change starts from the selection as the last
-///   other change left it, so that each step of the gesture replaces the previous one.
+/// - Current (a drag, Shift+click, Shift+arrow): the rows and the columns from the anchor to the
+///   cell (JTable.changeSelection(row, column, false, true)), replacing what was selected, so
+///   that each step of a drag replaces the previous one; with Ctrl held (setToggleHeld()), the
+///   anchor cell's state (selected or not) is given to them in the selection as it is
+///   (changeSelection(row, column, true, true): a Ctrl+drag keeps what it crossed). The anchor is
+///   the cell of the last
+///   change that was not Current (a click, a Ctrl+click, an arrow key: the view's current index
+///   then) or of the last selectCell(), addCell() or setLines() (its first row and column); the
+///   cell is the one the
+///   view names (setInputCell(): the mouse's), else the view's current index. Without an anchor
+///   (after a reset of the model) the cells the view names are taken.
 /// The view then shows the cross product (the base class holds it). Qt's Rows and Columns flags
 /// name every column or every row of the cells.
+///
+/// A gesture of the mouse is told as a JTable's look and feel tells it (setValueIsAdjusting(),
+/// which ConfigurationTableView calls from a press to its release, as BasicTableUI does): while
+/// it lasts, each change is told as adjusting (LinesChange::adjusting); its end tells the whole
+/// change of the gesture once more, not adjusting, the rows first (a JTable's row model ends its
+/// adjusting before its column model), when it changed something.
 ///
 /// Each change of the rows or the columns is told by linesChanged(), with the rows and columns
 /// before and after it and the order in which a JTable's models would have told of them (a
@@ -42,9 +59,8 @@ namespace QtRocket::Gui
 /// does (Qt calls it at a reset of the model); a model that inserts, removes or moves rows or
 /// columns clears them too, with the signal (the flight configuration models only reset).
 ///
-/// Deviation from OpenRocket: the mouse and the keys select as Qt's views do (Shift+click extends
-/// from the cell of the last click, keeping what Ctrl+click added before it; a JTable's Shift+click
-/// selects only the rows and the columns from its anchor to the cell).
+/// The rules were confirmed by the M3 run 2 probe GestureProbe (JDK 17, BasicTableUI's own mouse
+/// listeners under xvfb: the events of a click, a drag, Shift, Ctrl and Ctrl+Shift, the anchor).
 class RowColumnSelectionModel final : public QItemSelectionModel
 {
     Q_OBJECT
@@ -75,6 +91,9 @@ public:
         Lines before;
         Lines after;
         Order order = Order::COLUMNS_FIRST;
+        /// Whether the change is a step of a gesture that has not ended (a JTable's
+        /// ListSelectionEvent.getValueIsAdjusting()); the gesture's end tells it again.
+        bool adjusting = false;
     };
 
     /// The selection of the cells of @p model.
@@ -120,8 +139,20 @@ public:
     /// column, true, false) of a cell that is not selected), its index the current one.
     void addCell(int row, int column);
 
-    /// Selects nothing (JTable.clearSelection(): the rows first).
+    /// Selects nothing (JTable.clearSelection(): the rows first). The anchor stays.
     void clearLines();
+
+    /// Starts (true) or ends (false) a gesture of the mouse (see the class comment); a start
+    /// during a gesture, or an end without one, does nothing.
+    void setValueIsAdjusting(bool adjusting);
+    /// Whether a gesture lasts.
+    [[nodiscard]] bool valueIsAdjusting() const noexcept { return m_adjusting; }
+
+    /// Whether Ctrl is held in the view's input of the moment (see the class comment).
+    void setToggleHeld(bool held) noexcept { m_toggleHeld = held; }
+    /// The cell under the mouse of the view's input of the moment (an invalid index for a key):
+    /// the cell an extending change goes to.
+    void setInputCell(const QModelIndex& cell);
 
 Q_SIGNALS:
     /// The rows or the columns changed (see the class comment).
@@ -133,16 +164,31 @@ private:
                                 QItemSelectionModel::SelectionFlags command) const;
     /// @p lines without the rows and columns the model does not have, in order, each once.
     [[nodiscard]] Lines valid(Lines lines) const;
+    /// An extending change (Current) the view asks for (see the class comment).
+    void selectExtension(const QItemSelection&               selection,
+                         QItemSelectionModel::SelectionFlags command);
     /// Makes @p lines the selection, shows its cells and tells of a change in @p order.
     void apply(Lines lines, Order order);
+    /// The rows and the columns from the anchor to the cell of an extending change that names
+    /// @p named; nullopt without an anchor or a cell.
+    [[nodiscard]] std::optional<Lines> extension(const Lines& named) const;
+    /// Makes (@p row, @p column) the anchor.
+    void setAnchor(int row, int column) noexcept;
     /// Shows the cells of the rows and columns (the base class's selection).
     void showCells();
     /// The model inserted, removed or moved rows or columns.
     void structureChanged();
 
     Lines m_lines;
-    /// The selection the last change that was not part of a gesture (Current) left.
-    Lines m_committed;
+    /// The selection when the gesture started.
+    Lines m_gestureStart;
+    /// The anchor (JTable's anchor of its row and column models); -1 for none.
+    int m_anchorRow{-1};
+    int m_anchorColumn{-1};
+    /// The cell of the view's input of the moment.
+    QPersistentModelIndex m_inputCell;
+    bool                  m_adjusting{false};
+    bool                  m_toggleHeld{false};
 };
 
 }  // namespace QtRocket::Gui

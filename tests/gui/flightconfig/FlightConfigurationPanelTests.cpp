@@ -13,6 +13,7 @@
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QHBoxLayout>
 #include <QMenu>
 #include <QObject>
 #include <QString>
@@ -23,17 +24,22 @@
 
 #include <gtest/gtest.h>
 
+#include "ForwardingUserPrompts.h"
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurablePanel.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
 #include "QtRocket/gui/flightconfig/MotorConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RecoveryConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/SeparationConfigurationPanel.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/GuiServices.h"
+#include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/IconButton.h"
+#include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -44,6 +50,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "ScriptedUserPrompts.h"
+#include "TestGuiServices.h"
 #include "flightconfig/FlightConfigurationTabSupport.h"
 
 namespace QtRocket::Gui
@@ -329,7 +336,7 @@ TEST_F(FlightConfigurationPanelTest, ASubTabSwitchSelectsThePreviousRowsAndTheDe
 
 // ======================================================================== the operations
 
-TEST_F(FlightConfigurationPanelTest, NewAsksForTheMotorOfTheNewRowInTheSelectedColumn)
+TEST_F(FlightConfigurationPanelTest, NewAsksForTheMotorOfTheNewRowInTheLastColumn)
 {
     Tab tab(Design::TWO_STAGES);
     tab.show();
@@ -339,15 +346,19 @@ TEST_F(FlightConfigurationPanelTest, NewAsksForTheMotorOfTheNewRowInTheSelectedC
 
     ASSERT_EQ(tab.rocket().getConfigurationCount(), 4);
     EXPECT_EQ(tab.selectedRow(), 3);
+    // The M3 run 2 fixer's probe FixerFOpsProbe ("fixer-new": OpenRocket's real panels on "Two
+    // stage high power rocket.ork", the first mount's cell selected): the chooser is asked for the
+    // new row in the last column, as the MOTOR event of New changes the tables' structure, after
+    // which they select the rocket's configuration in their last column.
     ASSERT_EQ(tab.prompts().motorQuestions().size(), 1U);
-    EXPECT_EQ(tab.prompts().motorQuestions().front().mountName, QStringLiteral("Motor tube"));
+    EXPECT_EQ(tab.prompts().motorQuestions().front().mountName, QStringLiteral("Booster tube"));
     EXPECT_EQ(tab.prompts().motorQuestions().front().configurationId, tab.id(3));
     // Java's restoreSelection(): the first cell, in each table.
-    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[3] cols=[2]");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[3] cols=[3]");
     EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[3] cols=[1]");
     EXPECT_EQ(Tab::lines(tab.stages()), "rows=[3] cols=[1]");
     EXPECT_EQ(tab.document().getUndoDescription().value_or("-"), "Select motor");
-    EXPECT_EQ(tab.motors().tableModel().data(tab.motors().tableModel().index(3, 2)).toString(),
+    EXPECT_EQ(tab.motors().tableModel().data(tab.motors().tableModel().index(3, 3)).toString(),
               QStringLiteral("A8-3"));
 }
 
@@ -372,11 +383,12 @@ TEST_F(FlightConfigurationPanelTest, DuplicateRenameAndDeleteActOnTheCurrentSubT
     Tab::click(tab.motors(), 1, 1);
     Tab::click(tab.motors(), 2, 1, Qt::ShiftModifier);
 
-    // Duplicate: the copies, the first selected (TabProbe's "duplicate").
+    // Duplicate: the copies, the first selected (TabProbe's "duplicate"), in the last column (the
+    // fixer's probe "fixer-duplicate": its MOTOR event changes the tables' structure).
     panel.duplicateConfigurationAction()->trigger();
     ASSERT_EQ(tab.rocket().getConfigurationCount(), 5);
     EXPECT_EQ(tab.selectedRow(), 3);
-    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[3] cols=[1]");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[3] cols=[3]");
     EXPECT_EQ(Tab::lines(tab.recovery()), "rows=[3] cols=[1]");
 
     // Rename: the rows of the current sub-tab.
@@ -429,12 +441,14 @@ TEST_F(FlightConfigurationPanelTest, AnUndoWhileACellIsSelectedKeepsTheTablesOnT
     ASSERT_EQ(model.data(model.index(1, 1)).toString(), QStringLiteral("None"));
     const RocketComponent* before = &tab.find("Body");
 
-    // The undo replaces every component (Rocket::loadFrom()); the tables keep their keys.
+    // The undo replaces every component (Rocket::loadFrom()), and its TREE event changes the
+    // tables' structure: the rocket's configuration in the last column (the M3 run 2 verifier's
+    // probe of an external MOTOR and TREE event, OpenRocket's real panels), its new object.
     tab.document().undo();
     QCoreApplication::processEvents();
     EXPECT_NE(&tab.find("Body"), before);
-    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[1]");
-    EXPECT_EQ(tab.motors().selectedComponent(), &tab.find("Body"));
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+    EXPECT_EQ(tab.motors().selectedComponent(), &tab.find("Booster tube"));
     EXPECT_EQ(model.data(model.index(1, 1)).toString(), QStringLiteral("C6-5"));
     // The design follows a click on the new objects.
     Tab::click(tab.motors(), 1, 2);
@@ -443,11 +457,117 @@ TEST_F(FlightConfigurationPanelTest, AnUndoWhileACellIsSelectedKeepsTheTablesOnT
 
     tab.document().redo();
     QCoreApplication::processEvents();
-    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[2]");
+    EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
     EXPECT_EQ(model.data(model.index(1, 1)).toString(), QStringLiteral("None"));
     Tab::click(tab.motors(), 2, 1);
     EXPECT_EQ(tab.designSelectionNames(), "[Body]");
     EXPECT_EQ(tab.designSelection().selectedComponent(), &tab.find("Body"));
+}
+
+// ==================================================================== the tab going away
+
+/// Destroys the tab's window and its design during the next ignition or rename question, as
+/// another event of the question's loop (a window closed, a timer) might.
+class DestroyingPrompts final : public Gui::Test::ForwardingUserPrompts
+{
+public:
+    DestroyingPrompts(UserPrompts& delegate, std::unique_ptr<QWidget>& window,
+                      std::unique_ptr<OpenRocketDocument>& document) noexcept
+      : ForwardingUserPrompts(delegate), m_window(&window), m_document(&document)
+    {
+    }
+
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(QWidget*               parent,
+                                                            const IgnitionRequest& request) override
+    {
+        std::optional<IgnitionChoice> answer = ForwardingUserPrompts::askIgnition(parent, request);
+        destroy();
+        return answer;
+    }
+
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override
+    {
+        const RenameConfigurationAnswer answer =
+            ForwardingUserPrompts::askRenameConfiguration(parent, request);
+        destroy();
+        return answer;
+    }
+
+private:
+    void destroy() const
+    {
+        m_window->reset();
+        m_document->reset();
+    }
+
+    std::unique_ptr<QWidget>*            m_window;
+    std::unique_ptr<OpenRocketDocument>* m_document;
+};
+
+/// A new design whose body tube acts as a motor mount, in one configuration that is selected.
+[[nodiscard]] std::unique_ptr<OpenRocketDocument> mountedDesign()
+{
+    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+    Rocket&                             rocket   = document->getRocket();
+    auto& body = rocket.getChild(0).addChild(std::make_unique<BodyTube>());
+    body.setMotorMount(true);
+    rocket.setSelectedConfiguration(rocket.createFlightConfiguration().getId());
+    document->clearUndo();
+    return document;
+}
+
+/// A window with the tab of mountedDesign(), over prompts that destroy both during the next
+/// question.
+class GoingTab
+{
+public:
+    GoingTab()
+      : m_panel(makeChild<FlightConfigurationPanel>(m_window.get(), *m_document, m_services))
+    {
+        auto* layout = makeChild<QHBoxLayout>(m_window.get());
+        layout->addWidget(m_panel);
+    }
+
+    [[nodiscard]] FlightConfigurationPanel&       panel() const noexcept { return *m_panel; }
+    [[nodiscard]] Gui::Test::ScriptedUserPrompts& scripted() noexcept { return m_test.prompts(); }
+    [[nodiscard]] bool                            gone() const noexcept
+    {
+        return m_window == nullptr && m_document == nullptr;
+    }
+
+private:
+    Gui::Test::TestGuiServices          m_test;
+    std::unique_ptr<OpenRocketDocument> m_document = mountedDesign();
+    std::unique_ptr<QWidget>            m_window   = std::make_unique<QWidget>();
+    DestroyingPrompts                   m_prompts{m_test.prompts(), m_window, m_document};
+    GuiServices                         m_services{
+        m_test.preferences(), m_test.services().materials(),      m_test.motors(),
+        m_test.presets(),     m_test.services().loadingContext(), m_prompts};
+    FlightConfigurationPanel* m_panel;
+};
+
+TEST_F(FlightConfigurationPanelTest, TheTabCanGoDuringItsQuestions)
+{
+    // The M3 run 2 review's probes (the asan preset): nothing of the tab is used after the
+    // question that saw it go.
+    {
+        GoingTab tab;
+        tab.scripted().answerRenameConfiguration(
+            {.action = UserPrompts::RenameAction::RENAME, .name = QStringLiteral("Gone")});
+        tab.panel().renameConfigurationAction()->trigger();
+        EXPECT_TRUE(tab.gone());
+    }
+    {
+        GoingTab tab;
+        ASSERT_TRUE(tab.panel().motorConfigurationPanel().selectIgnitionAction()->isEnabled());
+        tab.scripted().answerIgnition(UserPrompts::IgnitionChoice{
+            .scope = UserPrompts::ConfigurationScope::THIS_CONFIGURATION,
+            .event = IgnitionEvent::BURNOUT,
+            .delay = 1});
+        tab.panel().motorConfigurationPanel().selectIgnitionAction()->trigger();
+        EXPECT_TRUE(tab.gone());
+    }
 }
 
 }  // namespace

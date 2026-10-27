@@ -90,7 +90,7 @@ void RecoveryConfigurationPanel::selectDeployment()
     {
         return;
     }
-    operationDone(editing().selectDeployment(ids, devices));
+    runOperation([this, &ids, &devices] { return editing().selectDeployment(ids, devices); });
 }
 
 void RecoveryConfigurationPanel::resetDeployment()
@@ -101,7 +101,7 @@ void RecoveryConfigurationPanel::resetDeployment()
     {
         return;
     }
-    operationDone(editing().resetDeployment(ids, devices));
+    runOperation([this, &ids, &devices] { return editing().resetDeployment(ids, devices); });
 }
 
 }  // namespace QtRocket::Gui

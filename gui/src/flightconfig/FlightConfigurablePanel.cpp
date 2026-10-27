@@ -1,6 +1,7 @@
 #include "QtRocket/gui/flightconfig/FlightConfigurablePanel.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <optional>
 #include <span>
@@ -21,6 +22,7 @@
 #include <QMouseEvent>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QPushButton>
 #include <QScopedValueRollback>
 #include <QString>
@@ -28,7 +30,9 @@
 #include <QWidget>
 #include <Qt>
 
+#include "QtRocket/gui/flightconfig/ConfigurationTableView.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurationEditing.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
 #include "QtRocket/gui/flightconfig/TableTransferKeys.h"
@@ -36,6 +40,7 @@
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -83,7 +88,7 @@ FlightConfigurablePanel::FlightConfigurablePanel(FlightConfigurationPanel&      
     m_panel(&panel),
     m_model(makeChild<FlightConfigurableTableModel>(this, kind, panel.rocket(),
                                                     panel.services().preferences())),
-    m_table(makeChild<QTableView>(this)),
+    m_table(makeChild<ConfigurationTableView>(this)),
     m_selection(makeChild<RowColumnSelectionModel>(m_table, m_model)),
     m_fullPopup(makeChild<QMenu>(this)),
     // A JTable's Cut, Copy and Paste keys: the window's items of those keys do not act while the
@@ -109,7 +114,9 @@ FlightConfigurablePanel::FlightConfigurablePanel(FlightConfigurationPanel&      
     QHeaderView* const header = m_table->horizontalHeader();
     header->setSectionsMovable(false);
     header->setSectionsClickable(false);
-    header->setSectionResizeMode(QHeaderView::Stretch);
+    // A JTable's columns: resizable, of equal widths that fill the table (fitColumns()).
+    header->setSectionResizeMode(QHeaderView::Interactive);
+    header->setStretchLastSection(true);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
 
     // Java's doTableInitialization(): the rocket's selected configuration in the last column,
@@ -134,12 +141,18 @@ FlightConfigurablePanel::FlightConfigurablePanel(FlightConfigurationPanel&      
             guarded([this] { reselectAfterReset(); }, context()));
     connect(m_table, &QWidget::customContextMenuRequested, this,
             guarded([this](const QPoint& position) { showPopup(position); }, context()));
+    connect(m_table, &ConfigurationTableView::leftButtonReleased, this,
+            guarded([this](const QPoint& position) { leftButtonReleased(position); }, context()));
+    connect(header, &QHeaderView::sectionResized, this,
+            guarded([this] { columnResized(); }, context()));
     m_table->installEventFilter(this);
     m_table->viewport()->installEventFilter(this);
+    header->viewport()->installEventFilter(this);
 }
 
 FlightConfigurablePanel::~FlightConfigurablePanel()
 {
+    m_table->horizontalHeader()->viewport()->removeEventFilter(this);
     m_table->viewport()->removeEventFilter(this);
     m_table->removeEventFilter(this);
 }
@@ -300,8 +313,11 @@ void FlightConfigurablePanel::synchronizeConfigurationSelection()
 
 void FlightConfigurablePanel::restoreSelection()
 {
-    const int row    = m_selection->firstRow();
-    const int column = m_selection->firstColumn();
+    restoreSelection(m_selection->firstRow(), m_selection->firstColumn());
+}
+
+void FlightConfigurablePanel::restoreSelection(int row, int column)
+{
     // Java's fireTableDataChanged() clears the JTable's selection, then restoreSelection().
     clearSelection();
     if (row <= 0 || column <= 0 || row >= m_model->rowCount() || column >= m_model->columnCount())
@@ -325,9 +341,28 @@ void FlightConfigurablePanel::updateRocketViewSelection()
     }
 }
 
-bool FlightConfigurablePanel::takeModelReset() noexcept
+bool FlightConfigurablePanel::isStructureChange(const ComponentChangeEvent& event) const
 {
-    return std::exchange(m_modelReset, false);
+    if (event.isMotorChange() || event.isTreeChange())
+    {
+        return true;
+    }
+    const RocketComponent* const source = event.getSource();
+    return event.isNonFunctionalChange() && source != nullptr && restructuresWith(*source);
+}
+
+bool FlightConfigurablePanel::restructuresWith(const RocketComponent& /*source*/) const
+{
+    return false;
+}
+
+void FlightConfigurablePanel::restructure()
+{
+    // JTable.tableChanged() of a structure change: clearSelectionAndLeadAnchor(), and the columns
+    // made again from the model.
+    clearSelection();
+    m_columnsResizedByHand = false;
+    fitColumns();
 }
 
 void FlightConfigurablePanel::takeTheSpotlight()
@@ -354,9 +389,26 @@ bool FlightConfigurablePanel::eventFilter(QObject* watched, QEvent* event)
     }
     else if (watched == m_table->viewport())
     {
-        if (const auto* mouse = dynamic_cast<const QMouseEvent*>(event); mouse != nullptr)
+        if (event->type() == QEvent::Resize)
+        {
+            Guard::run([this] { fitColumns(); }, context());
+        }
+        else if (const auto* mouse = dynamic_cast<const QMouseEvent*>(event); mouse != nullptr)
         {
             return viewportMouseEvent(*mouse);
+        }
+    }
+    else if (watched == m_table->horizontalHeader()->viewport())
+    {
+        // A resize by hand happens while the left button is pressed in the header.
+        if (event->type() == QEvent::MouseButtonPress ||
+            event->type() == QEvent::MouseButtonDblClick)
+        {
+            m_headerPressed = true;
+        }
+        else if (event->type() == QEvent::MouseButtonRelease)
+        {
+            m_headerPressed = false;
         }
     }
     return QWidget::eventFilter(watched, event);
@@ -387,26 +439,27 @@ bool FlightConfigurablePanel::viewportMouseEvent(const QMouseEvent& event)
         m_pressedOutside = outside;
         m_doubleClicked  = true;
     }
-    else if (m_doubleClicked)
+    // The release: leftButtonReleased(), once the table took it.
+    return false;
+}
+
+void FlightConfigurablePanel::leftButtonReleased(const QPoint& position)
+{
+    const bool outside = !m_table->indexAt(position).isValid();
+    if (std::exchange(m_doubleClicked, false))
     {
         // Java's mouseClicked() with a click count of 2: the Select operation when the selected
         // column is a component's.
-        m_doubleClicked = false;
-        Guard::run(
-            [this] {
-                if (m_selection->firstColumn() > 0)
-                {
-                    selectValue();
-                }
-            },
-            context());
+        if (m_selection->firstColumn() > 0)
+        {
+            selectValue();
+        }
     }
     else if (m_pressedOutside && outside)
     {
         // A click outside the cells clears the selection.
-        Guard::run([this] { clearSelection(); }, context());
+        clearSelection();
     }
-    return false;
 }
 
 void FlightConfigurablePanel::showPopup(const QPoint& position)
@@ -433,15 +486,20 @@ void FlightConfigurablePanel::showPopup(const QPoint& position)
 
 void FlightConfigurablePanel::linesChanged(const LinesChange& change)
 {
-    if (change.order == Order::COLUMNS_FIRST)
+    // Java's listeners of the rows and the columns skip the steps of a gesture of the mouse
+    // (getValueIsAdjusting()); its panels' listeners of the buttons do not.
+    if (!change.adjusting)
     {
-        columnsChanged(change);
-        rowsChanged(change);
-    }
-    else
-    {
-        rowsChanged(change);
-        columnsChanged(change);
+        if (change.order == Order::COLUMNS_FIRST)
+        {
+            columnsChanged(change);
+            rowsChanged(change);
+        }
+        else
+        {
+            rowsChanged(change);
+            columnsChanged(change);
+        }
     }
     updateButtonState();
 }
@@ -525,6 +583,15 @@ void FlightConfigurablePanel::requestRocketViewSelection(std::vector<Uuid> compo
 
 void FlightConfigurablePanel::rememberSelection()
 {
+    const std::span<const Uuid> columns = m_model->componentIds();
+    m_rememberedWidthColumns.assign(columns.begin(), columns.end());
+    m_rememberedWidths.clear();
+    const QHeaderView* const header = m_table->horizontalHeader();
+    for (int section = 0; section < header->count(); ++section)
+    {
+        m_rememberedWidths.push_back(header->sectionSize(section));
+    }
+
     const Lines& lines = m_selection->lines();
     m_rememberedRows.clear();
     for (const int row : lines.rows)
@@ -562,7 +629,26 @@ void FlightConfigurablePanel::reselectAfterReset()
             lines.columns.push_back(column);
         }
     }
-    m_modelReset = true;
+    // The widths: kept for the same columns after a resize by hand, else equal.
+    const std::span<const Uuid> columns = m_model->componentIds();
+    std::vector<int>            widths  = std::exchange(m_rememberedWidths, {});
+    if (m_columnsResizedByHand &&
+        std::ranges::equal(columns, std::exchange(m_rememberedWidthColumns, {})) &&
+        static_cast<int>(widths.size()) == m_table->horizontalHeader()->count())
+    {
+        const QScopedValueRollback<bool> fitting(m_fittingColumns, true);
+        for (int section = 0; section + 1 < static_cast<int>(widths.size()); ++section)
+        {
+            m_table->horizontalHeader()->resizeSection(section,
+                                                       widths[static_cast<std::size_t>(section)]);
+        }
+    }
+    else
+    {
+        m_columnsResizedByHand = false;
+        fitColumns();
+    }
+
     const QScopedValueRollback<bool> reselecting(m_reselecting, true);
     if (!lines.rows.empty() && !lines.columns.empty())
     {
@@ -576,15 +662,62 @@ void FlightConfigurablePanel::reselectAfterReset()
 
 // ------------------------------------------------------------------------- for the panels
 
-void FlightConfigurablePanel::operationDone(bool changed)
+void FlightConfigurablePanel::runOperation(const std::function<bool()>& operation)
 {
+    // Java's fireTableDataChanged() reads the first selected cell just before it fires the
+    // operation's change event, which restructures and synchronizes the tables.
+    int                                     row    = m_selection->firstRow();
+    int                                     column = m_selection->firstColumn();
+    const QPointer<FlightConfigurablePanel> alive(this);
+    bool                                    changed = false;
+    {
+        const QObject capture;
+        connect(&editing(), &FlightConfigurationEditing::changeAboutToFire, &capture,
+                [this, &alive, &row, &column] {
+                    if (!alive.isNull())
+                    {
+                        row    = m_selection->firstRow();
+                        column = m_selection->firstColumn();
+                    }
+                });
+        changed = operation();
+    }
+    if (alive.isNull())
+    {
+        return;  // the tab went during the operation's question
+    }
     if (changed)
     {
-        restoreSelection();
+        restoreSelection(row, column);
     }
     else
     {
         takeTheSpotlight();
+    }
+}
+
+void FlightConfigurablePanel::fitColumns()
+{
+    QHeaderView* const header = m_table->horizontalHeader();
+    const int          count  = header->count();
+    const int          width  = m_table->viewport()->width();
+    if (m_columnsResizedByHand || count == 0 || width <= 0)
+    {
+        return;
+    }
+    // Equal widths; the last column, stretched, takes what the division leaves.
+    const QScopedValueRollback<bool> fitting(m_fittingColumns, true);
+    for (int section = 0; section + 1 < count; ++section)
+    {
+        header->resizeSection(section, width / count);
+    }
+}
+
+void FlightConfigurablePanel::columnResized()
+{
+    if (m_headerPressed && !m_fittingColumns)
+    {
+        m_columnsResizedByHand = true;
     }
 }
 

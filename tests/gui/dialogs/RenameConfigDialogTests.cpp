@@ -127,7 +127,7 @@ TEST_F(RenameConfigDialogTest, ShowsOpenRocketsDialog)
     EXPECT_EQ(dialog.objectName(), QStringLiteral("RenameConfigDialog"));
     EXPECT_EQ(dialog.windowTitle(), QStringLiteral("Rename Configuration"));
     EXPECT_EQ(dialog.windowModality(), Qt::ApplicationModal);
-    EXPECT_EQ(dialog.nameLabel().text(), QStringLiteral("Name for flight configuration: †"));
+    EXPECT_EQ(dialog.nameLabel().text(), QStringLiteral("Name for flight configuration: \u2020"));
     EXPECT_EQ(dialog.textField().objectName(), QStringLiteral("textbox"));
     EXPECT_EQ(dialog.textField().text(), QStringLiteral("[{motors}]"));
     EXPECT_EQ(dialog.textField().minimumWidth(), RenameConfigDialog::kTextFieldWidth);
@@ -153,13 +153,13 @@ TEST_F(RenameConfigDialogTest, TheInformationIsOpenRocketsText)
     EXPECT_EQ(
         RenameConfigDialog::infoText(),
         QStringLiteral(
-            "<html>† The text '<b>{motors}</b>' will be replaced with the <b>motor "
-            "designation(s).</b> <br><pre>\te.g. '{motors} → 'M1350-0'</pre>The text "
+            "<html>\u2020 The text '<b>{motors}</b>' will be replaced with the <b>motor "
+            "designation(s).</b> <br><pre>\te.g. '{motors} \u2192 'M1350-0'</pre>The text "
             "'<b>{manufacturers}</b>' will be replaced with the <b>motor manufacturer(s).</b> "
-            "<br><pre>\te.g. '{manufacturers}' → 'AeroTech'</pre>The text '<b>{cases}</b>' "
-            "will be replaced with the <b>motor case(s).</b> <br><pre>\te.g. '{cases}' → "
+            "<br><pre>\te.g. '{manufacturers}' \u2192 'AeroTech'</pre>The text '<b>{cases}</b>' "
+            "will be replaced with the <b>motor case(s).</b> <br><pre>\te.g. '{cases}' \u2192 "
             "'SU 18.0x70.0'</pre>A <b>combination</b> of the above can be used (you may choose "
-            "the separator). <br><pre>\te.g. '{manufacturers motors}' → 'AeroTech "
+            "the separator). <br><pre>\te.g. '{manufacturers motors}' \u2192 'AeroTech "
             "M1350-0'</pre>"));
     std::vector<SaveAsDefaultCall> calls;
     const RenameConfigDialog       dialog(request(calls));

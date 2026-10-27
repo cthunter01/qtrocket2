@@ -54,7 +54,10 @@ class SeparationConfigurationPanel;
 /// selected (in column 1, or nothing; synchronizePanelSelection()), refreshes its buttons, gives
 /// its table the focus and makes the components of its selected columns the design's selection
 /// (takeTheSpotlight(), updateRocketViewSelection()). At every change of the rocket each panel's
-/// table follows the rocket's selected configuration (synchronizeConfigurationSelection()).
+/// table follows the rocket's selected configuration (synchronizeConfigurationSelection()), once
+/// a change that Java's table models answer with a change of their structure (a MOTOR or TREE
+/// change, an undo among them) has cleared it (FlightConfigurablePanel::restructure()): the
+/// rocket's selected configuration in the last column then.
 ///
 /// THE OPERATIONS (the actions' slots: newConfigurationAction() and the others; Java's
 /// newOrDuplicateConfigAction(), renameConfigurationAction(), removeConfigurationAction()) act on

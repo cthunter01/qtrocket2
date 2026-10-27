@@ -17,7 +17,9 @@
 #include "QtRocket/gui/flightconfig/FlightConfigurationEditing.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Uuid.h"
 
 namespace QtRocket::Gui
@@ -78,6 +80,11 @@ void SeparationConfigurationPanel::updateButtonState()
     m_resetSeparation->setEnabled(selected);
 }
 
+bool SeparationConfigurationPanel::restructuresWith(const RocketComponent& source) const
+{
+    return dynamic_cast<const AxialStage*>(&source) != nullptr;
+}
+
 void SeparationConfigurationPanel::selectValue()
 {
     selectSeparation();
@@ -91,7 +98,7 @@ void SeparationConfigurationPanel::selectSeparation()
     {
         return;
     }
-    operationDone(editing().selectSeparation(ids, stages));
+    runOperation([this, &ids, &stages] { return editing().selectSeparation(ids, stages); });
 }
 
 void SeparationConfigurationPanel::resetSeparation()
@@ -102,7 +109,7 @@ void SeparationConfigurationPanel::resetSeparation()
     {
         return;
     }
-    operationDone(editing().resetSeparation(ids, stages));
+    runOperation([this, &ids, &stages] { return editing().resetSeparation(ids, stages); });
 }
 
 }  // namespace QtRocket::Gui

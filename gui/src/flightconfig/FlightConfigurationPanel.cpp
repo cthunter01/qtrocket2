@@ -11,6 +11,7 @@
 #include <QMenu>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QScopedValueRollback>
 #include <QString>
 #include <QTabWidget>
@@ -257,6 +258,7 @@ void FlightConfigurationPanel::showConfigurationPopup(const QPoint& globalPositi
 
 void FlightConfigurationPanel::newConfiguration()
 {
+    const QPointer<FlightConfigurationPanel>   alive(this);
     const std::optional<FlightConfigurationId> id =
         m_editing->newConfiguration([this](const FlightConfigurationId& /*id*/) {
             // Java: configurationChanged(MOTOR_CHANGE, ids), stateChanged(null), then the current
@@ -266,6 +268,10 @@ void FlightConfigurationPanel::newConfiguration()
             synchronizeAll();
             currentPanel().selectValue();
         });
+    if (alive.isNull())
+    {
+        return;  // the tab went during the follow-up's question
+    }
     if (id.has_value())
     {
         // configurationChanged(NONFUNCTIONAL_CHANGE): "trigger select".
@@ -299,7 +305,8 @@ void FlightConfigurationPanel::renameConfigurations()
     {
         return;
     }
-    if (m_editing->renameConfigurations(ids))
+    const QPointer<FlightConfigurationPanel> alive(this);
+    if (m_editing->renameConfigurations(ids) && !alive.isNull())
     {
         restoreAll();
     }
@@ -349,14 +356,15 @@ void FlightConfigurationPanel::tabChanged(int index)
 void FlightConfigurationPanel::rocketChanged(const ComponentChangeEvent& event)
 {
     const QScopedValueRollback<int> handling(m_rocketChanges, m_rocketChanges + 1);
-    // A table whose rows or columns changed with a MOTOR or TREE event is cleared, as Java's
-    // fireTableStructureChanged() clears it (FlightConfigurablePanel).
-    const bool structure = event.isMotorChange() || event.isTreeChange();
+    // Java's table models answer a MOTOR or TREE change (and the motor and stage tables a
+    // NONFUNCTIONAL change of a component whose name is a header) with
+    // fireTableStructureChanged(), which clears the table (they listen to the rocket before the
+    // panel).
     for (FlightConfigurablePanel* panel : panels())
     {
-        if (panel->takeModelReset() && structure)
+        if (panel->isStructureChange(event))
         {
-            panel->clearSelection();
+            panel->restructure();
         }
     }
     // Java's stateChanged().

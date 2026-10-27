@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include <QItemSelectionRange>
 #include <QModelIndex>
 #include <QObject>
+#include <QPersistentModelIndex>
 
 namespace QtRocket::Gui
 {
@@ -70,6 +72,17 @@ using Lines = RowColumnSelectionModel::Lines;
     return runs;
 }
 
+/// The values from @p a to @p b, whichever is the lower first.
+[[nodiscard]] std::vector<int> between(int a, int b)
+{
+    std::vector<int> values;
+    for (int value = std::min(a, b); value <= std::max(a, b); ++value)
+    {
+        values.push_back(value);
+    }
+    return values;
+}
+
 /// The values from 0 to @p count - 1.
 [[nodiscard]] std::vector<int> allUpTo(int count)
 {
@@ -121,12 +134,17 @@ void RowColumnSelectionModel::select(const QItemSelection&               selecti
     {
         return;
     }
-    const Lines named   = linesOf(selection, command);
-    const bool  current = command.testFlag(QItemSelectionModel::Current);
+    const bool current = command.testFlag(QItemSelectionModel::Current);
+    if (current)
+    {
+        selectExtension(selection, command);
+        return;
+    }
+    const Lines named = linesOf(selection, command);
     Lines       next;
     if (!command.testFlag(QItemSelectionModel::Clear))
     {
-        next = current ? m_committed : m_lines;
+        next = m_lines;
     }
     if (command.testFlag(QItemSelectionModel::Toggle))
     {
@@ -151,18 +169,111 @@ void RowColumnSelectionModel::select(const QItemSelection&               selecti
                      .columns = subtract(next.columns, named.columns)};
     }
     next = valid(std::move(next));
-    if (!current)
+    // The anchor: the view's current index (a click's, a Ctrl+click's, an arrow key's cell, which
+    // the view makes current before it selects; a drag's first step from the pressed cell).
+    if (currentIndex().isValid() && currentIndex().model() == model())
     {
-        m_committed = next;
+        setAnchor(currentIndex().row(), currentIndex().column());
     }
     apply(std::move(next), Order::COLUMNS_FIRST);
+}
+
+void RowColumnSelectionModel::selectExtension(const QItemSelection&               selection,
+                                              QItemSelectionModel::SelectionFlags command)
+{
+    // JTable.changeSelection(row, column, toggle, true): the rows and the columns from the anchor
+    // to the cell; without an anchor, what the view names.
+    const Lines named  = linesOf(selection, command);
+    const Lines extent = extension(named).value_or(named);
+    Lines       next;
+    // Qt names a Deselect with Ctrl only (a Ctrl+drag from a selected cell).
+    const bool toggle = m_toggleHeld || command.testFlag(QItemSelectionModel::Deselect);
+    if (toggle && !command.testFlag(QItemSelectionModel::Clear))
+    {
+        // With Ctrl: the anchor cell's state given to them in the selection as it is (so that a
+        // Ctrl+drag that comes back keeps what it crossed, as a JTable's).
+        const bool anchorSelected = m_anchorRow >= 0 && m_anchorColumn >= 0
+                                        ? isCellSelected(m_anchorRow, m_anchorColumn)
+                                        : !command.testFlag(QItemSelectionModel::Deselect);
+        next = anchorSelected ? Lines{.rows    = unite(m_lines.rows, extent.rows),
+                                      .columns = unite(m_lines.columns, extent.columns)}
+                              : Lines{.rows    = subtract(m_lines.rows, extent.rows),
+                                      .columns = subtract(m_lines.columns, extent.columns)};
+    }
+    else if (!command.testFlag(QItemSelectionModel::Deselect))
+    {
+        next = extent;
+    }
+    apply(valid(std::move(next)), Order::COLUMNS_FIRST);
+}
+
+std::optional<RowColumnSelectionModel::Lines> RowColumnSelectionModel::extension(
+    const Lines& named) const
+{
+    if (m_anchorRow < 0 || m_anchorColumn < 0 || model() == nullptr ||
+        m_anchorRow >= model()->rowCount() || m_anchorColumn >= model()->columnCount())
+    {
+        return std::nullopt;
+    }
+    if (!m_inputCell.isValid() && !named.rows.empty() && !named.columns.empty() &&
+        (m_anchorRow == named.rows.front() || m_anchorRow == named.rows.back()) &&
+        (m_anchorColumn == named.columns.front() || m_anchorColumn == named.columns.back()))
+    {
+        // A view that names no cell (a key, a plain QTableView's drag) names the rectangle from
+        // its start, the anchor, to the cell.
+        return named;
+    }
+    const QModelIndex cell = m_inputCell.isValid() ? QModelIndex(m_inputCell) : currentIndex();
+    if (!cell.isValid() || cell.model() != model())
+    {
+        return std::nullopt;
+    }
+    return Lines{.rows    = between(m_anchorRow, cell.row()),
+                 .columns = between(m_anchorColumn, cell.column())};
+}
+
+void RowColumnSelectionModel::setAnchor(int row, int column) noexcept
+{
+    m_anchorRow    = row;
+    m_anchorColumn = column;
+}
+
+void RowColumnSelectionModel::setInputCell(const QModelIndex& cell)
+{
+    m_inputCell = cell.isValid() && cell.model() == model() ? QPersistentModelIndex(cell)
+                                                            : QPersistentModelIndex();
+}
+
+void RowColumnSelectionModel::setValueIsAdjusting(bool adjusting)
+{
+    if (adjusting == m_adjusting)
+    {
+        return;
+    }
+    m_adjusting = adjusting;
+    if (adjusting)
+    {
+        m_gestureStart = m_lines;
+        return;
+    }
+    // The end of the gesture: its whole change, the rows first, not adjusting.
+    if (m_gestureStart != m_lines)
+    {
+        const LinesChange change{.before    = std::exchange(m_gestureStart, {}),
+                                 .after     = m_lines,
+                                 .order     = Order::ROWS_FIRST,
+                                 .adjusting = false};
+        Q_EMIT linesChanged(change);
+    }
 }
 
 void RowColumnSelectionModel::reset()
 {
     QItemSelectionModel::reset();
-    m_lines     = {};
-    m_committed = {};
+    m_lines        = {};
+    m_gestureStart = {};
+    // A JTable's clearSelectionAndLeadAnchor() at a change of its structure.
+    setAnchor(-1, -1);
 }
 
 bool RowColumnSelectionModel::isCellSelected(int row, int column) const noexcept
@@ -184,7 +295,12 @@ int RowColumnSelectionModel::firstColumn() const noexcept
 void RowColumnSelectionModel::setLines(const Lines& lines, Order order)
 {
     Lines checked = valid(lines);
-    m_committed   = checked;
+    // setRowSelectionInterval() and setColumnSelectionInterval() move the anchor; clearSelection()
+    // keeps it.
+    if (!checked.rows.empty() && !checked.columns.empty())
+    {
+        setAnchor(checked.rows.front(), checked.columns.front());
+    }
     apply(std::move(checked), order);
 }
 
@@ -196,6 +312,7 @@ void RowColumnSelectionModel::selectCell(int row, int column)
     }
     setCurrentIndex(model()->index(row, column), QItemSelectionModel::NoUpdate);
     setLines(Lines{.rows = {row}, .columns = {column}}, Order::COLUMNS_FIRST);
+    setAnchor(row, column);
 }
 
 void RowColumnSelectionModel::addCell(int row, int column)
@@ -207,6 +324,7 @@ void RowColumnSelectionModel::addCell(int row, int column)
     setCurrentIndex(model()->index(row, column), QItemSelectionModel::NoUpdate);
     setLines(Lines{.rows = unite(m_lines.rows, {row}), .columns = unite(m_lines.columns, {column})},
              Order::COLUMNS_FIRST);
+    setAnchor(row, column);
 }
 
 void RowColumnSelectionModel::clearLines()
@@ -264,7 +382,8 @@ void RowColumnSelectionModel::apply(Lines lines, Order order)
         showCells();
         return;
     }
-    const LinesChange change{.before = m_lines, .after = lines, .order = order};
+    const LinesChange change{
+        .before = m_lines, .after = lines, .order = order, .adjusting = m_adjusting};
     m_lines = std::move(lines);
     showCells();
     Q_EMIT linesChanged(change);
@@ -291,7 +410,7 @@ void RowColumnSelectionModel::showCells()
 
 void RowColumnSelectionModel::structureChanged()
 {
-    m_committed = {};
+    setAnchor(-1, -1);
     apply({}, Order::ROWS_FIRST);
 }
 

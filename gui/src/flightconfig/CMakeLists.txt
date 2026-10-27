@@ -2,6 +2,7 @@
 # gui/main/flightconfigpanel/): its tables' models, cell texts and delegate, its operations and its panels.
 # Each source with its header (${gui_include_dir}/flightconfig/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    ConfigurationTableView.cpp ${gui_include_dir}/flightconfig/ConfigurationTableView.h
     FlightConfigurablePanel.cpp ${gui_include_dir}/flightconfig/FlightConfigurablePanel.h
     FlightConfigurableTableModel.cpp ${gui_include_dir}/flightconfig/FlightConfigurableTableModel.h
     FlightConfigurationCellText.cpp ${gui_include_dir}/flightconfig/FlightConfigurationCellText.h

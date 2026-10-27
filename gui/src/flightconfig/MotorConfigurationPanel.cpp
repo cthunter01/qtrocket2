@@ -28,7 +28,10 @@
 #include "QtRocket/gui/flightconfig/MotorMountConfigurationPanel.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Uuid.h"
 
 namespace QtRocket::Gui
@@ -221,6 +224,12 @@ void MotorConfigurationPanel::updateButtonState()
     m_resetIgnition->setEnabled(enabled);
 }
 
+bool MotorConfigurationPanel::restructuresWith(const RocketComponent& source) const
+{
+    return dynamic_cast<const BodyTube*>(&source) != nullptr ||
+           dynamic_cast<const InnerTube*>(&source) != nullptr;
+}
+
 void MotorConfigurationPanel::selectValue()
 {
     selectMotor();
@@ -234,7 +243,7 @@ void MotorConfigurationPanel::selectMotor()
     {
         return;
     }
-    operationDone(editing().selectMotor(ids, mounts));
+    runOperation([this, &ids, &mounts] { return editing().selectMotor(ids, mounts); });
 }
 
 void MotorConfigurationPanel::deleteMotor()
@@ -245,7 +254,7 @@ void MotorConfigurationPanel::deleteMotor()
     {
         return;
     }
-    operationDone(editing().deleteMotors(ids, mounts));
+    runOperation([this, &ids, &mounts] { return editing().deleteMotors(ids, mounts); });
 }
 
 void MotorConfigurationPanel::selectIgnition()
@@ -256,7 +265,7 @@ void MotorConfigurationPanel::selectIgnition()
     {
         return;
     }
-    operationDone(editing().selectIgnition(ids, mounts));
+    runOperation([this, &ids, &mounts] { return editing().selectIgnition(ids, mounts); });
 }
 
 void MotorConfigurationPanel::resetIgnition()
@@ -267,7 +276,7 @@ void MotorConfigurationPanel::resetIgnition()
     {
         return;
     }
-    operationDone(editing().resetIgnition(ids, mounts));
+    runOperation([this, &ids, &mounts] { return editing().resetIgnition(ids, mounts); });
 }
 
 }  // namespace QtRocket::Gui

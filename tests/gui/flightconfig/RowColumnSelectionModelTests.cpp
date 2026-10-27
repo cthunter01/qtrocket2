@@ -251,6 +251,55 @@ TEST_F(RowColumnSelectionModelTest, ItsCallsSelectAndTellInJavasOrder)
     EXPECT_EQ(table.changes().size(), 4U);
 }
 
+TEST_F(RowColumnSelectionModelTest, AShiftClickExtendsFromTheCellItsOwnCallsSelected)
+{
+    const Table table;
+    table.click(0, 0);
+    // JTable.changeSelection(3, 2, false, false) moves the anchor; Qt's view still starts its
+    // Shift+click from its last click.
+    table.selection().selectCell(3, 2);
+    table.click(1, 1, Qt::ShiftModifier);
+    EXPECT_EQ(table.state(), "rows=[1, 2, 3] cols=[1, 2]");
+    // So does addCell() (changeSelection(row, column, true, false)).
+    table.selection().addCell(4, 3);
+    table.click(4, 1, Qt::ShiftModifier);
+    EXPECT_EQ(table.state(), "rows=[4] cols=[1, 2, 3]");
+}
+
+TEST_F(RowColumnSelectionModelTest, AGestureTellsItsStepsAdjustingAndItsWholeChangeAtItsEnd)
+{
+    Table table;
+    table.selection().selectCell(1, 1);
+    table.changes().clear();
+    table.selection().setValueIsAdjusting(true);
+    EXPECT_TRUE(table.selection().valueIsAdjusting());
+    table.selection().selectCell(2, 2);
+    table.selection().addCell(3, 3);
+    // A second start keeps the first one's selection.
+    table.selection().setValueIsAdjusting(true);
+    table.selection().setValueIsAdjusting(false);
+    EXPECT_FALSE(table.selection().valueIsAdjusting());
+    ASSERT_EQ(table.changes().size(), 3U);
+    EXPECT_TRUE(table.changes()[0].adjusting);
+    EXPECT_TRUE(table.changes()[1].adjusting);
+    const RowColumnSelectionModel::LinesChange& end = table.changes()[2];
+    EXPECT_FALSE(end.adjusting);
+    EXPECT_EQ(end.order, Order::ROWS_FIRST);
+    EXPECT_EQ(text(end.before), "rows=[1] cols=[1]");
+    EXPECT_EQ(text(end.after), "rows=[2, 3] cols=[2, 3]");
+
+    // A gesture that changes nothing, and an end without a start, tell nothing.
+    table.changes().clear();
+    table.selection().setValueIsAdjusting(true);
+    table.selection().selectCell(1, 1);
+    table.selection().selectCell(2, 2);
+    table.selection().addCell(3, 3);
+    table.selection().setValueIsAdjusting(false);
+    table.selection().setValueIsAdjusting(false);
+    ASSERT_EQ(table.changes().size(), 3U);
+    EXPECT_TRUE(table.changes()[2].adjusting);
+}
+
 TEST_F(RowColumnSelectionModelTest, AResetOfTheModelClearsWithoutASignal)
 {
     Table table;

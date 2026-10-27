@@ -1038,6 +1038,299 @@ TEST_F(FlightConfigurationEditingTest, ComponentsReplacedDuringTheQuestionAreFou
     EXPECT_EQ(design.motors(design.inner()).get(design.id(1)).getMotor(), design.estes("A8"));
 }
 
+// ================================================================= the review's fixes (run 2)
+
+TEST_F(FlightConfigurationEditingTest, AnUnchangedIgnitionOfACellShowingTheDefaultKeepsTheDefault)
+{
+    Design             design;
+    const Preferences& preferences = design.services().services().preferences();
+    // The cell (body, first configuration) has a configuration of its own whose ignition is not
+    // overridden (as Select motor makes it); the mount's default is Burnout + 1 s, which the
+    // cell shows ("Default (Burnout + 1 s)").
+    const MotorConfiguration& own = design.motors(design.body()).get(design.id(0));
+    ASSERT_FALSE(own.hasIgnitionOverride());
+    ASSERT_EQ(own.getIgnitionEvent(), IgnitionEvent::AUTOMATIC);
+    design.mount(design.body()).getDefaultMotorConfig().setIgnitionEvent(IgnitionEvent::BURNOUT);
+    design.mount(design.body()).getDefaultMotorConfig().setIgnitionDelay(1);
+    // The question starts on "all configurations" (bug 2) with the values the cell shows.
+    const UserPrompts::IgnitionRequest request = FlightConfigurationEditing::ignitionRequest(
+        design.rocket(), design.mount(design.body()), design.id(0), preferences);
+    EXPECT_EQ(request.initial.scope, Scope::ALL_CONFIGURATIONS);
+    EXPECT_EQ(request.initial.event, IgnitionEvent::BURNOUT);
+    EXPECT_EQ(request.initial.delay, 1.0);
+    // OK (or Escape) without a change: the default stays Burnout + 1 s (the M3 run 2 verifier's
+    // probe: OpenRocket's dialog starts on "this configuration" there, and its unchanged OK sets
+    // nothing); "all configurations" gives every configuration of the mount the values, as
+    // OpenRocket's.
+    design.prompts().answerIgnition(request.initial);
+    EXPECT_TRUE(design.editing().selectIgnition(std::vector<FlightConfigurationId>{design.id(0)},
+                                                std::vector<Uuid>{design.body()}));
+    const MotorConfiguration& defaultConfiguration =
+        design.mount(design.body()).getDefaultMotorConfig();
+    EXPECT_EQ(defaultConfiguration.getIgnitionEvent(), IgnitionEvent::BURNOUT);
+    EXPECT_EQ(defaultConfiguration.getIgnitionDelay(), 1.0);
+    EXPECT_EQ(design.motors(design.body()).get(design.id(0)).getIgnitionEvent(),
+              IgnitionEvent::BURNOUT);
+    EXPECT_EQ(design.motors(design.body()).get(design.id(0)).getIgnitionDelay(), 1.0);
+}
+
+TEST_F(FlightConfigurationEditingTest, ThisConfigurationGivesACellShowingTheDefaultTheValuesShown)
+{
+    Design design;
+    design.mount(design.body()).getDefaultMotorConfig().setIgnitionEvent(IgnitionEvent::BURNOUT);
+    design.mount(design.body()).getDefaultMotorConfig().setIgnitionDelay(1);
+    // "This configuration" with the values shown left as they were: the cell's own configuration
+    // takes them (each differs from its stored AUTOMATIC without delay), overridden; the default
+    // stays.
+    design.prompts().answerIgnition(ignition(Scope::THIS_CONFIGURATION, IgnitionEvent::BURNOUT, 1));
+    EXPECT_TRUE(design.editing().selectIgnition(std::vector<FlightConfigurationId>{design.id(0)},
+                                                std::vector<Uuid>{design.body()}));
+    const MotorConfiguration& own = design.motors(design.body()).get(design.id(0));
+    EXPECT_EQ(own.getIgnitionEvent(), IgnitionEvent::BURNOUT);
+    EXPECT_EQ(own.getIgnitionDelay(), 1.0);
+    EXPECT_TRUE(own.hasIgnitionOverride());
+    EXPECT_NE(own.getMotor(), nullptr);
+    const MotorConfiguration& defaultConfiguration =
+        design.mount(design.body()).getDefaultMotorConfig();
+    EXPECT_EQ(defaultConfiguration.getIgnitionEvent(), IgnitionEvent::BURNOUT);
+    EXPECT_EQ(defaultConfiguration.getIgnitionDelay(), 1.0);
+    // The second configuration's own one is not touched.
+    EXPECT_FALSE(design.motors(design.body()).get(design.id(1)).hasIgnitionOverride());
+}
+
+TEST_F(FlightConfigurationEditingTest, AMultiCellDeploymentCancelChangesNothing)
+{
+    Design design;
+    // The first cell has an override of its own (Altitude 200 m); the others have none.
+    DeploymentConfiguration altitude;
+    altitude.setDeployEvent(DeployEvent::ALTITUDE);
+    altitude.setDeployAltitude(200);
+    design.deployments().set(design.id(0), altitude);
+    design.prompts().answerDeployment(std::nullopt);
+    const EventLog events(design.rocket());
+    EXPECT_FALSE(design.editing().selectDeployment(
+        std::vector<FlightConfigurationId>{design.id(0), design.id(1), design.id(2)},
+        std::vector<Uuid>{design.chute()}));
+    // Bug 3, taken to the deployment (to be confirmed by the user): OpenRocket's panel runs its
+    // loop after a Cancel too, so that the second and third configurations get overrides of
+    // Altitude 200 m (the M3 run 2 verifier's probe, "A simple model rocket.ork").
+    EXPECT_EQ(design.deployments().size(), 1U);
+    EXPECT_FALSE(design.deployments().containsId(design.id(1)));
+    EXPECT_FALSE(design.deployments().containsId(design.id(2)));
+    EXPECT_EQ(design.deployments().get(design.id(0)).getDeployAltitude(), 200.0);
+    EXPECT_TRUE(events.types().empty());
+}
+
+/// Removes a configuration of the rocket during the next value question, as an undo of its New
+/// Configuration in the question's event loop would.
+class RemovingPrompts final : public Gui::Test::ForwardingUserPrompts
+{
+public:
+    RemovingPrompts(UserPrompts& delegate, Rocket& rocket, const FlightConfigurationId& id)
+      : ForwardingUserPrompts(delegate), m_rocket(&rocket), m_id(id)
+    {
+    }
+
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(QWidget*               parent,
+                                                            const IgnitionRequest& request) override
+    {
+        std::optional<IgnitionChoice> answer = ForwardingUserPrompts::askIgnition(parent, request);
+        m_rocket->removeFlightConfiguration(m_id);
+        return answer;
+    }
+
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override
+    {
+        std::optional<DeploymentChoice> answer =
+            ForwardingUserPrompts::askDeployment(parent, request);
+        m_rocket->removeFlightConfiguration(m_id);
+        return answer;
+    }
+
+private:
+    Rocket*               m_rocket;
+    FlightConfigurationId m_id;
+};
+
+TEST_F(FlightConfigurationEditingTest, AConfigurationRemovedDuringTheQuestionIsLeftOut)
+{
+    Design            design;
+    RemovingPrompts   second(design.prompts(), design.rocket(), design.id(1));
+    const GuiServices services(design.services().preferences(),
+                               design.services().services().materials(), design.services().motors(),
+                               design.services().presets(),
+                               design.services().services().loadingContext(), second);
+    FlightConfigurationEditing editing(design.document(), services);
+    design.prompts().answerDeployment(
+        deployment(Scope::THIS_CONFIGURATION, DeployEvent::ALTITUDE, 150, 0));
+    EXPECT_TRUE(editing.selectDeployment(
+        std::vector<FlightConfigurationId>{design.id(0), design.id(1), design.id(2)},
+        std::vector<Uuid>{design.chute()}));
+    // No override for the configuration that went (the savers would write it as a
+    // <deploymentconfiguration> of a configuration the design does not have).
+    EXPECT_TRUE(design.deployments().containsId(design.id(0)));
+    EXPECT_FALSE(design.deployments().containsId(design.id(1)));
+    EXPECT_TRUE(design.deployments().containsId(design.id(2)));
+    EXPECT_EQ(design.deployments().size(), 2U);
+
+    // The first cell's configuration goes: nothing is done.
+    RemovingPrompts   first(design.prompts(), design.rocket(), design.id(0));
+    const GuiServices firstServices(design.services().preferences(),
+                                    design.services().services().materials(),
+                                    design.services().motors(), design.services().presets(),
+                                    design.services().services().loadingContext(), first);
+    FlightConfigurationEditing firstEditing(design.document(), firstServices);
+    design.prompts().answerIgnition(ignition(Scope::THIS_CONFIGURATION, IgnitionEvent::NEVER, 0));
+    EXPECT_FALSE(
+        firstEditing.selectIgnition(std::vector<FlightConfigurationId>{design.id(0), design.id(2)},
+                                    std::vector<Uuid>{design.body()}));
+    EXPECT_FALSE(design.motors(design.body()).containsId(design.id(2)));
+    EXPECT_FALSE(design.rocket().containsFlightConfigurationId(design.id(0)));
+}
+
+/// Destroys the operations (with the tab that owns them) during the next question or message.
+class DestroyingPrompts final : public Gui::Test::ForwardingUserPrompts
+{
+public:
+    explicit DestroyingPrompts(UserPrompts& delegate) noexcept : ForwardingUserPrompts(delegate) { }
+
+    /// @p editing goes during the next question.
+    void destroyDuringTheNextQuestion(std::unique_ptr<FlightConfigurationEditing>& editing)
+    {
+        m_editing = &editing;
+    }
+
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(QWidget*               parent,
+                                                            const IgnitionRequest& request) override
+    {
+        std::optional<IgnitionChoice> answer = ForwardingUserPrompts::askIgnition(parent, request);
+        destroy();
+        return answer;
+    }
+
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override
+    {
+        std::optional<DeploymentChoice> answer =
+            ForwardingUserPrompts::askDeployment(parent, request);
+        destroy();
+        return answer;
+    }
+
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* parent, const SeparationRequest& request) override
+    {
+        std::optional<SeparationChoice> answer =
+            ForwardingUserPrompts::askSeparation(parent, request);
+        destroy();
+        return answer;
+    }
+
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override
+    {
+        const RenameConfigurationAnswer answer =
+            ForwardingUserPrompts::askRenameConfiguration(parent, request);
+        destroy();
+        return answer;
+    }
+
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* parent, const GuiServices& services, const MotorMount& mount,
+        const FlightConfigurationId& configurationId) override
+    {
+        std::optional<MotorChoice> answer =
+            ForwardingUserPrompts::chooseMotor(parent, services, mount, configurationId);
+        destroy();
+        return answer;
+    }
+
+    void showMessage(QWidget* parent, const Message& message) override
+    {
+        ForwardingUserPrompts::showMessage(parent, message);
+        destroy();
+    }
+
+private:
+    void destroy()
+    {
+        if (m_editing != nullptr)
+        {
+            m_editing->reset();
+            m_editing = nullptr;
+        }
+    }
+
+    std::unique_ptr<FlightConfigurationEditing>* m_editing = nullptr;
+};
+
+TEST_F(FlightConfigurationEditingTest, TheOperationsCanGoDuringTheirQuestions)
+{
+    Design            design;
+    DestroyingPrompts prompts(design.prompts());
+    const GuiServices services(design.services().preferences(),
+                               design.services().services().materials(), design.services().motors(),
+                               design.services().presets(),
+                               design.services().services().loadingContext(), prompts);
+    const std::vector<FlightConfigurationId>    rows{design.id(1), design.id(2)};
+    std::unique_ptr<FlightConfigurationEditing> editing;
+
+    // Each operation returns at once, its answer not applied (and touches nothing that went:
+    // the asan preset's run).
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerIgnition(ignition(Scope::THIS_CONFIGURATION, IgnitionEvent::NEVER, 0));
+    EXPECT_FALSE(editing->selectIgnition(rows, std::vector<Uuid>{design.body()}));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_FALSE(design.motors(design.body()).containsId(design.id(2)));
+
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerDeployment(
+        deployment(Scope::THIS_CONFIGURATION, DeployEvent::APOGEE, 200, 0));
+    EXPECT_FALSE(editing->selectDeployment(rows, std::vector<Uuid>{design.chute()}));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_EQ(design.deployments().size(), 0U);
+
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerSeparation(
+        separation(Scope::THIS_CONFIGURATION, SeparationEvent::BURNOUT, 200, 0));
+    EXPECT_FALSE(editing->selectSeparation(rows, std::vector<Uuid>{design.booster()}));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_EQ(design.separations().size(), 0U);
+
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerMotor(
+        UserPrompts::MotorChoice{.motor = design.estes("A8"), .delay = 3, .nozzleExitDiameter = 0});
+    EXPECT_FALSE(editing->selectMotor(rows, std::vector<Uuid>{design.inner()}));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_FALSE(design.motors(design.inner()).containsId(design.id(1)));
+
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerRenameConfiguration(
+        {.action = UserPrompts::RenameAction::RENAME, .name = QStringLiteral("Gone")});
+    EXPECT_FALSE(editing->renameConfigurations(rows));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_NE(design.rocket()
+                  .getFlightConfiguration(design.id(1))
+                  .getNameRaw(design.services().services().preferences()),
+              "Gone");
+
+    // "Save as default": the operations go during its message, the default name is stored all the
+    // same.
+    editing = std::make_unique<FlightConfigurationEditing>(design.document(), services);
+    prompts.destroyDuringTheNextQuestion(editing);
+    design.prompts().answerRenameConfiguration(
+        {.action = UserPrompts::RenameAction::CANCEL, .name = {}}, {QStringLiteral("Saved")});
+    EXPECT_FALSE(editing->renameConfigurations(rows));
+    EXPECT_EQ(editing, nullptr);
+    EXPECT_EQ(design.services().services().preferences().getDefaultFlightConfigName(), "Saved");
+}
+
 }  // namespace
 
 }  // namespace QtRocket::Gui

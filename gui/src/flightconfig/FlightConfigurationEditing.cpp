@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
@@ -325,7 +326,12 @@ std::optional<FlightConfigurationId> FlightConfigurationEditing::newConfiguratio
     fire(ComponentChangeEvent::kMotorChange, std::span<const FlightConfigurationId>{&id, 1});
     if (followUp)
     {
+        const QPointer<FlightConfigurationEditing> alive(this);
         followUp(id);
+        if (alive.isNull())
+        {
+            return id;  // the tab went during the follow-up's question
+        }
     }
     // Java's "trigger select" (configurationChanged(NONFUNCTIONAL_CHANGE)).
     fire(ComponentChangeEvent::kNonFunctionalChange, std::nullopt);
@@ -405,8 +411,13 @@ bool FlightConfigurationEditing::renameConfigurations(std::span<const FlightConf
         .saveAsDefault = [this](QWidget* dialog, const QString& name) {
             saveAsDefaultName(dialog, name);
         }};
+    const QPointer<FlightConfigurationEditing>   alive(this);
     const UserPrompts::RenameConfigurationAnswer answer =
         m_services.prompts().askRenameConfiguration(m_dialogParent, request);
+    if (alive.isNull())
+    {
+        return false;  // the tab (and its document) went during the question
+    }
 
     Rocket& r = rocket();
     if (!r.containsFlightConfigurationId(first))
@@ -488,17 +499,23 @@ bool FlightConfigurationEditing::selectMotor(std::span<const FlightConfiguration
     {
         return false;
     }
+    const QPointer<FlightConfigurationEditing>    alive(this);
     const std::optional<UserPrompts::MotorChoice> choice =
         m_services.prompts().chooseMotor(m_dialogParent, m_services, *before.front(), ids.front());
-    if (!choice || choice->motor == nullptr)
+    if (alive.isNull() || !choice || choice->motor == nullptr)
     {
         return false;
+    }
+    const std::vector<FlightConfigurationId> kept = stillThere(ids);
+    if (kept.empty())
+    {
+        return false;  // the first cell's configuration went during the question
     }
 
     bool update = false;
     for (MotorMount* mount : find<MotorMount>(mounts, false))
     {
-        for (const FlightConfigurationId& id : ids)
+        for (const FlightConfigurationId& id : kept)
         {
             const MotorConfiguration& templateConfig = mount->getMotorConfig(id);
             if (choice->motor != templateConfig.getMotor() ||
@@ -523,7 +540,7 @@ bool FlightConfigurationEditing::selectMotor(std::span<const FlightConfiguration
     }
     if (update)
     {
-        fire(ComponentChangeEvent::kMotorChange, ids);
+        fire(ComponentChangeEvent::kMotorChange, kept);
     }
     return update;
 }
@@ -565,9 +582,10 @@ bool FlightConfigurationEditing::selectIgnition(std::span<const FlightConfigurat
     //: ignition
     startStep(tr("Select ignition"));
 
+    const QPointer<FlightConfigurationEditing>       alive(this);
     const std::optional<UserPrompts::IgnitionChoice> choice =
         m_services.prompts().askIgnition(m_dialogParent, request);
-    if (!choice)
+    if (alive.isNull() || !choice)
     {
         return false;  // bug 3: Cancel and the close button change nothing
     }
@@ -575,6 +593,11 @@ bool FlightConfigurationEditing::selectIgnition(std::span<const FlightConfigurat
     if (found.empty() || &asComponent(*found.front()) != rocket().findComponent(mounts.front()))
     {
         return false;  // the first cell's mount went during the question
+    }
+    const std::vector<FlightConfigurationId> kept = stillThere(ids);
+    if (kept.empty())
+    {
+        return false;  // the first cell's configuration went during the question
     }
 
     std::vector<std::vector<IgnitionEntry>> before;
@@ -585,15 +608,16 @@ bool FlightConfigurationEditing::selectIgnition(std::span<const FlightConfigurat
     }
 
     MotorMount&                  first   = *found.front();
-    const FlightConfigurationId& firstId = ids.front();
-    applyIgnition(first, firstId, *choice, request.initial);
+    const FlightConfigurationId& firstId = kept.front();
+    applyIgnition(first, firstId, *choice);
     const bool thisConfiguration = choice->scope == Scope::THIS_CONFIGURATION;
 
-    // Java's loop over the other cells (which runs after a Cancel too there: bug 3).
-    bool update = choice->event != request.initial.event || choice->delay != request.initial.delay;
+    // Java's loop over the other cells (which runs after a Cancel too there: bug 3). Java's
+    // "update" for the first cell (its values changed) is part of the comparison below.
+    bool update = false;
     for (MotorMount* mount : found)
     {
-        for (const FlightConfigurationId& id : ids)
+        for (const FlightConfigurationId& id : kept)
         {
             if (mount == &first && id == firstId)
             {
@@ -619,7 +643,7 @@ bool FlightConfigurationEditing::selectIgnition(std::span<const FlightConfigurat
     if (update)
     {
         fire(ComponentChangeEvent::kMotorChange,
-             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{ids}
+             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{kept}
                                : std::nullopt);
     }
     return update;
@@ -686,11 +710,12 @@ bool FlightConfigurationEditing::selectDeployment(std::span<const FlightConfigur
     //: deployment
     startStep(tr("Select deployment"));
 
+    const QPointer<FlightConfigurationEditing>         alive(this);
     const std::optional<UserPrompts::DeploymentChoice> choice =
         m_services.prompts().askDeployment(m_dialogParent, request);
-    if (!choice)
+    if (alive.isNull() || !choice)
     {
-        return false;
+        return false;  // bug 3 (as the user's U-M3-5 has it for the other two questions)
     }
     const std::vector<RecoveryDevice*> found = find<RecoveryDevice>(devices, false);
     if (found.empty() ||
@@ -698,11 +723,16 @@ bool FlightConfigurationEditing::selectDeployment(std::span<const FlightConfigur
     {
         return false;
     }
+    const std::vector<FlightConfigurationId> kept = stillThere(ids);
+    if (kept.empty())
+    {
+        return false;  // the first cell's configuration went during the question
+    }
 
     const auto before = snapshots(std::span<RecoveryDevice* const>{found}, deploymentsOf);
 
     RecoveryDevice&              first             = *found.front();
-    const FlightConfigurationId& firstId           = ids.front();
+    const FlightConfigurationId& firstId           = kept.front();
     const bool                   thisConfiguration = choice->scope == Scope::THIS_CONFIGURATION;
     // The dialog's OK action.
     if (thisConfiguration)
@@ -718,13 +748,13 @@ bool FlightConfigurationEditing::selectDeployment(std::span<const FlightConfigur
     const DeploymentConfiguration modified =
         first.getDeploymentConfigurations().get(firstId).clone();
     bool update = !(initialConfig == modified);
-    update      = copyDeployment(found, first, ids, thisConfiguration, modified) || update;
+    update      = copyDeployment(found, first, kept, thisConfiguration, modified) || update;
     update = update || anyChanged(before, std::span<RecoveryDevice* const>{found}, deploymentsOf,
                                   sameDeployment);
     if (update)
     {
         fire(ComponentChangeEvent::kAerodynamicChange,
-             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{ids}
+             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{kept}
                                : std::nullopt);
     }
     return update;
@@ -776,9 +806,10 @@ bool FlightConfigurationEditing::selectSeparation(std::span<const FlightConfigur
     //: separation
     startStep(tr("Select separation"));
 
+    const QPointer<FlightConfigurationEditing>         alive(this);
     const std::optional<UserPrompts::SeparationChoice> choice =
         m_services.prompts().askSeparation(m_dialogParent, request);
-    if (!choice)
+    if (alive.isNull() || !choice)
     {
         return false;  // bug 3: Cancel and the close button change nothing
     }
@@ -788,11 +819,16 @@ bool FlightConfigurationEditing::selectSeparation(std::span<const FlightConfigur
     {
         return false;
     }
+    const std::vector<FlightConfigurationId> kept = stillThere(ids);
+    if (kept.empty())
+    {
+        return false;  // the first cell's configuration went during the question
+    }
 
     const auto before = snapshots(std::span<AxialStage* const>{found}, separationsOf);
 
     AxialStage&                  first             = *found.front();
-    const FlightConfigurationId& firstId           = ids.front();
+    const FlightConfigurationId& firstId           = kept.front();
     const bool                   thisConfiguration = choice->scope == Scope::THIS_CONFIGURATION;
     // The dialog's OK action (the dialog has set NEVER's delay to 0).
     if (thisConfiguration)
@@ -810,13 +846,13 @@ bool FlightConfigurationEditing::selectSeparation(std::span<const FlightConfigur
     const StageSeparationConfiguration modified =
         first.getSeparationConfigurations().get(firstId).clone();
     bool update = !(initialConfig == modified);
-    update      = copySeparation(found, first, ids, thisConfiguration, modified) || update;
+    update      = copySeparation(found, first, kept, thisConfiguration, modified) || update;
     update = update ||
              anyChanged(before, std::span<AxialStage* const>{found}, separationsOf, sameSeparation);
     if (update)
     {
         fire(ComponentChangeEvent::kAeromassChange,
-             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{ids}
+             thisConfiguration ? std::optional<std::span<const FlightConfigurationId>>{kept}
                                : std::nullopt);
     }
     return update;
@@ -879,18 +915,22 @@ UserPrompts::IgnitionRequest FlightConfigurationEditing::ignitionRequest(
     const Rocket& rocket, const MotorMount& mount, const FlightConfigurationId& id,
     const Preferences& preferences)
 {
-    const MotorConfiguration& configuration = mount.getMotorConfig(id);
+    const MotorConfigurationSet& set = mount.getMotorConfigurationSet();
     // Bug 2: "this configuration" for a cell whose own configuration overrides the ignition
     // (Java: whenever the cell has a motor).
-    const bool overridden =
-        mount.getMotorConfigurationSet().containsId(id) && configuration.hasIgnitionOverride();
+    const bool overridden = set.containsId(id) && set.get(id).hasIgnitionOverride();
+    // The values the cell shows: its own configuration's when it overrides the ignition, else the
+    // mount's default's ("Default (...)"), which "all configurations" edits; Java shows the cell's
+    // own configuration's (and starts on "this configuration" for every cell with a motor, so
+    // that an unchanged OK sets nothing there).
+    const MotorConfiguration& shown = overridden ? set.get(id) : set.getDefault();
     return UserPrompts::IgnitionRequest{
         .configurationName =
             FlightConfigurationCellText::configurationName(rocket, id, preferences),
         .initial = UserPrompts::IgnitionChoice{
             .scope = overridden ? Scope::THIS_CONFIGURATION : Scope::ALL_CONFIGURATIONS,
-            .event = configuration.getIgnitionEvent(),
-            .delay = configuration.getIgnitionDelay()}};
+            .event = shown.getIgnitionEvent(),
+            .delay = shown.getIgnitionDelay()}};
 }
 
 UserPrompts::DeploymentRequest FlightConfigurationEditing::deploymentRequest(
@@ -933,21 +973,43 @@ void FlightConfigurationEditing::startStep(const QString& description)
 
 void FlightConfigurationEditing::saveAsDefaultName(QWidget* dialog, const QString& name) const
 {
+    // The services' objects outlive the tab, which may go during the message (its event loop).
+    Preferences& preferences = m_services.preferences();
+    UserPrompts& prompts     = m_services.prompts();
     // O-M3-7: QtRocket's configurations read the default name when asked; Java's store the one
     // they were made with. The names are pinned first, so that only new configurations take the
     // new default, as Java's message says.
     for (OpenRocketDocument* document : openDocuments())
     {
-        document->pinFlightConfigurationNames(m_services.preferences());
+        document->pinFlightConfigurationNames(preferences);
     }
-    m_services.prompts().showMessage(
+    prompts.showMessage(
         dialog, UserPrompts::Message{
                     .severity = UserPrompts::Severity::INFORMATION,
                     //: RenameConfigDialog.dlg.saveDefault.title
                     .title = tr("Save as default"),
                     //: RenameConfigDialog.dlg.saveDefault.msg
                     .lines = {tr("This change will only affect new flight configurations.")}});
-    m_services.preferences().setDefaultFlightConfigName(QtStrings::toUtf8(name));
+    preferences.setDefaultFlightConfigName(QtStrings::toUtf8(name));
+}
+
+std::vector<FlightConfigurationId> FlightConfigurationEditing::stillThere(
+    std::span<const FlightConfigurationId> ids) const
+{
+    std::vector<FlightConfigurationId> kept;
+    if (ids.empty() || !rocket().containsFlightConfigurationId(ids.front()))
+    {
+        return kept;
+    }
+    kept.reserve(ids.size());
+    for (const FlightConfigurationId& id : ids)
+    {
+        if (rocket().containsFlightConfigurationId(id))
+        {
+            kept.push_back(id);
+        }
+    }
+    return kept;
 }
 
 template <typename T>
@@ -974,8 +1036,7 @@ std::vector<T*> FlightConfigurationEditing::find(std::span<const Uuid> ids, bool
 }
 
 void FlightConfigurationEditing::applyIgnition(MotorMount& mount, const FlightConfigurationId& id,
-                                               const UserPrompts::IgnitionChoice& choice,
-                                               const UserPrompts::IgnitionChoice& initial)
+                                               const UserPrompts::IgnitionChoice& choice)
 {
     MotorConfigurationSet& set = mount.getMotorConfigurationSet();
     if (choice.scope == Scope::ALL_CONFIGURATIONS)
@@ -992,11 +1053,15 @@ void FlightConfigurationEditing::applyIgnition(MotorMount& mount, const FlightCo
         }
         return;
     }
-    // Java's live edits of the combo box and the spinner: a value set only when it changed, on
-    // the cell's own configuration, made from the mount's default when the cell has none (bug 4:
-    // Java edits the default itself then).
-    const bool eventChanged = choice.event != initial.event;
-    const bool delayChanged = choice.delay != initial.delay;
+    // Java's live edits of the combo box and the spinner: a value set only when it differs from
+    // the cell's configuration's (its own, or the mount's default for a cell without one), on the
+    // cell's own configuration, made from the mount's default when the cell has none (bug 4: Java
+    // edits the default itself then). The cell's stored values, not the question's: a question
+    // that started on "all configurations" showed the mount's default's values (bug 2), which the
+    // cell's own configuration takes with "this configuration".
+    const MotorConfiguration& stored       = mount.getMotorConfig(id);
+    const bool                eventChanged = choice.event != stored.getIgnitionEvent();
+    const bool                delayChanged = choice.delay != stored.getIgnitionDelay();
     if (!eventChanged && !delayChanged)
     {
         return;
@@ -1016,9 +1081,10 @@ void FlightConfigurationEditing::applyIgnition(MotorMount& mount, const FlightCo
     }
 }
 
-void FlightConfigurationEditing::fire(
-    int type, std::optional<std::span<const FlightConfigurationId>> ids) const
+void FlightConfigurationEditing::fire(int                                                   type,
+                                      std::optional<std::span<const FlightConfigurationId>> ids)
 {
+    Q_EMIT changeAboutToFire();
     if (ids)
     {
         rocket().fireComponentChangeEvent(type, *ids);

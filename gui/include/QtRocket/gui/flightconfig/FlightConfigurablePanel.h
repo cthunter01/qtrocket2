@@ -9,6 +9,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "QtRocket/gui/flightconfig/ConfigurationTableView.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
 #include "QtRocket/gui/flightconfig/TableTransferKeys.h"
@@ -25,6 +26,7 @@ class QTableView;
 
 namespace QtRocket
 {
+class ComponentChangeEvent;
 class Rocket;
 class RocketComponent;
 }  // namespace QtRocket
@@ -42,13 +44,18 @@ class FlightConfigurationPanel;
 /// subclasses (MotorConfigurationPanel, RecoveryConfigurationPanel, SeparationConfigurationPanel)
 /// add their buttons, their operations and their popup menu.
 ///
-/// THE TABLE ("table"): no vertical header, columns that share the width and cannot be moved,
-/// cells selected as rows x columns (RowColumnSelectionModel: Java's cell selection with
-/// MULTIPLE_INTERVAL_SELECTION), nothing to edit. At its making it selects the rocket's selected
-/// configuration in its last column (Java's doTableInitialization(), before any listener: this
-/// selection reaches neither the rocket nor the design).
+/// THE TABLE ("table", a ConfigurationTableView): no vertical header, columns that cannot be moved
+/// and share the width equally until the user resizes one by hand (then the last column takes
+/// the rest), equal again after each change of the table's structure (restructure()), cells
+/// selected as rows x columns (RowColumnSelectionModel: Java's cell selection with
+/// MULTIPLE_INTERVAL_SELECTION), nothing to edit, no type-ahead search. At its making it selects
+/// the rocket's selected configuration in its last column (Java's doTableInitialization(), before
+/// any listener: this selection reaches neither the rocket nor the design).
 ///
-/// THE SELECTION (Java's installTableListener()), told by the table's RowColumnSelectionModel:
+/// THE SELECTION (Java's installTableListener()), told by the table's RowColumnSelectionModel; the
+/// steps of a gesture of the mouse are left out, as Java's listeners skip a ListSelectionEvent that
+/// is adjusting, and its end comes as one change of the rows, then of the columns (BasicTableUI's
+/// release); the keys and the panel's own changes come as they happen, the columns first:
 /// - when the rows change and exactly one row is selected, its configuration becomes the rocket's
 ///   selected one (Rocket::setSelectedConfiguration(); the other panels and the design view's
 ///   configuration combo box follow its event);
@@ -63,13 +70,16 @@ class FlightConfigurationPanel;
 /// is another configuration. restoreSelection() is what Java's fireTableDataChanged() leaves after
 /// an operation that changed the design: the first selected cell alone, or the rocket's selected
 /// configuration (synchronizeConfigurationSelection() on an empty table) when that cell is in row
-/// or column 0 (as Java's restoreSelection(), whose test is row <= 0 || col <= 0).
+/// or column 0 (as Java's restoreSelection(), whose test is row <= 0 || col <= 0); the first cell
+/// is the one selected when the operation fired its change event (runOperation(): Java reads it
+/// just before it fires, which restructures and synchronizes the tables).
 ///
 /// THE MOUSE AND THE KEYS (each panel's initializeTable() and constructor):
 /// - Enter (on the keypad too) runs the panel's Select operation (selectValue(): Select motor,
 ///   Select deployment, Select separation), and so does a double click of the left button when
 ///   the first selected column is a component's;
 /// - a click of the left button outside the cells clears the selection;
+/// - a typed key selects nothing (no type-ahead search);
 /// - a click of the right button selects the cell under the mouse alone (unless it is selected;
 ///   its row, then its column, as Java's setRowSelectionInterval() and
 ///   setColumnSelectionInterval(): the rocket, then the design follow) and opens the popup menu:
@@ -89,18 +99,16 @@ class FlightConfigurationPanel;
 /// (FlightConfigurationEditing) it uses.
 ///
 /// A reset of the model (its rows or columns changed) puts back the selection of the rows and
-/// columns that are still there, by configuration and component, as Java's JTable keeps its
-/// selection when a configuration is added or removed (an event that is no change of its
-/// structure). When the reset came with a MOTOR or TREE event, the tab then clears the table
-/// (takeModelReset()), as Java's fireTableStructureChanged() does, before every panel follows the
-/// rocket (the rocket's selected configuration in the last column).
+/// columns that are still there, by configuration and component, and the widths of the columns
+/// when they are the same, as Java's JTable keeps them when a configuration is added or removed
+/// (an event that is no change of its structure). At every change of the rocket that Java's
+/// model answers with fireTableStructureChanged() (isStructureChange(): a MOTOR or TREE change,
+/// and a NONFUNCTIONAL one of a component whose name is a column's header for the motor and
+/// stage tables), the tab clears the table and gives its columns equal widths again
+/// (restructure()), before every panel follows the rocket (the rocket's selected configuration in
+/// the last column).
 ///
 /// Deviations from OpenRocket:
-/// - The table keeps its selection through a MOTOR or TREE event that leaves its rows and columns
-///   as they were (its model does not reset then: FlightConfigurableTableModel); Java's JTable
-///   loses it at every such event, after which its panel selects the rocket's selected
-///   configuration in the last column. After the tab's own operations the selection is Java's
-///   (restoreSelection()).
 /// - Re-entrancy: a change of the selection made while the rocket delivers its change event (the
 ///   synchronization, a model reset) does not set the rocket's selected configuration (Java sets
 ///   the one it already has), and the design's selection it calls for is set one turn of the
@@ -109,8 +117,12 @@ class FlightConfigurationPanel;
 ///   listener looks at the rows of the change's range only (ListSelectionEvent's first and last
 ///   index, which held the selected row in every case the M3 run 2 probe JTableSelectionProbe
 ///   tried).
-/// - The columns share the table's width and keep it (QHeaderView::Stretch); Java's columns can be
-///   resized by hand.
+/// - A column resized by hand takes its width from the last column (QHeaderView's
+///   stretchLastSection), and once one was, a change of the table's width goes to the last column
+///   too; Java's JTable (AUTO_RESIZE_SUBSEQUENT_COLUMNS) takes it from all the columns after the
+///   one resized, and shares a change of its width among all of them. Java's columns get their
+///   default width back at every change of the structure, and are then shared equally: QtRocket
+///   shares them equally at once.
 /// - A sub-tab switch that has no column 1 to select in (the motor table without a mount, reached
 ///   when a disabled sub-tab moves to the Motors tab) selects in column 0; Java's selects in a
 ///   column that does not exist, which throws.
@@ -176,14 +188,24 @@ public:
     /// Brings the table to the rocket's selected configuration (see the class comment).
     void synchronizeConfigurationSelection();
     /// What Java's fireTableDataChanged() leaves after an operation that changed the design (see
-    /// the class comment), then updateButtonState().
+    /// the class comment), from the first selected cell of now, then updateButtonState().
     void restoreSelection();
+    /// restoreSelection() from the cell (@p row, @p column) (Java's restoreSelection(row, col),
+    /// after its table's selection was cleared).
+    void restoreSelection(int row, int column);
+    /// Whether the table's model answers the rocket's change @p event with Java's
+    /// fireTableStructureChanged(): a MOTOR or TREE change, or a NONFUNCTIONAL change of a
+    /// component that names one of the panel's kind of columns (restructuresWith()).
+    [[nodiscard]] bool isStructureChange(const ComponentChangeEvent& event) const;
+    /// What Java's fireTableStructureChanged() does to the table: nothing selected, the columns'
+    /// widths equal again (none resized by hand).
+    void restructure();
     /// Makes the components of the selected columns the design's selection (when there are any).
     void updateRocketViewSelection();
     /// Gives the table the keyboard focus when it is shown (takeTheSpotlight()).
     void takeTheSpotlight();
-    /// Whether the model reset since the last call (the tab asks at each change of the rocket).
-    [[nodiscard]] bool takeModelReset() noexcept;
+    /// Whether a column was resized by hand since the last change of the structure.
+    [[nodiscard]] bool columnsResizedByHand() const noexcept { return m_columnsResizedByHand; }
 
     /// Enables the panel's buttons and actions for the selection (updateButtonState()).
     virtual void updateButtonState() = 0;
@@ -191,7 +213,7 @@ public:
     /// Configuration's follow-up): Select motor, Select deployment, Select separation.
     virtual void selectValue() = 0;
 
-    /// Enter on the table; the mouse in its viewport (see the class comment).
+    /// Enter on the table; the mouse in its viewport and its header (see the class comment).
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 protected:
@@ -200,9 +222,18 @@ protected:
     FlightConfigurablePanel(FlightConfigurationPanel&          panel,
                             FlightConfigurableTableModel::Kind kind, QWidget* parent);
 
-    /// After one of the panel's operations: restoreSelection() when it changed the design, the
-    /// table's focus otherwise (Java: fireTableDataChanged() or table.requestFocusInWindow()).
-    void operationDone(bool changed);
+    /// Runs @p operation, one of the tab's operations (FlightConfigurationEditing) on the
+    /// selected cells, as Java's panels do: the first selected cell read when the operation fires
+    /// its change event of the rocket (or before it, when it fires none), then restoreSelection()
+    /// from it when the operation changed the design (it answers true), the table's focus
+    /// otherwise (Java: fireTableDataChanged() or table.requestFocusInWindow()). Nothing after the
+    /// operation when the panel went during its question.
+    void runOperation(const std::function<bool()>& operation);
+
+    /// Whether a NONFUNCTIONAL change of @p source restructures the table (its name is a column's
+    /// header: Java's motor table model looks for a BodyTube or an InnerTube, its stage table
+    /// model for an AxialStage); none by default (the recovery table's model).
+    [[nodiscard]] virtual bool restructuresWith(const RocketComponent& source) const;
 
     /// An action of the panel with @p text, named @p objectName, that runs @p operation (guarded:
     /// what it throws is reported, with the action's text as the context).
@@ -233,6 +264,12 @@ private:
     void showPopup(const QPoint& position);
     /// A mouse event of the viewport; whether it is consumed.
     bool viewportMouseEvent(const QMouseEvent& event);
+    /// The left button's release at @p position of the viewport, after the table took it.
+    void leftButtonReleased(const QPoint& position);
+    /// Gives the columns equal widths unless one was resized by hand.
+    void fitColumns();
+    /// A column's width changed (by hand while the header is pressed).
+    void columnResized();
     /// The keys of the selection, before a reset of the model.
     void rememberSelection();
     /// Selects what rememberSelection() kept and the model still has.
@@ -240,7 +277,7 @@ private:
 
     FlightConfigurationPanel*     m_panel;
     FlightConfigurableTableModel* m_model;
-    QTableView*                   m_table;
+    ConfigurationTableView*       m_table;
     RowColumnSelectionModel*      m_selection;
     QMenu*                        m_fullPopup;
     TableTransferKeys*            m_transferKeys;
@@ -249,12 +286,19 @@ private:
     std::vector<FlightConfigurationId> m_rememberedRows;
     bool                               m_rememberedColumnZero{false};
     std::vector<Uuid>                  m_rememberedColumns;
+    /// The model's columns and their widths at the last reset of the model.
+    std::vector<Uuid> m_rememberedWidthColumns;
+    std::vector<int>  m_rememberedWidths;
     /// The components of the queued change of the design's selection.
     std::vector<Uuid> m_queuedComponents;
     /// While the selection is put back after a reset of the model.
     bool m_reselecting{false};
-    /// Whether the model reset since the last takeModelReset().
-    bool m_modelReset{false};
+    /// Whether a column was resized by hand since the last change of the structure.
+    bool m_columnsResizedByHand{false};
+    /// While the panel sets the columns' widths.
+    bool m_fittingColumns{false};
+    /// While the left button is pressed in the header (a resize by hand).
+    bool m_headerPressed{false};
     /// Whether the left button's press was outside the cells (a click there clears).
     bool m_pressedOutside{false};
     /// Whether the left button's press was a double click (its release runs selectValue()).
