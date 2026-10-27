@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
@@ -15,6 +16,7 @@
 #include <QActionGroup>
 #include <QHeaderView>
 #include <QItemSelectionModel>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QModelIndex>
 #include <QObject>
@@ -273,6 +275,55 @@ void ComponentPresetTable::rowsAboutToBeRemoved(const QModelIndex& parent, int s
         selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::NoUpdate);
     }
     QTableView::rowsAboutToBeRemoved(parent, start, end);
+}
+
+void ComponentPresetTable::keyPressEvent(QKeyEvent* event)
+{
+    // JTable's ENTER and shift ENTER; the keypad's Enter too (Java's VK_ENTER for both keys).
+    const Qt::KeyboardModifiers modifiers = event->modifiers() & ~Qt::KeypadModifier;
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) &&
+        (modifiers == Qt::NoModifier || modifiers == Qt::ShiftModifier))
+    {
+        moveToCell(modifiers == Qt::NoModifier);
+        event->accept();
+        return;
+    }
+    QTableView::keyPressEvent(event);
+}
+
+void ComponentPresetTable::moveToCell(bool forward)
+{
+    const std::vector<int> columns = visibleColumns();
+    const std::int64_t     rows    = m_filter->rowCount();
+    if (rows == 0 || columns.empty())
+    {
+        return;
+    }
+    // The cells column after column: the current one, or none without a selected row.
+    const std::int64_t cells   = rows * static_cast<std::int64_t>(columns.size());
+    std::int64_t       current = -1;
+    const QModelIndex  lead    = currentIndex();
+    if (TableRowTraversal::selectedRow(*this) >= 0 && lead.isValid())
+    {
+        const auto column = std::ranges::find(columns, lead.column());
+        if (column != columns.end())
+        {
+            current = ((column - columns.begin()) * rows) + lead.row();
+        }
+    }
+    std::int64_t next = 0;
+    if (current < 0)
+    {
+        next = forward ? 0 : cells - 1;
+    }
+    else
+    {
+        next = forward ? (current + 1) % cells : (current + cells - 1) % cells;
+    }
+    selectionModel()->setCurrentIndex(
+        m_filter->index(static_cast<int>(next % rows),
+                        columns[static_cast<std::size_t>(next / rows)]),
+        QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
 }
 
 void ComponentPresetTable::applyLegacy(bool shown)

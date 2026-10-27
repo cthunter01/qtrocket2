@@ -19,7 +19,8 @@
 #   component-drop     the DndProbe table of tests/gui/tree/ComponentDropTests.cpp
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
-#   preset-chooser     the values tests/gui/settings/TableUiPreferencesTests.cpp,
+#   preset-chooser     tests/gui/dialogs/preset/PresetChooserPins.h (its probe runs under xvfb-run), and the
+#                      values tests/gui/settings/TableUiPreferencesTests.cpp,
 #                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp,
 #                      tests/gui/widgets/TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of
 #                      tests/gui/dialogs/preset/ pin by hand (checked only, see README.md)
@@ -55,7 +56,7 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel and thrust-curves, xvfb-run.
+# .clang-format) and, for rocket-panel, thrust-curves and preset-chooser, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
@@ -117,7 +118,7 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves; do
+for family in rocket-panel thrust-curves preset-chooser; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -417,7 +418,12 @@ for family in "${families[@]}"; do
             "${repo}/data/components"
         check_hand_pins "${family}" PresetGuiProbe \
             "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset"
-        continue
+        # The parts library's dialog over the bundled presets: a JDialog, which a headless AWT refuses to make
+        # (it is never shown).
+        run_probe "${family}" PresetChooserProbe xvfb "${repo}/data/components"
+        file=tests/gui/dialogs/preset/PresetChooserPins.h
+        python3 -I "${here}/${family}/gen_preset_chooser_pins.py" "${work}/PresetChooserProbe.txt" \
+            "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

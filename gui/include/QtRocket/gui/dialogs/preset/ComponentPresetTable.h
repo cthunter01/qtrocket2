@@ -12,6 +12,7 @@
 
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 
+class QKeyEvent;
 class QMenu;
 class QModelIndex;
 class QPoint;
@@ -53,7 +54,19 @@ class ComponentPresetTableModel;
 /// The order: a click on a header toggles its sort key (ComponentPresetFilterModel::
 /// toggleSortOrder(), TableRowSorter's), the header's sort indicator shows the primary key; the
 /// table starts sorted by Manufacturer. Tab, Shift+Tab, Right and Left move from row to row
-/// (TableRowTraversal, the dialog's TableRowTraversalPolicy).
+/// (TableRowTraversal, the dialog's TableRowTraversalPolicy). Enter and Shift+Enter move to the
+/// next and the previous cell, column after column (JTable's selectNextRowCell and
+/// selectPreviousRowCell: down the current column, from its last row to the first row of the next
+/// shown column, from the last cell to the first, and back the same way), selecting the cell's
+/// row; without a selected row Enter goes to the first cell and Shift+Enter to the last (JTable
+/// without a lead cell, as a new table has); in a table without rows or shown columns they do
+/// nothing. Either way the key goes no further: Enter in the table does not press the dialog's
+/// default button, as in OpenRocket (a probe of its shown dialog under xvfb). Space ticks or
+/// unticks the favourite of the current row when the current cell is in the favourite column
+/// (Qt's check box items; after Tab the current cell is in the first shown column, the favourite
+/// unless it was moved) and changes nothing in another column, as in OpenRocket (the same probe:
+/// JTable binds Space to addToSelection, and the favourite's check box editor takes the key all
+/// the same).
 ///
 /// The header menu (a right click on the header; populateHeaderMenu(), Java's ColumnPopupMenu):
 /// on a column, "Sort Ascending" and "Sort Descending" (check box items, never ticked), which sort
@@ -89,10 +102,6 @@ class ComponentPresetTableModel;
 ///   and its rows (an unlisted OpenRocket bug, fixed with bug 14).
 /// - Choosing a unit keeps the selected row; OpenRocket's fireTableDataChanged() clears the
 ///   selection (probe: "selected row after: -1").
-/// - Space ticks the favourite of the current row when the current cell is in the favourite
-///   column (Qt's check box items; after Tab the current cell is in the first shown column, the
-///   favourite unless it was moved). In OpenRocket Space is JTable's addToSelection, and the
-///   favourite is ticked from the keyboard with F2 and then Space.
 /// - The columns keep their widths and the table scrolls sideways when they are wider than it
 ///   (QHeaderView's interactive sections); Swing's JTable (AUTO_RESIZE_SUBSEQUENT_COLUMNS) fits
 ///   them to its width. The favourite's check box is where Qt's style puts it, not centred as
@@ -180,8 +189,12 @@ protected:
     /// Rows a filter hides leave the selection: when they hold the current row, nothing is
     /// selected afterwards (see the class comment).
     void rowsAboutToBeRemoved(const QModelIndex& parent, int start, int end) override;
+    /// Enter and Shift+Enter (see the class comment); the other keys are QTableView's.
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    /// JTable's selectNextRowCell (@p forward) or selectPreviousRowCell (see the class comment).
+    void moveToCell(bool forward);
     /// Shows or hides the Legacy column and its rows; legacyShownChanged() when the state changed.
     void applyLegacy(bool shown);
     void updateSortIndicator();

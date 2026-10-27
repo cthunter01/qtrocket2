@@ -51,7 +51,6 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -1353,14 +1352,6 @@ TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDi
                      .chooseMotor(nullptr, services.services(), mount,
                                   FlightConfigurationId::defaultValueId())
                      .has_value());
-    const UserPrompts::PresetAnswer preset =
-        prompts.choosePreset(nullptr, services.services(),
-                             {.componentKind   = ComponentKind::NOSE_CONE,
-                              .foreDiameter    = std::nullopt,
-                              .aftDiameter     = 0.0248,
-                              .flippedNoseCone = false});
-    EXPECT_EQ(preset.outcome, UserPrompts::PresetOutcome::CLOSED);
-    EXPECT_EQ(preset.preset, nullptr);
     UserPrompts::OpenFileRequest files;
     files.selection         = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
     files.approveButtonText = QStringLiteral("Add");

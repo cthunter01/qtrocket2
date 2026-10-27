@@ -33,6 +33,7 @@
 #include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
+#include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -587,12 +588,11 @@ std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
     return std::nullopt;
 }
 
-UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget* /*parent*/,
-                                                          const GuiServices& /*services*/,
-                                                          const PresetRequest& /*request*/)
+UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget*             parent,
+                                                          const GuiServices&   services,
+                                                          const PresetRequest& request)
 {
-    // Run 2 of Milestone 3: ComponentPresetChooserDialog. Until then: closed without a choice.
-    return {.outcome = PresetOutcome::CLOSED, .preset = nullptr};
+    return ComponentPresetChooserDialog::choose(parent, services, request);
 }
 
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)

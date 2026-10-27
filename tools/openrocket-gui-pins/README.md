@@ -19,7 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
-| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp` |
+| `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -125,6 +125,23 @@ Java 17's `Double.toString`).
   MD5 of their digests in view order. Where QtRocket fixes an OpenRocket bug (the header menu's Sort on the view
   index, bug 13; the text filter on the Boolean columns, bug 17) it prints the fixed result too, computed with
   OpenRocket's classes. `PresetGuiProbe` runs the five; the tests pin its whole transcript by hand.
+  `PresetChooserProbe` makes the parts library itself, `ComponentPresetChooserDialog`, as
+  `RocketComponentConfig.selectPreset()` makes it (owned by a configuration dialog of a main window of 1000 x
+  800 pixels), over the bundled presets bound as the application's database, with `SwingPreferences` and FlatLaf
+  Light, for every kind of component that takes presets in the scouting's design and for a flipped nose cone
+  behind a transition: the table's columns, the boxes (text, tooltip, shown, ticked), the diameter filters'
+  values and tolerances, the "Always open this dialog" box, and the table's rows (their number and the MD5 of
+  their digests in view order) after each step (the diameter boxes unticked, the legacy box ticked, five texts,
+  the text cleared, the boxes back); then Close with and without a selected row, double clicks, the "Always open"
+  box clicked and the "tables" node after each, and the dialog as a window (its size, default button, Escape,
+  the focus order of its `LayoutFocusTraversalPolicy`, for which it is shown without its modality on xvfb's
+  screen) with the table's Enter and Shift+Enter (`selectNextRowCell` and `selectPreviousRowCell`, run through
+  its input and action maps). The dialog is a `JDialog`, which a headless AWT refuses, so the probe runs under
+  `xvfb-run` with `-Djava.awt.headless=false`. Its `PresetModel` records the preset the dialog applies instead of
+  loading it. Where QtRocket fixes an OpenRocket bug the probe uses the fixed filter, made with OpenRocket's
+  classes, and prints both values (the flipped nose cone's base compared with the previous component's aft
+  diameter, bug 16); its texts never match a Boolean column's text (bug 17). Before each scenario it puts the
+  dialog's preferences back to their defaults and reseeds OpenRocket's UUIDs from the scenario's name.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -218,7 +235,8 @@ copy the new lines (`<work>/<probe>.hand-pinned.txt`) over `hand-pinned.txt`. Th
 lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-probe.out` and G1's
 `out.txt` in the Milestone 2 handoff).
 
-`PresetGuiProbe` (`preset-chooser`) has no table yet: the tests pin its whole transcript by hand
+`PresetGuiProbe` (`preset-chooser`; its other probe, `PresetChooserProbe`, writes `PresetChooserPins.h`) has no
+table: the tests pin its whole transcript by hand
 (`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part,
 `PresetComboBoxTests.cpp` the `PresetComboProbe` part, `TableRowTraversalTests.cpp` the `TableRowTraversalProbe`
 part, the `ComponentPreset*Tests.cpp` of `tests/gui/dialogs/preset/` the `ComponentPresetTableProbe` part), and
@@ -276,6 +294,10 @@ every motor set of the bundled database. The run's fixer had its generator write
 `std::array` of a stated size instead of through `std::to_array` (the repository's other tables of hundreds
 of rows are written so; MSVC had never evaluated a `std::to_array` of over a thousand rows), the rows
 unchanged.
+
+`preset-chooser` came in run 2 (group S): parts S1 to S3 wrote `PresetGuiProbe` and its five probes, whose
+values the tests pin by hand; part S4 added `PresetChooserProbe` (from the M3 presets scout's
+`PresetChooserProbe`, seeded, its scenarios kept and its transcript made a table) and `PresetChooserPins.h`.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

@@ -11,6 +11,7 @@
 
 #include "QtRocket/gui/dialogs/preset/ComponentPresetTable.h"
 
+#include <cstddef>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,13 +19,16 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QDialog>
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <QMenu>
 #include <QModelIndex>
 #include <QObject>
 #include <QPoint>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QString>
 #include <QTest>
@@ -605,14 +609,112 @@ TEST_F(ComponentPresetTableTest, TabMovesTheSelectionFromRowToRow)
 
 TEST_F(ComponentPresetTableTest, SpaceTicksTheCurrentRowsFavourite)
 {
-    // A deviation: Qt's check box items take Space (OpenRocket: JTable's addToSelection; F2 and
-    // Space tick the favourite there).
+    // Qt's check box items take Space. So does OpenRocket's favourite column (a probe of its shown
+    // dialog under xvfb with FlatLaf Light, Space pressed with a robot: the lead cell (4, 0)
+    // ticks row 4's favourite and unticks it again; at (2, 3) and (6, 1) nothing changes),
+    // although JTable binds Space to addToSelection.
     SmallPresetTable tubes(Type::BODY_TUBE);
     QTest::keyClick(&tubes.table, Qt::Key_Tab);
     QTest::keyClick(&tubes.table, Qt::Key_Space);
     EXPECT_TRUE(tubes.table.tableModel().isFavorite(0));
     QTest::keyClick(&tubes.table, Qt::Key_Space);
     EXPECT_FALSE(tubes.table.tableModel().isFavorite(0));
+}
+
+/// The selected view row and the current cell's view column, as "<row> <column>".
+[[nodiscard]] std::string selectedCell(const ComponentPresetTable& table)
+{
+    return std::to_string(TableRowTraversal::selectedRow(table)) + " " +
+           std::to_string(table.viewColumn(table.currentIndex().column()));
+}
+
+/// Selects view row @p row with the cell of view column @p viewColumn current (Java:
+/// changeSelection(row, column, false, false), a click on the cell).
+void selectCell(const ComponentPresetTable& table, int row, int viewColumn)
+{
+    const std::vector<int> columns = table.visibleColumns();
+    table.selectionModel()->setCurrentIndex(
+        table.filterModel().index(row, columns.at(static_cast<std::size_t>(viewColumn))),
+        QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+}
+
+TEST_F(ComponentPresetTableTest, EnterMovesToTheNextCellColumnAfterColumn)
+{
+    // JTable's selectNextRowCell and selectPreviousRowCell (Enter and Shift+Enter). OpenRocket's
+    // own over the bundled presets: preset_chooser_golden_tests.cpp, EnterInTheTableIsOpenRockets.
+    // The small database's 12 body tubes in 7 shown columns; nothing selected: the first cell.
+    SmallPresetTable tubes(Type::BODY_TUBE);
+    QTest::keyClick(&tubes.table, Qt::Key_Return);
+    EXPECT_EQ(selectedCell(tubes.table), "0 0");
+    // Down the column; the keypad's Enter too.
+    selectCell(tubes.table, 2, 3);
+    QTest::keyClick(&tubes.table, Qt::Key_Return);
+    EXPECT_EQ(selectedCell(tubes.table), "3 3");
+    QTest::keyClick(&tubes.table, Qt::Key_Enter, Qt::KeypadModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "4 3");
+    QTest::keyClick(&tubes.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "3 3");
+    // From the last row to the next column's first, and back.
+    selectCell(tubes.table, 11, 3);
+    QTest::keyClick(&tubes.table, Qt::Key_Return);
+    EXPECT_EQ(selectedCell(tubes.table), "0 4");
+    QTest::keyClick(&tubes.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "11 3");
+    // From the last cell to the first, and back.
+    selectCell(tubes.table, 11, 6);
+    QTest::keyClick(&tubes.table, Qt::Key_Return);
+    EXPECT_EQ(selectedCell(tubes.table), "0 0");
+    QTest::keyClick(&tubes.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "11 6");
+}
+
+TEST_F(ComponentPresetTableTest, ShiftEnterWithoutASelectionGoesToTheLastCell)
+{
+    SmallPresetTable tubes(Type::BODY_TUBE);
+    QTest::keyClick(&tubes.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "11 6");
+    // A hidden column is not a cell: Description hidden, 6 shown columns.
+    tubes.table.setColumnVisible(4, false);
+    tubes.table.clearSelection();
+    QTest::keyClick(&tubes.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(selectedCell(tubes.table), "11 5");
+}
+
+/// A table and a default button in a shown dialog.
+struct TableInDialog
+{
+    InMemoryPreferences   preferences;
+    QDialog               dialog;
+    ComponentPresetTable* table = makeChild<ComponentPresetTable>(
+        &dialog, Type::BODY_TUBE,
+        QtRocket::Test::smallPresetDatabase().listForType(Type::BODY_TUBE), preferences);
+    QLineEdit*   field  = makeChild<QLineEdit>(&dialog);
+    QPushButton* button = makeChild<QPushButton>(&dialog);
+
+    TableInDialog()
+    {
+        button->setDefault(true);
+        dialog.show();
+    }
+};
+
+TEST_F(ComponentPresetTableTest, EnterInTheTableDoesNotPressTheDefaultButton)
+{
+    // OpenRocket's JTable takes Enter, also without rows (a probe of its shown dialog under xvfb:
+    // Enter with a text no preset has leaves the dialog open); a text field passes it on to the
+    // dialog's default button.
+    const TableInDialog shown;
+    const QSignalSpy    clicked(shown.button, &QPushButton::clicked);
+    QTest::keyClick(shown.table, Qt::Key_Return);
+    EXPECT_EQ(clicked.count(), 0);
+    EXPECT_EQ(TableRowTraversal::selectedRow(*shown.table), 0);
+    shown.table->filterModel().setTextFilter(QStringLiteral("no preset has this text"));
+    ASSERT_EQ(shown.table->filterModel().rowCount(), 0);
+    QTest::keyClick(shown.table, Qt::Key_Return);
+    QTest::keyClick(shown.table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(clicked.count(), 0);
+    QTest::keyClick(shown.field, Qt::Key_Return);
+    EXPECT_EQ(clicked.count(), 1);
 }
 
 }  // namespace
