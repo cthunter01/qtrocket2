@@ -38,12 +38,16 @@
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/configdialog/RocketConfig.h"
 #include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
+#include "QtRocket/gui/dialogs/DeploymentSelectionDialog.h"
 #include "QtRocket/gui/dialogs/DetailDialog.h"
 #include "QtRocket/gui/dialogs/ErrorWarningDialog.h"
+#include "QtRocket/gui/dialogs/IgnitionSelectionDialog.h"
 #include "QtRocket/gui/dialogs/InternalErrorDialog.h"
 #include "QtRocket/gui/dialogs/MessageList.h"
 #include "QtRocket/gui/dialogs/OptionDialog.h"
+#include "QtRocket/gui/dialogs/RenameConfigDialog.h"
 #include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
+#include "QtRocket/gui/dialogs/SeparationSelectionDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -51,10 +55,13 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
+#include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
 #include "TestTempDir.h"
@@ -1321,34 +1328,215 @@ struct CountSaveAsDefault
     void operator()(QWidget* /*dialog*/, const QString& /*name*/) const { ++*count; }
 };
 
-TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
+/// @p answer's choice, or a test failure and a default choice when there is none. (A plain if is
+/// what clang-tidy's unchecked-optional-access check follows; it cannot see through ASSERT_TRUE.)
+template <class Choice>
+[[nodiscard]] Choice required(const std::optional<Choice>& answer)
 {
-    // Run 2 of Milestone 3 brings the value dialogs, the motor chooser and the parts library, run
-    // 3 the preferences' user files and the start-up's problems: until then every one of these
-    // gives its cancelling answer without a dialog (one would hang here: nothing answers it).
-    WidgetUserPrompts                prompts;
-    const Gui::Test::TestGuiServices services;
-    EXPECT_FALSE(
-        prompts.askIgnition(nullptr, {.configurationName = QStringLiteral("[B4-4]"), .initial = {}})
-            .has_value());
-    EXPECT_FALSE(prompts
-                     .askDeployment(nullptr, {.configurationName = QStringLiteral("[B4-4]"),
+    if (!answer.has_value())
+    {
+        ADD_FAILURE() << "no answer";
+        return {};
+    }
+    return *answer;
+}
+
+/// Checks that the modal dialog is a @p Dialog parented to @p parent, then
+/// clicks its OK.
+template <class Dialog>
+struct ExpectDialogAndOk
+{
+    const QWidget* parent;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<Dialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        EXPECT_EQ(dialog->parentWidget(), parent);
+        dialog->okButton().click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, AskIgnitionIsOpenRocketsIgnitionSelectionDialog)
+{
+    // OK answers what the dialog started with: the request's radio button, event
+    // and delay.
+    WidgetUserPrompts                 prompts;
+    QWidget                           parent;
+    const UserPrompts::IgnitionChoice initial{
+        .scope = UserPrompts::ConfigurationScope::THIS_CONFIGURATION,
+        .event = IgnitionEvent::BURNOUT,
+        .delay = 1.5};
+    const Gui::Test::NextModalDialog ok(
+        ExpectDialogAndOk<IgnitionSelectionDialog>{.parent = &parent});
+    const UserPrompts::IgnitionChoice answer = required(prompts.askIgnition(
+        &parent, {.configurationName = QStringLiteral("[B4-4]"), .initial = initial}));
+    EXPECT_EQ(answer.scope, initial.scope);
+    EXPECT_EQ(answer.event, initial.event);
+    EXPECT_EQ(answer.delay, initial.delay);
+}
+
+TEST_F(WidgetUserPromptsTest, AskDeploymentIsOpenRocketsDeploymentSelectionDialog)
+{
+    WidgetUserPrompts       prompts;
+    QWidget                 parent;
+    DeploymentConfiguration deployment;
+    deployment.setDeployEvent(DeploymentConfiguration::DeployEvent::ALTITUDE);
+    deployment.setDeployAltitude(150);
+    deployment.setDeployDelay(2);
+    const Gui::Test::NextModalDialog ok(
+        ExpectDialogAndOk<DeploymentSelectionDialog>{.parent = &parent});
+    const UserPrompts::DeploymentChoice answer = required(prompts.askDeployment(
+        &parent, {.configurationName = QStringLiteral("[B4-4]"),
+                  .initial     = {.scope      = UserPrompts::ConfigurationScope::ALL_CONFIGURATIONS,
+                                  .deployment = deployment},
+                  .bottomStage = false}));
+    EXPECT_EQ(answer.scope, UserPrompts::ConfigurationScope::ALL_CONFIGURATIONS);
+    EXPECT_EQ(answer.deployment, deployment);
+}
+
+TEST_F(WidgetUserPromptsTest, AskSeparationIsOpenRocketsSeparationSelectionDialog)
+{
+    WidgetUserPrompts            prompts;
+    QWidget                      parent;
+    StageSeparationConfiguration separation;
+    separation.setSeparationEvent(
+        StageSeparationConfiguration::SeparationEvent::ALTITUDE_ASCENDING);
+    separation.setSeparationAltitude(300);
+    separation.setSeparationDelay(0.5);
+    const Gui::Test::NextModalDialog ok(
+        ExpectDialogAndOk<SeparationSelectionDialog>{.parent = &parent});
+    const UserPrompts::SeparationChoice answer = required(prompts.askSeparation(
+        &parent, {.configurationName = QStringLiteral("[H148R-0; H148R-0]"),
+                  .initial = {.scope      = UserPrompts::ConfigurationScope::THIS_CONFIGURATION,
+                              .separation = separation}}));
+    EXPECT_EQ(answer.scope, UserPrompts::ConfigurationScope::THIS_CONFIGURATION);
+    EXPECT_EQ(answer.separation.getSeparationEvent(), separation.getSeparationEvent());
+    EXPECT_EQ(answer.separation.getSeparationAltitude(), 300.0);
+    EXPECT_EQ(answer.separation.getSeparationDelay(), 0.5);
+}
+
+/// Checks that the modal dialog is a RenameConfigDialog parented to @p parent,
+/// then clicks "Save as default" and OK.
+struct SaveAsDefaultThenOk
+{
+    const QWidget* parent;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<RenameConfigDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        EXPECT_EQ(dialog->parentWidget(), parent);
+        dialog->saveAsDefaultButton().click();
+        dialog->okButton().click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, AskRenameConfigurationIsOpenRocketsRenameConfigDialog)
+{
+    WidgetUserPrompts                            prompts;
+    QWidget                                      parent;
+    int                                          savedAsDefault = 0;
+    const Gui::Test::NextModalDialog             answering(SaveAsDefaultThenOk{.parent = &parent});
+    const UserPrompts::RenameConfigurationAnswer answer = prompts.askRenameConfiguration(
+        &parent, {.name          = QStringLiteral("[{motors}]"),
+                  .saveAsDefault = CountSaveAsDefault{.count = &savedAsDefault}});
+    EXPECT_EQ(answer.action, UserPrompts::RenameAction::RENAME);
+    EXPECT_EQ(answer.name, QStringLiteral("[{motors}]"));
+    EXPECT_EQ(savedAsDefault, 1);
+}
+
+TEST_F(WidgetUserPromptsTest, AValueQuestionWhoseParentIsDestroyedAnswersNothing)
+{
+    // The tab's window can go while its question is open (another window's event,
+    // a timer): each dialog is made for its question (ModalDialog). Proved under
+    // ASan.
+    WidgetUserPrompts prompts;
+    auto              parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_FALSE(prompts
+                         .askIgnition(parent.get(), {.configurationName = QStringLiteral("[B4-4]"),
+                                                     .initial           = {}})
+                         .has_value());
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_FALSE(
+            prompts
+                .askDeployment(parent.get(), {.configurationName = QStringLiteral("[B4-4]"),
                                               .initial           = {},
                                               .bottomStage       = true})
-                     .has_value());
-    EXPECT_FALSE(
-        prompts
-            .askSeparation(nullptr, {.configurationName = QStringLiteral("[B4-4]"), .initial = {}})
-            .has_value());
-    int savedAsDefault = 0;
-    EXPECT_EQ(prompts
-                  .askRenameConfiguration(
-                      nullptr, {.name          = QStringLiteral("[{motors}]"),
-                                .saveAsDefault = CountSaveAsDefault{.count = &savedAsDefault}})
-                  .action,
-              UserPrompts::RenameAction::CANCEL);
-    EXPECT_EQ(savedAsDefault, 0);
-    const InnerTube mount;
+                .has_value());
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_FALSE(
+            prompts
+                .askSeparation(parent.get(),
+                               {.configurationName = QStringLiteral("[B4-4]"), .initial = {}})
+                .has_value());
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        int                              savedAsDefault = 0;
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(
+            prompts
+                .askRenameConfiguration(
+                    parent.get(), {.name          = QStringLiteral("[{motors}]"),
+                                   .saveAsDefault = CountSaveAsDefault{.count = &savedAsDefault}})
+                .action,
+            UserPrompts::RenameAction::CANCEL);
+        EXPECT_EQ(savedAsDefault, 0);
+    }
+    EXPECT_EQ(parent, nullptr);
+}
+
+/// A rename's "Save as default" that destroys the parent of the dialog, and so
+/// the dialog (as a window closed during the message it shows would).
+struct DestroyParentOnSaveAsDefault
+{
+    std::unique_ptr<QWidget>* parent;
+
+    void operator()(QWidget* /*dialog*/, const QString& /*name*/) const { parent->reset(); }
+};
+
+/// Clicks "Save as default" of the rename dialog.
+struct ClickSaveAsDefault
+{
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<RenameConfigDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        dialog->saveAsDefaultButton().click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, ASaveAsDefaultThatTakesTheDialogAlongCancelsTheRename)
+{
+    // The dialog goes inside its own button's click (proved under ASan).
+    WidgetUserPrompts                            prompts;
+    auto                                         parent = std::make_unique<QWidget>();
+    const Gui::Test::NextModalDialog             click(ClickSaveAsDefault{});
+    const UserPrompts::RenameConfigurationAnswer answer = prompts.askRenameConfiguration(
+        parent.get(), {.name          = QStringLiteral("[{motors}]"),
+                       .saveAsDefault = DestroyParentOnSaveAsDefault{.parent = &parent}});
+    EXPECT_EQ(answer.action, UserPrompts::RenameAction::CANCEL);
+    EXPECT_EQ(parent, nullptr);
+}
+
+TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
+{
+    // Run 2 of Milestone 3 brings the motor chooser and the parts library, run 3
+    // the preferences' user files and the start-up's problems: until then every
+    // one of these gives its cancelling answer without a dialog (one would hang
+    // here: nothing answers it).
+    WidgetUserPrompts                prompts;
+    const Gui::Test::TestGuiServices services;
+    const InnerTube                  mount;
     EXPECT_FALSE(prompts
                      .chooseMotor(nullptr, services.services(), mount,
                                   FlightConfigurationId::defaultValueId())

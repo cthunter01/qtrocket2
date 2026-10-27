@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -17,6 +18,8 @@
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/dialogs/PreferencesDialog.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurationEditing.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
@@ -71,6 +74,26 @@ public:
 private:
     Action m_action;
 };
+
+/// Puts the "Motors & Configuration" tab (FlightConfigurationPanel) into @p window and connects
+/// it as BasicFrame's: its columns select in the design's selection (the tree's, which
+/// @p designPanel holds; BasicFrame.setSelectedComponents()), the configuration dialog closes
+/// before each of its operations that adds an undo step (its Cancel undoes once), and "Save as
+/// default" pins the configuration names of the designs of @p documents (every open window's).
+void installFlightConfigurationPanel(MainWindow& window, const DesignPanel& designPanel,
+                                     const GuiServices&                        services,
+                                     FlightConfigurationEditing::OpenDocuments documents)
+{
+    auto* panel = makeChild<FlightConfigurationPanel>(&window, window.document(), services);
+    panel->setDesignSelection(&designPanel.selection());
+    FlightConfigurationEditing& editing = panel->editing();
+    editing.setOpenDocuments(std::move(documents));
+    // Before the operation's undo position: a direct connection.
+    QObject::connect(&editing, &FlightConfigurationEditing::closeConfigDialogRequested, &window,
+                     guarded([&window] { window.requestConfigDialogClose(); },
+                             QStringLiteral("Motors & Configuration")));
+    window.setFlightConfigurationPanel(panel);
+}
 
 /// Puts the design view (RocketPanel) into @p window, below its tabs, and connects it to the
 /// window's @p designPanel as BasicFrame does (rocketpanel.setSelectionModel(tree's), the popup
@@ -252,6 +275,17 @@ void WindowManager::setSaveHook(SaveHook hook)
     m_saveHook = std::move(hook);
 }
 
+std::vector<OpenRocketDocument*> WindowManager::documents() const
+{
+    std::vector<OpenRocketDocument*> result;
+    result.reserve(m_entries.size());
+    for (const std::unique_ptr<Entry>& entry : m_entries)
+    {
+        result.push_back(entry->document.get());
+    }
+    return result;
+}
+
 std::vector<MainWindow*> WindowManager::windows() const
 {
     std::vector<MainWindow*> result;
@@ -293,6 +327,10 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     auto* designPanel = makeChild<DesignPanel>(&window, window, *m_clipboard);
     window.setDesignPanel(designPanel);
     designPanel->takeTheSpotlight();
+    // BasicFrame's FlightConfigurationPanel, made after the design panel and before the rocket
+    // panel, as BasicFrame makes them (the order in which they listen to the rocket).
+    installFlightConfigurationPanel(window, *designPanel, m_services,
+                                    [this] { return documents(); });
     // BasicFrame's RocketPanel, sharing the tree's selection.
     installRocketPanel(window, *designPanel, m_services.preferences());
     // BasicFrame.positionRelativeToExistingFrames(), after the remembered geometry.

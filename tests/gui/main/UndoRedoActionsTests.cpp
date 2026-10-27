@@ -22,10 +22,8 @@
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/file/motor/GeneralMotorLoader.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
-#include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/MassComponent.h"
@@ -38,6 +36,7 @@
 #include "RecordingGuardHook.h"
 #include "TestPaths.h"
 #include "file/DesignFileEnvironment.h"
+#include "motor/TestMotorDatabase.h"
 #include "simulation/SimulationRunSupport.h"
 
 namespace QtRocket::Gui
@@ -235,36 +234,6 @@ TEST_F(UndoRedoActionsTest, AReportNotDeliveredLeavesTheNextOneToBeReported)
     EXPECT_EQ(hook.failures().size(), 1U);
 }
 
-/// IntegrationTest's motor database (MotorDbProvider): the one motor of
-/// tests/data/motors/Estes_A8.rse (IntegrationTest.readMotor()), empty with a test failure when
-/// the file cannot be read.
-[[nodiscard]] ThrustCurveMotorSetDatabase oneMotorDatabase()
-{
-    ThrustCurveMotorSetDatabase          database;
-    const Result<std::vector<std::byte>> bytes =
-        readFile(QtRocket::Test::testDataDir() / "motors" / "Estes_A8.rse");
-    if (!bytes)
-    {
-        ADD_FAILURE() << "Problem in unit test, cannot find Estes_A8.rse";
-        return database;
-    }
-    const Result<std::vector<ThrustCurveMotor::Builder>> motors =
-        GeneralMotorLoader().load(*bytes, "Estes_A8.rse");
-    if (!motors || motors->empty())
-    {
-        ADD_FAILURE() << "Could not load motor";
-        return database;
-    }
-    Result<ThrustCurveMotor> motor = motors->front().build();
-    if (!motor)
-    {
-        ADD_FAILURE() << motor.error().toString();
-        return database;
-    }
-    database.addMotor(std::make_shared<const ThrustCurveMotor>(std::move(*motor)));
-    return database;
-}
-
 /// The GUI half of swing's IntegrationTest (its core half is
 /// tests/core/file/openrocket/integration_tests.cpp, with the same set-up): the design
 /// simplerocket.ork, loaded as the core half loads it (the motor database of its one motor, no
@@ -330,8 +299,9 @@ protected:
         EXPECT_EQ(m_actions->redoAction()->isEnabled(), redoDescription.has_value());
     }
 
-    // The motors and the preference store of the environment outlive the document.
-    ThrustCurveMotorSetDatabase           m_motors = oneMotorDatabase();
+    // The motors and the preference store of the environment outlive the document:
+    // IntegrationTest's motor database (MotorDbProvider), the one motor of Estes_A8.rse.
+    ThrustCurveMotorSetDatabase           m_motors = QtRocket::Test::estesA8Database();
     QtRocket::Test::DesignFileEnvironment m_environment{
         QtRocket::Test::DesignFileEnvironment::Presets::NONE, m_motors};
     std::unique_ptr<OpenRocketDocument> m_document;

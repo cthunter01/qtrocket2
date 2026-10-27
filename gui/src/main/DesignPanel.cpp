@@ -198,6 +198,9 @@ void DesignPanel::connectRequests()
                     context()));
     connect(m_actions, &RocketActions::closeConfigDialogRequested, this,
             guarded([this] { m_window->requestConfigDialogClose(); }, context()));
+    // Cut, Copy, Paste, Duplicate and Delete show the design tab (parentFrame.selectTab()).
+    connect(m_actions, &RocketActions::designTabRequested, this,
+            guarded([this] { m_window->selectTab(MainWindow::kDesignTab); }, context()));
     connect(m_addButtons, &ComponentAddButtons::addedComponentEditRequested, this,
             guarded(
                 [this](RocketComponent* component) {

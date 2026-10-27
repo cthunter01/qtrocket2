@@ -41,6 +41,12 @@ namespace QtRocket::Gui
 /// value and the enabled state, re-reads them once per event of the rocket and tells its
 /// listeners when they or the displayed values changed.
 ///
+/// A binding without a selection holds a value of its own (Java: an EnumModel of an object that is
+/// no component: the flight configuration dialogs' event combo boxes edit the mount's motor
+/// configuration or a copy of a deployment or separation configuration): it is always valid and
+/// enabled, and select() changes that value and tells the listeners (dropped while they are told,
+/// as every widget write is).
+///
 /// Deviations from OpenRocket:
 /// - Java's EnumModel reads its source once, when it is made: it is not a listener of it and its
 ///   combo shows a value changed elsewhere only after its own setSelectedItem(). Here the binding
@@ -76,11 +82,20 @@ public:
         {
             bug("A binding of a property needs a component selection");
         }
-        if (!m_source.isWritable())
+        if (!m_source->isWritable())
         {
             bug("An enum combo box needs a setter (Java: EnumModel requires set<Name>)");
         }
         readState();
+    }
+
+    /// A binding of its own value @p value (see the class comment), offering @p values.
+    EnumBinding(E value, std::span<const E> values)
+      : Binding(nullptr),
+        m_values(values.begin(), values.end()),
+        m_displayed(m_values),
+        m_value(value)
+    {
     }
 
     ~EnumBinding() override                    = default;
@@ -89,28 +104,37 @@ public:
     EnumBinding(EnumBinding&&)                 = delete;
     EnumBinding& operator=(EnumBinding&&)      = delete;
 
-    /// The cached value of the main component (Java: getSelectedItem()); once the selection is
-    /// invalid, the last value read.
+    /// The cached value of the main component (Java: getSelectedItem()), or the binding's own
+    /// value; once the selection is invalid, the last value read.
     [[nodiscard]] E value() const noexcept { return m_value; }
 
     /// The combo box's write (Java: setSelectedItem()): sets @p value on every selected
-    /// component, see the class comment. False, with nothing set, when it is value(), while
-    /// firing and once the selection is invalid.
+    /// component, or as the binding's own value, see the class comment. False, with nothing set,
+    /// when it is value(), while firing and once the selection is invalid.
     bool select(E value)
     {
         if (!isWidgetWriteAllowed() || value == m_value)
         {
             return false;
         }
+        if (!m_source.has_value())
+        {
+            // A binding of its own value (Java: EnumModel.setSelectedItem() sets the object's
+            // property and fires).
+            m_value = value;
+            fireChanged();
+            return true;
+        }
+        const EnumSource<E>& source = *m_source;
         // The selection's event (or its own refresh) updates the cache and tells the listeners,
         // one of which may drop the last owner of this binding.
         const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-        m_source.set(*getSelection(), value);
+        source.set(*getSelection(), value);
         return true;
     }
 
     /// Whether the combo box can be used: the source's isEnabled of the main component (true
-    /// without one); false once the selection is invalid.
+    /// without one, and for a binding of its own value); false once the selection is invalid.
     [[nodiscard]] bool isEnabled() const noexcept { return isValid() && m_enabled; }
 
     /// The values given, hidden ones included (Java: values).
@@ -171,9 +195,14 @@ protected:
     // NOLINTNEXTLINE(portability-template-virtual-member-function): valid for every E
     bool readState() override
     {
+        if (!m_source.has_value())
+        {
+            return false;  // a binding of its own value has no selection to read
+        }
+        const EnumSource<E>&      source    = *m_source;
         const ComponentSelection& selection = *getSelection();
-        const E                   value     = m_source.getValue(selection);
-        const bool                enabled   = m_source.isEnabled(selection);
+        const E                   value     = source.getValue(selection);
+        const bool                enabled   = source.isEnabled(selection);
         const bool                changed   = value != m_value || enabled != m_enabled;
         m_value                             = value;
         m_enabled                           = enabled;
@@ -181,11 +210,12 @@ protected:
     }
 
 private:
-    EnumSource<E>  m_source;
-    std::vector<E> m_values;
-    std::vector<E> m_displayed;
-    E              m_value{};
-    bool           m_enabled{true};
+    /// nullopt for a binding of its own value.
+    std::optional<EnumSource<E>> m_source;
+    std::vector<E>               m_values;
+    std::vector<E>               m_displayed;
+    E                            m_value{};
+    bool                         m_enabled{true};
 };
 
 }  // namespace QtRocket::Gui

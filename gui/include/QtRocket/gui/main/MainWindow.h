@@ -28,6 +28,7 @@ namespace QtRocket::Gui
 {
 
 class DesignPanel;
+class FlightConfigurationPanel;
 class MainMenus;
 class RocketPanel;
 class SplitPane;
@@ -35,14 +36,22 @@ class UndoRedoActions;
 class WindowGeometry;
 
 /// The window of one design (OpenRocket's BasicFrame): the menus, and a vertical splitter with
-/// the tabs above (in Milestone 2 only "Rocket design", the design panel of the component tree
-/// and the add buttons) and the rocket's figure below (the rocket panel). The document belongs to
-/// the WindowManager, which makes the window and destroys it before the document.
+/// the tabs above ("Rocket design", the design panel of the component tree and the add buttons,
+/// and "Motors & Configuration", the flight configuration panel; the simulations' tab comes with
+/// Milestone 4) and the rocket's figure below (the rocket panel). The document belongs to the
+/// WindowManager, which makes the window and destroys it before the document.
 ///
-/// - The design panel and the rocket panel are placeholders (empty widgets named designPanel and
-///   rocketPanel) until a panel takes their places through setDesignPanel() and
-///   setRocketPanel(): the WindowManager puts a DesignPanel and a RocketPanel into every window
-///   it opens.
+/// - The design panel, the flight configuration panel and the rocket panel are placeholders
+///   (empty widgets named designPanel, flightConfigurationPanel and rocketPanel) until a panel
+///   takes their places through setDesignPanel(), setFlightConfigurationPanel() and
+///   setRocketPanel(): the WindowManager puts a DesignPanel, a FlightConfigurationPanel and a
+///   RocketPanel into every window it opens.
+/// - When another tab becomes the current one (the user's click, selectTab()), its panel takes
+///   the spotlight (BasicFrame.stateChanged()): the design tab's DesignPanel gives the component
+///   tree the keyboard focus, the Motors & Configuration tab's FlightConfigurationPanel gives its
+///   current sub-tab's table the focus and makes the components of the table's selected columns
+///   the design's selection (FlightConfigurationPanel::takeTheSpotlight()). A placeholder takes
+///   nothing, and nothing happens while a panel takes a placeholder's place.
 /// - The title is BasicFrame.setTitle()'s: the rocket's name, then " (<file name>)" when the
 ///   document has a file, marked modified (the "*" of BasicFrame, "[*]" in Qt's title) when the
 ///   document is not saved. It is renewed whenever the document changes (every rocket event comes
@@ -66,7 +75,10 @@ class WindowGeometry;
 ///
 /// Deviations: an "[*]" in the rocket's name is shown with a zero-width space after the "*"
 /// ("[*\u200B]"), since Qt takes every "[*]" of a title for the place of the modified mark; the
-/// splitter's sides cannot be collapsed (JSplitPane keeps their minimum sizes too).
+/// splitter's sides cannot be collapsed (JSplitPane keeps their minimum sizes too); the tab
+/// "Motors & Configuration" has its "&" doubled in Qt's text (tabText() is "Motors &&
+/// Configuration"), since Qt reads an "&" as the mark of a mnemonic, where Swing shows the text
+/// as it is.
 class MainWindow final : public QMainWindow
 {
     Q_OBJECT
@@ -76,6 +88,10 @@ public:
     static constexpr double kDividerLocation = 0.4;
     /// JSplitPane.setResizeWeight(0.5) of the splitter: the top side's part of a change.
     static constexpr double kResizeWeight = 0.5;
+    /// The tabs' indexes (BasicFrame.DESIGN_TAB and FLIGHT_CONFIGURATION_TAB; SIMULATION_TAB
+    /// comes with Milestone 4).
+    static constexpr int kDesignTab              = 0;
+    static constexpr int kFlightConfigurationTab = 1;
 
     /// The window of @p document, which must outlive it, with the application's @p services
     /// (whose objects outlive it too).
@@ -86,7 +102,8 @@ public:
     [[nodiscard]] MainMenus&          menus() const noexcept { return *m_menus; }
     [[nodiscard]] UndoRedoActions&    undoRedoActions() const noexcept { return *m_undoRedo; }
 
-    /// The tabs ("tabbedPane"): only "Rocket design" in Milestone 2.
+    /// The tabs ("tabbedPane"): "Rocket design" (kDesignTab) and "Motors & Configuration"
+    /// (kFlightConfigurationTab).
     [[nodiscard]] QTabWidget* tabs() const noexcept { return m_tabs; }
     /// The vertical splitter ("splitPane", a SplitPane): the tabs and the rocket panel.
     [[nodiscard]] QSplitter* splitter() const noexcept;
@@ -95,18 +112,38 @@ public:
     /// The widget of the "Rocket design" tab when it is a DesignPanel (the WindowManager puts one
     /// into every window it opens); null otherwise.
     [[nodiscard]] DesignPanel* componentDesignPanel() const;
+    /// The widget of the "Motors & Configuration" tab.
+    [[nodiscard]] QWidget* flightConfigurationPanel() const noexcept
+    {
+        return m_flightConfigurationPanel;
+    }
+    /// The widget of the "Motors & Configuration" tab when it is a FlightConfigurationPanel (the
+    /// WindowManager puts one into every window it opens); null otherwise.
+    [[nodiscard]] FlightConfigurationPanel* componentFlightConfigurationPanel() const;
     /// The widget below the tabs.
     [[nodiscard]] QWidget* rocketPanel() const noexcept { return m_rocketPanel; }
     /// The widget below the tabs when it is a RocketPanel (the WindowManager puts one into every
     /// window it opens); null otherwise.
     [[nodiscard]] RocketPanel* componentRocketPanel() const;
 
-    /// Puts @p panel (not null) into the "Rocket design" tab, which takes it over, in place of
-    /// the design panel there, which is deleted later.
+    /// Puts @p panel (not null, no tab's widget) into the "Rocket design" tab, which takes it
+    /// over, in place of the design panel there, which is deleted later. The current tab stays
+    /// the current one.
     void setDesignPanel(QWidget* panel);
+    /// Puts @p panel (not null, no tab's widget) into the "Motors & Configuration" tab in the
+    /// same way, in place of the flight configuration panel there.
+    void setFlightConfigurationPanel(QWidget* panel);
     /// Puts @p panel (not null) below the tabs, which takes it over, in place of the rocket
     /// panel there, which is deleted later.
     void setRocketPanel(QWidget* panel);
+
+    /// Makes the tab @p tab (kDesignTab, kFlightConfigurationTab) the current one
+    /// (BasicFrame.selectTab()); its panel takes the spotlight when it was not the current one
+    /// (see the class comment).
+    /// @throws BugError when @p tab is not a tab's index
+    void selectTab(int tab);
+    /// The index of the current tab (BasicFrame.getSelectedTab()).
+    [[nodiscard]] int selectedTab() const;
 
     /// Renews the title, the modified mark and the file path from the document.
     void refreshTitle();
@@ -153,6 +190,12 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    /// Puts @p panel into the tab of @p slot (m_designPanel or m_flightConfigurationPanel) in
+    /// place of its widget, which is deleted later; the current tab stays.
+    void replaceTab(QWidget*& slot, QWidget* panel);
+    /// The tab @p index became the current one (BasicFrame.stateChanged()).
+    void tabChanged(int index) const;
+
     OpenRocketDocument*                                  m_document;
     GuiServices                                          m_services;
     UndoRedoActions*                                     m_undoRedo;
@@ -160,9 +203,12 @@ private:
     SplitPane*                                           m_splitter;
     QTabWidget*                                          m_tabs;
     QWidget*                                             m_designPanel;
+    QWidget*                                             m_flightConfigurationPanel;
     QWidget*                                             m_rocketPanel;
     WindowGeometry*                                      m_geometry{nullptr};
     Signal<const DocumentChangeEvent&>::ScopedConnection m_documentChanged;
+    /// While a panel takes a placeholder's place (its tab's changes take no spotlight).
+    bool m_replacingTab{false};
 };
 
 }  // namespace QtRocket::Gui

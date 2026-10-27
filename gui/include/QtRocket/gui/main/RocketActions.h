@@ -57,6 +57,14 @@ class UserPrompts;
 /// Duplicate, Delete, Move up and Move down. Copy, Deselect all, the visibility actions and the
 /// stage action leave it open, as in Java.
 ///
+/// The window's tabs are the window's too: after Cut, Copy, Paste, Duplicate and Delete have done
+/// their work this object asks for the design tab (designTabRequested(): Java's
+/// parentFrame.selectTab(BasicFrame.DESIGN_TAB)), so that an edit made from the Edit menu while
+/// another tab is shown shows its result in the component tree. A Paste that fits nowhere asks for
+/// it too (Java's pasteComponents() goes on to its end then, selecting nothing); an operation
+/// whose rule says no, or that QtRocket's bounds refuse (ComponentEditing), asks for nothing, and
+/// the other actions leave the tab as it is, as Java's.
+///
 /// - Edit (EditAction): enabled when a component is selected; asks for the dialog of the first
 ///   selected component with the others (editRequested(first, true)).
 /// - Deselect all (DeselectAllAction): enabled when a component is selected; selects nothing.
@@ -108,8 +116,6 @@ class UserPrompts;
 /// - The popup's Disable/Enable item is taken out of the menu and put back
 ///   (prepareContextMenu()), where Java hides the JMenuItem: a hidden QAction would be disabled
 ///   too (Qt 6), and the action's state is its rule's.
-/// - The actions do not switch to the design tab (BasicFrame.selectTab(DESIGN_TAB)): Milestone
-///   2 has no other tab.
 /// - An action whose rule says no does nothing (Java's actions cannot be triggered then, and
 ///   QActions cannot either).
 class RocketActions final : public QObject
@@ -207,6 +213,10 @@ Q_SIGNALS:
     /// (ComponentConfigDialog.disposeDialog()): connect directly.
     void closeConfigDialogRequested();
 
+    /// Cut, Copy, Paste, Duplicate or Delete did its work: the window is to show its design tab
+    /// (BasicFrame.selectTab(DESIGN_TAB)).
+    void designTabRequested();
+
 private:
     /// Makes the actions this object owns.
     void createOwnActions();
@@ -220,8 +230,13 @@ private:
     /// Deselect all.
     void deselectAll();
     /// Runs @p operation of the editing (one of Cut, Paste, Duplicate, Delete, Move up, Move
-    /// down) when @p allowed, after asking for the configuration dialog to close.
-    void runClosingDialog(bool allowed, bool (ComponentEditing::*operation)());
+    /// down) when @p allowed, after asking for the configuration dialog to close; whether it did
+    /// its work (false when not allowed).
+    bool runClosingDialog(bool allowed, bool (ComponentEditing::*operation)());
+    /// Copy, then the design tab when it copied.
+    void copy();
+    /// Paste, then the design tab when it pasted or nothing fitted (see the class comment).
+    void paste();
     /// Hide/Show (ToggleVisibilityAction.actionPerformed()).
     void toggleVisibility();
     /// Show all.

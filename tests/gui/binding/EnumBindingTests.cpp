@@ -347,6 +347,66 @@ TEST_F(EnumBindingTest, AnUndoEndsTheBinding)
     EXPECT_EQ(changes.count(), 2);
 }
 
+// ------------------------------------------------------------------- a value of its own
+
+TEST_F(EnumBindingTest, AValueOfItsOwn)
+{
+    // The flight configuration dialogs' combo boxes (Java: an EnumModel of the dialog's copy of a
+    // configuration): no selection, always valid and enabled.
+    const auto mode = std::make_shared<EnumBinding<SampleMode>>(SampleMode::BETA, kAllSampleModes);
+    const ChangeCounter changes(*mode);
+    EXPECT_EQ(mode->getSelection(), nullptr);
+    EXPECT_TRUE(mode->isValid());
+    EXPECT_TRUE(mode->isEnabled());
+    EXPECT_EQ(mode->value(), SampleMode::BETA);
+    EXPECT_EQ(mode->size(), 3);
+    EXPECT_EQ(mode->indexOf(SampleMode::BETA), 1);
+
+    // setSelectedItem(): the value changes and the listeners hear of it; the value shown already
+    // changes nothing ("no duplicate writes").
+    EXPECT_TRUE(mode->select(SampleMode::GAMMA));
+    EXPECT_EQ(mode->value(), SampleMode::GAMMA);
+    EXPECT_EQ(changes.count(), 1);
+    EXPECT_FALSE(mode->select(SampleMode::GAMMA));
+    EXPECT_EQ(changes.count(), 1);
+}
+
+TEST_F(EnumBindingTest, AValueOfItsOwnHidesValuesAndKeepsAHiddenOne)
+{
+    // DeploymentSelectionDialog on the bottom stage: removeItem(LOWER_STAGE_SEPARATION), while a
+    // configuration that has it still shows it (by no index).
+    const auto mode = std::make_shared<EnumBinding<SampleMode>>(SampleMode::GAMMA, kAllSampleModes);
+    const ChangeCounter changes(*mode);
+    mode->removeElement(SampleMode::GAMMA);
+    EXPECT_EQ(changes.count(), 1);
+    EXPECT_EQ(mode->size(), 2);
+    EXPECT_EQ(mode->value(), SampleMode::GAMMA);
+    EXPECT_EQ(mode->indexOf(mode->value()), -1);
+    EXPECT_TRUE(mode->select(SampleMode::ALPHA));
+    EXPECT_EQ(mode->indexOf(mode->value()), 0);
+    EXPECT_EQ(changes.count(), 2);
+}
+
+/// Tries the combo box's write of @p binding from its change listener, into @p write, choosing
+/// @p mode.
+[[nodiscard]] Signal<>::ScopedConnection tryWriteWhileFiring(EnumBinding<SampleMode>& binding,
+                                                             FiringWrite& write, SampleMode mode)
+{
+    return Signal<>::ScopedConnection(binding.addChangeListener(
+        [&binding, &write, mode] { write.selected = binding.select(mode); }));
+}
+
+TEST_F(EnumBindingTest, AValueOfItsOwnDropsTheComboBoxWriteWhileFiring)
+{
+    const auto mode = std::make_shared<EnumBinding<SampleMode>>(SampleMode::ALPHA, kAllSampleModes);
+    FiringWrite                      write;
+    const Signal<>::ScopedConnection connection =
+        tryWriteWhileFiring(*mode, write, SampleMode::BETA);
+    EXPECT_TRUE(mode->select(SampleMode::GAMMA));
+    EXPECT_EQ(write.selected, false);
+    EXPECT_EQ(mode->value(), SampleMode::GAMMA);
+}
+
 TEST_F(EnumBindingTest, RefusesAMissingSelectionOrSetter)
 {
     const MassRocket rocket;

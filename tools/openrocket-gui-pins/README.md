@@ -19,6 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
+| `flight-config` | `tests/gui/flightconfig/FlightConfigurationTablePins.h`, `tests/gui/flightconfig/FlightConfigurationOperationPins.h` | `FlightConfigurationTablesProbe`, `FlightConfigurationOperationsProbe` | `gen_flight_configuration_table_pins.py`, `gen_flight_configuration_operation_pins.py` | `flight_configuration_tables_golden_tests.cpp`, `flight_configuration_operations_golden_tests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -28,14 +29,15 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 ## What the probes pin
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
-(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`) bind
-`SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply FlatLaf Light, as the
-application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and back); `scale-figure`
-binds `SwingPreferences` without a theme; the two material probes keep `ServicesForTesting`'s preferences, the
-four component probes swing's. All but the material, component and `preferences` probes load OpenRocket's
-motor database and no component presets. `figure-paint`, `rocket-info`, `ribbon` and `rocket-panel` settle a
-design they load from `data/examples` or build with `TestRockets` as the golden harness settles it (a copy of
-`tools/openrocket-goldens`' `AutomaticDimensions`). Every double is printed exactly (`Double.toHexString` or
+(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
+`flight-config`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply
+FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and
+back); `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
+`ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component
+and `preferences` probes load OpenRocket's motor database and no component presets. `figure-paint`,
+`rocket-info`, `ribbon` and `rocket-panel` settle a design they load from `data/examples` or build with
+`TestRockets` as the golden harness settles it (a copy of `tools/openrocket-goldens`'
+`AutomaticDimensions`). Every double is printed exactly (`Double.toHexString` or
 Java 17's `Double.toString`).
 
 - `figure-paint`: OpenRocket's `RocketFigure` painted headless, as `RocketPanel.create2DPreviewFigure()`
@@ -101,6 +103,42 @@ Java 17's `Double.toString`).
   is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
   `-Djava.awt.headless=false`; no window is shown. The test builds each list from the keys, so it does not
   depend on QtRocket's port of the comparator.
+- `flight-config`: the tables of the "Motors & Configuration" tab over the 16 examples (as loaded, not
+  settled) and the 13 test rockets, as OpenRocket's own code makes them (`FlightConfigurationTablesProbe`, a
+  generalisation of the M3 config-tab scout's `NamesProbe`, which copied the renderers' code): the
+  `FlightConfigurableTableModel` subclasses the three panels make in `initializeTable()` (taken from the
+  panels' compiled anonymous classes) and `MotorMountTableModel` (package-private, by reflection), every cell
+  rendered by the panel's own cell renderer (`MotorTableCellRenderer`, `RecoveryTableCellRenderer`,
+  `SeparationTableCellRenderer`: inner classes, whose outer panel is allocated without its constructor, with
+  the rocket, the translator and the `RocketDescriptor` its renderers read) into a `JTable`, not selected and
+  without focus. It prints the rows (the configuration ids, raw names and overrides), every header, every
+  cell's texts and style (plain or italic, `TEXT` or `TEXT_DIM`) with the flags the shading follows
+  (`hasIgnitionOverride()`, `isDefault()`, `containsId()`), the motor-mount rows, and column 0 of the last
+  row after `setName()` with 14 raw names. Each test rocket is built twice, from two seeds, to tell the ids
+  its maker draws (compared by row) from the ones it sets. Part 1 of the family (run 2, part F2).
+  Part 2 (run 2, part F3), `FlightConfigurationOperationsProbe` (a generalisation of the M3 config-tab
+  scout's `TabProbe`): the tab's operations run by OpenRocket's real `FlightConfigurationPanel` and its three
+  sub-panels in a frame on a virtual display, with a `BasicFrame` allocated without its constructor (its
+  document, rocket and selection model set, and registered in `BasicFrame`'s list of frames); it needs a
+  display (the dialogs are modal `JDialog`s), so it runs under `xvfb-run` with `-Djava.awt.headless=false`,
+  and shows no window on a desktop. Ten scenarios over "A simple model rocket", "Two stage high power rocket"
+  and a new design: cells selected (`JTable.changeSelection()`), sub-tabs switched, every operation of the
+  tab called (the panels' private methods, by reflection; New, Rename, Delete and Duplicate through their
+  actions) with each modal dialog answered from a watcher thread inside its modal loop (the value dialogs
+  through their radio buttons, combo boxes, spinners and buttons; the motor chooser through its private
+  `select()` and its delay field, as `TabProbe` did; the rename dialog and the message of "Save as default"
+  through their buttons), multi-cell edits, undo and redo, the motor mount check box and a few design edits.
+  After every step it prints the cells the operation acted on, each dialog's first state and its answer, the
+  rocket's change events (with their origin: a sub-panel's operation, one of the three of
+  `configurationChanged()`, the core), the configurations and simulations, every mount's, recovery device's
+  and stage's values per configuration, the three tables and the undo history. Two EDITS of OpenRocket, for
+  QtRocket's fixes of its bugs 5 and 6 (plan 10.3), keep the undo histories comparable: the probe adds the
+  undo positions of New, Duplicate and the motor mount check box ("New Configuration", "Duplicate
+  Configuration", "Modify motor mount") that QtRocket adds, and gives the mounts back the default ignitions
+  QtRocket's undo history keeps (OpenRocket's copies of the rocket lose them) after an undo or a redo. The
+  generator turns each run of three `configurationChanged()` events into one, as QtRocket fires one; the test
+  applies QtRocket's other fixes (bugs 1 to 4) to the few steps where they show, each the last of its
+  scenario.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -138,7 +176,7 @@ Requirements:
 - OpenRocket's classes built from that checkout: the script reads `build.version` from core's
   `build.properties` on the class path (`<version>-SNAPSHOT-<short commit>`, stamped by OpenRocket's build)
   and refuses classes of another commit (`ALLOW_OTHER_COMMIT=1` overrides).
-- `python3`, `clang-format` and, for `rocket-panel` and `thrust-curves`, `xvfb-run`.
+- `python3`, `clang-format` and, for `rocket-panel`, `thrust-curves` and `flight-config`, `xvfb-run`.
 
 ```sh
 OPENROCKET_DIR=/path/to/openrocket OPENROCKET_CLASSPATH=... tools/openrocket-gui-pins/generate.sh        # every family
@@ -167,8 +205,8 @@ The generator writes the table into the work directory (a spliced test file into
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
 byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
 when a table differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`,
-`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All twelve families take about a
-minute.
+`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All thirteen families take about
+a minute.
 
 The tables in test code: `scale-figure` replaces the rows of `kFigureRows` (a "clang-format off" block),
 `material-binding` the bodies of `kBulkRows`, `kBulkGroups`, `kLineRows`, `kLineGroups`, `kSurfaceRows` and
@@ -223,7 +261,13 @@ The other nine families of Milestone 2 print nothing such a map orders, and thei
 printed the same transcript in two unseeded runs and in four runs seeded with different keys (2026-10-23),
 where the two seeded probes print another transcript for every other key. The families of Milestone 3 seed
 their probes whatever they print (the rule since then): `thrust-curves` builds no design and prints nothing
-a hash map orders, and installs `DeterministicUuids` in `bootstrap()` all the same.
+a hash map orders, and installs `DeterministicUuids` in `bootstrap()` all the same. `flight-config`
+reseeds from the scenario's name before each design, and builds each test rocket a second time, from the
+key `"<scenario>#drawn"`, first; its operations probe reseeds before each scenario's design too (the new
+configurations' ids, which the transcript names only by their row). The operations probe answers its dialogs
+from a watcher thread, but what it prints does not depend on when the thread runs: each answer runs on the
+event dispatch thread inside the dialog's modal loop, and the transcript holds no time. Two runs gave the
+same transcript.
 
 ## History
 
@@ -246,6 +290,12 @@ every motor set of the bundled database. The run's fixer had its generator write
 `std::array` of a stated size instead of through `std::to_array` (the repository's other tables of hundreds
 of rows are written so; MSVC had never evaluated a `std::to_array` of over a thousand rows), the rows
 unchanged.
+
+Run 2 added `flight-config` (part F2, from the M3 config-tab scout's `NamesProbe`, run on OpenRocket's own
+table models and renderers instead of copies of their code, its output tab-separated, as the names hold
+" | "), and its part 2 (part F3, from the scout's `TabProbe`: its scenarios split so that a step where
+QtRocket's fix of an OpenRocket bug shows ends its scenario, the dialogs' answers read back from the dialogs,
+the events' origins, the bug 5 and bug 6 EDITS, and the whole state after every step).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,
