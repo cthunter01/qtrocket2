@@ -19,7 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
-| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp` |
+| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -110,8 +110,13 @@ Java 17's `Double.toString`).
   `PresetModelProbe` runs `PresetModel` (the preset combo box's model) over the presets of
   `TestPresetDatabase.h`'s `smallPresetDatabase()` (the three files generate.sh passes, in its order) with
   `SwingPreferences` for the favourites: its items, its selected item, and the events, presets and undo history
-  of `setSelectedItem()` for one body tube and for two (the second a config listener). `PresetGuiProbe` runs both;
-  the tests pin its whole transcript by hand.
+  of `setSelectedItem()` for one body tube and for two (the second a config listener). `PresetComboProbe` puts
+  a `JComboBox` on a recording model with `PresetModel`'s items (the probe's favourites): the item it shows as
+  selected, the text its renderer gives, and which choices reach the model (`JComboBox` drops one that `equals()`
+  its selected item, also a copy of the preset). `TableRowTraversalProbe` runs `TableRowTraversalPolicy`'s four
+  actions beyond its JUnit test (no selection, several rows, no rows, one row, a table of single rows, a laid-out
+  table of 100 rows, an empty filtered table) and prints the key bindings and focus traversal keys of a table
+  with the policy. `PresetGuiProbe` runs the four; the tests pin its whole transcript by hand.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -206,8 +211,9 @@ lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-
 `out.txt` in the Milestone 2 handoff).
 
 `PresetGuiProbe` (`preset-chooser`) has no table yet: the tests pin its whole transcript by hand
-(`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part), and
-its `hand-pinned.txt` keeps all of it.
+(`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part,
+`PresetComboBoxTests.cpp` the `PresetComboProbe` part, `TableRowTraversalTests.cpp` the `TableRowTraversalProbe`
+part), and its `hand-pinned.txt` keeps all of it.
 
 ## Reproducibility
 

@@ -26,10 +26,10 @@
 
 #include "BindingTestSupport.h"
 #include "GuiTestSupport.h"
+#include "PresetTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
-#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/NoseCone.h"
@@ -41,7 +41,6 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Signal.h"
-#include "rocket/preset/TestPresetDatabase.h"
 
 namespace QtRocket::Gui
 {
@@ -51,6 +50,8 @@ namespace
 
 using PresetBindingTest = Test::GuiTest;
 using Test::ChangeCounter;
+using Test::PresetDesign;
+using Test::PresetServices;
 using Test::RocketEventRecorder;
 using PresetPtr = PresetBinding::PresetPtr;
 
@@ -64,48 +65,6 @@ constexpr std::string_view kUsePresetBodyTube = "Use Preset Body Tube";
 constexpr std::array<std::string_view, 12> kTubes{
     "Estes|30615", "Estes|31360", "Estes|31361", "Estes|31380", "Estes|31390", "Estes|31751",
     "Estes|31799", "Estes|85865", "Estes|85866", "Estes|85867", "Estes|85868", "Estes|BT-20",
-};
-
-/// A new design (OpenRocketDocumentFactory::createNewRocket()) whose stage holds the default body
-/// tubes "A" and "B", with an empty undo history, as the probe's Design.
-struct PresetDesign
-{
-    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
-    BodyTube*                           a{nullptr};
-    BodyTube*                           b{nullptr};
-
-    PresetDesign()
-    {
-        RocketComponent& stage = document->getRocket().getChild(0);
-        a                      = &stage.addChild(std::make_unique<BodyTube>());
-        b                      = &stage.addChild(std::make_unique<BodyTube>());
-        a->setName("A");
-        b->setName("B");
-        document->clearUndo();
-    }
-
-    /// The tube @p index of the stage now (an undo replaces every component object).
-    [[nodiscard]] const BodyTube& tube(std::size_t index) const
-    {
-        return dynamic_cast<const BodyTube&>(document->getRocket().getChild(0).getChild(index));
-    }
-};
-
-/// The presets and favourites of the tests: smallPresetDatabase() and an in-memory store.
-struct PresetServices
-{
-    ComponentPresetDatabase presets = QtRocket::Test::smallPresetDatabase();
-    InMemoryPreferences     preferences;
-    std::vector<PresetPtr>  tubes = presets.listForType(ComponentPresetType::BODY_TUBE);
-
-    /// The probe's favourites: the eighth and the third tube.
-    void tickFavorites()
-    {
-        ComponentPresetFavorites::setFavorite(preferences, *tubes.at(7),
-                                              ComponentPresetType::BODY_TUBE, true);
-        ComponentPresetFavorites::setFavorite(preferences, *tubes.at(2),
-                                              ComponentPresetType::BODY_TUBE, true);
-    }
 };
 
 /// "<manufacturer> <part number> OR <outer radius> L <length>" or "null ..." as the probe prints a

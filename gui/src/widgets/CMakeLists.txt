@@ -14,11 +14,13 @@ target_sources(QtRocket_gui PRIVATE
     IconToggleButton.cpp ${gui_include_dir}/widgets/IconToggleButton.h
     IntSpinBox.cpp ${gui_include_dir}/widgets/IntSpinBox.h
     MaterialComboBox.cpp ${gui_include_dir}/widgets/MaterialComboBox.h
+    PresetComboBox.cpp ${gui_include_dir}/widgets/PresetComboBox.h
     SelectionKeyFilter.cpp ${gui_include_dir}/widgets/SelectionKeyFilter.h
     SingleRowScrollArea.cpp ${gui_include_dir}/widgets/SingleRowScrollArea.h
     SpinBoxEditing.cpp ${gui_include_dir}/widgets/SpinBoxEditing.h
     StageSelector.cpp ${gui_include_dir}/widgets/StageSelector.h
     StyledLabel.cpp ${gui_include_dir}/widgets/StyledLabel.h
+    TableRowTraversal.cpp ${gui_include_dir}/widgets/TableRowTraversal.h
     TextCommitter.cpp ${gui_include_dir}/widgets/TextCommitter.h
     UnitSelector.cpp ${gui_include_dir}/widgets/UnitSelector.h
     UnitSpinBox.cpp ${gui_include_dir}/widgets/UnitSpinBox.h

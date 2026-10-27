@@ -168,3 +168,74 @@ presets 43, body tubes 12
   Custom events: 1 A
   Custom: undo 'Use Preset Body Tube' redo null; A null OR 0.03175 L 0.3937; B null OR 0.03175 L 0.3937
   Custom: size 3: <html><i>Custom</i></html> | 31361 | 85865; selected <html><i>Custom</i></html>
+== the preset combo box
+  copy of 85865: equals true same false
+  items 3 maximum row count 25 editable false
+  made: index 0 shown <html><i>Custom</i></html> calls []
+  Custom chosen while Custom: index 0 shown <html><i>Custom</i></html> calls []
+  first chosen: index 2 shown 85865 calls [85865@2]
+  first chosen again: index 2 shown 85865 calls []
+  a copy of first chosen: index 2 shown 85865 calls []
+  the model selects the copy: index 2 shown 85865 calls []
+  first chosen while the copy is selected: index 2 shown 85865 calls []
+  the model selects a preset no item holds: index -1 shown 85868 calls []
+  first chosen: index 2 shown 85865 calls [85865@2]
+  Custom chosen while a preset no item holds is selected: index 0 shown <html><i>Custom</i></html> calls [<html><i>Custom</i></html>]
+  the preset no item holds chosen (setSelectedItem): index 0 shown <html><i>Custom</i></html> calls []
+  ComboBox.noActionOnKeyNavigation: Metal false, FlatLaf Light false
+== no selection (cell table, 3 rows)
+  Action.NextRow: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  Action.NextRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  Action.PreviousRow: row -1 rows [-1,-1] lead -1 anchor -1; col -1 cols [-1,-1] lead -1 count 0
+  Action.PreviousRowCycle: row 2 rows [2,2] lead 2 anchor 2; col 0 cols [0,0] lead 0 count 1
+== rows 1..2 selected (cell table, 4 rows), column 1
+  Action.NextRow: row 2 rows [2,2] lead 2 anchor 2; col 0 cols [0,0] lead 0 count 1
+  Action.NextRowCycle: row 2 rows [2,2] lead 2 anchor 2; col 0 cols [0,0] lead 0 count 1
+  Action.PreviousRow: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  Action.PreviousRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+== empty table
+  Action.NextRow: row -1 rows [-1,-1] lead -1 anchor -1; col -1 cols [-1,-1] lead -1 count 0
+  Action.NextRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  Action.PreviousRow: row -1 rows [-1,-1] lead -1 anchor -1; col -1 cols [-1,-1] lead -1 count 0
+  Action.PreviousRowCycle: row -1 rows [-1,-1] lead -1 anchor -1; col 0 cols [0,0] lead 0 count 0
+== one row, row 0 selected
+  Action.NextRow: row 0 rows [0,0] lead 0 anchor 0; col -1 cols [-1,-1] lead -1 count 1
+  Action.NextRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  Action.PreviousRow: row 0 rows [0,0] lead 0 anchor 0; col -1 cols [-1,-1] lead -1 count 1
+  Action.PreviousRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+== row table (single selection), row 1 col lead 2, 3 rows 3 columns
+  before: row 1 rows [1,1] lead 1 anchor 1; col 2 cols [2,2] lead 2 count 1
+  Action.NextRow: row 2 rows [2,2] lead 2 anchor 2; col 0 cols [0,0] lead 0 count 1
+  before: row 1 rows [1,1] lead 1 anchor 1; col 2 cols [2,2] lead 2 count 1
+  Action.NextRowCycle: row 2 rows [2,2] lead 2 anchor 2; col 0 cols [0,0] lead 0 count 1
+  before: row 1 rows [1,1] lead 1 anchor 1; col 2 cols [2,2] lead 2 count 1
+  Action.PreviousRow: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  before: row 1 rows [1,1] lead 1 anchor 1; col 2 cols [2,2] lead 2 count 1
+  Action.PreviousRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+== scrolling: 100 rows, viewport 200 px high
+  row height 16 extent java.awt.Dimension[width=282,height=197]
+  at 5: view java.awt.Point[x=0,y=0]
+  after 20 NextRow: row 25 rows [25,25] lead 25 anchor 25; col 0 cols [0,0] lead 0 count 1 view java.awt.Point[x=0,y=0]
+  PreviousRowCycle from 0: row 99 rows [99,99] lead 99 anchor 99; col 0 cols [0,0] lead 0 count 1 view java.awt.Point[x=0,y=0]
+  after 20 selectNextRow (Down): row 25 rows [25,25] lead 25 anchor 25; col 0 cols [0,0] lead 0 count 1 view java.awt.Point[x=0,y=218]
+== an empty filtered table (the parts library's sorter and filter)
+  rows 0: row -1 rows [-1,-1] lead -1 anchor -1; col -1 cols [-1,-1] lead -1 count 0
+  Action.NextRowCycle: row 0 rows [0,0] lead 0 anchor 0; col 0 cols [0,0] lead 0 count 1
+  convertRowIndexToModel threw java.lang.ArrayIndexOutOfBoundsException: Index 0 out of bounds for length 0
+== key bindings
+  pressed TAB: focused Action.NextRowCycle, ancestor selectNextColumnCell
+  shift pressed TAB: focused Action.PreviousRowCycle, ancestor selectPreviousColumnCell
+  ctrl pressed TAB: focused null, ancestor null
+  shift ctrl pressed TAB: focused null, ancestor null
+  pressed RIGHT: focused Action.NextRow, ancestor selectNextColumn
+  pressed LEFT: focused Action.PreviousRow, ancestor selectPreviousColumn
+  pressed KP_RIGHT: focused null, ancestor selectNextColumn
+  pressed KP_LEFT: focused null, ancestor selectPreviousColumn
+  shift pressed RIGHT: focused null, ancestor selectNextColumnExtendSelection
+  ctrl pressed RIGHT: focused null, ancestor selectNextColumnChangeLead
+  shift pressed LEFT: focused null, ancestor selectPreviousColumnExtendSelection
+  ctrl pressed LEFT: focused null, ancestor selectPreviousColumnChangeLead
+  pressed DOWN: focused null, ancestor selectNextRow
+  pressed UP: focused null, ancestor selectPreviousRow
+  pressed ENTER: focused null, ancestor selectNextRowCell
+  focus forward [ctrl pressed TAB] backward [shift ctrl pressed TAB]

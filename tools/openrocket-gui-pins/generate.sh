@@ -19,8 +19,10 @@
 #   component-drop     the DndProbe table of tests/gui/tree/ComponentDropTests.cpp
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
-#   preset-chooser     the values tests/gui/settings/TableUiPreferencesTests.cpp and
-#                      tests/gui/binding/PresetBindingTests.cpp pin by hand (checked only, see README.md)
+#   preset-chooser     the values tests/gui/settings/TableUiPreferencesTests.cpp,
+#                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp
+#                      and tests/gui/widgets/TableRowTraversalTests.cpp pin by hand (checked only, see
+#                      README.md)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -411,7 +413,8 @@ for family in "${families[@]}"; do
         # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order.
         run_probe "${family}" PresetGuiProbe headless "${repo}/tests/data/presets/every-kind.orc" \
             "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc"
-        check_hand_pins "${family}" PresetGuiProbe "TableUiPreferencesTests.cpp and PresetBindingTests.cpp"
+        check_hand_pins "${family}" PresetGuiProbe \
+            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp and TableRowTraversalTests.cpp"
         continue
         ;;
     esac
