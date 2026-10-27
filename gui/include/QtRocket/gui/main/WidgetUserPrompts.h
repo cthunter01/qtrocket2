@@ -71,11 +71,10 @@ class GuiServices;
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
 /// - showInternalError(): the internal error dialog (InternalErrorDialog).
 ///
-/// Milestone 3's other questions are declared, and until the runs that build their dialogs they
-/// give their cancelling answer at once, without a dialog: chooseMotor() (run 2: the motor
-/// chooser), choosePreset() (run 2: the parts library), an askOpenFiles() for files and
-/// directories (run 3: the preferences' user files) and showDatabaseProblems() (run 3: the
-/// start-up), which shows nothing yet.
+/// Milestone 3's value dialogs, motor chooser (MotorChooserDialog, one per window) and parts
+/// library (ComponentPresetChooserDialog) answer their questions. Until run 3 builds theirs, an
+/// askOpenFiles() for files and directories (the preferences' user files) gives its cancelling
+/// answer at once, without a dialog, and showDatabaseProblems() (the start-up) shows nothing.
 ///
 /// Each dialog is made for its question (ModalDialog), so that it survives its parent being
 /// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no

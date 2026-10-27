@@ -123,9 +123,9 @@ class UnitSpinBox;
 ///   selection listener selects its set: the chooser shows, and OK writes, the motor of the
 ///   earlier question (tools/openrocket-gui-pins' motor-chooser family: "Airstart timing" opened
 ///   for its 54 mm mount's K550W after its 38 mm mount's I211W selects the I211W; "Two stage high
-///   power rocket" replaces I59WN-P and I357T-14 by H148R-10). A fix of QtRocket's, not one of
-///   the numbered bugs of plan 10.3 (for the user's decision). The table then shows no selection
-///   until the configured set is shown, as when a filter hides the selected set.
+///   power rocket" replaces I59WN-P and I357T-14 by H148R-10). OpenRocket bug 21, fixed by the
+///   user's decision of 2026-10-27 (beyond the bugs 1-20 of plan 10.3). The table then shows no
+///   selection until the configured set is shown, as when a filter hides the selected set.
 /// - The curve chosen stays selected when the curve list refills (bug 20, above).
 /// - The name column switch keeps the selected set (bug 10, above) and scrolls the table to it.
 /// - The table scrolls to the selection with Qt's EnsureVisible (OpenRocket scrolls a rectangle
