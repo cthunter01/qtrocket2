@@ -3,8 +3,12 @@ package probe;
 import java.awt.BasicStroke;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
@@ -16,13 +20,16 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
 import org.jfree.chart.JFreeChart;
@@ -82,6 +89,16 @@ import info.openrocket.swing.gui.util.SwingPreferences;
  * column (M3's bug 10).</li>
  * <li>STALE: the panel opened for a mount's configuration with Estes C6, then for an empty configuration
  * of the mount, then selectMotorFromTable() (MotorChooserDialog.open()).</li>
+ * <li>TABLEKEYS: the table's key bindings (Enter, Shift+Enter, Ctrl+Enter, a typed letter) and whether its
+ * columns can be moved; then the selected row and the column lead when the table gains the focus (its
+ * focus listeners called), after Enter and Shift+Enter (the bound actions run), at the first and the last row,
+ * without a lead, after clearSelection() and in an empty table; and after a press of the right and the middle
+ * button on another row.</li>
+ * <li>RESELECT: the panel opened for an empty configuration of an 18 mm mount, AeroTech E15W (24 mm) selected
+ * in the table, "Limit motor diameter to mount diameter" turned on (it hides E15W), OK (selectedMotor());
+ * then opened for an empty configuration of a 29 mm mount (which shows E15W again), then for the 18 mm mount
+ * again; each opening as MotorChooserDialog does it (setMotorMountAndConfig(), then open()'s
+ * selectMotorFromTable()).</li>
  * </ul>
  */
 public final class MotorSelectionPanelProbe {
@@ -488,6 +505,10 @@ public final class MotorSelectionPanelProbe {
 	// ---------------------------------------------------------- an empty configuration after a motor
 
 	private void staleState(String step) throws Exception {
+		panelState("STALE", step);
+	}
+
+	private void panelState(String tag, String step) throws Exception {
 		int row = table.getSelectedRow();
 		String rowSet = row < 0 ? "none" : setName(model.getMotorSet(table.convertRowIndexToModel(row)));
 		StringBuilder curves = new StringBuilder();
@@ -499,7 +520,7 @@ public final class MotorSelectionPanelProbe {
 			delays.append(i == 0 ? "" : "|").append(delayBox().getItemAt(i));
 		}
 		Motor motor = panel.getSelectedMotor();
-		out.println("STALE\t" + step + "\tmotor=" + (motor == null ? "none" : motor.getDesignation()) + "\tset="
+		out.println(tag + "\t" + step + "\tmotor=" + (motor == null ? "none" : motor.getDesignation()) + "\tset="
 				+ setName(selectedSet()) + "\tdelay=" + hex(panel.getSelectedDelay()) + "\tnozzle="
 				+ hex(panel.getSelectedNozzleExitDiameter()) + "\trowSet=" + rowSet + "\tcurves=[" + curves
 				+ "]\tcurveBox=" + enabled("curveSelectionBox") + "\tdelays=[" + delays + "]\tdelayText=["
@@ -543,6 +564,141 @@ public final class MotorSelectionPanelProbe {
 		p.staleState("then open()");
 	}
 
+	// ------------------------------------------------------------------------------- the table's keys
+
+	private void tableKeyState(String step) {
+		int row = table.getSelectedRow();
+		String rowSet = row < 0 ? "none" : setName(model.getMotorSet(table.convertRowIndexToModel(row)));
+		out.println("TABLEKEYS\t" + step + "\trow=" + row + "\tlast=" + (table.getRowCount() - 1) + "\tlead="
+				+ table.getSelectionModel().getLeadSelectionIndex() + "\tcolumn="
+				+ table.getColumnModel().getSelectionModel().getLeadSelectionIndex() + "\trowSet=" + rowSet);
+	}
+
+	/** Runs the action bound to @p stroke in the table (when it has the focus or is its ancestor). */
+	private void tableKey(String stroke) {
+		Object name = table.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke(stroke));
+		if (name == null) {
+			name = table.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).get(KeyStroke.getKeyStroke(stroke));
+		}
+		table.getActionMap().get(name).actionPerformed(new ActionEvent(table, ActionEvent.ACTION_PERFORMED, ""));
+	}
+
+	/** A press, release and click of @p button (2 or 3) on the middle of @p row's second cell. */
+	private void click(int button, int row) {
+		Rectangle cell = table.getCellRect(row, 1, true);
+		int x = cell.x + cell.width / 2;
+		int y = cell.y + cell.height / 2;
+		int mask = button == MouseEvent.BUTTON2 ? InputEvent.BUTTON2_DOWN_MASK : InputEvent.BUTTON3_DOWN_MASK;
+		long when = 0;
+		table.dispatchEvent(new MouseEvent(table, MouseEvent.MOUSE_PRESSED, when, mask, x, y, x, y, 1,
+				button == MouseEvent.BUTTON3, button));
+		table.dispatchEvent(new MouseEvent(table, MouseEvent.MOUSE_RELEASED, when, 0, x, y, x, y, 1, false, button));
+		table.dispatchEvent(new MouseEvent(table, MouseEvent.MOUSE_CLICKED, when, 0, x, y, x, y, 1, false, button));
+	}
+
+	private static void tableKeys(PrintStream out) throws Exception {
+		MotorSelectionPanelProbe p = new MotorSelectionPanelProbe(out);
+		for (String stroke : new String[] { "ENTER", "shift ENTER", "ctrl ENTER", "typed a" }) {
+			Object focused = p.table.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke(stroke));
+			Object ancestor = p.table.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+					.get(KeyStroke.getKeyStroke(stroke));
+			out.println("TABLEKEYS\tbinding [" + stroke + "]\tfocused=" + focused + "\tancestor=" + ancestor);
+		}
+		out.println("TABLEKEYS\treorderingAllowed=" + p.table.getTableHeader().getReorderingAllowed());
+		p.tableKeyState("fresh panel");
+		FocusEvent gained = new FocusEvent(p.table, FocusEvent.FOCUS_GAINED, false, null);
+		for (FocusListener listener : p.table.getFocusListeners()) {
+			listener.focusGained(gained);
+		}
+		p.tableKeyState("focus gained");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter");
+		p.tableKey("shift ENTER");
+		p.tableKeyState("Shift+Enter");
+		p.tableKey("shift ENTER");
+		p.tableKeyState("Shift+Enter on the first row");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter on the last row");
+		p.table.clearSelection();
+		p.tableKeyState("clearSelection()");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter");
+		int last = p.table.getRowCount() - 1;
+		p.table.setRowSelectionInterval(last, last);
+		p.tableKeyState("the last row selected");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter on the last row");
+		JTextField search = (JTextField) p.member("searchField");
+		search.setText("zzz");
+		p.tableKeyState("search zzz");
+		p.tableKey("ENTER");
+		p.tableKeyState("Enter in the empty table");
+		search.setText("");
+		p.tableKeyState("search cleared");
+		p.table.setRowSelectionInterval(3, 3);
+		p.tableKeyState("row 3 selected");
+		p.table.setSize(600, 4000);
+		p.table.doLayout();
+		p.click(MouseEvent.BUTTON3, 5);
+		p.tableKeyState("right button on row 5");
+		p.click(MouseEvent.BUTTON2, 6);
+		p.tableKeyState("middle button on row 6");
+	}
+
+	// ------------------------------------------- an empty configuration after a set a filter hid
+
+	private static InnerTube innerTube(BodyTube body, double innerRadius, double length) {
+		InnerTube tube = new InnerTube();
+		body.addChild(tube);
+		tube.setOuterRadius(innerRadius + 0.0005);
+		tube.setInnerRadius(innerRadius);
+		tube.setLength(length);
+		tube.setMotorMount(true);
+		return tube;
+	}
+
+	/** MotorChooserDialog's opening: setMotorMountAndConfig(), then open()'s selectMotorFromTable(). */
+	private void open(String step, FlightConfigurationId fcid, InnerTube mount) throws Exception {
+		panel.setMotorMountAndConfig(fcid, mount);
+		panelState("RESELECT", step + ": setMotorMountAndConfig");
+		panel.selectMotorFromTable();
+		panelState("RESELECT", step + ": open()");
+	}
+
+	/** MotorChooserDialog.close(true). */
+	private void ok() {
+		Motor selected = panel.getSelectedMotor();
+		if (selected != null) {
+			panel.selectedMotor(selected);
+		}
+	}
+
+	private static void reselect(PrintStream out) throws Exception {
+		MotorSelectionPanelProbe p = new MotorSelectionPanelProbe(out);
+		Rocket rocket = new Rocket();
+		AxialStage stage = new AxialStage();
+		rocket.addChild(stage);
+		BodyTube body = new BodyTube();
+		stage.addChild(body);
+		InnerTube small = innerTube(body, 0.009, 0.075);
+		InnerTube large = innerTube(body, 0.0145, 0.15);
+		FlightConfigurationId empty = rocket.createFlightConfiguration(null).getId();
+		p.open("18 mm mount", empty, small);
+		p.selectThroughTable(findSet("AeroTech", "E15W"));
+		p.panelState("RESELECT", "AeroTech E15W selected");
+		JCheckBox limit = (JCheckBox) get(p.member("motorFilterPanel"),
+				p.member("motorFilterPanel").getClass().getSuperclass(), "limitDiameterCheckBox");
+		limit.doClick(0);
+		p.panelState("RESELECT", "Limit motor diameter on");
+		p.ok();
+		p.open("29 mm mount", empty, large);
+		p.ok();
+		p.open("18 mm mount again", empty, small);
+		limit.doClick(0);
+	}
+
 	public static void main(String[] args) throws Exception {
 		System.setProperty("openrocket.3d.disable", "true");
 		File database = new File(System.getProperty("qtrocket.repo"), "data/motors/initial_motors.db");
@@ -574,6 +730,8 @@ public final class MotorSelectionPanelProbe {
 				formats(out);
 				nameColumn(out);
 				staleConfiguration(out);
+				tableKeys(out);
+				reselect(out);
 			} catch (Exception e) {
 				failure[0] = e;
 			}

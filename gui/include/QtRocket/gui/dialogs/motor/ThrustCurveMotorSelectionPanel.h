@@ -79,7 +79,10 @@ class UnitSpinBox;
 ///   column); the table then scrolls to it.
 /// - The table (MotorTableModel, one row selected at a time; a selection selects the set's default
 ///   curve, selectMotorFromTable(); a double click of the left button anywhere on it, also below
-///   its rows, emits okRequested()).
+///   its rows, emits okRequested()), with JTable's keys and buttons: no type-ahead, Enter selects
+///   the next row and Shift+Enter the one before (from the last row to the first and back, the
+///   current cell moving to the next or the previous column), the other buttons than the left one
+///   select nothing, and the columns can be dragged into another order.
 /// - "Number of motors: <rows>" ("None" for none) and "Motor DB version: <version>" ("Unknown"
 ///   without one), italic, two points smaller, in the dim text colour.
 /// - "Search:" and the search field: every change of its text sets the filter's search terms
@@ -92,8 +95,12 @@ class UnitSpinBox;
 /// details, the delay and OK keep it) and is selected in the table again when it comes back
 /// (scrollSelectionVisible()). The widgets are updated where OpenRocket updates them: after
 /// setMotorMountAndConfig() for a configuration without a motor they still show the motor of
-/// before (the probe's STALE lines), until selectMotorFromTable() (the dialog's open()) selects
-/// the table's row again. Constructing the panel stores "Hide very similar thrust curves" and
+/// before while its row stays selected (the probe's STALE lines), until selectMotorFromTable()
+/// (the dialog's open()) selects the table's row again; when the set of before was not selected
+/// in the table (a filter of the last question hid it) and the new mount's filter shows it, its
+/// row is selected again, which selects its default curve at once (the probe's RESELECT lines:
+/// OpenRocket's first motorFilterPanel.setMotorMount() scrolls to the set of before, before the
+/// reset). Constructing the panel stores "Hide very similar thrust curves" and
 /// "Hide motors which are not in regular production" as read, as OpenRocket's constructor does by
 /// running their listeners once (ThrustCurveMotorSelection itself stores nothing).
 ///
@@ -122,7 +129,11 @@ class UnitSpinBox;
 /// - The curve chosen stays selected when the curve list refills (bug 20, above).
 /// - The name column switch keeps the selected set (bug 10, above) and scrolls the table to it.
 /// - The table scrolls to the selection with Qt's EnsureVisible (OpenRocket scrolls a rectangle
-///   100 pixels above and below the row into view).
+///   100 pixels above and below the row into view). A press of another button than the left one
+///   gives the table the focus (Qt gives it before the table sees the press; Swing's table takes
+///   none), though it selects nothing. When a filter hides the current row, Qt's current cell goes
+///   with it (a JTable keeps its column lead), so that the next Enter and the selection shown
+///   again start from the first column.
 /// - The curve list's closed box shows the selected curve's name in its colour, also with the
 ///   focus (OpenRocket's renderer then paints the box in that colour, the text in the list's
 ///   background); the open list's items are drawn by an item delegate in the style's item look
@@ -134,7 +145,10 @@ class UnitSpinBox;
 /// - The layout is a grid of two columns (labels, fields) after MigLayout's "[][grow]": the name
 ///   column's radio buttons sit together in the field column, the paragraph gaps are 12 pixels,
 ///   and the table has its least height of 80 pixels but not the preferred width of 500 (the
-///   chooser dialog sizes itself).
+///   chooser dialog sizes itself). The left column's scroll area and the tabs have no least size
+///   (Java's setMinimumSize(0, 0); 1 pixel here, since Qt's layouts take 0 for none), so that the
+///   chooser can be made as small as OpenRocket's: the left column then scrolls, and the tabs'
+///   widgets are squeezed (OpenRocket's layout clips them).
 class ThrustCurveMotorSelectionPanel final : public QWidget
 {
     Q_OBJECT
@@ -157,8 +171,10 @@ public:
     /// nozzle exit diameter, or nothing is (ThrustCurveMotorSelection::setMotorMountAndConfig(),
     /// MotorChooserInput::fromMount()). Only the motors and the mount's size are kept. For a
     /// configuration with a motor the table's selection is cleared first (a deviation, see the
-    /// class comment); one without keeps it, which the dialog's open() then selects
-    /// (selectMotorFromTable()).
+    /// class comment). One without keeps it, which the dialog's open() then selects
+    /// (selectMotorFromTable()), and selects the row of the set selected until now when the
+    /// mount's filter shows it (as OpenRocket's first motorFilterPanel.setMotorMount() does before
+    /// the reset): a row not selected yet selects its set's default curve at once.
     void setMotorMountAndConfig(const FlightConfigurationId& fcid, const MotorMount& mount);
 
     /// selectMotorFromTable(): the set of the table's selected row, when it is not the selected
@@ -251,6 +267,8 @@ private:
     void filterChanged();
     /// scrollSelectionVisible(): selects the selected set's row and scrolls to it, when shown.
     void scrollSelectionVisible();
+    /// Selects @p set's row and scrolls to it, when shown (the current cell keeps its column).
+    void selectRowOf(const ThrustCurveMotorSet& set);
     /// updateNrOfMotors() and updateMotorDatabaseVersion().
     void updateNrOfMotors();
     void updateMotorDatabaseVersion();

@@ -20,6 +20,7 @@
 #include <QChar>
 #include <QCheckBox>
 #include <QCoreApplication>
+#include <QDialog>
 #include <QEvent>
 #include <QGroupBox>
 #include <QLabel>
@@ -29,6 +30,7 @@
 #include <QSignalSpy>
 #include <QString>
 #include <QTest>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
 #include <QtTypes>
@@ -300,6 +302,26 @@ TEST_F(MotorFilterPanelTest, HasOpenRocketsRowsInTheirFirstState)
     EXPECT_FALSE(filter.getMaximumDiameter().has_value());
     EXPECT_EQ(filter.getMaximumLength(), std::numeric_limits<double>::max());
     EXPECT_TRUE(filter.getExcludedManufacturers().empty());
+}
+
+TEST_F(MotorFilterPanelTest, ItsButtonsAreNoDialogsDefaultButton)
+{
+    // A QPushButton in a QDialog is autoDefault: the dialog makes the first one its default button
+    // when it is shown, and Return in a field of the chooser then clicked "Clear All". Java's are
+    // plain JButtons (MotorChooserDialogTests shows the chooser).
+    InMemoryPreferences               preferences;
+    const ThrustCurveMotorSetDatabase database = QtRocket::Test::smallMotorDatabase();
+    ThrustCurveMotorSelection         selection(database, preferences);
+    QDialog                           dialog;
+    auto*                             layout = makeChild<QVBoxLayout>(&dialog);
+    layout->addWidget(makeChild<MotorFilterPanel>(&dialog, selection, preferences));
+    for (const QString& name : {QStringLiteral("clearMotors"), QStringLiteral("selectMotors")})
+    {
+        const auto* button = dialog.findChild<QPushButton*>(name);
+        ASSERT_NE(button, nullptr) << QtStrings::toUtf8(name);
+        EXPECT_FALSE(button->autoDefault()) << QtStrings::toUtf8(name);
+        EXPECT_FALSE(button->isDefault()) << QtStrings::toUtf8(name);
+    }
 }
 
 TEST_F(MotorFilterPanelTest, StartsFromTheStoredManufacturersAndLimits)

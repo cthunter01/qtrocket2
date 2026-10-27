@@ -119,4 +119,26 @@ private:
     BodyTube* m_mount{nullptr};
 };
 
+/// Two motor mounts of one rocket, inner tubes of its body tube: an 18 mm mount 0.075 m long and a
+/// 29 mm mount 0.15 m long (inner radii 9 and 14.5 mm, walls 0.5 mm), and a flight configuration in
+/// which both have no motor until configure() gives them one (the probe's RESELECT mounts).
+class TwoInnerTubeMounts
+{
+public:
+    TwoInnerTubeMounts();
+
+    [[nodiscard]] InnerTube&                   mount18() const noexcept { return *m_mount18; }
+    [[nodiscard]] InnerTube&                   mount29() const noexcept { return *m_mount29; }
+    [[nodiscard]] const FlightConfigurationId& fcid() const noexcept { return m_fcid; }
+
+    /// Gives @p mount (one of the two) @p motor in fcid(), with the ejection delay 0.
+    void configure(InnerTube& mount, std::shared_ptr<const ThrustCurveMotor> motor) const;
+
+private:
+    Rocket                m_rocket;
+    InnerTube*            m_mount18{nullptr};
+    InnerTube*            m_mount29{nullptr};
+    FlightConfigurationId m_fcid;
+};
+
 }  // namespace QtRocket::Gui::Test

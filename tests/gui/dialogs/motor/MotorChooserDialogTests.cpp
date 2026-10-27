@@ -11,13 +11,16 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <QAbstractItemView>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QItemSelectionModel>
 #include <QLineEdit>
@@ -26,17 +29,23 @@
 #include <QObject>
 #include <QPushButton>
 #include <QRect>
+#include <QSize>
 #include <QString>
+#include <QStringList>
 #include <QTableView>
 #include <QTest>
 #include <QWidget>
 #include <Qt>
+#include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
 #include "MotorChooserTestSupport.h"
 #include "NextModalDialog.h"
+#include "QtRocket/gui/dialogs/motor/CheckList.h"
+#include "QtRocket/gui/dialogs/motor/MotorInformationPanel.h"
 #include "QtRocket/gui/dialogs/motor/MotorTableModel.h"
 #include "QtRocket/gui/dialogs/motor/ThrustCurveMotorSelectionPanel.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -47,13 +56,11 @@
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
-#include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
-#include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
-#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/BugError.h"
 #include "TestGuiServices.h"
 #include "motor/TestMotorDatabase.h"
@@ -67,6 +74,7 @@ namespace
 using MotorChooserDialogTest = Gui::Test::GuiTest;
 using Gui::Test::BodyTubeMount;
 using Gui::Test::NextModalDialog;
+using Gui::Test::TwoInnerTubeMounts;
 using MotorChoice = UserPrompts::MotorChoice;
 
 /// The chooser of @p dialog, the modal widget NextModalDialog hands over.
@@ -316,51 +324,94 @@ struct DestroyWindow
     void operator()(QWidget& /*dialog*/) const { window->reset(); }
 };
 
-/// Two inner tubes of one rocket's body tube, each a motor mount, and a flight configuration in
-/// which the first has @p first and the second @p second: a 29 mm mount 0.15 m long and an 18 mm
-/// mount 0.075 m long.
-class TwoMounts
+/// What Return did in the shown chooser.
+struct AfterReturn
 {
-public:
-    TwoMounts(const std::shared_ptr<const ThrustCurveMotor>& first,
-              const std::shared_ptr<const ThrustCurveMotor>& second)
+    /// The dialog's QPushButtons that were default or autoDefault, by name.
+    QStringList defaultButtons;
+    /// Per widget Return was pressed in: whether the chooser stayed open, how many of the
+    /// manufacturers stayed checked (of how many), the table's rows, the manufacturers stored as
+    /// excluded.
+    struct Step
     {
-        AxialStage& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        BodyTube&   body  = stage.addChild(std::make_unique<BodyTube>());
-        m_large           = &addMount(body, 0.0145, 0.15);
-        m_small           = &addMount(body, 0.009, 0.075);
-        m_rocket.createFlightConfiguration(m_fcid);
-        configure(*m_large, first);
-        configure(*m_small, second);
-    }
+        bool        visible  = false;
+        int         checked  = 0;
+        int         count    = 0;
+        int         rows     = 0;
+        std::size_t excluded = 0;
+    };
+    std::vector<Step> steps;
+    int               rowsBefore = 0;
+};
 
-    [[nodiscard]] InnerTube&                   large() const noexcept { return *m_large; }
-    [[nodiscard]] InnerTube&                   small() const noexcept { return *m_small; }
-    [[nodiscard]] const FlightConfigurationId& fcid() const noexcept { return m_fcid; }
+/// Records the default buttons, then presses Return in the search field, the delay editor, the
+/// table and the manufacturer list in turn (each with the focus), recording what it left; then
+/// cancels.
+struct ReturnEverywhereThenCancel
+{
+    AfterReturn*       after;
+    const Preferences* preferences;
 
-private:
-    [[nodiscard]] static InnerTube& addMount(BodyTube& body, double innerRadius, double length)
+    void operator()(QWidget& dialog) const
     {
-        InnerTube& tube = body.addChild(std::make_unique<InnerTube>());
-        tube.setOuterRadius(innerRadius + 0.0005);
-        tube.setInnerRadius(innerRadius);
-        tube.setLength(length);
-        tube.setMotorMount(true);
-        return tube;
+        const MotorChooserDialog& chooser = chooserOf(dialog);
+        const QList<QPushButton*> buttons = chooser.findChildren<QPushButton*>();
+        for (const QPushButton* button : buttons)
+        {
+            if (button->isDefault() || button->autoDefault())
+            {
+                after->defaultButtons.append(button->objectName());
+            }
+        }
+        auto& manufacturers = childOf<CheckList>(chooser, "manufacturerCheckList");
+        after->rowsBefore   = chooser.selectionPanel().tableModel().rowCount();
+        for (QWidget* widget :
+             std::initializer_list<QWidget*>{&searchField(chooser), delayBox(chooser).lineEdit(),
+                                             &tableOf(chooser), &manufacturers})
+        {
+            widget->setFocus();
+            QTest::keyClick(widget, Qt::Key_Return);
+            after->steps.push_back(AfterReturn::Step{
+                .visible  = chooser.isVisible(),
+                .checked  = static_cast<int>(manufacturers.checkedIndices().size()),
+                .count    = manufacturers.count(),
+                .rows     = chooser.selectionPanel().tableModel().rowCount(),
+                .excluded = MotorPreferences::getExcludedMotorManufacturers(*preferences).size()});
+        }
+        clickCancel(dialog);
     }
+};
 
-    void configure(InnerTube& mount, const std::shared_ptr<const ThrustCurveMotor>& motor) const
+/// Selects the table's row of @p set (the user's click), turns "Limit motor diameter to mount
+/// diameter" on, then OK.
+struct SelectThenLimitThenOk
+{
+    const ThrustCurveMotorSet* set;
+
+    void operator()(QWidget& dialog) const
     {
-        MotorConfiguration configuration(mount, m_fcid);
-        configuration.setMotor(motor);
-        configuration.setEjectionDelay(0.0);
-        mount.setMotorConfig(configuration, m_fcid);
+        const MotorChooserDialog& chooser = chooserOf(dialog);
+        const int                 row     = chooser.selectionPanel().tableModel().rowOf(*set);
+        ASSERT_GE(row, 0);
+        tableOf(chooser).selectRow(row);
+        childOf<QCheckBox>(chooser, "limitDiameterCheckBox").click();
+        clickOk(dialog);
     }
+};
 
-    Rocket                m_rocket;
-    InnerTube*            m_large{nullptr};
-    InnerTube*            m_small{nullptr};
-    FlightConfigurationId m_fcid;
+/// Resizes the shown chooser to @p size, waits for it, records its size, then cancels.
+struct ResizeThenCancel
+{
+    QSize  size;
+    QSize* seen;
+
+    void operator()(QWidget& dialog) const
+    {
+        dialog.resize(size);
+        static_cast<void>(QTest::qWaitFor([&dialog, this] { return dialog.size() == size; }));
+        *seen = dialog.size();
+        clickCancel(dialog);
+    }
 };
 
 // ------------------------------------------------------------------------------ the dialog
@@ -387,6 +438,28 @@ TEST_F(MotorChooserDialogTest, IsTitledHoldsTheSelectionPanelAndHasNoDefaultButt
     EXPECT_EQ(chooser.focusWidget(), &chooser.selectionPanel().getDefaultFocus());
     EXPECT_EQ(chooser.getSelectedMotor(), nullptr);
     EXPECT_TRUE(chooser.isHidden());
+}
+
+TEST_F(MotorChooserDialogTest, ShrinksAsJavasDialogDoes)
+{
+    // selectionPanel.setMinimumSize(0, 0) and the panel's tabs' (rightSide): the chooser has no
+    // least size but its buttons', far below the details tab's (which a Qt layout would take).
+    ChooserWindow             window;
+    const MotorChooserDialog& chooser =
+        MotorChooserDialog::forWindow(window.window(), window.services().services());
+    const QSize details =
+        childOf<MotorInformationPanel>(chooser, "motorInformationPanel").minimumSizeHint();
+    EXPECT_LT(chooser.minimumSizeHint().height(), details.height() / 4);
+    EXPECT_LT(chooser.minimumSizeHint().width(), details.width());
+    EXPECT_LT(chooser.selectionPanel().minimumSizeHint().height(), details.height() / 4);
+    // Shown, it takes a size smaller than the details tab's least one.
+    BodyTubeMount               mount;
+    const FlightConfigurationId fcid = mount.addEmptyConfiguration();
+    QSize                       seen;
+    EXPECT_EQ(window.choose(mount.mount(), fcid,
+                            ResizeThenCancel{.size = QSize(400, 300), .seen = &seen}),
+              std::nullopt);
+    EXPECT_EQ(seen, QSize(400, 300));
 }
 
 TEST_F(MotorChooserDialogTest, OkAnswersTheConfiguredMotorWithItsDelayAndNozzle)
@@ -475,6 +548,35 @@ TEST_F(MotorChooserDialogTest, ReturnInTheSearchFieldOrTheDelayEditorKeepsItOpen
     EXPECT_EQ(chosen.delay, 7.0);
 }
 
+TEST_F(MotorChooserDialogTest, ReturnPressesNoButtonOfTheShownChooser)
+{
+    // A QPushButton in a QDialog is autoDefault, and the shown dialog makes the first one its
+    // default: the filter panel's "Clear All", which Return in the search field then clicked
+    // (every manufacturer unchecked and stored as excluded). OpenRocket's dialog has no default
+    // button.
+    ChooserWindow               window;
+    BodyTubeMount               mount;
+    const FlightConfigurationId fcid = mount.configure(window.motor("Estes", "C6"), 5.0);
+    AfterReturn                 after;
+    EXPECT_EQ(window.choose(mount.mount(), fcid,
+                            ReturnEverywhereThenCancel{
+                                .after = &after, .preferences = &window.services().preferences()}),
+              std::nullopt);
+    EXPECT_TRUE(after.defaultButtons.isEmpty())
+        << QtStrings::toUtf8(after.defaultButtons.join(QStringLiteral(", ")));
+    ASSERT_EQ(after.steps.size(), 4U);
+    for (const AfterReturn::Step& step : after.steps)
+    {
+        EXPECT_TRUE(step.visible);
+        EXPECT_EQ(step.checked, step.count);
+        EXPECT_EQ(step.count, 5);
+        EXPECT_EQ(step.rows, after.rowsBefore);
+        EXPECT_EQ(step.excluded, 0U);
+    }
+    EXPECT_TRUE(
+        MotorPreferences::getExcludedMotorManufacturers(window.services().preferences()).empty());
+}
+
 TEST_F(MotorChooserDialogTest, OkCommitsADelayTypedWithoutEnter)
 {
     ChooserWindow                    window;
@@ -534,17 +636,52 @@ TEST_F(MotorChooserDialogTest, TheConfiguredMotorStaysWhenTheMountsLimitsHideIt)
     MotorPreferences::setLimitLength(window.services().preferences(), true);
     const std::shared_ptr<const ThrustCurveMotor> c6   = window.motor("Estes", "C6");
     const std::shared_ptr<const ThrustCurveMotor> e15w = window.motor("AeroTech", "E15W");
-    const TwoMounts                               mounts(c6, e15w);
-    const std::optional<MotorChoice> first = window.choose(mounts.large(), mounts.fcid(), clickOk);
-    const MotorChoice                firstChosen = Gui::Test::chosenMotor(first);
+    const TwoInnerTubeMounts                      mounts;
+    mounts.configure(mounts.mount29(), c6);
+    mounts.configure(mounts.mount18(), e15w);
+    const std::optional<MotorChoice> first =
+        window.choose(mounts.mount29(), mounts.fcid(), clickOk);
+    const MotorChoice firstChosen = Gui::Test::chosenMotor(first);
     EXPECT_EQ(firstChosen.motor, c6);
     Seen                             seen;
     const std::optional<MotorChoice> second = window.choose(
-        mounts.small(), mounts.fcid(), LookThenAnswer{.seen = &seen, .answer = clickOk});
+        mounts.mount18(), mounts.fcid(), LookThenAnswer{.seen = &seen, .answer = clickOk});
     EXPECT_EQ(seen.motor, e15w);
     EXPECT_EQ(seen.row, nullptr);
     const MotorChoice secondChosen = Gui::Test::chosenMotor(second);
     EXPECT_EQ(secondChosen.motor, e15w);
+}
+
+TEST_F(MotorChooserDialogTest, AnEmptyConfigurationSelectsTheSetALimitHidWhenItsMountShowsIt)
+{
+    // RESELECT: AeroTech E15W (24 mm) chosen for the 18 mm mount while its limit hides it; the
+    // chooser opened for the 29 mm mount's empty configuration selects it again (OpenRocket's
+    // first motorFilterPanel.setMotorMount() scrolls to it), and OK answers it; opened for the
+    // 18 mm mount again, where the limit hides it, the chooser selects nothing.
+    ChooserWindow                    window;
+    const TwoInnerTubeMounts         mounts;
+    const ThrustCurveMotorSet&       e15w = window.set("AeroTech", "E15W");
+    const std::optional<MotorChoice> first =
+        window.choose(mounts.mount18(), mounts.fcid(), SelectThenLimitThenOk{.set = &e15w});
+    const MotorChoice firstChosen = Gui::Test::chosenMotor(first);
+    EXPECT_TRUE(holds(e15w, std::dynamic_pointer_cast<const ThrustCurveMotor>(firstChosen.motor)));
+    EXPECT_TRUE(MotorPreferences::isLimitDiameter(window.services().preferences()));
+
+    Seen                             seen;
+    const std::optional<MotorChoice> second = window.choose(
+        mounts.mount29(), mounts.fcid(), LookThenAnswer{.seen = &seen, .answer = clickOk});
+    EXPECT_EQ(seen.motor, firstChosen.motor);
+    EXPECT_EQ(seen.row, &e15w);
+    EXPECT_EQ(seen.delay, 0.0);
+    const MotorChoice secondChosen = Gui::Test::chosenMotor(second);
+    EXPECT_EQ(secondChosen.motor, firstChosen.motor);
+
+    Seen hidden;
+    EXPECT_EQ(window.choose(mounts.mount18(), mounts.fcid(),
+                            LookThenAnswer{.seen = &hidden, .answer = clickOk}),
+              std::nullopt);
+    EXPECT_EQ(hidden.motor, nullptr);
+    EXPECT_EQ(hidden.row, nullptr);
 }
 
 TEST_F(MotorChooserDialogTest, AWindowKeepsOneChooserForItsServices)

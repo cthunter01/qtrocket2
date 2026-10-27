@@ -272,8 +272,14 @@ QGroupBox& MotorFilterPanel::makeManufacturerBox(QWidget& content)
     connect(selectMotors, &QPushButton::clicked, this,
             guarded([this] { m_manufacturerCheckList->checkAll(); }, context()));
     QHBoxLayout& buttons = addRow(*subLayout, sub);
-    buttons.addWidget(clearMotors);
-    buttons.addWidget(selectMotors);
+    for (QPushButton* button : {clearMotors, selectMotors})
+    {
+        // Never a dialog's default button (a QPushButton in a QDialog is autoDefault, and the
+        // dialog makes the first one its default when it is shown): Return in the chooser's search
+        // field would clear the list. Java's buttons are plain JButtons.
+        button->setAutoDefault(false);
+        buttons.addWidget(button);
+    }
     buttons.addStretch(1);
     return *box;
 }

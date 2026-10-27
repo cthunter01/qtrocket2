@@ -18,12 +18,14 @@
 #include <QColor>
 #include <QComboBox>
 #include <QEvent>
+#include <QFocusEvent>
 #include <QFont>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QItemSelectionModel>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
@@ -142,6 +144,108 @@ protected:
     }
 };
 
+/// The motor table: a QTableView with the keys and buttons of Java's plain JTable (the probe
+/// tools/openrocket-probes/motor-selection-panel's TABLEKEYS lines):
+/// - no type-ahead (QAbstractItemView::keyboardSearch()): a key typed in a JTable only starts
+///   editing, which its cells refuse;
+/// - Enter selects the next row (selectNextRowCell) and Shift+Enter the previous one
+///   (selectPreviousRowCell), from the current cell: past the last row to the first row of the
+///   next column on the screen, before the first row to the last row of the column before, from
+///   the last column to the first and back; without a current cell (none yet, or its row filtered
+///   out) from before the first row of the first column; an empty table does nothing; other
+///   modifiers pass the key on;
+/// - a press, release or double click of any button but the left one selects nothing (Swing's
+///   BasicTableUI ignores them);
+/// - the focus makes no cell current (Qt's item views make the first one current).
+class MotorTableView final : public QTableView
+{
+public:
+    explicit MotorTableView(QWidget* parent) : QTableView(parent) { }
+
+    void keyboardSearch(const QString& /*search*/) override { }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override
+    {
+        const Qt::KeyboardModifiers modifiers = event->modifiers() & ~Qt::KeypadModifier;
+        if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) &&
+            (modifiers == Qt::NoModifier || modifiers == Qt::ShiftModifier))
+        {
+            selectNextRowCell(modifiers == Qt::ShiftModifier ? -1 : 1);
+            event->accept();
+            return;
+        }
+        QTableView::keyPressEvent(event);
+    }
+
+    void mousePressEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton)
+        {
+            QTableView::mousePressEvent(event);
+        }
+    }
+
+    void mouseReleaseEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton)
+        {
+            QTableView::mouseReleaseEvent(event);
+        }
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton)
+        {
+            QTableView::mouseDoubleClickEvent(event);
+        }
+    }
+
+    void focusInEvent(QFocusEvent* event) override
+    {
+        const bool hadCurrent = currentIndex().isValid();
+        QTableView::focusInEvent(event);
+        if (!hadCurrent && currentIndex().isValid() && !selectionModel()->hasSelection())
+        {
+            // Qt's item views make the first cell current when they first get the focus without
+            // one, so that Enter or Down then went to the second row; a JTable's lead stays
+            // unset (the first Enter or Down selects the first row).
+            selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::NoUpdate);
+        }
+    }
+
+private:
+    /// Enter (@p step 1) or Shift+Enter (-1).
+    void selectNextRowCell(int step)
+    {
+        const int rows    = model()->rowCount();
+        const int columns = model()->columnCount();
+        if (rows == 0 || columns == 0)
+        {
+            return;
+        }
+        // The columns in their order on the screen (the header's visual indices).
+        const QModelIndex current = currentIndex();
+        int               row     = (current.isValid() ? current.row() : -1) + step;
+        int column = current.isValid() ? horizontalHeader()->visualIndex(current.column()) : 0;
+        if (row >= rows)
+        {
+            row    = 0;
+            column = (column + 1) % columns;
+        }
+        else if (row < 0)
+        {
+            row    = rows - 1;
+            column = (column + columns - 1) % columns;
+        }
+        const QModelIndex next = model()->index(row, horizontalHeader()->logicalIndex(column));
+        selectionModel()->setCurrentIndex(
+            next, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        scrollTo(next, QAbstractItemView::EnsureVisible);
+    }
+};
+
 }  // namespace
 
 ThrustCurveMotorSelectionPanel::ThrustCurveMotorSelectionPanel(const GuiServices& services,
@@ -174,9 +278,13 @@ ThrustCurveMotorSelectionPanel::ThrustCurveMotorSelectionPanel(const GuiServices
     scrollPane->setWidgetResizable(true);
     scrollPane->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollPane->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scrollPane->setMinimumSize(0, 0);
+    // setMinimumSize(new Dimension(0, 0)), here and on rightSide: positive, since Qt's layouts take
+    // an explicit minimum of 0 as none and use the minimum size hint instead (the details tab's
+    // would keep the chooser some 700 pixels high). The left column keeps its minimum inside the
+    // scroll area, which scrolls it when it is smaller (Java's viewport scrolls its panel below
+    // the preferred size).
+    scrollPane->setMinimumSize(1, 1);
     auto* panel = makeChild<QWidget>(scrollPane);
-    panel->setMinimumSize(0, 0);
     // MigLayout("fill", "[][grow]").
     auto* grid = makeChild<QGridLayout>(panel);
     grid->setColumnStretch(1, 1);
@@ -196,7 +304,7 @@ ThrustCurveMotorSelectionPanel::ThrustCurveMotorSelectionPanel(const GuiServices
     separator->setFrameShadow(QFrame::Sunken);
     auto* rightSide = makeChild<QTabWidget>(this);
     rightSide->setObjectName(QStringLiteral("rightSide"));
-    rightSide->setMinimumSize(0, 0);
+    rightSide->setMinimumSize(1, 1);
     //: TCMotorSelPan.btn.filter
     rightSide->addTab(m_motorFilterPanel, tr("Filter Motors"));
     //: TCMotorSelPan.btn.details
@@ -375,7 +483,7 @@ void ThrustCurveMotorSelectionPanel::makeNameColumnRow(QWidget& panel, QGridLayo
 
 void ThrustCurveMotorSelectionPanel::makeTable(QWidget& panel, QGridLayout& grid)
 {
-    m_table = makeChild<QTableView>(&panel);
+    m_table = makeChild<MotorTableView>(&panel);
     m_table->setObjectName(QStringLiteral("table"));
     m_table->setModel(m_tableModel);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -391,6 +499,9 @@ void ThrustCurveMotorSelectionPanel::makeTable(QWidget& panel, QGridLayout& grid
         header->resizeSection(column, MotorTableModel::preferredWidth(column));
     }
     header->setStretchLastSection(true);
+    // JTable's columns can be dragged into another order (getReorderingAllowed()); a click still
+    // sorts by its logical column.
+    header->setSectionsMovable(true);
     m_table->setMinimumHeight(kTableMinimumHeight);
     m_table->viewport()->installEventFilter(this);
     // Set selection and double-click listeners
@@ -447,6 +558,8 @@ void ThrustCurveMotorSelectionPanel::setMotorMountAndConfig(const FlightConfigur
 {
     const ThrustCurveMotorSelection::MountConfiguration configuration =
         MotorChooserInput::fromMount(mount, fcid);
+    // The set selected until now (the core keeps its sets, so the pointer stays valid).
+    const ThrustCurveMotorSet* const previousSet = m_selection->getSelectedMotorSet();
     if (configuration.motor != nullptr)
     {
         // QtRocket's fix (see the class comment): the row an earlier question selected goes, so
@@ -459,11 +572,22 @@ void ThrustCurveMotorSelectionPanel::setMotorMountAndConfig(const FlightConfigur
     // motorFilterPanel.setMotorMount(mountToEdit): the table sorted again for the mount (and for
     // a set of its own of a motor of no set).
     m_motorFilterPanel->setMotorMount(&mount);
-    if (m_selection->getSelectedMotor() != nullptr)
+    if (configuration.motor != nullptr)
     {
         // select(motorToSelect): the new set's curves, details and delays.
         updateData();
         showDelays();
+    }
+    else if (previousSet != nullptr)
+    {
+        // OpenRocket's first motorFilterPanel.setMotorMount(mountToEdit), before the reset, sorts
+        // the table for the new mount and scrolls to the set selected until then: its row is
+        // selected again when the new mount's filter shows it (also after a filter of the last
+        // question hid it), and its set's default curve is then selected (by the table's
+        // selection listener; probe tools/openrocket-probes/motor-selection-panel, RESELECT). A
+        // row selected already changes nothing: the widgets keep showing it (STALE) until the
+        // dialog's open() selects the row's set (selectMotorFromTable()).
+        selectRowOf(*previousSet);
     }
     showNozzle();
     scrollSelectionVisible();
@@ -765,18 +889,25 @@ void ThrustCurveMotorSelectionPanel::filterChanged()
 
 void ThrustCurveMotorSelectionPanel::scrollSelectionVisible()
 {
-    const ThrustCurveMotorSet* set = m_selection->getSelectedMotorSet();
-    if (set == nullptr)
+    if (const ThrustCurveMotorSet* const set = m_selection->getSelectedMotorSet(); set != nullptr)
     {
-        return;
+        selectRowOf(*set);
     }
+}
+
+void ThrustCurveMotorSelectionPanel::selectRowOf(const ThrustCurveMotorSet& set)
+{
     // -1: filtered out, or not in the table's sets yet.
-    const int row = m_tableModel->rowOf(*set);
+    const int row = m_tableModel->rowOf(set);
     if (row < 0)
     {
         return;
     }
-    const QModelIndex index = m_tableModel->index(row, 0);
+    // setSelectionInterval() of the rows: the current cell keeps its column (Java's column lead),
+    // or takes the first one on the screen.
+    const QModelIndex current = m_table->currentIndex();
+    const QModelIndex index   = m_tableModel->index(
+        row, current.isValid() ? current.column() : m_table->horizontalHeader()->logicalIndex(0));
     m_table->selectionModel()->setCurrentIndex(
         index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
     m_table->scrollTo(index, QAbstractItemView::EnsureVisible);

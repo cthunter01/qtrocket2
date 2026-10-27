@@ -2,9 +2,9 @@
 // of it; these tests follow ThrustCurveMotorSelectionPanel.java's listeners over the eleven sets of
 // smallMotorDatabase(), with the expectations of the probe
 // tools/openrocket-probes/motor-selection-panel (its expected.txt: the COUNT, VERSION, ENABLED,
-// DELAY, NAMECOLUMN and STALE lines, which OpenRocket's real panel printed over the bundled
-// database). The core's decisions (the curves, the delays, the preferred curve) are pinned against
-// OpenRocket in tests/core/motor/chooser; these tests are about the widgets.
+// DELAY, NAMECOLUMN, STALE, TABLEKEYS and RESELECT lines, which OpenRocket's real panel printed
+// over the bundled database). The core's decisions (the curves, the delays, the preferred curve)
+// are pinned against OpenRocket in tests/core/motor/chooser; these tests are about the widgets.
 
 #include "QtRocket/gui/dialogs/motor/ThrustCurveMotorSelectionPanel.h"
 
@@ -66,6 +66,7 @@
 #include "QtRocket/motor/chooser/ThrustCurveMotorSelection.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/util/BugError.h"
 #include "ScopedApplicationPalette.h"
 #include "TestGuiServices.h"
@@ -814,6 +815,127 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, TheCurveListShowsTheNameColumnsName)
     EXPECT_EQ(chooser.selection().getSelectedMotorSet(), &chooser.set("Quest", "B6W"));
 }
 
+/// The table's selected row, its current row (Java's lead) and the current cell's column on the
+/// screen, as the probe's TABLEKEYS lines print them (-1 for none).
+[[nodiscard]] std::string tableCursor(const Chooser& chooser)
+{
+    const QTableView&     table   = chooser.table();
+    const QModelIndex     current = table.currentIndex();
+    const QModelIndexList rows    = table.selectionModel()->selectedRows();
+    return std::format(
+        "row={} lead={} column={}", rows.isEmpty() ? -1 : rows.front().row(),
+        current.isValid() ? current.row() : -1,
+        current.isValid() ? table.horizontalHeader()->visualIndex(current.column()) : -1);
+}
+
+TEST_F(ThrustCurveMotorSelectionPanelTest, EnterInTheTableSelectsTheNextRowAsAJTable)
+{
+    // TABLEKEYS (selectNextRowCell, selectPreviousRowCell), over the eleven rows of the small
+    // database (the probe's table has 1458: its last row is 1457 where this one's is 10).
+    Chooser chooser;
+    ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
+    QTableView& table = chooser.table();
+    EXPECT_EQ(tableCursor(chooser), "row=-1 lead=-1 column=-1");
+    // The focus makes no row current (Qt's item views make the first cell current).
+    table.setFocus();
+    ASSERT_TRUE(table.hasFocus());
+    EXPECT_EQ(tableCursor(chooser), "row=-1 lead=-1 column=-1");
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+    EXPECT_EQ(chooser.selection().getSelectedMotorSet(), &chooser.panel().tableModel().motorSet(0));
+    QTest::keyClick(&table, Qt::Key_Enter, Qt::KeypadModifier);
+    EXPECT_EQ(tableCursor(chooser), "row=1 lead=1 column=0");
+    EXPECT_EQ(chooser.selection().getSelectedMotorSet(), &chooser.panel().tableModel().motorSet(1));
+    QTest::keyClick(&table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+    // Shift+Enter on the first row: the last row, the column before (the last).
+    QTest::keyClick(&table, Qt::Key_Return, Qt::ShiftModifier);
+    EXPECT_EQ(tableCursor(chooser), "row=10 lead=10 column=5");
+    EXPECT_EQ(chooser.selection().getSelectedMotorSet(),
+              &chooser.panel().tableModel().motorSet(10));
+    // Enter on the last row: the first row, the next column (the first).
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+    table.clearSelection();
+    EXPECT_EQ(tableCursor(chooser), "row=-1 lead=0 column=0");
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=1 lead=1 column=0");
+    table.selectRow(10);
+    EXPECT_EQ(tableCursor(chooser), "row=10 lead=10 column=0");
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=1");
+    // An empty table: nothing. (Java keeps its column lead, 1, without a row; Qt's current cell
+    // goes with its row, so that the selection shown again starts from the first column.)
+    chooser.search().setText(QStringLiteral("zzz"));
+    EXPECT_EQ(tableCursor(chooser), "row=-1 lead=-1 column=-1");
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=-1 lead=-1 column=-1");
+    chooser.search().setText(QString());
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+}
+
+TEST_F(ThrustCurveMotorSelectionPanelTest, TheTableHasNoTypeAhead)
+{
+    // TABLEKEYS binding [typed a]: no action (a JTable's typed key only starts an edit, which the
+    // motor table's cells refuse); Qt's item views select the next row whose text starts so.
+    Chooser chooser;
+    ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
+    QTableView& table = chooser.table();
+    table.setFocus();
+    table.selectRow(0);
+    const ThrustCurveMotorSet* const first = chooser.selection().getSelectedMotorSet();
+    ASSERT_NE(first, nullptr);
+    QTest::keyClicks(&table, QStringLiteral("qe"));
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+    EXPECT_EQ(chooser.selection().getSelectedMotorSet(), first);
+}
+
+TEST_F(ThrustCurveMotorSelectionPanelTest, OnlyTheLeftButtonSelectsInTheTable)
+{
+    // TABLEKEYS right button on row 5, middle button on row 6: the selection stays (Swing's
+    // BasicTableUI ignores the other buttons).
+    Chooser chooser;
+    ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
+    QTableView& table = chooser.table();
+    table.selectRow(3);
+    const ThrustCurveMotorSet* const selected = chooser.selection().getSelectedMotorSet();
+    const auto                       center   = [&table](int row) {
+        return table.visualRect(table.model()->index(row, 1)).center();
+    };
+    QTest::mouseClick(table.viewport(), Qt::RightButton, {}, center(5));
+    EXPECT_EQ(chooser.tableSet(), selected);
+    QTest::mouseClick(table.viewport(), Qt::MiddleButton, {}, center(6));
+    EXPECT_EQ(chooser.tableSet(), selected);
+    doubleClickAt(*table.viewport(), center(7), Qt::RightButton);
+    EXPECT_EQ(chooser.tableSet(), selected);
+    EXPECT_EQ(chooser.selection().getSelectedMotorSet(), selected);
+    QTest::mouseClick(table.viewport(), Qt::LeftButton, {}, center(5));
+    EXPECT_EQ(chooser.tableSet(), &chooser.panel().tableModel().motorSet(5));
+}
+
+TEST_F(ThrustCurveMotorSelectionPanelTest, TheTablesColumnsCanBeMoved)
+{
+    // TABLEKEYS reorderingAllowed=true; Enter goes on to the next column on the screen.
+    Chooser chooser;
+    ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
+    QTableView&  table  = chooser.table();
+    QHeaderView& header = *table.horizontalHeader();
+    EXPECT_TRUE(header.sectionsMovable());
+    header.moveSection(0, 5);
+    EXPECT_EQ(header.logicalIndex(0), 1);
+    table.setFocus();
+    table.selectionModel()->setCurrentIndex(
+        table.model()->index(10, 0),
+        QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    EXPECT_EQ(tableCursor(chooser), "row=10 lead=10 column=5");
+    QTest::keyClick(&table, Qt::Key_Return);
+    EXPECT_EQ(tableCursor(chooser), "row=0 lead=0 column=0");
+    EXPECT_EQ(table.currentIndex().column(), 1);
+    // The rows are the model's still: the moved column sorts as its own.
+    EXPECT_EQ(chooser.panel().tableModel().headerData(0, Qt::Horizontal, Qt::DisplayRole),
+              header.model()->headerData(0, Qt::Horizontal, Qt::DisplayRole));
+}
+
 TEST_F(ThrustCurveMotorSelectionPanelTest, ADoubleClickAnywhereOnTheTableAsksForOk)
 {
     Chooser chooser;
@@ -911,6 +1033,55 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, AnEmptyConfigurationLeavesTheLastMoto
               "motor=C6 rowSet=C6 curves=[C6|C6] curveBox=true delays=[0|3|5|7|Plugged] "
               "delayText=[0] delayBox=true nozzleText=[0] info=[C6] series=2");
     EXPECT_EQ(chooser.panel().getSelectedDelay(), 0.0);
+}
+
+/// The panel opened for @p mount in @p fcid as the chooser dialog opens it: the state after
+/// setMotorMountAndConfig() and after selectMotorFromTable() (open()), as staleState() writes them,
+/// separated by " | ".
+[[nodiscard]] std::string openAs(const Chooser& chooser, const FlightConfigurationId& fcid,
+                                 const InnerTube& mount)
+{
+    chooser.panel().setMotorMountAndConfig(fcid, mount);
+    const std::string afterMount = staleState(chooser);
+    chooser.panel().selectMotorFromTable();
+    return afterMount + " | " + staleState(chooser);
+}
+
+TEST_F(ThrustCurveMotorSelectionPanelTest, AnEmptyConfigurationSelectsTheSetAFilterHidAgain)
+{
+    // RESELECT: AeroTech E15W (24 mm) selected for the 18 mm mount, then hidden by "Limit motor
+    // diameter to mount diameter"; opened for the 29 mm mount's empty configuration, the panel
+    // selects its row again and with it its default curve (OpenRocket's first
+    // motorFilterPanel.setMotorMount() scrolls to the set of before, before the reset); opened for
+    // the 18 mm mount again, where the limit hides it, nothing.
+    Chooser                             chooser;
+    const Gui::Test::TwoInnerTubeMounts mounts;
+    ThrustCurveMotorSelectionPanel&     panel = chooser.panel();
+    const std::string                   none =
+        "motor=none rowSet=none curves=[] curveBox=false delays=[] "
+        "delayText=[] delayBox=false nozzleText=[0] info=[] series=0";
+    EXPECT_EQ(openAs(chooser, mounts.fcid(), mounts.mount18()), none + " | " + none);
+    chooser.selectThroughTable("AeroTech", "E15W");
+    const std::string e15w =
+        "curves=[E15W|E15W] curveBox=true delays=[0|4|6|7|8|10|Plugged] "
+        "delayText=[0] delayBox=true nozzleText=[0] info=[E15W] series=2";
+    EXPECT_EQ(staleState(chooser), "motor=E15W rowSet=E15W " + e15w);
+    chooser.child<QCheckBox>(QStringLiteral("limitDiameterCheckBox")).click();
+    EXPECT_EQ(staleState(chooser), "motor=E15W rowSet=none " + e15w);
+    const std::shared_ptr<const ThrustCurveMotor> chosen = panel.getSelectedMotor();
+    ASSERT_NE(chosen, nullptr);
+    panel.selectedMotor(*chosen);
+
+    EXPECT_EQ(openAs(chooser, mounts.fcid(), mounts.mount29()),
+              "motor=E15W rowSet=E15W " + e15w + " | motor=E15W rowSet=E15W " + e15w);
+    EXPECT_EQ(panel.getSelectedMotor(), chosen);
+    EXPECT_EQ(panel.getSelectedDelay(), 0.0);
+    EXPECT_EQ(panel.getSelectedNozzleExitDiameter(), 0.0);
+    panel.selectedMotor(*chosen);
+
+    EXPECT_EQ(openAs(chooser, mounts.fcid(), mounts.mount18()),
+              "motor=none rowSet=none " + e15w + " | motor=none rowSet=none " + e15w);
+    EXPECT_EQ(panel.getSelectedDelay(), 0.0);
 }
 
 TEST_F(ThrustCurveMotorSelectionPanelTest, OpensForAMotorOfNoSetWithASetOfItsOwn)

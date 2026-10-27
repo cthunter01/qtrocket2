@@ -44,9 +44,10 @@ class ThrustCurveMotorSelectionPanel;
 ///   it, with the delay and the nozzle exit diameter.
 /// - Cancel, Escape (GUIUtil.installEscapeCloseOperation()) and the window's close button close it
 ///   without a motor.
-/// - Neither button is a default button, and neither becomes one when it has the focus
-///   (setAutoDefault(false)): OpenRocket's dialog has none, and Return in the search field or the
-///   delay editor, which they pass on, must not close it.
+/// - No button of the dialog is a default button, and none becomes one when it is shown or has the
+///   focus (setAutoDefault(false) on every QPushButton, also the filter panel's "Clear All" and
+///   "Select All"): OpenRocket's dialog has none, and Return in the search field, the delay editor
+///   or the manufacturer list, which they pass on, must neither close it nor clear the list.
 /// - The search field has the focus when the dialog is first shown (Java grabs it once in the
 ///   constructor); later the dialog gives it back to the widget that had it when it closed.
 ///
@@ -57,9 +58,12 @@ class ThrustCurveMotorSelectionPanel;
 /// - The close button cancels, also after an earlier OK (the user's bug 7, plan 10.3): Java's
 ///   dialog is only hidden on closing (HIDE_ON_CLOSE) and keeps okClicked from the OK of an
 ///   earlier question, so its call site takes the motor as chosen.
-/// - The dialog takes its size from the panel's size hint (Java packs it to the panel's
-///   preferred size, of which the table's preferred width of 500 pixels is part) and is placed
-///   over its window as Qt places a dialog (Java: setLocationByPlatform()).
+/// - The dialog first takes Qt's size of a window, its size hint (the panel's, of which the
+///   table's 500 pixels are not part) but at most two thirds of the screen's width and height
+///   (Java packs it to the panel's preferred size, whatever the screen), and is placed over its
+///   window as Qt places a dialog (Java: setLocationByPlatform()). As in Java it has no least size
+///   but its buttons' (the panel's is none: selectionPanel.setMinimumSize(0, 0)); smaller than its
+///   size hint, it squeezes the panel's widgets, where OpenRocket's layout clips them.
 /// - forWindow() keeps one chooser per window and per services (the motor database, the
 ///   preferences and the prompts it was made with): a question with other services gets a
 ///   chooser of its own. A question without a parent gets a chooser for that question alone, and

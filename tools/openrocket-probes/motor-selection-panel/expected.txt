@@ -221,3 +221,33 @@ STALE	fresh panel, empty configuration, open()	motor=none	set=none	delay=0.0 (0x
 STALE	Estes C6 configuration	motor=C6	set=Estes C6	delay=5.0 (0x1.4p2)	nozzle=0.004 (0x1.0624dd2f1a9fcp-8)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[5]	delayBox=true	nozzleText=[0.4]	info=[C6]	series=2
 STALE	then the empty configuration	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[5]	delayBox=true	nozzleText=[0]	info=[C6]	series=2
 STALE	then open()	motor=C6	set=Estes C6	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[C6]	series=2
+TABLEKEYS	binding [ENTER]	focused=null	ancestor=selectNextRowCell
+TABLEKEYS	binding [shift ENTER]	focused=null	ancestor=selectPreviousRowCell
+TABLEKEYS	binding [ctrl ENTER]	focused=null	ancestor=null
+TABLEKEYS	binding [typed a]	focused=null	ancestor=null
+TABLEKEYS	reorderingAllowed=true
+TABLEKEYS	fresh panel	row=-1	last=1457	lead=-1	column=-1	rowSet=none
+TABLEKEYS	focus gained	row=-1	last=1457	lead=-1	column=-1	rowSet=none
+TABLEKEYS	Enter	row=0	last=1457	lead=0	column=0	rowSet=NoThrust Dart
+TABLEKEYS	Enter	row=1	last=1457	lead=1	column=0	rowSet=Quest MICRO_MAXX_II
+TABLEKEYS	Shift+Enter	row=0	last=1457	lead=0	column=0	rowSet=NoThrust Dart
+TABLEKEYS	Shift+Enter on the first row	row=1457	last=1457	lead=1457	column=5	rowSet=Cesaroni Technology Inc. P8000
+TABLEKEYS	Enter on the last row	row=0	last=1457	lead=0	column=0	rowSet=NoThrust Dart
+TABLEKEYS	clearSelection()	row=-1	last=1457	lead=0	column=0	rowSet=none
+TABLEKEYS	Enter	row=1	last=1457	lead=1	column=0	rowSet=Quest MICRO_MAXX_II
+TABLEKEYS	the last row selected	row=1457	last=1457	lead=1457	column=0	rowSet=Cesaroni Technology Inc. P8000
+TABLEKEYS	Enter on the last row	row=0	last=1457	lead=0	column=1	rowSet=NoThrust Dart
+TABLEKEYS	search zzz	row=-1	last=-1	lead=-1	column=1	rowSet=none
+TABLEKEYS	Enter in the empty table	row=-1	last=-1	lead=-1	column=1	rowSet=none
+TABLEKEYS	search cleared	row=0	last=1457	lead=0	column=1	rowSet=NoThrust Dart
+TABLEKEYS	row 3 selected	row=3	last=1457	lead=3	column=1	rowSet=Apogee 1/2A2
+TABLEKEYS	right button on row 5	row=3	last=1457	lead=3	column=1	rowSet=Apogee 1/2A2
+TABLEKEYS	middle button on row 6	row=3	last=1457	lead=3	column=1	rowSet=Apogee 1/2A2
+RESELECT	18 mm mount: setMotorMountAndConfig	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[]	curveBox=false	delays=[]	delayText=[]	delayBox=false	nozzleText=[0]	info=[]	series=0
+RESELECT	18 mm mount: open()	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[]	curveBox=false	delays=[]	delayText=[]	delayBox=false	nozzleText=[0]	info=[]	series=0
+RESELECT	AeroTech E15W selected	motor=E15W	set=AeroTech E15W	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=AeroTech E15W	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2
+RESELECT	Limit motor diameter on	motor=E15W	set=AeroTech E15W	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2
+RESELECT	29 mm mount: setMotorMountAndConfig	motor=E15W	set=AeroTech E15W	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=AeroTech E15W	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2
+RESELECT	29 mm mount: open()	motor=E15W	set=AeroTech E15W	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=AeroTech E15W	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2
+RESELECT	18 mm mount again: setMotorMountAndConfig	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2
+RESELECT	18 mm mount again: open()	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[E15W|E15W]	curveBox=true	delays=[0|4|6|7|8|10|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[E15W]	series=2

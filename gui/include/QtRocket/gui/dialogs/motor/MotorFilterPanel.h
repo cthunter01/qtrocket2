@@ -39,7 +39,8 @@ class UnitSpinBox;
 ///   gives the filter;
 /// - "Manufacturer": a CheckList of the manufacturers of the database
 ///   (ThrustCurveMotorSelection::getManufacturers(), sorted by simple name, shown by display
-///   name), unchecked = excluded, with "Clear All" and "Select All"; the excluded ones are stored
+///   name), unchecked = excluded, with "Clear All" and "Select All" (never a dialog's default
+///   button: not autoDefault, as Java's plain JButtons); the excluded ones are stored
 ///   (MotorPreferences::setExcludedMotorManufacturers()) at every change, and the list starts
 ///   from the stored ones;
 /// - "Total Impulse": a RangeSlider over the impulse classes A to O;

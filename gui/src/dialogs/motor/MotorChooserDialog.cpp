@@ -116,6 +116,10 @@ MotorChooserDialog::MotorChooserDialog(const GuiServices& services, QWidget* par
     // MigLayout("fill, ins 0"): the panel takes the space, the buttons under it at the right.
     auto* layout = makeChild<QVBoxLayout>(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    // selectionPanel.setMinimumSize(new Dimension(0, 0)): the dialog shrinks below the panel's
+    // size hint (and squeezes it). A positive minimum: Qt's layouts take an explicit minimum of 0
+    // as none, and use the minimum size hint instead.
+    m_selectionPanel->setMinimumSize(1, 1);
     layout->addWidget(m_selectionPanel, 1);
 
     // "tag ok, split, align right, gapright unrel, gapbottom unrel" and "tag cancel".
@@ -129,21 +133,26 @@ MotorChooserDialog::MotorChooserDialog(const GuiServices& services, QWidget* par
     //: dlg.but.cancel
     m_cancelButton = makeChild<QPushButton>(row, tr("Cancel"));
     m_cancelButton->setObjectName(QStringLiteral("cancelButton"));
-    // No default button (OpenRocket's dialog has none): Return in the search field or the delay
-    // editor, which pass it on, must not press one. QDialogButtonBox would make OK the default
-    // button when it is shown (whatever its autoDefault), so the buttons are laid out here, in the
-    // platform's order.
+    // QDialogButtonBox would make OK the default button when it is shown (whatever its
+    // autoDefault), so the buttons are laid out here, in the platform's order.
     const bool         cancelBeforeOk = cancelFirst(*this);
     QPushButton* const first          = cancelBeforeOk ? m_cancelButton : m_okButton;
     QPushButton* const second         = cancelBeforeOk ? m_okButton : m_cancelButton;
-    for (QPushButton* button : {first, second})
+    rowLayout->addWidget(first);
+    rowLayout->addWidget(second);
+    QWidget::setTabOrder(first, second);
+    layout->addWidget(row);
+    // No default button (OpenRocket's dialog has none): Return in the search field, the delay
+    // editor or the manufacturer list, which pass it on, must press no button. Every QPushButton
+    // in a QDialog is autoDefault, and the dialog makes the first one in the focus chain its
+    // default button when it is shown (the filter panel's "Clear All", which Return would then
+    // click), or a focused one: none of the chooser's is.
+    const QList<QPushButton*> buttons = findChildren<QPushButton*>();
+    for (QPushButton* button : buttons)
     {
         button->setAutoDefault(false);
         button->setDefault(false);
-        rowLayout->addWidget(button);
     }
-    QWidget::setTabOrder(first, second);
-    layout->addWidget(row);
     connect(m_okButton, &QPushButton::clicked, this,
             guarded([this] { closeDialog(true); }, context()));
     connect(m_cancelButton, &QPushButton::clicked, this,

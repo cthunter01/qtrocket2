@@ -178,4 +178,39 @@ FlightConfigurationId BodyTubeMount::addEmptyConfiguration()
     return fcid;
 }
 
+namespace
+{
+
+/// A motor mount of @p body: an inner tube of inner radius @p innerRadius, its wall 0.5 mm thick,
+/// @p length long.
+[[nodiscard]] InnerTube& addInnerTubeMount(BodyTube& body, double innerRadius, double length)
+{
+    InnerTube& tube = body.addChild(std::make_unique<InnerTube>());
+    tube.setOuterRadius(innerRadius + 0.0005);
+    tube.setInnerRadius(innerRadius);
+    tube.setLength(length);
+    tube.setMotorMount(true);
+    return tube;
+}
+
+}  // namespace
+
+TwoInnerTubeMounts::TwoInnerTubeMounts()
+{
+    AxialStage& stage = m_rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   body  = stage.addChild(std::make_unique<BodyTube>());
+    m_mount29         = &addInnerTubeMount(body, 0.0145, 0.15);
+    m_mount18         = &addInnerTubeMount(body, 0.009, 0.075);
+    m_rocket.createFlightConfiguration(m_fcid);
+}
+
+void TwoInnerTubeMounts::configure(InnerTube&                              mount,
+                                   std::shared_ptr<const ThrustCurveMotor> motor) const
+{
+    MotorConfiguration configuration(mount, m_fcid);
+    configuration.setMotor(std::move(motor));
+    configuration.setEjectionDelay(0.0);
+    mount.setMotorConfig(configuration, m_fcid);
+}
+
 }  // namespace QtRocket::Gui::Test
