@@ -22,6 +22,7 @@
 #   flight-config      tests/gui/flightconfig/FlightConfigurationTablePins.h (the tables of the Motors &
 #                      Configuration tab) and FlightConfigurationOperationPins.h (its operations; the probe
 #                      runs under xvfb-run)
+#   motor-chooser      tests/gui/dialogs/motor/MotorChooserPins.h
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -58,7 +59,7 @@
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
-    material-combo component-editing component-drop actions-rules thrust-curves flight-config)
+    material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser)
 
 check=false
 families=()
@@ -419,6 +420,14 @@ for family in "${families[@]}"; do
         python3 -I "${here}/${family}/gen_flight_configuration_operation_pins.py" \
             "${work}/FlightConfigurationOperationsProbe.txt" "$(generated "${operations}")" "${commit}"
         finish "${operations}"
+        ;;
+    motor-chooser)
+        # OpenRocket's ThrustCurveMotorSelectionPanel is a JPanel: it runs headless (the probe does what
+        # MotorChooserDialog, a JDialog, adds to it).
+        run_probe "${family}" MotorChooserMountsProbe headless "${examples}"
+        file=tests/gui/dialogs/motor/MotorChooserPins.h
+        python3 -I "${here}/${family}/gen_motor_chooser_mount_pins.py" "${work}/MotorChooserMountsProbe.txt" \
+            "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

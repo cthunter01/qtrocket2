@@ -58,8 +58,6 @@
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
-#include "QtRocket/rocket/FlightConfigurationId.h"
-#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "ScriptedUserPrompts.h"
@@ -1530,18 +1528,13 @@ TEST_F(WidgetUserPromptsTest, ASaveAsDefaultThatTakesTheDialogAlongCancelsTheRen
 
 TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
 {
-    // Run 2 of Milestone 3 brings the motor chooser and the parts library, run 3
-    // the preferences' user files and the start-up's problems: until then every
-    // one of these gives its cancelling answer without a dialog (one would hang
-    // here: nothing answers it).
+    // Run 2 of Milestone 3 brings the parts library, run 3 the preferences' user files and the
+    // start-up's problems: until then every one of these gives its cancelling answer without a
+    // dialog (one would hang here: nothing answers it). The value dialogs and the motor chooser
+    // have their dialogs (the tests above; tests/gui/main/motor_chooser_prompt_tests.cpp).
     WidgetUserPrompts                prompts;
     const Gui::Test::TestGuiServices services;
-    const InnerTube                  mount;
-    EXPECT_FALSE(prompts
-                     .chooseMotor(nullptr, services.services(), mount,
-                                  FlightConfigurationId::defaultValueId())
-                     .has_value());
-    const UserPrompts::PresetAnswer preset =
+    const UserPrompts::PresetAnswer  preset =
         prompts.choosePreset(nullptr, services.services(),
                              {.componentKind   = ComponentKind::NOSE_CONE,
                               .foreDiameter    = std::nullopt,

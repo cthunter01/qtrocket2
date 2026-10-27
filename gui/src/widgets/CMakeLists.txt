@@ -14,6 +14,7 @@ target_sources(QtRocket_gui PRIVATE
     IconToggleButton.cpp ${gui_include_dir}/widgets/IconToggleButton.h
     IntSpinBox.cpp ${gui_include_dir}/widgets/IntSpinBox.h
     MaterialComboBox.cpp ${gui_include_dir}/widgets/MaterialComboBox.h
+    RangeSlider.cpp ${gui_include_dir}/widgets/RangeSlider.h
     SelectionKeyFilter.cpp ${gui_include_dir}/widgets/SelectionKeyFilter.h
     SingleRowScrollArea.cpp ${gui_include_dir}/widgets/SingleRowScrollArea.h
     SpinBoxEditing.cpp ${gui_include_dir}/widgets/SpinBoxEditing.h

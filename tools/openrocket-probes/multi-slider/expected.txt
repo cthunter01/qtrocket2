@@ -1,0 +1,114 @@
+== slider 0..14 with ticks and labels: preferred 200x46, minimum 36x46
+thumb x of each value: 0=5 1=26 2=46 3=67 4=88 5=109 6=129 7=150 8=171 9=191 10=212 11=233 12=254 13=274 14=294; thumb 11x20 at y 0, slider 300x46
+key bindings (focused): pressed DOWN -> negativeUnitIncrement; pressed END -> maxScroll; pressed HOME -> minScroll; pressed KP_DOWN -> negativeUnitIncrement; pressed KP_LEFT -> negativeUnitIncrement; pressed KP_RIGHT -> positiveUnitIncrement; pressed KP_UP -> positiveUnitIncrement; pressed LEFT -> negativeUnitIncrement; pressed PAGE_DOWN -> negativeBlockIncrement; pressed PAGE_UP -> positiveBlockIncrement; pressed RIGHT -> positiveUnitIncrement; pressed UP -> positiveUnitIncrement
+focusable: true
+key +unit on thumb 0: values=1,14 current=0 thumb0=21..31 thumb1=289..299
+key +block: values=2,14 current=0 thumb0=41..51 thumb1=289..299
+key max: values=14,14 current=0 thumb0=289..299 thumb1=289..299
+key +unit at the maximum: values=14,14 current=0 thumb0=289..299 thumb1=289..299
+key min: values=0,14 current=0 thumb0=0..10 thumb1=289..299
+key -unit at the minimum: values=0,14 current=0 thumb0=0..10 thumb1=289..299
+key -block at the minimum: values=0,14 current=0 thumb0=0..10 thumb1=289..299
+  events of the keys: 1,14 adjusting=false,false | 2,14 adjusting=false,false | 14,14 adjusting=false,false | 0,14 adjusting=false,false
+click on thumb 1 at 5,7: values=5,7 current=1 thumb0=104..114 thumb1=145..155
+  events of the click: none
+key -unit on thumb 1: values=5,6 current=1 thumb0=104..114 thumb1=124..134
+key -unit on thumb 1: values=5,5 current=1 thumb0=104..114 thumb1=104..114
+key -unit on thumb 1: values=5,4 current=1 thumb0=104..114 thumb1=83..93
+key -unit on thumb 1: values=5,3 current=1 thumb0=104..114 thumb1=62..72
+  events of the keys: 5,6 adjusting=false,false | 5,5 adjusting=false,false | 5,4 adjusting=false,false | 5,3 adjusting=false,false
+setValueAt(0, 9): values=9,3 current=1 thumb0=186..196 thumb1=62..72
+setValueAt(1, 20): values=9,14 current=1 thumb0=186..196 thumb1=289..299
+setValueAt(0, -3): values=0,14 current=1 thumb0=0..10 thumb1=289..299
+  events of the sets: 9,3 adjusting=false,false | 9,14 adjusting=false,false | 0,14 adjusting=false,false
+  events of setValueAt(0, 0) again: none
+press on thumb 0 at 2,6: values=2,6 current=0 thumb0=41..51 thumb1=124..134
+drag by +10: values=2,6 current=0 thumb0=51..61 thumb1=124..134
+drag by +200: values=6,6 current=0 thumb0=124..134 thumb1=124..134
+drag by -500: values=0,6 current=0 thumb0=0..10 thumb1=124..134
+release: values=0,6 current=0 thumb0=0..10 thumb1=124..134
+  events of the drag: 2,6 adjusting=true,false | 6,6 adjusting=true,false | 0,6 adjusting=true,false | 0,6 adjusting=false,false
+press on both thumbs at 7,7: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+drag by -30: values=6,7 current=0 thumb0=124..134 thumb1=145..155
+then by 30: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+  events of the drag: 7,7 adjusting=true,false | 6,7 adjusting=true,false | 7,7 adjusting=true,false | 7,7 adjusting=false,false
+press on both thumbs at 7,7: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+drag by 30: values=7,8 current=1 thumb0=145..155 thumb1=166..176
+  events of the drag: 7,7 adjusting=false,true | 7,8 adjusting=false,true | 7,8 adjusting=false,false
+press on both thumbs at 7,7: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+drag by 0: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+then by 30: values=7,7 current=0 thumb0=145..155 thumb1=145..155
+  events of the drag: 7,7 adjusting=true,false | 7,7 adjusting=false,false
+press at 1 (x 26) beside the thumbs at 3,11: values=2,11 current=0 thumb0=41..51 thumb1=228..238
+  events of the press and its release: 3,11 adjusting=true,false | 2,11 adjusting=true,false | 2,11 adjusting=false,false
+press at 5 (x 109) beside the thumbs at 3,11: values=4,11 current=0 thumb0=83..93 thumb1=228..238
+  events of the press and its release: 3,11 adjusting=true,false | 4,11 adjusting=true,false | 4,11 adjusting=false,false
+press at 6 (x 129) beside the thumbs at 3,11: values=4,11 current=0 thumb0=83..93 thumb1=228..238
+  events of the press and its release: 3,11 adjusting=true,false | 4,11 adjusting=true,false | 4,11 adjusting=false,false
+press at 7 (x 150) beside the thumbs at 3,11: values=4,11 current=0 thumb0=83..93 thumb1=228..238
+  events of the press and its release: 3,11 adjusting=true,false | 4,11 adjusting=true,false | 4,11 adjusting=false,false
+press at 8 (x 171) beside the thumbs at 3,11: values=3,10 current=1 thumb0=62..72 thumb1=207..217
+  events of the press and its release: 3,11 adjusting=false,true | 3,10 adjusting=false,true | 3,10 adjusting=false,false
+press at 9 (x 191) beside the thumbs at 3,11: values=3,10 current=1 thumb0=62..72 thumb1=207..217
+  events of the press and its release: 3,11 adjusting=false,true | 3,10 adjusting=false,true | 3,10 adjusting=false,false
+press at 13 (x 274) beside the thumbs at 3,11: values=3,12 current=1 thumb0=62..72 thumb1=249..259
+  events of the press and its release: 3,11 adjusting=false,true | 3,12 adjusting=false,true | 3,12 adjusting=false,false
+thumbs at 6,8: thumb 0 ends before x 135, thumb 1 starts at x 166
+press at x 150: values=7,8 current=0 thumb0=145..155 thumb1=166..176
+press at x 136: values=7,8 current=0 thumb0=145..155 thumb1=166..176
+press at x 165: values=6,7 current=1 thumb0=124..134 thumb1=145..155
+press at 12 beside the thumbs at 7,7: values=7,8 current=1 thumb0=145..155 thumb1=166..176
+press at 2 beside the thumbs at 7,7: values=6,7 current=0 thumb0=124..134 thumb1=145..155
+press at x 1, thumbs at 3,11: values=2,11 current=0 thumb0=41..51 thumb1=228..238
+press at x 298, thumbs at 3,11: values=3,12 current=1 thumb0=62..72 thumb1=249..259
+press in the labels under 3 (y 43), thumbs at 3,11: values=3,10 current=1 thumb0=62..72 thumb1=207..217
+press in the labels under 11 (y 43), thumbs at 3,11: values=4,11 current=0 thumb0=83..93 thumb1=228..238
+press in the labels under 7 (y 43), thumbs at 3,11: values=4,11 current=0 thumb0=83..93 thumb1=228..238
+right button at 7, thumbs at 0,14: values=1,14 current=0 thumb0=21..31 thumb1=289..299
+then the middle button at 7: values=2,14 current=0 thumb0=41..51 thumb1=289..299
+right-button drag of thumb 0 from 0 to 3: values=3,14 current=0 thumb0=62..72 thumb1=289..299
+wheel up at 7: values=0,14 current=0 thumb0=0..10 thumb1=289..299
+  events of the wheel: none
+disabled: a press at 7 and a drag of thumb 0: values=3,11 current=0 thumb0=62..72 thumb1=228..238
+  events of the disabled slider: none
+hold at 10, thumbs at 0,14: values=0,13 current=1 thumb0=0..10 thumb1=269..279
+  after 200 ms: values=0,13 current=1 thumb0=0..10 thumb1=269..279
+  after 1300 ms more: values=0,10 current=1 thumb0=0..10 thumb1=207..217
+  events of the hold: 0,14 adjusting=false,true | 0,13 adjusting=false,true | 0,12 adjusting=false,true | 0,11 adjusting=false,true | 0,10 adjusting=false,true | 0,10 adjusting=false,false
+  ms between them (rounded): 0 300 100 100 1000
+hold at 4, thumbs at 0,14: values=1,14 current=0 thumb0=21..31 thumb1=289..299
+  moved to 12 after 250 ms, after 1500 ms more: values=12,14 current=0 thumb0=249..259 thumb1=289..299
+  events of the hold: 0,14 adjusting=true,false | 1,14 adjusting=true,false | 2,14 adjusting=true,false | 3,14 adjusting=true,false | 4,14 adjusting=true,false | 5,14 adjusting=true,false | 6,14 adjusting=true,false | 7,14 adjusting=true,false | 8,14 adjusting=true,false | 9,14 adjusting=true,false | 10,14 adjusting=true,false | 11,14 adjusting=true,false | 12,14 adjusting=true,false | 12,14 adjusting=false,false
+  ms between them (rounded): 0 300 100 100 100 100 100 100 100 100 100 100 500
+hold at 10, thumbs at 0,14: values=0,13 current=1 thumb0=0..10 thumb1=269..279
+  moved to x 299 after 80 ms, after 700 ms more: values=0,12 current=1 thumb0=0..10 thumb1=249..259
+  events of the hold: 0,14 adjusting=false,true | 0,13 adjusting=false,true | 0,12 adjusting=false,true | 0,12 adjusting=false,false
+  ms between them (rounded): 0 300 500
+hold at 6, thumbs at 3,8: values=3,7 current=1 thumb0=62..72 thumb1=145..155
+  moved to 1 after 80 ms, after 1000 ms more: values=3,1 current=1 thumb0=62..72 thumb1=21..31
+  events of the hold: 3,8 adjusting=false,true | 3,7 adjusting=false,true | 3,6 adjusting=false,true | 3,5 adjusting=false,true | 3,4 adjusting=false,true | 3,3 adjusting=false,true | 3,2 adjusting=false,true | 3,1 adjusting=false,true | 3,1 adjusting=false,false
+  ms between them (rounded): 0 300 100 100 100 100 100 300
+== slider 0..1000: preferred 200x20, minimum 36x20
+thumb x of each value: 0=5 100=34 200=63 300=92 400=121 500=150 600=179 700=208 800=237 900=266 1000=294; thumb 11x20 at y 0, slider 300x20
+key +block: values=100,1000 current=0 thumb0=29..39 thumb1=289..299
+key +unit: values=101,1000 current=0 thumb0=29..39 thumb1=289..299
+press at 500: values=201,1000 current=0 thumb0=58..68 thumb1=289..299
+  events of the keys and the press: 100,1000 adjusting=false,false | 101,1000 adjusting=false,false | 101,1000 adjusting=true,false | 201,1000 adjusting=true,false | 201,1000 adjusting=false,false
+drag of thumb 0 onto thumb 1 at 0,503: values=503,503 current=0 thumb0=146..156 thumb1=146..156
+drag of thumb 1 onto thumb 0 at 503,1000: values=503,503 current=1 thumb0=146..156 thumb1=146..156
+drag of thumb 0 onto thumb 1 at 0,507: values=507,507 current=0 thumb0=147..157 thumb1=147..157
+drag of thumb 1 onto thumb 0 at 507,1000: values=507,507 current=1 thumb0=147..157 thumb1=147..157
+drag of thumb 0 onto thumb 1 at 0,251: values=252,251 current=0 thumb0=73..83 thumb1=73..83
+drag of thumb 1 onto thumb 0 at 251,1000: values=251,252 current=1 thumb0=73..83 thumb1=73..83
+drag of thumb 0 onto thumb 1 at 0,999: values=1000,999 current=0 thumb0=289..299 thumb1=289..299
+drag of thumb 1 onto thumb 0 at 999,1000: values=0,1000 current=0 thumb0=0..10 thumb1=289..299
+hold at x 121 (400 and 0 px), thumbs at 0,1000: values=400,1000 current=0 thumb0=116..126 thumb1=289..299
+hold at x 179 (600 less 0 px), thumbs at 0,1000: values=0,600 current=1 thumb0=0..10 thumb1=174..184
+hold at x 126 (400 and 5 px), thumbs at 0,1000: values=400,1000 current=0 thumb0=116..126 thumb1=289..299
+hold at x 174 (600 less 5 px), thumbs at 0,1000: values=0,600 current=1 thumb0=0..10 thumb1=174..184
+hold at x 127 (400 and 6 px), thumbs at 0,1000: values=400,1000 current=0 thumb0=116..126 thumb1=289..299
+hold at x 173 (600 less 6 px), thumbs at 0,1000: values=0,500 current=1 thumb0=0..10 thumb1=145..155
+hold at x 128 (400 and 7 px), thumbs at 0,1000: values=500,1000 current=0 thumb0=145..155 thumb1=289..299
+hold at x 172 (600 less 7 px), thumbs at 0,1000: values=0,500 current=1 thumb0=0..10 thumb1=145..155
+new MultiSlider(0, 14, 20, -5): java.lang.IllegalArgumentException: invalid range properties
+new MultiSlider(0, 14, 9, 3): 9,3

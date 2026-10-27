@@ -20,6 +20,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
 | `flight-config` | `tests/gui/flightconfig/FlightConfigurationTablePins.h`, `tests/gui/flightconfig/FlightConfigurationOperationPins.h` | `FlightConfigurationTablesProbe`, `FlightConfigurationOperationsProbe` | `gen_flight_configuration_table_pins.py`, `gen_flight_configuration_operation_pins.py` | `flight_configuration_tables_golden_tests.cpp`, `flight_configuration_operations_golden_tests.cpp` |
+| `motor-chooser` | `tests/gui/dialogs/motor/MotorChooserPins.h` | `MotorChooserMountsProbe` | `gen_motor_chooser_mount_pins.py` | `motor_chooser_mounts_golden_tests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -30,15 +31,14 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
 (`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
-`flight-config`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply
-FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and
-back); `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
-`ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component
-and `preferences` probes load OpenRocket's motor database and no component presets. `figure-paint`,
-`rocket-info`, `ribbon` and `rocket-panel` settle a design they load from `data/examples` or build with
-`TestRockets` as the golden harness settles it (a copy of `tools/openrocket-goldens`'
-`AutomaticDimensions`). Every double is printed exactly (`Double.toHexString` or
-Java 17's `Double.toString`).
+`flight-config`, `motor-chooser`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
+and apply FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts
+and back); `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
+`ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component and
+`preferences` probes load OpenRocket's motor database and no component presets. `figure-paint`, `rocket-info`,
+`ribbon`, `rocket-panel` and `motor-chooser` settle a design they load from `data/examples` or build with
+`TestRockets` as the golden harness settles it (a copy of `tools/openrocket-goldens`' `AutomaticDimensions`).
+Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toString`).
 
 - `figure-paint`: OpenRocket's `RocketFigure` painted headless, as `RocketPanel.create2DPreviewFigure()`
   makes it (96 dpi, fitted to 1000 x 700), into a recording `Graphics2D`: every `draw` and `fill` with its
@@ -139,6 +139,24 @@ Java 17's `Double.toString`).
   generator turns each run of three `configurationChanged()` events into one, as QtRocket fires one; the test
   applies QtRocket's other fixes (bugs 1 to 4) to the few steps where they show, each the last of its
   scenario.
+- `motor-chooser`: the motor chooser a design window keeps (`MotorConfigurationPanel`'s one
+  `MotorChooserDialog`), opened for every acting motor mount (`isMotorMount()`, in the order of the component
+  tree) in every flight configuration (`Rocket.getIds()`) of each of the 16 examples, with "Limit motor
+  diameter to mount diameter" and "Limit motor length to mount length" on (the mount's limits applied) and the
+  preferences otherwise at their defaults, one chooser per design: OpenRocket's real
+  `ThrustCurveMotorSelectionPanel`, headless (the dialog is a `JDialog`; the probe does what it adds:
+  `open()`'s `selectMotorFromTable()` and `close(true)`'s `selectedMotor()`). At every open: the filter panel
+  (the limit boxes, the diameter and length thumbs, the filter's limits, the mount's dimensions), "Number of
+  motors:", the table's rows (the model rows in the view's order and the MD5 of their texts, as
+  `tools/openrocket-motor-chooser`'s chooser family hashes them), the selected row and motor, the curve list
+  and the delay list; at a mount's first open the rows of four searches; then OK's answer, and after a design
+  the preferred curves its OKs stored. The probe runs the designs twice: the second run makes, from outside,
+  the fix QtRocket's `ThrustCurveMotorSelectionPanel` makes (opened for a configuration with a motor, the
+  chooser forgets the table row an earlier question selected, which OpenRocket selects instead of the
+  configured motor when the mount's limits hide its set: seven opens of "Airstart timing", "Dual parachute
+  deployment" and "Two stage high power rocket"), and the header keeps of it what differs
+  (`kMotorChooserMountFixedOpens`, `kMotorChooserMountFixedPreferred`). The test applies bug 8 (plan 10.3: a
+  configured delay is kept) to the pinned delays itself.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -205,8 +223,8 @@ The generator writes the table into the work directory (a spliced test file into
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
 byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
 when a table differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`,
-`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All thirteen families take about
-a minute.
+`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All fourteen families take a few
+minutes.
 
 The tables in test code: `scale-figure` replaces the rows of `kFigureRows` (a "clang-format off" block),
 `material-binding` the bodies of `kBulkRows`, `kBulkGroups`, `kLineRows`, `kLineGroups`, `kSurfaceRows` and
@@ -268,6 +286,7 @@ configurations' ids, which the transcript names only by their row). The operatio
 from a watcher thread, but what it prints does not depend on when the thread runs: each answer runs on the
 event dispatch thread inside the dialog's modal loop, and the transcript holds no time. Two runs gave the
 same transcript.
+`motor-chooser` loads its designs (their UUIDs come from the files) and reseeds before each one all the same.
 
 ## History
 
@@ -289,7 +308,8 @@ first family of a probe that runs under `xvfb-run` besides `rocket-panel`, and t
 every motor set of the bundled database. The run's fixer had its generator write each table as a
 `std::array` of a stated size instead of through `std::to_array` (the repository's other tables of hundreds
 of rows are written so; MSVC had never evaluated a `std::to_array` of over a thousand rows), the rows
-unchanged.
+unchanged. Run 2's part M4 added `motor-chooser`, the first family whose probe runs OpenRocket twice, once as
+it is and once with a QtRocket fix made from outside.
 
 Run 2 added `flight-config` (part F2, from the M3 config-tab scout's `NamesProbe`, run on OpenRocket's own
 table models and renderers instead of copies of their code, its output tab-separated, as the names hold

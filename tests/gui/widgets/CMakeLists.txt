@@ -15,6 +15,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     IntSpinBoxTests.cpp
     MaterialComboBoxTests.cpp
     number_field_tests.cpp
+    RangeSliderTests.cpp
     ribbon_golden_tests.cpp
     RibbonTestSupport.cpp
     SelectionKeyFilterTests.cpp

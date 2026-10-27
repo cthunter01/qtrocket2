@@ -12,6 +12,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     flight_configuration_window_tests.cpp
     MainMenusTests.cpp
     MainWindowTests.cpp
+    motor_chooser_prompt_tests.cpp
     OpenRocketClipboardTests.cpp
     preferences_window_tests.cpp
     RecentFilesMenuTests.cpp
