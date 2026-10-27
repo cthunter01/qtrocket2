@@ -80,6 +80,9 @@ namespace
 
 using ThrustCurveMotorSelectionPanelTest = Gui::Test::GuiTest;
 using Gui::Test::BodyTubeMount;
+using Gui::Test::chooseComboItem;
+using Gui::Test::doubleClickAt;
+using Gui::Test::typeIntoComboBox;
 
 /// The panel over smallMotorDatabase(), which it fills into @p services' motors first, in
 /// @p window.
@@ -167,33 +170,6 @@ private:
     QWidget                         m_window;
     ThrustCurveMotorSelectionPanel* m_panel{nullptr};
 };
-
-/// Chooses the item @p index of @p box as a click in its popup does (QComboBox's itemSelected():
-/// the item made current, then activated(), also for the item that is current already).
-void chooseItem(QComboBox& box, int index)
-{
-    box.setCurrentIndex(index);
-    Q_EMIT box.activated(index);
-}
-
-/// A double click of the left button at @p position of @p widget as the platform sends it: a
-/// click, then a press, the double click and the release (QTest::mouseDClick() sends the double
-/// click alone).
-void doubleClick(QWidget& widget, QPoint position, Qt::MouseButton button = Qt::LeftButton)
-{
-    QTest::mouseClick(&widget, button, {}, position);
-    QTest::mousePress(&widget, button, {}, position);
-    QTest::mouseDClick(&widget, button, {}, position);
-    QTest::mouseRelease(&widget, button, {}, position);
-}
-
-/// Gives @p box the focus and types @p text over its editor's text.
-void typeInto(QComboBox& box, const QString& text)
-{
-    box.setFocus();
-    box.lineEdit()->selectAll();
-    QTest::keyClicks(&box, text);
-}
 
 /// The texts of @p box's items, separated by '|'.
 [[nodiscard]] std::string itemTexts(const QComboBox& box)
@@ -409,7 +385,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, ChoosingACurveSelectsIt)
     EXPECT_EQ(curveIndices(e15w, chooser.information().curves()), "0,2");
     EXPECT_EQ(chooser.curves().currentIndex(), 0);
     EXPECT_EQ(itemTexts(chooser.curves()), "E15W|E15W");
-    chooseItem(chooser.curves(), 1);
+    chooseComboItem(chooser.curves(), 1);
     // E15W curve item 1: curve 2, which is like neither of the others.
     EXPECT_EQ(chooser.panel().getSelectedMotor(), e15w.getMotors()[2]);
     EXPECT_EQ(curveIndices(e15w, chooser.information().curves()), "0,1,2");
@@ -428,7 +404,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, TheCurveChosenStaysWhenHideSimilarIsT
     chooser.selectThroughTable("AeroTech", "E15W");
     auto& hideSimilar = chooser.child<QCheckBox>(QStringLiteral("hideSimilarBox"));
     hideSimilar.click();
-    chooseItem(chooser.curves(), 2);
+    chooseComboItem(chooser.curves(), 2);
     EXPECT_EQ(chooser.panel().getSelectedMotor(), e15w.getMotors()[2]);
     hideSimilar.click();
     EXPECT_EQ(chooser.panel().getSelectedMotor(), e15w.getMotors()[2]);
@@ -596,7 +572,7 @@ void doDelayStep(Chooser& chooser, const DelayStep& step)
             break;
         }
         case DelayAction::TYPE_ENTER:
-            typeInto(box, text);
+            typeIntoComboBox(box, text);
             QTest::keyClick(&box, Qt::Key_Return);
             break;
         case DelayAction::ENTER:
@@ -604,7 +580,7 @@ void doDelayStep(Chooser& chooser, const DelayStep& step)
             QTest::keyClick(&box, Qt::Key_Return);
             break;
         case DelayAction::TYPE_FOCUS_LOST:
-            typeInto(box, text);
+            typeIntoComboBox(box, text);
             chooser.search().setFocus();
             break;
         case DelayAction::FOCUS_LOST:
@@ -612,7 +588,7 @@ void doDelayStep(Chooser& chooser, const DelayStep& step)
             chooser.search().setFocus();
             break;
         case DelayAction::CHOOSE:
-            chooseItem(box, step.item);
+            chooseComboItem(box, step.item);
             break;
     }
 }
@@ -676,7 +652,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, OpeningTheDelayListCommitsTheTypedTex
     Chooser chooser;
     ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
     chooser.selectThroughTable("Estes", "C6");
-    typeInto(chooser.delays(), QStringLiteral("6"));
+    typeIntoComboBox(chooser.delays(), QStringLiteral("6"));
     {
         const Gui::Test::OffscreenPopupWarnings warnings;
         chooser.delays().showPopup();
@@ -684,7 +660,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, OpeningTheDelayListCommitsTheTypedTex
         EXPECT_EQ(chooser.panel().getSelectedDelay(), 6.0);
         chooser.delays().hidePopup();
     }
-    chooseItem(chooser.delays(), 3);
+    chooseComboItem(chooser.delays(), 3);
     EXPECT_EQ(chooser.panel().getSelectedDelay(), 7.0);
 }
 
@@ -695,7 +671,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, TheDelayEditorCompletesNothing)
     ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
     chooser.selectThroughTable("AeroTech", "E15W");
     EXPECT_EQ(chooser.delays().completer(), nullptr);
-    typeInto(chooser.delays(), QStringLiteral("1"));
+    typeIntoComboBox(chooser.delays(), QStringLiteral("1"));
     EXPECT_EQ(chooser.delays().lineEdit()->text(), QStringLiteral("1"));
     QTest::keyClick(&chooser.delays(), Qt::Key_Return);
     EXPECT_EQ(chooser.panel().getSelectedDelay(), 1.0);
@@ -706,7 +682,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, CommitEditsCommitsWhatIsBeingTyped)
     Chooser chooser;
     ASSERT_TRUE(Gui::Test::showActive(chooser.window()));
     chooser.selectThroughTable("Estes", "C6");
-    typeInto(chooser.delays(), QStringLiteral("4.96"));
+    typeIntoComboBox(chooser.delays(), QStringLiteral("4.96"));
     chooser.panel().commitEdits();
     // Both action events: 4.96, then its text "5" read back.
     EXPECT_EQ(chooser.panel().getSelectedDelay(), 5.0);
@@ -755,7 +731,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, AnotherCurveResetsTheNozzleExitDiamet
     chooser.selectThroughTable("Estes", "C6");
     Gui::Test::typeInto(chooser.nozzle(), QStringLiteral("0.4"));
     QTest::keyClick(&chooser.nozzle(), Qt::Key_Return);
-    chooseItem(chooser.curves(), 1);
+    chooseComboItem(chooser.curves(), 1);
     EXPECT_EQ(chooser.panel().getSelectedNozzleExitDiameter(), 0.0);
     EXPECT_EQ(chooser.nozzle().text(), QStringLiteral("0"));
 }
@@ -845,15 +821,15 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, ADoubleClickAnywhereOnTheTableAsksFor
     const QSignalSpy  ok(&chooser.panel(), &ThrustCurveMotorSelectionPanel::okRequested);
     const QTableView& table = chooser.table();
     const QPoint      cell  = table.visualRect(table.model()->index(0, 0)).center();
-    doubleClick(*table.viewport(), cell);
+    doubleClickAt(*table.viewport(), cell);
     EXPECT_EQ(ok.count(), 1);
     EXPECT_EQ(chooser.tableSet(), &chooser.panel().tableModel().motorSet(0));
     // Below the rows (fillsViewportHeight).
     chooser.search().setText(QStringLiteral("estes c6"));
-    doubleClick(*table.viewport(), QPoint(cell.x(), table.viewport()->height() - 2));
+    doubleClickAt(*table.viewport(), QPoint(cell.x(), table.viewport()->height() - 2));
     EXPECT_EQ(ok.count(), 2);
     // Another button, a single click, or a release away from the double click: nothing.
-    doubleClick(*table.viewport(), cell, Qt::RightButton);
+    doubleClickAt(*table.viewport(), cell, Qt::RightButton);
     QTest::mouseClick(table.viewport(), Qt::LeftButton, {}, cell);
     QTest::mouseClick(table.viewport(), Qt::LeftButton, {}, cell);
     QTest::mousePress(table.viewport(), Qt::LeftButton, {}, cell);
@@ -997,7 +973,7 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, GoesSafelyWhileTheDelayIsBeingTyped)
     auto* table = panel->findChild<QTableView*>(QStringLiteral("table"));
     table->selectRow(0);
     auto* delays = panel->findChild<QComboBox*>(QStringLiteral("delayBox"));
-    typeInto(*delays, QStringLiteral("7"));
+    typeIntoComboBox(*delays, QStringLiteral("7"));
     const QPointer<ThrustCurveMotorSelectionPanel> alive(panel);
     window.reset();
     EXPECT_TRUE(alive.isNull());

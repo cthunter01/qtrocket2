@@ -428,6 +428,12 @@ void MotorFilterPanel::setLimitLength()
     {
         m_lengthSlider->setValueAt(1, MotorFilterSliders::limitLengthStop(*m_mountLength));
         m_maxLengthModel->setValue(*m_mountLength);
+        // Java's DoubleModel runs maxLengthModel's listener also when the value does not change
+        // (the chooser opened for the same mount again), and the listener puts the thumb at the
+        // truncated value: 69 for a mount of 69.85 mm, which the line above rounds to 70. Here the
+        // listener runs only for a change (maximumLengthChanged()), so its thumb is put here.
+        m_lengthSlider->setValueAt(
+            1, MathUtil::javaIntCast(kLengthSliderScale * m_maxLengthModel->value()));
     }
 }
 

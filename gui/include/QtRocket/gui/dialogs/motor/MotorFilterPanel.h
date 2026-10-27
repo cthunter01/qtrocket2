@@ -64,6 +64,11 @@ class UnitSpinBox;
 /// setValue() that changes nothing, and once more for the filter's own change event, so that
 /// OpenRocket sorts its table more often (the probe tools/openrocket-probes/motor-filter-panel
 /// counts the sorts): what the listeners leave is the same, which the probe's transcript pins.
+/// The one effect of such a repeated setValue() that shows is the length slider's upper thumb when
+/// "Limit motor length to mount length" applies the mount's length again (the chooser opened for
+/// the same mount again): Java's listener puts it at the truncated length in mm (69 for 69.85 mm,
+/// where setLimitLength() first rounds it to 70), and so does setLimitLength() here (pinned for
+/// the example designs' mounts by tools/openrocket-gui-pins' motor-chooser family).
 ///
 /// The selection panel (ThrustCurveMotorSelectionPanel) makes it with the chooser's
 /// ThrustCurveMotorSelection, and calls setMotorMount() when the chooser is opened for a mount and

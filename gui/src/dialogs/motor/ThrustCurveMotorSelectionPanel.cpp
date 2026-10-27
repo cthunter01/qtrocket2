@@ -445,7 +445,17 @@ void ThrustCurveMotorSelectionPanel::makeSearchRow(QWidget& panel, QGridLayout& 
 void ThrustCurveMotorSelectionPanel::setMotorMountAndConfig(const FlightConfigurationId& fcid,
                                                             const MotorMount&            mount)
 {
-    m_selection->setMotorMountAndConfig(MotorChooserInput::fromMount(mount, fcid));
+    const ThrustCurveMotorSelection::MountConfiguration configuration =
+        MotorChooserInput::fromMount(mount, fcid);
+    if (configuration.motor != nullptr)
+    {
+        // QtRocket's fix (see the class comment): the row an earlier question selected goes, so
+        // that it cannot replace the configured motor when the mount's limits hide its set
+        // (OpenRocket's table keeps it selected, and its selection listener selects it). The
+        // table's selection handler finds no row (selectMotorFromTable()).
+        m_table->clearSelection();
+    }
+    m_selection->setMotorMountAndConfig(configuration);
     // motorFilterPanel.setMotorMount(mountToEdit): the table sorted again for the mount (and for
     // a set of its own of a motor of no set).
     m_motorFilterPanel->setMotorMount(&mount);

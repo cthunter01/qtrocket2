@@ -2,18 +2,27 @@
 
 #include <format>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include <QComboBox>
+#include <QLineEdit>
 #include <QModelIndex>
+#include <QPoint>
 #include <QString>
+#include <QTest>
 #include <QVariant>
+#include <QWidget>
 #include <Qt>
+
+#include <gtest/gtest.h>
 
 #include "QtRocket/gui/dialogs/motor/MotorTableModel.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
@@ -81,6 +90,37 @@ const ThrustCurveMotorSet& findMotorSet(const ThrustCurveMotorSetDatabase& datab
         }
     }
     bug("no motor set " + std::string(manufacturer) + " " + std::string(designation));
+}
+
+UserPrompts::MotorChoice chosenMotor(const std::optional<UserPrompts::MotorChoice>& choice)
+{
+    if (!choice.has_value())
+    {
+        ADD_FAILURE() << "no motor was chosen";
+        return {};
+    }
+    return *choice;
+}
+
+void chooseComboItem(QComboBox& box, int index)
+{
+    box.setCurrentIndex(index);
+    Q_EMIT box.activated(index);
+}
+
+void doubleClickAt(QWidget& widget, QPoint position, Qt::MouseButton button)
+{
+    QTest::mouseClick(&widget, button, {}, position);
+    QTest::mousePress(&widget, button, {}, position);
+    QTest::mouseDClick(&widget, button, {}, position);
+    QTest::mouseRelease(&widget, button, {}, position);
+}
+
+void typeIntoComboBox(QComboBox& box, const QString& text)
+{
+    box.setFocus();
+    box.lineEdit()->selectAll();
+    QTest::keyClicks(&box, text);
 }
 
 InnerTubeMount::InnerTubeMount()

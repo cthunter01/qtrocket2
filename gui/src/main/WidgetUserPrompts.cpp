@@ -33,6 +33,7 @@
 #include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
+#include "QtRocket/gui/dialogs/motor/MotorChooserDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -580,11 +581,13 @@ UserPrompts::RenameConfigurationAnswer WidgetUserPrompts::askRenameConfiguration
 }
 
 std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
-    QWidget* /*parent*/, const GuiServices& /*services*/, const MotorMount& /*mount*/,
-    const FlightConfigurationId& /*configurationId*/)
+    QWidget* parent, const GuiServices& services, const MotorMount& mount,
+    const FlightConfigurationId& configurationId)
 {
-    // Run 2 of Milestone 3: MotorChooserDialog, one per top-level window. Until then: cancelled.
-    return std::nullopt;
+    // MotorChooserDialog, one per top-level window (its child, made at its first question), so
+    // that its search, filters, sort and selection survive between questions as in OpenRocket
+    // (MotorConfigurationPanel keeps one); without a parent, one for this question alone.
+    return MotorChooserDialog::choose(parent, services, mount, configurationId);
 }
 
 UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget* /*parent*/,

@@ -108,6 +108,17 @@ class UnitSpinBox;
 /// preferences of the services given must outlive it.
 ///
 /// Deviations from OpenRocket:
+/// - Opened for a configuration with a motor (setMotorMountAndConfig()), the panel first clears
+///   the table's selection, so that the row an earlier question selected cannot replace the
+///   configured motor. OpenRocket keeps that row selected while it sorts the table for the new
+///   mount, and when the mount's limits ("Limit motor diameter to mount diameter", "Limit motor
+///   length to mount length") hide the configured motor's set, the row stays and the table's
+///   selection listener selects its set: the chooser shows, and OK writes, the motor of the
+///   earlier question (tools/openrocket-gui-pins' motor-chooser family: "Airstart timing" opened
+///   for its 54 mm mount's K550W after its 38 mm mount's I211W selects the I211W; "Two stage high
+///   power rocket" replaces I59WN-P and I357T-14 by H148R-10). A fix of QtRocket's, not one of
+///   the numbered bugs of plan 10.3 (for the user's decision). The table then shows no selection
+///   until the configured set is shown, as when a filter hides the selected set.
 /// - The curve chosen stays selected when the curve list refills (bug 20, above).
 /// - The name column switch keeps the selected set (bug 10, above) and scrolls the table to it.
 /// - The table scrolls to the selection with Qt's EnsureVisible (OpenRocket scrolls a rectangle
@@ -144,7 +155,10 @@ public:
     /// mount (its size, its motors for "Hide motors already used in the mount"), and the
     /// configuration's motor is selected with its delay (also a non-standard one: bug 8) and
     /// nozzle exit diameter, or nothing is (ThrustCurveMotorSelection::setMotorMountAndConfig(),
-    /// MotorChooserInput::fromMount()). Only the motors and the mount's size are kept.
+    /// MotorChooserInput::fromMount()). Only the motors and the mount's size are kept. For a
+    /// configuration with a motor the table's selection is cleared first (a deviation, see the
+    /// class comment); one without keeps it, which the dialog's open() then selects
+    /// (selectMotorFromTable()).
     void setMotorMountAndConfig(const FlightConfigurationId& fcid, const MotorMount& mount);
 
     /// selectMotorFromTable(): the set of the table's selected row, when it is not the selected

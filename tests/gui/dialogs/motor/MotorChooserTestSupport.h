@@ -1,13 +1,20 @@
 #pragma once
 
-// Helpers of the motor chooser's tests (tests/gui/dialogs/motor): the table as the pins of
-// tests/core/motor/chooser/MotorChooserPins.h hash it, the sort keys as they write them, and the
-// motor mounts of the probe's scenarios.
+// Helpers of the motor chooser's tests (tests/gui/dialogs/motor, tests/gui/main): the table as the
+// pins of tests/core/motor/chooser/MotorChooserPins.h hash it, the sort keys as they write them,
+// the motor mounts of the probe's scenarios, and the chooser's combo boxes and table worked as the
+// user works them.
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
+#include <QPoint>
+#include <QString>
+#include <Qt>
+
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
@@ -20,6 +27,9 @@ class MotorTableSorter;
 class ThrustCurveMotorSet;
 class ThrustCurveMotorSetDatabase;
 }  // namespace QtRocket
+
+class QComboBox;
+class QWidget;
 
 namespace QtRocket::Gui
 {
@@ -46,6 +56,25 @@ namespace QtRocket::Gui::Test
 [[nodiscard]] const ThrustCurveMotorSet& findMotorSet(const ThrustCurveMotorSetDatabase& database,
                                                       std::string_view manufacturer,
                                                       std::string_view designation);
+
+/// The motor chooser's answer @p choice (UserPrompts::chooseMotor()); a test failure, and a choice
+/// without a motor, when there is none (bugprone-unchecked-optional-access does not see an
+/// ASSERT_TRUE(choice.has_value())).
+[[nodiscard]] UserPrompts::MotorChoice chosenMotor(
+    const std::optional<UserPrompts::MotorChoice>& choice);
+
+/// Chooses the item @p index of @p box as a click in its popup does (QComboBox's itemSelected():
+/// the item made current, then activated(), also for the item that is current already). Choosing
+/// through the real popup offscreen is unreliable (a delayed hide during which keys are lost).
+void chooseComboItem(QComboBox& box, int index);
+
+/// A double click of @p button at @p position of @p widget as the platform sends it: a click, then
+/// a press, the double click and the release (QTest::mouseDClick() sends the double click alone and
+/// leaves the button down in QTest's state).
+void doubleClickAt(QWidget& widget, QPoint position, Qt::MouseButton button = Qt::LeftButton);
+
+/// Gives the editable @p box the focus and types @p text over its editor's text.
+void typeIntoComboBox(QComboBox& box, const QString& text);
 
 /// The 28 mm mount of the probe's scenarios: an inner tube of outer radius 14.5 mm and inner
 /// radius 14 mm, 0.1 m long, in a body tube of a rocket's stage, with a flight configuration of
