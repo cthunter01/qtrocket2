@@ -55,6 +55,8 @@ class SplitPane;
 ///   component with the others), an add button (the new component, isNewComponent, without the
 ///   remembered tab: ComponentButton's showDialog(..., false, true)); and RocketActions' requests
 ///   to close the dialog before a change (MainWindow::requestConfigDialogClose());
+/// - RocketActions' requests for the design tab after Cut, Copy, Paste, Duplicate and Delete go to
+///   the window (MainWindow::selectTab(), BasicFrame.selectTab(DESIGN_TAB));
 /// - while the configuration dialog is visible (setConfigDialogVisible()), the tree's
 ///   double-click does not edit (DesignPanel's !ComponentConfigDialog.isDialogVisible()), and a
 ///   change of the selection to some components opens the dialog again for them (DesignPanel's
@@ -78,12 +80,12 @@ class SplitPane;
 /// Deviations from OpenRocket: the panel is a widget holding the split pane (Java's DesignPanel
 /// is the JSplitPane); the arrangement of the buttons is MigLayout's in QGridLayout terms (the
 /// Edit button's "gaptop 20%" moves nothing in MigLayout's result either); the tree takes the
-/// keyboard focus when the window opens (takeTheSpotlight(), which BasicFrame calls when the
-/// design tab is chosen); the start-up highlight ends at the first mouse button released in the
-/// tree (Java's first mouseClicked); the dialog opens again for a new selection one turn of the
-/// event loop later (Java: at once), unless the code that changed the selection outside the
-/// rocket's events has it done at once (reopenPendingConfigDialog(): Save as, before its modal
-/// dialog).
+/// keyboard focus when the window opens (takeTheSpotlight(), which BasicFrame, and MainWindow,
+/// call when the design tab is chosen); the start-up highlight ends at the first mouse button
+/// released in the tree (Java's first mouseClicked); the dialog opens again for a new selection
+/// one turn of the event loop later (Java: at once), unless the code that changed the selection
+/// outside the rocket's events has it done at once (reopenPendingConfigDialog(): Save as, before
+/// its modal dialog).
 class DesignPanel final : public QWidget
 {
     Q_OBJECT

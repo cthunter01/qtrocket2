@@ -14,4 +14,5 @@ target_sources(QtRocket_gui PRIVATE
     RecoveryConfigurationPanel.cpp ${gui_include_dir}/flightconfig/RecoveryConfigurationPanel.h
     RowColumnSelectionModel.cpp ${gui_include_dir}/flightconfig/RowColumnSelectionModel.h
     SeparationConfigurationPanel.cpp ${gui_include_dir}/flightconfig/SeparationConfigurationPanel.h
+    TableTransferKeys.cpp ${gui_include_dir}/flightconfig/TableTransferKeys.h
 )

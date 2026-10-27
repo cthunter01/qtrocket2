@@ -268,9 +268,12 @@ TEST_F(DesignPanelTest, ANewWindowShowsTheTreeWithTheFirstStageSelected)
 {
     openNew();
     EXPECT_EQ(window().designPanel(), &panel());
-    ASSERT_EQ(window().tabs()->count(), 1);
+    // The design tab first, the current one; the Motors & Configuration tab after it.
+    ASSERT_EQ(window().tabs()->count(), 2);
     EXPECT_EQ(window().tabs()->widget(0), &panel());
     EXPECT_EQ(window().tabs()->tabText(0), QStringLiteral("Rocket design"));
+    EXPECT_EQ(window().tabs()->currentIndex(), 0);
+    EXPECT_NE(window().componentFlightConfigurationPanel(), nullptr);
     EXPECT_EQ(panel().objectName(), QStringLiteral("designPanel"));
     EXPECT_TRUE(panel().tree().isVisible());
     EXPECT_EQ(transcript("new"), "new: rows=2 {Rocket+, Sustainer+, } selected=[Sustainer]");

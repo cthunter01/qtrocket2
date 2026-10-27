@@ -237,30 +237,52 @@ void RocketActions::connectActions()
 {
     connect(m_edit.data(), &QAction::triggered, this,
             guarded([this] { edit(); }, QStringLiteral("Edit")));
+    // Cut, Copy, Paste, Duplicate and Delete end with parentFrame.selectTab(DESIGN_TAB) once they
+    // did their work; Move up and Move down do not.
     connect(m_cut.data(), &QAction::triggered, this,
-            guarded([this] { runClosingDialog(m_editing.canCut(), &ComponentEditing::cut); },
-                    QStringLiteral("Cut")));
+            guarded(
+                [this] {
+                    if (runClosingDialog(m_editing.canCut(), &ComponentEditing::cut))
+                    {
+                        Q_EMIT designTabRequested();
+                    }
+                },
+                QStringLiteral("Cut")));
     connect(m_copy.data(), &QAction::triggered, this,
-            guarded([this] { static_cast<void>(m_editing.copy()); }, QStringLiteral("Copy")));
+            guarded([this] { copy(); }, QStringLiteral("Copy")));
     connect(m_paste.data(), &QAction::triggered, this,
-            guarded([this] { runClosingDialog(m_editing.canPaste(), &ComponentEditing::paste); },
-                    QStringLiteral("Paste")));
-    connect(
-        m_duplicate.data(), &QAction::triggered, this,
-        guarded(
-            [this] { runClosingDialog(m_editing.canDuplicate(), &ComponentEditing::duplicate); },
-            QStringLiteral("Duplicate")));
-    connect(
-        m_delete.data(), &QAction::triggered, this,
-        guarded(
-            [this] { runClosingDialog(m_editing.canDelete(), &ComponentEditing::deleteSelection); },
-            QStringLiteral("Delete")));
+            guarded([this] { paste(); }, QStringLiteral("Paste")));
+    connect(m_duplicate.data(), &QAction::triggered, this,
+            guarded(
+                [this] {
+                    if (runClosingDialog(m_editing.canDuplicate(), &ComponentEditing::duplicate))
+                    {
+                        Q_EMIT designTabRequested();
+                    }
+                },
+                QStringLiteral("Duplicate")));
+    connect(m_delete.data(), &QAction::triggered, this,
+            guarded(
+                [this] {
+                    if (runClosingDialog(m_editing.canDelete(), &ComponentEditing::deleteSelection))
+                    {
+                        Q_EMIT designTabRequested();
+                    }
+                },
+                QStringLiteral("Delete")));
     connect(m_moveUp, &QAction::triggered, this,
-            guarded([this] { runClosingDialog(m_editing.canMoveUp(), &ComponentEditing::moveUp); },
-                    QStringLiteral("Move up")));
-    connect(
-        m_moveDown, &QAction::triggered, this,
-        guarded([this] { runClosingDialog(m_editing.canMoveDown(), &ComponentEditing::moveDown); },
+            guarded(
+                [this] {
+                    static_cast<void>(
+                        runClosingDialog(m_editing.canMoveUp(), &ComponentEditing::moveUp));
+                },
+                QStringLiteral("Move up")));
+    connect(m_moveDown, &QAction::triggered, this,
+            guarded(
+                [this] {
+                    static_cast<void>(
+                        runClosingDialog(m_editing.canMoveDown(), &ComponentEditing::moveDown));
+                },
                 QStringLiteral("Move down")));
     connect(m_deselectAll.data(), &QAction::triggered, this,
             guarded([this] { deselectAll(); }, QStringLiteral("Deselect all")));
@@ -524,14 +546,36 @@ void RocketActions::deselectAll()
     m_selection->clearComponentSelection();
 }
 
-void RocketActions::runClosingDialog(bool allowed, bool (ComponentEditing::*operation)())
+bool RocketActions::runClosingDialog(bool allowed, bool (ComponentEditing::*operation)())
 {
     if (!allowed)
     {
-        return;
+        return false;
     }
     Q_EMIT closeConfigDialogRequested();
-    static_cast<void>((m_editing.*operation)());
+    return (m_editing.*operation)();
+}
+
+void RocketActions::copy()
+{
+    if (m_editing.copy())
+    {
+        Q_EMIT designTabRequested();
+    }
+}
+
+void RocketActions::paste()
+{
+    const bool pasted = runClosingDialog(m_editing.canPaste(), &ComponentEditing::paste);
+    // A paste that fitted nowhere selected what it pasted, nothing (a refusal of QtRocket's bounds
+    // keeps the selection, which a paste that fits somewhere has): Java's pasteComponents() selects
+    // the design tab then too.
+    const bool fittedNowhere =
+        !pasted && m_editing.canPaste() && m_selection->selectedComponent() == nullptr;
+    if (pasted || fittedNowhere)
+    {
+        Q_EMIT designTabRequested();
+    }
 }
 
 void RocketActions::toggleVisibility()

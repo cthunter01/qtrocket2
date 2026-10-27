@@ -137,12 +137,22 @@ TEST_F(MainWindowTest, HoldsTheDesignTabAboveTheRocketPanel)
     EXPECT_EQ(splitter.widget(1), window().rocketPanel());
     EXPECT_FALSE(splitter.childrenCollapsible());
 
+    // BasicFrame's tabs of Milestone 3: "Rocket design" and "Motors & Configuration" (its "&"
+    // doubled, so that Qt shows it), the design tab the current one.
     const QTabWidget& tabs = *window().tabs();
     EXPECT_EQ(tabs.objectName(), QStringLiteral("tabbedPane"));
-    ASSERT_EQ(tabs.count(), 1);
-    EXPECT_EQ(tabs.tabText(0), QStringLiteral("Rocket design"));
-    EXPECT_EQ(tabs.widget(0), window().designPanel());
+    ASSERT_EQ(tabs.count(), 2);
+    EXPECT_EQ(tabs.tabText(MainWindow::kDesignTab), QStringLiteral("Rocket design"));
+    EXPECT_EQ(tabs.widget(MainWindow::kDesignTab), window().designPanel());
+    EXPECT_EQ(tabs.tabText(MainWindow::kFlightConfigurationTab),
+              QStringLiteral("Motors && Configuration"));
+    EXPECT_EQ(tabs.widget(MainWindow::kFlightConfigurationTab),
+              window().flightConfigurationPanel());
+    EXPECT_EQ(tabs.currentIndex(), MainWindow::kDesignTab);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
     EXPECT_EQ(window().designPanel()->objectName(), QStringLiteral("designPanel"));
+    EXPECT_EQ(window().flightConfigurationPanel()->objectName(),
+              QStringLiteral("flightConfigurationPanel"));
     EXPECT_EQ(window().rocketPanel()->objectName(), QStringLiteral("rocketPanel"));
 
     EXPECT_EQ(&window().document(), &document());
@@ -204,14 +214,25 @@ TEST_F(MainWindowTest, TitleShowsAModifiedMarkOfTheNameAsItIs)
 
 TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
 {
-    const QPointer<QWidget> designPlaceholder = window().designPanel();
-    const QPointer<QWidget> rocketPlaceholder = window().rocketPanel();
-    auto* const             design            = makeChild<QWidget>(&window());
+    const QPointer<QWidget> designPlaceholder        = window().designPanel();
+    const QPointer<QWidget> configurationPlaceholder = window().flightConfigurationPanel();
+    const QPointer<QWidget> rocketPlaceholder        = window().rocketPanel();
+    auto* const             design                   = makeChild<QWidget>(&window());
     window().setDesignPanel(design);
     EXPECT_EQ(window().designPanel(), design);
-    ASSERT_EQ(window().tabs()->count(), 1);
+    ASSERT_EQ(window().tabs()->count(), 2);
     EXPECT_EQ(window().tabs()->widget(0), design);
     EXPECT_EQ(window().tabs()->tabText(0), QStringLiteral("Rocket design"));
+    EXPECT_EQ(window().tabs()->currentIndex(), 0);
+
+    auto* const configuration = makeChild<QWidget>(&window());
+    window().setFlightConfigurationPanel(configuration);
+    EXPECT_EQ(window().flightConfigurationPanel(), configuration);
+    ASSERT_EQ(window().tabs()->count(), 2);
+    EXPECT_EQ(window().tabs()->widget(1), configuration);
+    EXPECT_EQ(window().tabs()->tabText(1), QStringLiteral("Motors && Configuration"));
+    // The current tab stays the current one.
+    EXPECT_EQ(window().tabs()->currentIndex(), 0);
 
     auto* const rocketPanel = makeChild<QWidget>(&window());
     window().setRocketPanel(rocketPanel);
@@ -221,9 +242,52 @@ TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
 
     // The placeholders go when the event loop deletes them.
     EXPECT_FALSE(designPlaceholder.isNull());
+    EXPECT_FALSE(configurationPlaceholder.isNull());
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_TRUE(designPlaceholder.isNull());
+    EXPECT_TRUE(configurationPlaceholder.isNull());
     EXPECT_TRUE(rocketPlaceholder.isNull());
+}
+
+TEST_F(MainWindowTest, APanelTakesItsPlaceWhileItsTabIsTheCurrentOneAndTheTabStays)
+{
+    window().selectTab(MainWindow::kFlightConfigurationTab);
+    const QSignalSpy changes(window().tabs(), &QTabWidget::currentChanged);
+    auto* const      configuration = makeChild<QWidget>(&window());
+    window().setFlightConfigurationPanel(configuration);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kFlightConfigurationTab);
+    EXPECT_EQ(window().tabs()->currentWidget(), configuration);
+
+    auto* const design = makeChild<QWidget>(&window());
+    window().setDesignPanel(design);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kFlightConfigurationTab);
+    EXPECT_EQ(window().tabs()->currentWidget(), configuration);
+    EXPECT_EQ(window().tabs()->widget(MainWindow::kDesignTab), design);
+    // A panel already in a tab is no new one, and the same panel again changes nothing.
+    EXPECT_THROW(window().setFlightConfigurationPanel(design), BugError);
+    EXPECT_THROW(window().setDesignPanel(nullptr), BugError);
+    window().setDesignPanel(design);
+    EXPECT_EQ(window().tabs()->widget(MainWindow::kDesignTab), design);
+    // Removing the current tab made another current for a moment.
+    EXPECT_FALSE(changes.isEmpty());
+    EXPECT_EQ(window().selectedTab(), MainWindow::kFlightConfigurationTab);
+}
+
+TEST_F(MainWindowTest, SelectTabMakesATabTheCurrentOne)
+{
+    const QSignalSpy changes(window().tabs(), &QTabWidget::currentChanged);
+    window().selectTab(MainWindow::kFlightConfigurationTab);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kFlightConfigurationTab);
+    EXPECT_EQ(window().tabs()->currentWidget(), window().flightConfigurationPanel());
+    // The tab that is the current one already: no change (JTabbedPane.setSelectedIndex()).
+    window().selectTab(MainWindow::kFlightConfigurationTab);
+    window().selectTab(MainWindow::kDesignTab);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
+    EXPECT_EQ(changes.count(), 2);
+    // Java's IndexOutOfBoundsException.
+    EXPECT_THROW(window().selectTab(-1), BugError);
+    EXPECT_THROW(window().selectTab(2), BugError);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
 }
 
 TEST_F(MainWindowTest, OpensAt90PercentOfTheScreenWithTheDividerAt40Percent)
@@ -330,6 +394,19 @@ TEST_F(MainWindowTest, HasNoComponentDesignPanelOfItsOwn)
     EXPECT_EQ(window().componentDesignPanel(), nullptr);
     window().setDesignPanel(makeChild<QWidget>(&window()));
     EXPECT_EQ(window().componentDesignPanel(), nullptr);
+}
+
+TEST_F(MainWindowTest, HasNoComponentFlightConfigurationPanelOfItsOwn)
+{
+    // The WindowManager puts a FlightConfigurationPanel in (flight_configuration_window_tests); a
+    // placeholder or another widget is none, and choosing its tab then gives nothing the
+    // spotlight.
+    EXPECT_EQ(window().componentFlightConfigurationPanel(), nullptr);
+    window().setFlightConfigurationPanel(makeChild<QWidget>(&window()));
+    EXPECT_EQ(window().componentFlightConfigurationPanel(), nullptr);
+    window().selectTab(MainWindow::kFlightConfigurationTab);
+    window().selectTab(MainWindow::kDesignTab);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
 }
 
 }  // namespace

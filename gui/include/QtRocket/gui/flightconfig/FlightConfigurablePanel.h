@@ -11,6 +11,7 @@
 
 #include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
+#include "QtRocket/gui/flightconfig/TableTransferKeys.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/util/Uuid.h"
 
@@ -75,7 +76,13 @@ class FlightConfigurationPanel;
 ///   the panel's own (fullPopupMenu()) over a component's column, the tab's configuration popup
 ///   over column 0 (FlightConfigurationPanel::configurationPopupMenu()); outside the cells it
 ///   clears the selection and opens nothing. The other buttons select nothing (Java's table
-///   ignores them).
+///   ignores them);
+/// - Cut, Copy and Paste (Ctrl+X, C and V) are the table's while it has the focus, as a JTable's
+///   (TableTransferKeys): Copy puts the selected cells' values on the clipboard as Java's table
+///   exports them, the configuration's id in column 0 and "[<id>;<component name>]" (the
+///   Pair<FlightConfigurationId, component> of Java's getValueAt()) in a component's column;
+///   Cut and Paste do nothing; the window's items of those keys (the components' Cut, Copy and
+///   Paste) do not act then.
 ///
 /// The panel keeps no component: its model looks them up by id (Uuid), and so does every
 /// operation. It belongs to its FlightConfigurationPanel, whose document, services and operations
@@ -140,6 +147,12 @@ public:
     [[nodiscard]] RowColumnSelectionModel& tableSelection() const noexcept { return *m_selection; }
     /// The popup menu over a component's column ("popupMenuFull").
     [[nodiscard]] QMenu& fullPopupMenu() const noexcept { return *m_fullPopup; }
+    /// The table's Cut, Copy and Paste keys.
+    [[nodiscard]] TableTransferKeys& transferKeys() const noexcept { return *m_transferKeys; }
+
+    /// The values that Copy puts on the clipboard for the selected cells (see the class comment):
+    /// Java's getValueAt(row, column).toString() of the selected rows x columns.
+    [[nodiscard]] TableTransferKeys::Cells transferCells() const;
 
     // ------------------------------------------------------------------ the selection (Java's)
 
@@ -230,6 +243,7 @@ private:
     QTableView*                   m_table;
     RowColumnSelectionModel*      m_selection;
     QMenu*                        m_fullPopup;
+    TableTransferKeys*            m_transferKeys;
     /// The selection's keys at the last reset of the model: the rows' configurations, whether
     /// column 0 was selected, the other columns' components.
     std::vector<FlightConfigurationId> m_rememberedRows;

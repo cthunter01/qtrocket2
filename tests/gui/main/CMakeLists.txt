@@ -9,6 +9,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     ExampleDesignsMenuTests.cpp
     ExampleDesignsTests.cpp
     FileMenusTestSupport.cpp
+    flight_configuration_window_tests.cpp
     MainMenusTests.cpp
     MainWindowTests.cpp
     OpenRocketClipboardTests.cpp

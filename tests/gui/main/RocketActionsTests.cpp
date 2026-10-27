@@ -31,6 +31,7 @@
 #include <QMenuBar>
 #include <QObject>
 #include <QPointer>
+#include <QSignalSpy>
 #include <QSize>
 #include <QString>
 
@@ -1363,6 +1364,47 @@ TEST_F(RocketActionsTest, AsksToCloseTheDialogWhereJavasActionDisposesIt)
     EXPECT_EQ(closeRequestsOf(window, actions.deselectAllAction(), {"BT1"}), 0);
     // A disabled action does nothing: Move up of the first stage.
     EXPECT_EQ(closeRequestsOf(window, actions.moveUpAction(), {"Sustainer"}), 0);
+}
+
+/// The number of requests for the design tab that @p action makes when it is triggered with
+/// @p selection selected in @p window.
+[[nodiscard]] int designTabRequestsOf(const Window& window, QAction* action, const Names& selection)
+{
+    window.select(selection);
+    const QSignalSpy requests(&window.actions(), &RocketActions::designTabRequested);
+    action->trigger();
+    return static_cast<int>(requests.count());
+}
+
+TEST_F(RocketActionsTest, AsksForTheDesignTabWhereJavasActionSelectsIt)
+{
+    const ProbeDesign    design;
+    const Window         window(design.document());
+    const RocketActions& actions = window.actions();
+    // Paste with an empty clipboard is disabled: nothing done, no tab.
+    EXPECT_EQ(designTabRequestsOf(window, actions.pasteAction(), {"BT2"}), 0);
+    // parentFrame.selectTab(DESIGN_TAB) at the end of Cut, Copy, Paste, Duplicate and Delete.
+    EXPECT_EQ(designTabRequestsOf(window, actions.copyAction(), {"BT1"}), 1);
+    EXPECT_EQ(designTabRequestsOf(window, actions.pasteAction(), {"BT2"}), 1);
+    // A paste that fits nowhere (a body tube into the engine block's inner tube) goes on to the
+    // end in Java, selecting what it pasted (nothing) and the design tab.
+    EXPECT_EQ(designTabRequestsOf(window, actions.pasteAction(), {"EB"}), 1);
+    EXPECT_EQ(window.selectionNames(), "[]");
+    EXPECT_EQ(designTabRequestsOf(window, actions.duplicateAction(), {"NC"}), 1);
+    EXPECT_EQ(designTabRequestsOf(window, actions.deleteAction(), {"Chute"}), 1);
+    EXPECT_EQ(designTabRequestsOf(window, actions.cutAction(), {"CR1"}), 1);
+    // The other actions leave the tab alone.
+    EXPECT_EQ(designTabRequestsOf(window, actions.moveUpAction(), {"BT2"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.moveDownAction(), {"NC"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.editAction(), {"BT1"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.toggleVisibilityAction(), {"BT1"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.toggleVisibilityContextMenuAction(), {"BT1"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.showAllComponentsAction(), {"BT1"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.toggleActiveAction(), {"Booster"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.deselectAllAction(), {"BT1"}), 0);
+    // An action whose rule says no: Copy and Delete with the Rocket selected.
+    EXPECT_EQ(designTabRequestsOf(window, actions.copyAction(), {"Rocket"}), 0);
+    EXPECT_EQ(designTabRequestsOf(window, actions.deleteAction(), {"Rocket"}), 0);
 }
 
 TEST_F(RocketActionsTest, EditAsksForTheDialogOfTheFirstSelectedComponentWithTheSelection)

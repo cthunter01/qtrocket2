@@ -22,6 +22,7 @@
 
 #include "QtRocket/gui/flightconfig/FlightConfigurationEditing.h"
 #include "QtRocket/gui/flightconfig/MotorMountTableModel.h"
+#include "QtRocket/gui/flightconfig/TableTransferKeys.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/util/Uuid.h"
@@ -45,7 +46,10 @@ MotorMountConfigurationPanel::MotorMountConfigurationPanel(FlightConfigurationEd
   : QWidget(parent),
     m_editing(&editing),
     m_model(makeChild<MotorMountTableModel>(this, editing.rocket())),
-    m_table(makeChild<QTableView>(this))
+    m_table(makeChild<QTableView>(this)),
+    // A JTable's Cut, Copy and Paste keys, which copy nothing here: the window's items of those
+    // keys do not act while the table has the focus.
+    m_transferKeys(makeChild<TableTransferKeys>(m_table, TableTransferKeys::CellSource()))
 {
     setObjectName(QStringLiteral("motorMountConfigurationPanel"));
     m_table->setObjectName(QStringLiteral("table"));

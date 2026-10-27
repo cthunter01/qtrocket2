@@ -14,6 +14,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLatin1Char>
 #include <QMenu>
 #include <QMetaObject>
 #include <QModelIndex>
@@ -30,9 +31,11 @@
 #include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
+#include "QtRocket/gui/flightconfig/TableTransferKeys.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -82,7 +85,11 @@ FlightConfigurablePanel::FlightConfigurablePanel(FlightConfigurationPanel&      
                                                     panel.services().preferences())),
     m_table(makeChild<QTableView>(this)),
     m_selection(makeChild<RowColumnSelectionModel>(m_table, m_model)),
-    m_fullPopup(makeChild<QMenu>(this))
+    m_fullPopup(makeChild<QMenu>(this)),
+    // A JTable's Cut, Copy and Paste keys: the window's items of those keys do not act while the
+    // table has the focus.
+    m_transferKeys(makeChild<TableTransferKeys>(
+        m_table, TableTransferKeys::CellSource([this] { return transferCells(); })))
 {
     m_table->setObjectName(QStringLiteral("table"));
     m_fullPopup->setObjectName(QStringLiteral("popupMenuFull"));
@@ -135,6 +142,43 @@ FlightConfigurablePanel::~FlightConfigurablePanel()
 {
     m_table->viewport()->removeEventFilter(this);
     m_table->removeEventFilter(this);
+}
+
+TableTransferKeys::Cells FlightConfigurablePanel::transferCells() const
+{
+    // Java's getValueAt(): the configuration's id in column 0, a Pair of it and the component in
+    // the others, whose toString() is "[" + id + ";" + component + "]".
+    const Lines&             lines = m_selection->lines();
+    TableTransferKeys::Cells cells;
+    if (lines.rows.empty() || lines.columns.empty())
+    {
+        return cells;
+    }
+    for (const int row : lines.rows)
+    {
+        const std::optional<FlightConfigurationId> id = m_model->configurationId(row);
+        if (!id.has_value())
+        {
+            continue;
+        }
+        const QString        key = QtStrings::fromUtf8(id->toString());
+        std::vector<QString> values;
+        values.reserve(lines.columns.size());
+        for (const int column : lines.columns)
+        {
+            if (column == 0)
+            {
+                values.push_back(key);
+                continue;
+            }
+            const RocketComponent* const component = m_model->component(column);
+            const QString                name =
+                component == nullptr ? QString() : QtStrings::fromUtf8(component->toString());
+            values.push_back(QLatin1Char('[') + key + QLatin1Char(';') + name + QLatin1Char(']'));
+        }
+        cells.push_back(std::move(values));
+    }
+    return cells;
 }
 
 FlightConfigurationEditing& FlightConfigurablePanel::editing() const noexcept

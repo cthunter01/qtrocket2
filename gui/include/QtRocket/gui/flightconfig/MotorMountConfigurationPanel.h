@@ -14,6 +14,7 @@ namespace QtRocket::Gui
 
 class FlightConfigurationEditing;
 class MotorMountTableModel;
+class TableTransferKeys;
 
 /// The table of the "Motor mounts" box of the Motors tab, where the user tells which tubes act as
 /// motor mounts (OpenRocket's MotorMountConfigurationPanel, swing
@@ -28,6 +29,10 @@ class MotorMountTableModel;
 /// click of a double click, as in Java. The model asks for the change and the panel makes it
 /// through FlightConfigurationEditing::setMotorMount() (its own undo step "Modify motor mount":
 /// OpenRocket's bug 5, plan 10.3; Java's table changes the mount at once, with no undo step).
+///
+/// Cut, Copy and Paste (Ctrl+X, C and V) are the table's while it has the focus, as a JTable's
+/// (TableTransferKeys), and do nothing (a table that allows no selection exports nothing): the
+/// window's items of those keys (the components' Cut, Copy and Paste) do not act then.
 ///
 /// Deviation from OpenRocket: the table has no grid lines (Java hides its vertical ones, and its
 /// look and feel, FlatLaf, draws no horizontal ones; Qt draws both or none).
@@ -50,6 +55,8 @@ public:
     [[nodiscard]] QTableView& table() const noexcept { return *m_table; }
     /// The table's model.
     [[nodiscard]] MotorMountTableModel& model() const noexcept { return *m_model; }
+    /// The table's Cut, Copy and Paste keys.
+    [[nodiscard]] TableTransferKeys& transferKeys() const noexcept { return *m_transferKeys; }
 
     /// The size the table would be ("w 200lp, h 150lp").
     static constexpr int kTableWidth  = 200;
@@ -70,6 +77,7 @@ private:
     FlightConfigurationEditing* m_editing;
     MotorMountTableModel*       m_model;
     QTableView*                 m_table;
+    TableTransferKeys*          m_transferKeys;
     /// The cell of the left button's last press (a click toggles when it ends there).
     QPersistentModelIndex m_pressed;
 };

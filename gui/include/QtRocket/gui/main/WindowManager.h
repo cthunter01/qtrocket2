@@ -37,7 +37,11 @@ class RocketPanel;
 ///   "Rocket" with the stage "Sustainer", saved, no file); addDocument() opens one on a document
 ///   that was loaded (DocumentFileOperations). A window opens as BasicFrame's: with its design
 ///   panel (a DesignPanel: the component tree, its selection and actions, the add buttons; the
-///   first stage selected, the tree with the keyboard focus) and its design view (a RocketPanel
+///   first stage selected, the tree with the keyboard focus), its "Motors & Configuration" tab (a
+///   FlightConfigurationPanel: its table columns select in the tree's selection, the
+///   configuration dialog is asked to close before each of its operations that adds an undo
+///   step, and its "Save as default" pins the configuration names of every open window's design:
+///   documents()) and its design view (a RocketPanel
 ///   below the tabs: its clicks select in the tree's selection, its figure draws the design
 ///   panel's highlight, its right-click shows the actions' popup menu, its double-click asks for
 ///   the window's configuration dialog), its size and the remembered
@@ -155,6 +159,8 @@ public:
 
     /// The open windows, in the order they were opened.
     [[nodiscard]] std::vector<MainWindow*> windows() const;
+    /// The documents of the open windows, in the order of windows().
+    [[nodiscard]] std::vector<OpenRocketDocument*> documents() const;
     /// The number of open windows.
     [[nodiscard]] std::size_t windowCount() const noexcept { return m_entries.size(); }
     /// The window of @p rocket (BasicFrame.findFrame()), or null.

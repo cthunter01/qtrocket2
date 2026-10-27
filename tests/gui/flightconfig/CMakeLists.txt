@@ -16,4 +16,5 @@ target_sources(QtRocket_gui_tests PRIVATE
     RecoveryConfigurationPanelTests.cpp
     RowColumnSelectionModelTests.cpp
     SeparationConfigurationPanelTests.cpp
+    TableTransferKeysTests.cpp
 )

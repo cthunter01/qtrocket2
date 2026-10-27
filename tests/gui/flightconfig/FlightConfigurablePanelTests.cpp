@@ -30,6 +30,8 @@
 #include "QtRocket/gui/flightconfig/MotorConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RecoveryConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/RowColumnSelectionModel.h"
+#include "QtRocket/gui/flightconfig/TableTransferKeys.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -278,6 +280,30 @@ TEST_F(FlightConfigurablePanelTest, AConfigurationAddedKeepsTheSelectionOfTheTab
     static_cast<void>(tab.rocket().createFlightConfiguration());
     EXPECT_EQ(tab.motors().tableModel().rowCount(), 5);
     EXPECT_EQ(Tab::lines(tab.motors()), "rows=[1] cols=[3]");
+}
+
+// ===================================================================== the clipboard keys
+
+TEST_F(FlightConfigurablePanelTest, CopyTakesJavasValuesOfTheSelectedCells)
+{
+    const Tab                      tab(Design::TWO_STAGES);
+    const MotorConfigurationPanel& motors = tab.motors();
+    const std::string              first  = tab.id(0).toString();
+    const std::string              third  = tab.id(2).toString();
+    // Java's getValueAt(row, column).toString() of the selected rows x columns: the
+    // configuration's id in column 0, the Pair of it and the mount ("[id;name]") in a mount's.
+    motors.tableSelection().setLines({.rows = {0, 2}, .columns = {0, 2}},
+                                     RowColumnSelectionModel::Order::COLUMNS_FIRST);
+    EXPECT_EQ(TableTransferKeys::plainText(motors.transferCells()),
+              QtStrings::fromUtf8(first + "\t[" + first + ";Motor tube]\n" + third + "\t[" + third +
+                                  ";Motor tube]"));
+    // The recovery table's cells name the device.
+    tab.recovery().tableSelection().selectCell(1, 1);
+    EXPECT_EQ(TableTransferKeys::plainText(tab.recovery().transferCells()),
+              QtStrings::fromUtf8("[" + tab.id(1).toString() + ";Chute]"));
+    // Nothing selected: nothing to copy.
+    motors.tableSelection().clearLines();
+    EXPECT_TRUE(motors.transferCells().empty());
 }
 
 }  // namespace
