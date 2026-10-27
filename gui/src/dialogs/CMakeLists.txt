@@ -28,3 +28,6 @@ target_sources(QtRocket_gui PRIVATE
 
 # The motor chooser (dialogs/motor/).
 add_subdirectory(motor)
+
+# The parts library (dialogs/preset/).
+add_subdirectory(preset)

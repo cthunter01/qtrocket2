@@ -26,15 +26,14 @@ bool ComponentPresetDatabase::add(PresetPtr preset)
 
     const SearchResult search = binarySearch(*preset);
     // List might contain the element (Java looks through the whole list, not only at the
-    // presets that compare equal).
+    // presets that compare equal; the digest index answers for the whole list at once).
     if (search.found && contains(*preset))
     {
         return false;
     }
     // The found index, or the insertion point: a preset that compares equal to the found one
     // goes in front of it.
-    m_list.insert(std::next(m_list.begin(), static_cast<std::ptrdiff_t>(search.index)),
-                  std::move(preset));
+    insertIndexed(search.index, std::move(preset));
     // Java fires the add event here; the database listeners are not ported (see the class
     // comment).
     return true;
@@ -61,7 +60,23 @@ void ComponentPresetDatabase::insert(PresetPtr preset)
     {
         bug("ComponentPresetDatabase::insert(): the preset is null");
     }
-    m_list.push_back(std::move(preset));
+    insertIndexed(m_list.size(), std::move(preset));
+}
+
+void ComponentPresetDatabase::insertIndexed(std::size_t index, PresetPtr preset)
+{
+    // The list and the index change together, or neither does.
+    const auto digest = m_digests.insert(preset->getDigest());
+    try
+    {
+        m_list.insert(std::next(m_list.begin(), static_cast<std::ptrdiff_t>(index)),
+                      std::move(preset));
+    }
+    catch (...)
+    {
+        m_digests.erase(digest);
+        throw;
+    }
 }
 
 std::vector<ComponentPresetDatabase::PresetPtr> ComponentPresetDatabase::listForType(
@@ -156,10 +171,10 @@ ComponentPresetDatabase::SearchResult ComponentPresetDatabase::binarySearch(
     return SearchResult{.index = low, .found = false};
 }
 
-bool ComponentPresetDatabase::contains(const ComponentPreset& preset) const noexcept
+bool ComponentPresetDatabase::contains(const ComponentPreset& preset) const
 {
-    return std::ranges::any_of(m_list,
-                               [&preset](const PresetPtr& held) { return *held == preset; });
+    // ComponentPreset::operator== compares the digests: the index holds every digest of the list.
+    return m_digests.contains(preset.getDigest());
 }
 
 }  // namespace QtRocket

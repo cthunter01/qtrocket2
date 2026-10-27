@@ -11,6 +11,7 @@
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/util/Uuid.h"
 
 class QMoveEvent;
 class QShowEvent;
@@ -19,6 +20,7 @@ class QWidget;
 namespace QtRocket
 {
 class OpenRocketDocument;
+class Preferences;
 class RocketComponent;
 }  // namespace QtRocket
 
@@ -38,7 +40,16 @@ class RocketComponentConfig;
 ///   type name of the main component's kind, "Body Tube").
 /// - Undo: one undo step per dialog session. Once the dialog is shown, it adds the undo position
 ///   "Modify <Name>" (several components: "Modify components"), none for a component just added
-///   (the add button did "Add <Name>" before it).
+///   (the add button did "Add <Name>" before it). A preset chosen in the session adds its own
+///   ("Use Preset <Name>", PresetBinding::choose()), which only names the session's step while
+///   nothing has changed since its position.
+/// - The parts library for a new component (Java's auto-open): after the undo position, a dialog
+///   for one component just added (no others) of a kind that takes presets opens the parts library
+///   one turn of the event loop later (RocketComponentConfig::selectPreset()), when the
+///   preferences say so: GuiPreferenceKeys::alwaysOpenPresetKey() of the kind (the parts library's
+///   "Always open this dialog when creating a new <component>") and
+///   GuiPreferenceKeys::kAutoOpenPartsLibrary (the General preferences' "Automatically open the
+///   Parts Library dialog"), both true when not stored (opensPartsLibrary()).
 /// - The rocket: the dialog has one connection to the rocket, made before the selection and the
 ///   panel (Java's order), so that its slot runs first. A TREE or UNDO change closes the dialog at
 ///   once, inside the event: its bindings end (BindingScope::release(): the selection lets go of
@@ -54,7 +65,8 @@ class RocketComponentConfig;
 ///   the preferences say not to ask (Preferences::isShowDiscardConfirmation(); "Don't ask me again"
 ///   turns it off, whatever the answer), the user is asked (UserPrompts::askDiscardChanges(): undo
 ///   adding the component, or discard the changes), and on yes the dialog closes, its pending
-///   edits dropped, BEFORE OpenRocketDocument::undo() goes back to the session's undo position.
+///   edits dropped, BEFORE OpenRocketDocument::undo() goes back to the session's undo position;
+///   for a new component the undo goes on until the component is gone (see the deviations).
 /// - The position is remembered (kPositionKey, on every move of the shown dialog, as Java's
 ///   GUIUtil.rememberWindowPosition(); a remembered place on no screen is not used), the size is
 ///   the contents' (Java: pack()). The selected tab is remembered by its title for the next dialog,
@@ -73,9 +85,24 @@ class RocketComponentConfig;
 ///   question's parent is the dialog (Java: the panel), and a dialog closed while the question is
 ///   open is deleted only once the question has its answer; a dialog deleted meanwhile with its
 ///   window is not touched afterwards.
-/// - The parts library does not open for a new component (Milestone 3). Java moves the dialog onto
-///   the screen of the start-up window; here a remembered place on no screen is not used, and Qt
-///   places the dialog over its window.
+/// - Cancel of a new component removes it, as its question says ("Are you sure you want to undo
+///   adding this component?"), also after a preset was chosen (bug 15 of the plan's section 10.3,
+///   fixed): the preset's undo position is a step of its own after the add, so Java's one undo()
+///   undoes only "Use Preset <Name>" and leaves the component in the rocket (probe:
+///   tools/openrocket-gui-pins/preset-chooser/probe/NewComponentCancelProbe.java, "with a preset,
+///   after Cancel's undo": undo 'Add Body Tube', redo 'Use Preset Body Tube'). Here the undo goes
+///   on, one step at a time, until the rocket has no component of the new component's id (or
+///   nothing is left to undo), which is the probe's "after a second undo"; any other step added
+///   after the add while the dialog was open goes with it. An undo that neither goes back a step
+///   nor reaches the state of its step (a slot of its events changed the document again, so that
+///   every further undo would load the same step again) ends it there. An existing component's
+///   Cancel undoes once, as Java's: a preset chosen after another edit is undone alone, the edit
+///   stays.
+/// - The auto-open reads its two preferences without storing them; Java's
+///   SwingPreferences.getBoolean() stores the default of each it does not find
+///   ("<name>AlwaysOpenPreset" first, then AutoOpenPartsLibrary, as its condition reaches them).
+/// - Java moves the dialog onto the screen of the start-up window; here a remembered place on no
+///   screen is not used, and Qt places the dialog over its window.
 /// - A different-class selection opens on its first tab (Java selects tab 1, the Appearance tab of
 ///   Milestone 5).
 ///
@@ -126,6 +153,12 @@ public:
     /// Commits the pending edits of the open dialog (before a save or an undo of the main window:
     /// a menu or a shortcut may leave them pending); true when a binding took a value.
     static bool commitPendingEdits();
+
+    /// Whether the dialog of a new component of @p kind opens the parts library (see the class
+    /// comment): the kind takes presets (presetTypeOf()) and @p preferences hold true, or nothing,
+    /// for GuiPreferenceKeys::alwaysOpenPresetKey(@p kind) and kAutoOpenPartsLibrary (Java:
+    /// getBoolean(getComponentName() + "AlwaysOpenPreset", true) && isAutoOpenPartsLibrary()).
+    [[nodiscard]] static bool opensPartsLibrary(const Preferences& preferences, ComponentKind kind);
 
     ~ComponentConfigDialog() override;
     ComponentConfigDialog(const ComponentConfigDialog&)            = delete;
@@ -215,6 +248,8 @@ private:
     bool                                    m_disposed{false};
     /// Set while cancel() asks its question: dispose() leaves the deletion to cancel().
     bool m_asking{false};
+    /// The main component's id: a new component's Cancel undoes until it is gone.
+    Uuid m_mainId;
 };
 
 }  // namespace QtRocket::Gui

@@ -14,7 +14,10 @@
 #include <QLatin1Char>
 #include <QLineEdit>
 #include <QList>
+#include <QMetaObject>
+#include <QObject>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
 #include <QString>
 #include <QTabWidget>
@@ -28,21 +31,26 @@
 #include "QtRocket/gui/binding/BoolBinding.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
+#include "QtRocket/gui/binding/PresetBinding.h"
+#include "QtRocket/gui/binding/PresetDiameterFilters.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
 #include "QtRocket/gui/binding/StringBinding.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/util/EnumText.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/ThemeColors.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/FieldEnabling.h"
 #include "QtRocket/gui/widgets/IconToggleButton.h"
+#include "QtRocket/gui/widgets/PresetComboBox.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/gui/widgets/TextCommitter.h"
 #include "QtRocket/gui/widgets/UnitSelector.h"
@@ -64,6 +72,11 @@ namespace QtRocket::Gui
 
 namespace
 {
+
+/// The stretch factors of the name field and the preset combo box in the header (Java: "growx"
+/// and "growx 110").
+constexpr int kNameStretch   = 100;
+constexpr int kPresetStretch = 110;
 
 /// A check box's property of every component (RocketComponent's is<Name> and set<Name>).
 [[nodiscard]] BoolSource componentFlag(bool (RocketComponent::*is)() const,
@@ -242,13 +255,105 @@ void RocketComponentConfig::addHeader()
     m_nameField->setToolTip(tip);
     // Java: JTextField(15), fifteen columns wide at least.
     m_nameField->setMinimumWidth(m_nameField->fontMetrics().averageCharWidth() * 15);
-    headerLayout->addWidget(m_nameField, 1);
+    headerLayout->addWidget(m_nameField, kNameStretch);
     label->setBuddy(m_nameField);
 
     m_textCommitter = makeChild<TextCommitter>(this);
     m_textCommitter->addField(*m_nameField,
                               m_scope.make<StringBinding>(selection(), componentNameSource()));
+
+    // The preset row, for components of one class that takes presets (Java: allSameType &&
+    // component.getPresetType() != null).
+    if (m_allSameType && selection()->getMain().getPresetType().has_value())
+    {
+        addPresetRow(*header, *headerLayout);
+    }
     m_layout->addWidget(header);
+}
+
+void RocketComponentConfig::addPresetRow(QWidget& header, QHBoxLayout& layout)
+{
+    const auto binding = m_scope.make<PresetBinding>(selection(), *m_document, m_services.presets(),
+                                                     m_services.preferences());
+    m_presetCombo      = makeChild<PresetComboBox>(&header, binding);
+    m_presetCombo->setObjectName(QStringLiteral("presetComboBox"));
+    layout.addWidget(m_presetCombo, kPresetStretch);
+    // A preset chosen there or in the parts library: the focus goes to the panel's field, later
+    // (Java: setFocusElement(), invokeLater).
+    connect(m_presetCombo, &PresetComboBox::presetChosen, this,
+            guarded([this] { focusPresetField(); }, QStringLiteral("presetComboBox")),
+            Qt::QueuedConnection);
+
+    //: PresetModel.lbl.partsLib
+    m_partsLibrary = makeChild<QPushButton>(&header, tr("Parts Library"));
+    m_partsLibrary->setObjectName(QStringLiteral("selectPresetButton"));
+    //: PresetModel.lbl.partsLib.ttip
+    m_partsLibrary->setToolTip(
+        tr("Select a preset model for this rocket component from a library of parts."));
+    m_partsLibrary->setAutoDefault(false);
+    layout.addWidget(m_partsLibrary);
+    connect(m_partsLibrary, &QPushButton::clicked, this,
+            guarded([this] { selectPreset(); }, QStringLiteral("selectPresetButton")));
+}
+
+// ---------------------------------------------------------------------------------- presets
+
+void RocketComponentConfig::setPresetFocusField(QWidget& field)
+{
+    m_presetFocusField = &field;
+}
+
+void RocketComponentConfig::selectPreset()
+{
+    // Java: SwingUtilities.invokeLater(...), the parts library from the event loop.
+    QMetaObject::invokeMethod(
+        this, guarded([this] { openPartsLibrary(); }, QStringLiteral("selectPreset")),
+        Qt::QueuedConnection);
+}
+
+void RocketComponentConfig::openPartsLibrary()
+{
+    // Java: nothing without the combo box (or once the dialog has closed: here its selection has
+    // ended).
+    const std::shared_ptr<ComponentSelection>& valid = selection();
+    if (m_presetCombo == nullptr || valid == nullptr || !valid->isValid())
+    {
+        return;
+    }
+    const RocketComponent&           main    = valid->getMain();
+    const PresetDiameterFilters      filters = PresetDiameterFilters::forComponent(main);
+    const UserPrompts::PresetRequest request{.componentKind   = main.kind(),
+                                             .foreDiameter    = filters.foreDiameter,
+                                             .aftDiameter     = filters.aftDiameter,
+                                             .flippedNoseCone = filters.flippedNoseCone};
+    // The parts library is modal: anything may happen while it is open, the panel may even go
+    // with its window (so the question gets services of its own, a copy).
+    const QPointer<RocketComponentConfig> self(this);
+    const GuiServices                     services = m_services;
+    const UserPrompts::PresetAnswer       answer =
+        services.prompts().choosePreset(this, services, request);
+    if (self.isNull())
+    {
+        return;
+    }
+    // The favourites may have been ticked in it (Java's combo box listened to the database while
+    // it was open); a preset chosen there is applied as Java's PresetModel.setSelectedItem() does.
+    PresetComboBox& combo = *m_presetCombo;
+    combo.binding()->reread();
+    if (answer.outcome == UserPrompts::PresetOutcome::CHOSEN && answer.preset != nullptr)
+    {
+        combo.choosePreset(answer.preset);
+    }
+}
+
+void RocketComponentConfig::focusPresetField()
+{
+    // Java's requestFocusInWindow(): not for a field that is not showing.
+    QWidget* const field = m_presetFocusField.data();
+    if (field != nullptr && field->isVisible() && field->isEnabled())
+    {
+        field->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 // ------------------------------------------------------------------------------------- tabs

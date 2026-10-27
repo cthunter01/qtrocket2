@@ -18,6 +18,11 @@ namespace QtRocket::Gui::Test
 /// the test answers through prompts(). A test may fill the motor and preset databases
 /// (motors(), presets()) before anything reads them. Declare it before the windows and
 /// documents that use it.
+///
+/// The store holds one preference from the start: "Automatically open the Parts Library dialog"
+/// (GuiPreferenceKeys::kAutoOpenPartsLibrary) is off, so that the configuration dialog of a new
+/// component does not ask for a preset (see GuiTestSupport.h); a test of that question turns it
+/// on (preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, true)).
 class TestGuiServices
 {
 public:

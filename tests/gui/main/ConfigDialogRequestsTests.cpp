@@ -41,19 +41,27 @@
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
 #include "configdialog/ConfigDialogTestSupport.h"
 #include "figure/FigureMouse.h"
+#include "rocket/preset/TestPresetDatabase.h"
 #include "tree/ProbeDesign.h"
 #include "tree/TreeViewMouse.h"
 #include "widgets/WidgetTestSupport.h"
@@ -123,6 +131,7 @@ protected:
     {
         return m_services.prompts();
     }
+    [[nodiscard]] InMemoryPreferences& preferences() noexcept { return m_services.preferences(); }
 
     [[nodiscard]] static DesignPanel& panelOf(const MainWindow& window)
     {
@@ -285,6 +294,77 @@ TEST_F(ConfigDialogRequestsTest, AnAddButtonOpensTheNewComponentsDialogOnItsFirs
     EXPECT_EQ(&dialog->configurator().selection()->getMain(), added);
     EXPECT_EQ(window.document().getUndoDescription(),
               std::optional<std::string>("Add Mass Component"));
+}
+
+TEST_F(ConfigDialogRequestsTest, AnAddButtonOfAKindWithPresetsOpensThePartsLibrary)
+{
+    // With the application's default (AutoOpenPartsLibrary, which the test services turn off):
+    // ComponentButton's showDialog(..., true) for a body tube, then the dialog's parts library
+    // (ComponentConfigDialog.showDialog(), selectPreset()'s invokeLater), for the new tube.
+    preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, true);
+    // "Add to the end": no question where to put the tube.
+    preferences().putInt(PreferenceKeys::kBodyComponentInsertPositionKey, 2);
+    const MainWindow& window = open();
+    // The dialog of BT1 open (the selection changes while a dialog is visible).
+    doubleClickRow(window, "BT1");
+    ASSERT_EQ(openDialog(), "Body Tube configuration: BT1 [] General");
+    ComponentButton* const tube = panelOf(window).addButtons().button(ComponentKind::BODY_TUBE);
+    ASSERT_NE(tube, nullptr);
+    ASSERT_TRUE(tube->isEnabled());
+    prompts().answerPreset({.outcome = UserPrompts::PresetOutcome::CLOSED, .preset = nullptr});
+    tube->click();
+    EXPECT_TRUE(QTest::qWaitFor([this] { return !prompts().presetRequests().empty(); }));
+    ASSERT_EQ(prompts().presetRequests().size(), 1U);
+    EXPECT_EQ(prompts().presetRequests().front().componentKind, ComponentKind::BODY_TUBE);
+    const ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(dialog->isNewComponent());
+    const RocketComponent* const added = panelOf(window).selection().selectedComponent();
+    ASSERT_NE(added, nullptr);
+    EXPECT_EQ(&dialog->configurator().selection()->getMain(), added);
+    EXPECT_EQ(added->kind(), ComponentKind::BODY_TUBE);
+    EXPECT_EQ(added->getPresetComponent(), nullptr);
+    EXPECT_EQ(window.document().getUndoDescription(), std::optional<std::string>("Add Body Tube"));
+}
+
+TEST_F(ConfigDialogRequestsTest, CancelAfterThePartsLibrarysPresetRemovesTheNewComponent)
+{
+    // The add button, the parts library opened for the new tube with a preset chosen, then
+    // Cancel, which removes the tube (bug 15 of the plan's section 10.3, fixed: OpenRocket's one
+    // undo leaves it), in a window whose tree, figure and undo actions follow every step.
+    preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, true);
+    preferences().putInt(PreferenceKeys::kBodyComponentInsertPositionKey, 2);
+    const ComponentPresetDatabase database = QtRocket::Test::smallPresetDatabase();
+    const std::vector<std::shared_ptr<const ComponentPreset>> tubes =
+        database.listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_GT(tubes.size(), 7U);
+    const MainWindow&                window = open();
+    const std::optional<std::string> before = window.document().getUndoDescription();
+    ComponentButton* const tube = panelOf(window).addButtons().button(ComponentKind::BODY_TUBE);
+    ASSERT_NE(tube, nullptr);
+    prompts().answerPreset({.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.at(7)});
+    tube->click();
+    EXPECT_TRUE(QTest::qWaitFor([this] { return !prompts().presetRequests().empty(); }));
+    // The focus move a chosen preset queues.
+    QCoreApplication::processEvents();
+    ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    const RocketComponent& added = dialog->configurator().selection()->getMain();
+    const Uuid             id    = added.getId();
+    ASSERT_NE(added.getPresetComponent(), nullptr);
+    EXPECT_EQ(added.getPresetComponent()->getPartNo(), "85865");
+    EXPECT_EQ(panelOf(window).selection().selectedComponent(), &added);
+    EXPECT_EQ(window.document().getUndoDescription(),
+              std::optional<std::string>("Use Preset Body Tube"));
+
+    prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(window.document().getRocket().findComponent(id), nullptr);
+    EXPECT_EQ(window.document().getUndoDescription(), before);
+    EXPECT_EQ(window.document().getRedoDescription(), std::optional<std::string>("Add Body Tube"));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(openDialog(), "none");
 }
 
 // =========================================================================== the selection

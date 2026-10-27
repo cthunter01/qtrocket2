@@ -1,12 +1,15 @@
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -72,6 +75,14 @@ using Lines     = std::vector<std::string>;
     props.put(ComponentPreset::kOuterDiameter, 0.0247);
     props.put(ComponentPreset::kInnerDiameter, 0.0237);
     return make(props);
+}
+
+/// A tube equal to @p preset (the same digest), another object: tube() with its manufacturer,
+/// part number and length, and the LEGACY flag set, which the digest leaves out.
+[[nodiscard]] PresetPtr equalTube(const ComponentPreset& preset)
+{
+    return tube(preset.getManufacturer().getSimpleName(), preset.getPartNo(),
+                preset.get(ComponentPreset::kLength), true);
 }
 
 /// The probe's chute(): a parachute of @p diameter with six lines of that length.
@@ -200,6 +211,41 @@ void addAllOfPartA(ComponentPresetDatabase& database)
             "Estes | BT-50 | BODY_TUBE | f7e11a2ea0ed52c32fc5b4ecf2947ea6",   // length 0.1
             "Estes | BT-50 | PARACHUTE | cde748b26f286e156edbe0b6a501f3ce",   // the parachute
             "Estes | BT-50 | BODY_TUBE | ef6fe044c8ae731946110053dde7c301"};  // length 0.4572
+}
+
+/// Java's Database.add() on a plain list, the reference the database is compared with: the
+/// binary search in Collections.indexedBinarySearch()'s own form (int indices, the high end
+/// inclusive, the middle (low + high) / 2) and, when it finds a preset that compares equal,
+/// ArrayList.contains() walking the whole list.
+[[nodiscard]] bool javaAdd(std::vector<PresetPtr>& list, const PresetPtr& preset)
+{
+    int low   = 0;
+    int high  = static_cast<int>(list.size()) - 1;
+    int found = -1;
+    while (low <= high && found < 0)
+    {
+        const int mid = (low + high) / 2;
+        const int cmp = list[static_cast<std::size_t>(mid)]->compareTo(*preset);
+        if (cmp < 0)
+        {
+            low = mid + 1;
+        }
+        else if (cmp > 0)
+        {
+            high = mid - 1;
+        }
+        else
+        {
+            found = mid;
+        }
+    }
+    if (found >= 0 &&
+        std::ranges::any_of(list, [&preset](const PresetPtr& held) { return *held == *preset; }))
+    {
+        return false;
+    }
+    list.insert(std::next(list.begin(), found >= 0 ? found : low), preset);
+    return true;
 }
 
 /// find() of the probe's part A database, as lines.
@@ -421,6 +467,97 @@ TEST(ComponentPresetDatabase, AddAllOfTheDatabasesOwnList)
                          "Apogee | AP-1 | BODY_TUBE | d2e730e62baf1cdee64211ee7ea94c8c",
                          "Quest | Q-1 | BODY_TUBE | d789d76ae1ab14d9b082d0d6c3fdd10c"};
     EXPECT_EQ(lines(unsorted.listAll()), expected);
+}
+
+// ============================================================================ the digest index
+
+/// The presets of ManyPresetsOfOnePartNumberAreAddedAsJavaAddsThem: @p count tubes "Estes BT-50"
+/// of distinct lengths in a scrambled order (7919 is prime), so that the search lands all over the
+/// presets of the part number, with tubes of other part numbers before and after them; then every
+/// preset again, as itself and as an equal object (the LEGACY flag is not part of the digest).
+/// @p distinct is set to the number of distinct presets.
+[[nodiscard]] std::vector<PresetPtr> manyTubesOfOnePartNumber(int count, std::size_t& distinct)
+{
+    std::vector<PresetPtr> sequence;
+    for (int i = 0; i < count; ++i)
+    {
+        sequence.push_back(tube("Estes", "BT-50", 0.001 * (((i * 7919) % count) + 1), false));
+        if (i % 100 == 0)
+        {
+            sequence.push_back(tube("Estes", "BT-20", 0.001 * (i + 1)));
+            sequence.push_back(tube("Quest", "Q-1", 0.001 * (i + 1)));
+        }
+    }
+    distinct = sequence.size();
+    for (std::size_t i = 0; i < distinct; ++i)
+    {
+        sequence.push_back(i % 2 == 0 ? sequence[i] : equalTube(*sequence[i]));
+    }
+    return sequence;
+}
+
+/// add() of each of @p sequence to @p database and javaAdd() of each to @p reference; the number
+/// of presets both refused, or -1 at the first preset on which they disagree.
+[[nodiscard]] int addBoth(ComponentPresetDatabase& database, std::vector<PresetPtr>& reference,
+                          std::span<const PresetPtr> sequence)
+{
+    int refused = 0;
+    for (const PresetPtr& preset : sequence)
+    {
+        const bool added = database.add(preset);
+        if (added != javaAdd(reference, preset))
+        {
+            return -1;
+        }
+        refused += added ? 0 : 1;
+    }
+    return refused;
+}
+
+TEST(ComponentPresetDatabase, ManyPresetsOfOnePartNumberAreAddedAsJavaAddsThem)
+{
+    // A user's .orc file of many presets that share their manufacturer and part number (run 1's
+    // robustness finding): each add() finds one of them, and Java's contains() then walks the
+    // whole list, a quadratic load. The database's digest index answers the same in constant
+    // time: the same presets refused and the same order as Java's add() (javaAdd()).
+    std::size_t                  distinct = 0;
+    const std::vector<PresetPtr> sequence = manyTubesOfOnePartNumber(1500, distinct);
+    ComponentPresetDatabase      database;
+    std::vector<PresetPtr>       reference;
+    EXPECT_EQ(addBoth(database, reference, sequence), static_cast<int>(sequence.size() - distinct));
+    EXPECT_EQ(database.size(), distinct);
+    // The same objects in the same order.
+    EXPECT_EQ(database.listAll(), reference);
+}
+
+TEST(ComponentPresetDatabase, ACopyAndAMovedDatabaseKeepTheDigestIndex)
+{
+    ComponentPresetDatabase database;
+    addAllOfPartA(database);
+    ComponentPresetDatabase copy = database;
+    EXPECT_FALSE(copy.add(tube("Estes", "BT-50", 0.3, true)));
+    EXPECT_TRUE(copy.add(tube("Estes", "BT-50", 0.4, false)));
+    ComponentPresetDatabase moved = std::move(copy);
+    ComponentPresetDatabase assigned;
+    assigned = std::move(moved);
+    EXPECT_FALSE(assigned.add(tube("Estes", "BT-50", 0.4, true)));
+    EXPECT_EQ(assigned.size(), 15U);
+    // The original kept its own index: the new length is not in it.
+    EXPECT_TRUE(database.add(tube("Estes", "BT-50", 0.4, true)));
+}
+
+TEST(ComponentPresetDatabase, InsertedPresetsAreInTheDigestIndex)
+{
+    // insert() appends without a search; a later add() whose search finds a preset that compares
+    // equal refuses a preset whose digest only insert() brought in, as Java's contains() does.
+    ComponentPresetDatabase database;
+    database.insert(tube("Estes", "BT-50", 0.2, false));
+    database.insert(tube("Estes", "BT-50", 0.3, false));
+    database.insert(tube("Estes", "BT-50", 0.3, false));  // the same digest twice
+    EXPECT_FALSE(database.add(tube("Estes", "BT-50", 0.3, true)));
+    EXPECT_FALSE(database.add(tube("Estes", "BT-50", 0.2, true)));
+    EXPECT_EQ(addAt(database, tube("Estes", "BT-50", 0.1, false)), 1);
+    EXPECT_EQ(database.size(), 4U);
 }
 
 // ====================================================================================== find()

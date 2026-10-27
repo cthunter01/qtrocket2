@@ -4,5 +4,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     GuiPreferenceKeysTests.cpp
     PreferencesTranscript.cpp
     SettingsPreferencesTests.cpp
+    TableUiPreferencesTests.cpp
     WindowGeometryTests.cpp
 )

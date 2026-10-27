@@ -1,5 +1,6 @@
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 
+#include <cstddef>
 #include <format>
 #include <memory>
 #include <optional>
@@ -36,7 +37,9 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket::Gui
 {
@@ -129,6 +132,24 @@ void ComponentConfigDialog::showDialog(QWidget& window, const GuiServices& servi
     }
     // The user's decision U4: what happened before the position does not count.
     dialog->startCountingModifications();
+
+    // The parts library for one new component, when the preferences say so (Java), one turn of
+    // the event loop later: after the session's undo position.
+    if (isNewComponent && !multiEdit && opensPartsLibrary(services.preferences(), kind))
+    {
+        dialog->m_configurator->selectPreset();
+    }
+}
+
+bool ComponentConfigDialog::opensPartsLibrary(const Preferences& preferences, ComponentKind kind)
+{
+    // Java: getPresetType() != null && getBoolean(getComponentName() + "AlwaysOpenPreset", true) &&
+    // isAutoOpenPartsLibrary(), each read without storing its default here.
+    return presetTypeOf(kind).has_value() &&
+           preferences.getBoolean(GuiPreferenceKeys::alwaysOpenPresetKey(kind),
+                                  GuiPreferenceKeys::kAlwaysOpenPresetDefault) &&
+           preferences.getBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary,
+                                  GuiPreferenceKeys::kAutoOpenPartsLibraryDefault);
 }
 
 void ComponentConfigDialog::disposeDialog()
@@ -174,7 +195,8 @@ ComponentConfigDialog::ComponentConfigDialog(Key /*key*/, const GuiServices& ser
     m_services(services),
     m_document(&document),
     m_mainKind(main.kind()),
-    m_newComponent(isNewComponent)
+    m_newComponent(isNewComponent),
+    m_mainId(main.getId())
 {
     setObjectName(QString::fromLatin1(kGeometryName));
     setModal(false);
@@ -455,10 +477,30 @@ void ComponentConfigDialog::dispose()
 
 void ComponentConfigDialog::discardChanges()
 {
-    OpenRocketDocument& document = *m_document;
+    OpenRocketDocument& document     = *m_document;
+    const bool          newComponent = m_newComponent;
+    const Uuid          id           = m_mainId;
     // Closed first, then the undo (Java): the undo replaces every component.
     dispose();
     document.undo();
+    // A new component goes, as the question says, also when the session added undo steps of its
+    // own after the add (a preset chosen: bug 15, fixed); Java undoes once.
+    if (newComponent)
+    {
+        while (document.getRocket().findComponent(id) != nullptr && document.isUndoAvailable())
+        {
+            // An undo goes back a step, or from the changes made since the last step to that step.
+            // One that did neither (a slot of its events changed the document again, so the next
+            // one would only load the same step again) ends the loop.
+            const std::size_t position = document.getUndoDetail().position;
+            document.undo();
+            const OpenRocketDocument::UndoDetail after = document.getUndoDetail();
+            if (after.position >= position && !after.clean)
+            {
+                break;
+            }
+        }
+    }
 }
 
 }  // namespace QtRocket::Gui

@@ -23,6 +23,13 @@
 #                      Configuration tab) and FlightConfigurationOperationPins.h (its operations; the probe
 #                      runs under xvfb-run)
 #   motor-chooser      tests/gui/dialogs/motor/MotorChooserPins.h
+#   preset-chooser     tests/gui/dialogs/preset/PresetChooserPins.h (its probe runs under xvfb-run), and the
+#                      values tests/gui/settings/TableUiPreferencesTests.cpp,
+#                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp,
+#                      tests/gui/widgets/TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of
+#                      tests/gui/dialogs/preset/, tests/gui/configdialog/ComponentConfigDialogTests.cpp and
+#                      RocketComponentConfigTests.cpp pin by hand (checked only, see README.md; two of their
+#                      probes run under xvfb-run, one of them shows the parts library and presses its keys)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -30,7 +37,7 @@
 # OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
-# never rewrite it (README.md, "Values pinned by hand").
+# never rewrite it (README.md, "Values pinned by hand"); so does preset-chooser.
 #
 # Environment:
 #   OPENROCKET_DIR        the OpenRocket checkout (default: "openrocket" next to the main working tree of the
@@ -55,11 +62,13 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, thrust-curves and flight-config, xvfb-run.
+# .clang-format) and, for rocket-panel, thrust-curves, flight-config and preset-chooser,
+# xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
-    material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser)
+    material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
+    preset-chooser)
 
 check=false
 families=()
@@ -117,7 +126,7 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves flight-config; do
+for family in rocket-panel thrust-curves flight-config preset-chooser; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -427,6 +436,28 @@ for family in "${families[@]}"; do
         run_probe "${family}" MotorChooserMountsProbe headless "${examples}"
         file=tests/gui/dialogs/motor/MotorChooserPins.h
         python3 -I "${here}/${family}/gen_motor_chooser_mount_pins.py" "${work}/MotorChooserMountsProbe.txt" \
+            "$(generated "${file}")" "${commit}"
+        ;;
+    preset-chooser)
+        # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order,
+        # then the bundled presets' directory (ComponentPresetTableProbe's bundled database).
+        presets=("${repo}/tests/data/presets/every-kind.orc" "${repo}/tests/data/presets/legacy.orc"
+            "${repo}/data/components/database/estes_ps2.orc")
+        run_probe "${family}" PresetGuiProbe headless "${presets[@]}" "${repo}/data/components"
+        # The configuration panels need a parent dialog and the parts library is shown (a robot presses
+        # its keys): both refused by a headless AWT. Their transcripts follow PresetGuiProbe's in the
+        # family's one snapshot.
+        run_probe "${family}" ConfigPresetRowProbe xvfb "${presets[@]}"
+        run_probe "${family}" PresetShownProbe xvfb "${presets[@]}"
+        cat "${work}/PresetGuiProbe.txt" "${work}/ConfigPresetRowProbe.txt" "${work}/PresetShownProbe.txt" \
+            > "${work}/PresetHandPins.txt"
+        check_hand_pins "${family}" PresetHandPins \
+            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset, ComponentConfigDialogTests.cpp and RocketComponentConfigTests.cpp"
+        # The parts library's dialog over the bundled presets: a JDialog, which a headless AWT refuses to make
+        # (it is never shown).
+        run_probe "${family}" PresetChooserProbe xvfb "${repo}/data/components"
+        file=tests/gui/dialogs/preset/PresetChooserPins.h
+        python3 -I "${here}/${family}/gen_preset_chooser_pins.py" "${work}/PresetChooserProbe.txt" \
             "$(generated "${file}")" "${commit}"
         ;;
     esac

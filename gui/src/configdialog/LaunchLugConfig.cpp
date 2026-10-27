@@ -23,6 +23,7 @@
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
+#include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/unit/UnitGroup.h"
@@ -157,6 +158,8 @@ void LaunchLugConfig::addTubeRows(QWidget& page, QGridLayout& grid)
         //: LaunchLugCfg.lbl.Length
         tr("Length:"), length, QStringLiteral("Length"),
         {.slider = SliderMapping::fromRange(0.0, kLengthSliderMid, kLengthSliderMax)});
+    // It takes the focus once a preset is chosen (Java: focusElement = spin).
+    setPresetFocusField(*m_length.spinBox);
 
     // The outer diameter (the radius times 2).
     const auto outer =

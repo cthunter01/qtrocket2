@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,14 +36,24 @@
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
 #include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
 #include "ConfigDialogTestSupport.h"
+#include "ForwardingUserPrompts.h"
+#include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/document/events/DocumentChangeEvent.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/PresetBinding.h"
+#include "QtRocket/gui/binding/PresetDiameterFilters.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
+#include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
+#include "QtRocket/gui/dialogs/preset/ComponentPresetTable.h"
+#include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -51,9 +62,11 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
+#include "QtRocket/gui/widgets/PresetComboBox.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/gui/widgets/UnitSelector.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -61,12 +74,18 @@
 #include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
+#include "rocket/preset/TestPresetDatabase.h"
 #include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
@@ -1275,6 +1294,565 @@ TEST_F(ComponentConfigDialogTest, APanelsOwnButtonIsNoDefaultButton)
     QTest::keyClick(finish, Qt::Key_Return);
     EXPECT_EQ(clicks.count(), 0);
     EXPECT_EQ(ComponentConfigDialog::dialog(), dialog);
+}
+
+// =========================================================================== the parts library
+
+/// The kinds whose new component's dialog opens the parts library with @p preferences.
+[[nodiscard]] std::vector<std::string_view> kindsOpeningThePartsLibrary(
+    const Preferences& preferences)
+{
+    std::vector<std::string_view> kinds;
+    for (const ComponentKind kind : kAllComponentKinds)
+    {
+        if (ComponentConfigDialog::opensPartsLibrary(preferences, kind))
+        {
+            kinds.push_back(className(kind));
+        }
+    }
+    return kinds;
+}
+
+/// The kinds that take presets (RocketComponent.getPresetType() != null).
+[[nodiscard]] std::vector<std::string_view> presetKinds()
+{
+    std::vector<std::string_view> kinds;
+    for (const ComponentKind kind : kAllComponentKinds)
+    {
+        if (presetTypeOf(kind).has_value())
+        {
+            kinds.push_back(className(kind));
+        }
+    }
+    return kinds;
+}
+
+/// @p kinds without @p kind.
+[[nodiscard]] std::vector<std::string_view> without(std::vector<std::string_view> kinds,
+                                                    ComponentKind                 kind)
+{
+    std::erase(kinds, className(kind));
+    return kinds;
+}
+
+TEST_F(ComponentConfigDialogTest, ThePartsLibraryOpensForTheKindsThatTakePresetsAsThePreferencesSay)
+{
+    // ComponentConfigDialog.showDialog(): getPresetType() != null &&
+    // getBoolean(getComponentName() + "AlwaysOpenPreset", true) && isAutoOpenPartsLibrary().
+    InMemoryPreferences preferences;
+    EXPECT_EQ(presetKinds().size(), 13U);
+    EXPECT_EQ(kindsOpeningThePartsLibrary(preferences), presetKinds());
+    // Read without storing (Java's getBoolean() stores the defaults).
+    EXPECT_TRUE(preferences.keys().empty());
+    // One key per kind: the inner tube and the tube fin set, which take body tubes, keep theirs.
+    preferences.putBoolean(GuiPreferenceKeys::alwaysOpenPresetKey(ComponentKind::BODY_TUBE), false);
+    EXPECT_EQ(kindsOpeningThePartsLibrary(preferences),
+              without(presetKinds(), ComponentKind::BODY_TUBE));
+    preferences.putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, false);
+    EXPECT_TRUE(kindsOpeningThePartsLibrary(preferences).empty());
+}
+
+/// Services whose parts library opens for a new component (the product's default; the test
+/// services turn it off), with the small preset database.
+class PartsLibraryServices : public ConfigDialogServices
+{
+public:
+    PartsLibraryServices()
+    {
+        preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, true);
+        presets() = QtRocket::Test::smallPresetDatabase();
+    }
+};
+
+/// A body tube added to the booster of @p design as the add button adds it: the undo position
+/// "Add Body Tube", then the tube.
+RocketComponent& addBodyTube(const EveryKindDesign& design)
+{
+    design.document->addUndoPosition("Add Body Tube");
+    return design.booster->addChild(std::make_unique<BodyTube>());
+}
+
+TEST_F(ComponentConfigDialogTest, ANewComponentsDialogOpensThePartsLibraryOnceItIsShown)
+{
+    // showDialog(): the dialog shown, then (no undo position for a new component) selectPreset(),
+    // whose invokeLater asks one turn later, for the new component and its neighbours' diameters.
+    PartsLibraryServices services;
+    EveryKindDesign      design;
+    QWidget              window;
+    RocketComponent&     added = addBodyTube(design);
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, added, {},
+                                      true);
+    const ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(dialog->isVisible());
+    EXPECT_TRUE(services.prompts().presetRequests().empty());
+
+    services.prompts().answerPreset(
+        {.outcome = UserPrompts::PresetOutcome::CLOSED, .preset = nullptr});
+    QCoreApplication::processEvents();
+    ASSERT_EQ(services.prompts().presetRequests().size(), 1U);
+    const UserPrompts::PresetRequest& request = services.prompts().presetRequests().front();
+    const PresetDiameterFilters       filters = PresetDiameterFilters::forComponent(added);
+    EXPECT_EQ(request.componentKind, ComponentKind::BODY_TUBE);
+    // Behind the booster's tube: its aft diameter; nothing after it.
+    ASSERT_TRUE(filters.foreDiameter.has_value());
+    EXPECT_EQ(request.foreDiameter, filters.foreDiameter);
+    EXPECT_EQ(request.aftDiameter, std::nullopt);
+    EXPECT_FALSE(request.flippedNoseCone);
+    ASSERT_EQ(services.prompts().prompts().size(), 1U);
+    EXPECT_EQ(services.prompts().prompts().front().kind, ScriptedUserPrompts::Kind::PRESET);
+    EXPECT_EQ(services.prompts().prompts().front().texts.at(0), QStringLiteral("Body Tube"));
+
+    // Closed without a choice: the dialog stays as it was.
+    EXPECT_EQ(ComponentConfigDialog::dialog(), dialog);
+    EXPECT_FALSE(dialog->isModified());
+    EXPECT_EQ(design.document->getUndoDetail().nextDescription, "Add Body Tube");
+    QCoreApplication::processEvents();
+    EXPECT_EQ(services.prompts().presetRequests().size(), 1U);
+}
+
+/// Whether the dialog of @p main (with @p others), shown with @p services, asks for a preset
+/// within a turn of the event loop; the dialog is closed afterwards.
+[[nodiscard]] bool asksForAPreset(QWidget& window, const PartsLibraryServices& services,
+                                  OpenRocketDocument& document, RocketComponent& main,
+                                  std::span<RocketComponent* const> others, bool isNew)
+{
+    const std::size_t before = services.prompts().presetRequests().size();
+    ComponentConfigDialog::showDialog(window, services.services(), document, main, others, isNew);
+    QCoreApplication::processEvents();
+    ComponentConfigDialog::disposeDialog();
+    return services.prompts().presetRequests().size() > before;
+}
+
+TEST_F(ComponentConfigDialogTest, ThePartsLibraryOpensOnlyForOneNewComponent)
+{
+    PartsLibraryServices services;
+    EveryKindDesign      design;
+    QWidget              window;
+    // An existing component.
+    EXPECT_FALSE(asksForAPreset(window, services, *design.document,
+                                design.component(ComponentKind::BODY_TUBE), {}, false));
+    // A new one with others selected (Java: getConfigListeners().isEmpty()).
+    RocketComponent&                      added = addBodyTube(design);
+    const std::array<RocketComponent*, 1> others{design.boosterTube};
+    EXPECT_FALSE(asksForAPreset(window, services, *design.document, added, others, true));
+    // A new one of a kind without presets.
+    design.document->addUndoPosition("Add Mass Component");
+    RocketComponent& mass = design.boosterTube->addChild(std::make_unique<MassComponent>());
+    EXPECT_FALSE(asksForAPreset(window, services, *design.document, mass, {}, true));
+    // A new one whose kind's "Always open" is off; another kind's is on.
+    services.preferences().putBoolean(
+        GuiPreferenceKeys::alwaysOpenPresetKey(ComponentKind::BODY_TUBE), false);
+    EXPECT_FALSE(asksForAPreset(window, services, *design.document, added, {}, true));
+    services.prompts().answerPreset(
+        {.outcome = UserPrompts::PresetOutcome::CLOSED, .preset = nullptr});
+    EXPECT_TRUE(asksForAPreset(window, services, *design.document,
+                               design.component(ComponentKind::INNER_TUBE), {}, true));
+    // The General preferences' box off.
+    services.preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, false);
+    EXPECT_FALSE(asksForAPreset(window, services, *design.document,
+                                design.component(ComponentKind::INNER_TUBE), {}, true));
+    EXPECT_EQ(services.prompts().presetRequests().size(), 1U);
+}
+
+TEST_F(ComponentConfigDialogTest, ADialogClosedBeforeItsPartsLibraryOpensAsksNothing)
+{
+    PartsLibraryServices services;
+    EveryKindDesign      design;
+    QWidget              window;
+    RocketComponent&     added = addBodyTube(design);
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, added, {},
+                                      true);
+    ComponentConfigDialog::disposeDialog();
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(services.prompts().presetRequests().empty());
+}
+
+// The Cancel of a new component after a preset (bug 15 of the plan's section 10.3). Expectations
+// marked "probe" are OpenRocket's, printed by
+// tools/openrocket-gui-pins/preset-chooser/probe/NewComponentCancelProbe.java (the family's
+// hand-pinned.txt keeps them): the same steps on a new design, OpenRocket's Cancel being one
+// document.undo().
+
+/// The undo and redo descriptions of @p document and the body tube @p id, as the probe prints
+/// them.
+[[nodiscard]] std::string cancelState(const OpenRocketDocument& document, const Uuid& id)
+{
+    const auto quoted = [](const std::optional<std::string>& text) {
+        return text.has_value() ? "'" + *text + "'" : std::string("null");
+    };
+    const std::string line = "undo " + quoted(document.getUndoDescription()) + " redo " +
+                             quoted(document.getRedoDescription()) + "; ";
+    const auto*       tube = dynamic_cast<const BodyTube*>(document.getRocket().findComponent(id));
+    if (tube == nullptr)
+    {
+        return line + "no tube";
+    }
+    const ComponentPreset* preset = tube->getPresetComponent();
+    return line + std::format("tube preset {} OR {} L {}",
+                              preset != nullptr ? preset->getPartNo() : std::string("null"),
+                              tube->getOuterRadius(), tube->getLength());
+}
+
+/// The probe's design: a new rocket whose stage gets a body tube as the add button adds it.
+struct NewTubeDesign
+{
+    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+    Uuid                                id       = addTube(*document);
+
+    [[nodiscard]] RocketComponent& tube() const
+    {
+        RocketComponent* found = document->getRocket().findComponent(id);
+        QTROCKET_ASSERT(found != nullptr);
+        return *found;
+    }
+
+    /// The undo position "Add Body Tube" and the tube, in a history that starts there; its id.
+    [[nodiscard]] static Uuid addTube(OpenRocketDocument& document)
+    {
+        document.clearUndo();
+        document.addUndoPosition("Add Body Tube");
+        return document.getRocket().getChild(0).addChild(std::make_unique<BodyTube>()).getId();
+    }
+};
+
+TEST_F(ComponentConfigDialogTest, CancelAfterAPresetRemovesTheNewComponent)
+{
+    PartsLibraryServices services;
+    const NewTubeDesign  design;
+    QWidget              window;
+    // Probe: "with a preset, added".
+    EXPECT_EQ(cancelState(*design.document, design.id),
+              "undo 'Add Body Tube' redo null; tube preset null OR 0.025 L 0.2");
+    const std::vector<PresetBinding::PresetPtr> tubes =
+        services.presets().listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_GT(tubes.size(), 7U);
+    services.prompts().answerPreset(
+        {.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.at(7)});
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, design.tube(),
+                                      {}, true);
+    QCoreApplication::processEvents();
+    // Probe: "with a preset, chosen".
+    EXPECT_EQ(cancelState(*design.document, design.id),
+              "undo 'Use Preset Body Tube' redo null; tube preset 85865 OR 0.03175 L 0.3937");
+    ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(dialog->isModified());
+
+    services.prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    // OpenRocket's one undo leaves the tube (probe: "with a preset, after Cancel's undo": undo
+    // 'Add Body Tube' redo 'Use Preset Body Tube'; tube preset null OR 0.025 L 0.2). QtRocket
+    // undoes on as the question says, to the probe's "after a second undo".
+    EXPECT_EQ(cancelState(*design.document, design.id), "undo null redo 'Add Body Tube'; no tube");
+    const std::vector<ScriptedUserPrompts::Prompt>& prompts = services.prompts().prompts();
+    ASSERT_EQ(prompts.size(), 2U);
+    EXPECT_EQ(prompts.at(0).kind, ScriptedUserPrompts::Kind::PRESET);
+    EXPECT_EQ(prompts.at(1).kind, ScriptedUserPrompts::Kind::DISCARD_CHANGES);
+    EXPECT_EQ(prompts.at(1).texts, QStringList{QStringLiteral("COMPONENT_ADDITION")});
+}
+
+TEST_F(ComponentConfigDialogTest, CancelOfANewComponentWithoutAPresetUndoesOnce)
+{
+    // Probe: "without a preset": the one undo removes the tube.
+    PartsLibraryServices services;
+    const NewTubeDesign  design;
+    QWidget              window;
+    services.prompts().answerPreset(
+        {.outcome = UserPrompts::PresetOutcome::CLOSED, .preset = nullptr});
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, design.tube(),
+                                      {}, true);
+    QCoreApplication::processEvents();
+    EXPECT_EQ(cancelState(*design.document, design.id),
+              "undo 'Add Body Tube' redo null; tube preset null OR 0.025 L 0.2");
+    ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    // The preference "ask" off: Cancel discards at once.
+    services.preferences().setShowDiscardConfirmation(false);
+    dialog->cancel();
+    EXPECT_EQ(cancelState(*design.document, design.id), "undo null redo 'Add Body Tube'; no tube");
+}
+
+TEST_F(ComponentConfigDialogTest, CancelOfAnExistingComponentUndoesThePresetOnly)
+{
+    // As OpenRocket (no bug of the plan's list): the preset chosen after another edit of the
+    // session is a step of its own, and Cancel's one undo leaves the edit (PresetModelProbe: "two
+    // tubes": "chosen", then "one undo" back to the edited length).
+    PartsLibraryServices   services;
+    EveryKindDesign        design;
+    QWidget                window;
+    const Uuid             id     = design.component(ComponentKind::BODY_TUBE).getId();
+    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ASSERT_NE(dialog, nullptr);
+    auto& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    tube.setLength(0.25);
+    PresetComboBox* combo = dialog->configurator().presetComboBox();
+    ASSERT_NE(combo, nullptr);
+    const std::vector<PresetBinding::PresetPtr> tubes =
+        services.presets().listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_FALSE(tubes.empty());
+    EXPECT_TRUE(combo->choosePreset(tubes.front()));
+    EXPECT_EQ(design.document->getUndoDescription(),
+              std::optional<std::string>("Use Preset Body Tube"));
+
+    services.prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    dialog->cancel();
+    const auto* restored =
+        dynamic_cast<const BodyTube*>(design.document->getRocket().findComponent(id));
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->getPresetComponent(), nullptr);
+    EXPECT_EQ(restored->getLength(), 0.25);
+    EXPECT_EQ(design.document->getUndoDescription(),
+              std::optional<std::string>("Modify Body Tube"));
+}
+
+/// Changes the rocket of a document after every undo, once the undo has loaded its step (the
+/// undoRedoChanged() that follows the documentChanged() of kind SIMULATION from the document,
+/// OpenRocketDocument's order), as a slot that changes the document again after every undo would;
+/// at most @p limit times, so that a loop that undoes on as long as it finds a component ends all
+/// the same. Counts its changes.
+class ChangeAfterEveryUndo
+{
+public:
+    ChangeAfterEveryUndo(OpenRocketDocument& document, int limit)
+      : m_document(&document),
+        m_limit(limit),
+        m_loaded(document.documentChanged().connect([this](const DocumentChangeEvent& event) {
+            m_armed = m_armed || (event.isSimulationChange() && event.getDocument() == m_document);
+        })),
+        m_undone(document.undoRedoChanged().connect([this] { change(); }))
+    {
+    }
+
+    [[nodiscard]] int changes() const noexcept { return m_changes; }
+
+private:
+    void change()
+    {
+        if (!m_armed || m_changes >= m_limit)
+        {
+            return;
+        }
+        m_armed = false;
+        ++m_changes;
+        m_document->getRocket().setName("Changed " + std::to_string(m_changes));
+    }
+
+    OpenRocketDocument*                                  m_document;
+    int                                                  m_limit;
+    int                                                  m_changes{0};
+    bool                                                 m_armed{false};
+    Signal<const DocumentChangeEvent&>::ScopedConnection m_loaded;
+    Signal<>::ScopedConnection                           m_undone;
+};
+
+TEST_F(ComponentConfigDialogTest, CancelStopsWhenAnUndoCannotGoBack)
+{
+    // OpenRocketDocument::undo() from a changed state loads its step again without going back: a
+    // slot that changes the document after every undo would make each further undo load the same
+    // step. Cancel's undoing on (bug 15) ends after the first undo that went nowhere; the tube
+    // stays, as after OpenRocket's one undo.
+    PartsLibraryServices                        services;
+    const NewTubeDesign                         design;
+    QWidget                                     window;
+    const std::vector<PresetBinding::PresetPtr> tubes =
+        services.presets().listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_GT(tubes.size(), 7U);
+    services.prompts().answerPreset(
+        {.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.at(7)});
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, design.tube(),
+                                      {}, true);
+    QCoreApplication::processEvents();
+    ASSERT_EQ(design.document->getUndoDescription(),
+              std::optional<std::string>("Use Preset Body Tube"));
+    ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+
+    constexpr int              kLimit = 20;
+    const ChangeAfterEveryUndo changer(*design.document, kLimit);
+    services.preferences().setShowDiscardConfirmation(false);
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    // The dialog's undo, then one more that went nowhere.
+    EXPECT_EQ(changer.changes(), 2);
+    const auto* tube =
+        dynamic_cast<const BodyTube*>(design.document->getRocket().findComponent(design.id));
+    ASSERT_NE(tube, nullptr);
+    EXPECT_EQ(tube->getPresetComponent(), nullptr);
+}
+
+/// A parts library that runs an event loop, as the modal dialog does, in which the test does what
+/// it gives (an undo, the window going) and the deferred deletions posted meanwhile are carried
+/// out (as Qt 6 does in the loop that posted them); then it answers @p answer.
+class NestedPartsLibrary final : public Test::ForwardingUserPrompts
+{
+public:
+    NestedPartsLibrary(UserPrompts& delegate, std::function<void()> whileOpen, PresetAnswer answer)
+      : ForwardingUserPrompts(delegate),
+        m_whileOpen(std::move(whileOpen)),
+        m_answer(std::move(answer))
+    {
+    }
+
+    [[nodiscard]] int asked() const noexcept { return m_asked; }
+
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* /*parent*/, const GuiServices& /*services*/,
+                                            const PresetRequest& /*request*/) override
+    {
+        ++m_asked;
+        QEventLoop loop;
+        QTimer::singleShot(0, &loop, [this, &loop] {
+            m_whileOpen();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            loop.quit();
+        });
+        loop.exec();
+        return m_answer;
+    }
+
+private:
+    std::function<void()> m_whileOpen;
+    PresetAnswer          m_answer;
+    int                   m_asked{0};
+};
+
+TEST_F(ComponentConfigDialogTest, AnUndoWhileThePartsLibraryIsOpenAppliesNothing)
+{
+    // The undo closes the dialog (and deletes it, in the parts library's loop); the preset then
+    // chosen reaches no component (proved under ASan).
+    PartsLibraryServices                        services;
+    EveryKindDesign                             design;
+    QWidget                                     window;
+    RocketComponent&                            added = addBodyTube(design);
+    const Uuid                                  id    = added.getId();
+    const std::vector<PresetBinding::PresetPtr> tubes =
+        services.presets().listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_FALSE(tubes.empty());
+    NestedPartsLibrary prompts(
+        services.prompts(), UndoDocument{design.document.get()},
+        {.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.front()});
+    const GuiServices own = Gui::Test::withPrompts(services.services(), prompts);
+    ComponentConfigDialog::showDialog(window, own, *design.document, added, {}, true);
+    const QPointer<ComponentConfigDialog> guard(ComponentConfigDialog::dialog());
+    ASSERT_FALSE(guard.isNull());
+    QCoreApplication::processEvents();
+    EXPECT_EQ(prompts.asked(), 1);
+    EXPECT_TRUE(guard.isNull());
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(design.document->getRocket().findComponent(id), nullptr);
+    EXPECT_EQ(design.document->getRedoDescription(), std::optional<std::string>("Add Body Tube"));
+}
+
+TEST_F(ComponentConfigDialogTest, TheWindowGoingWhileThePartsLibraryIsOpenLeavesThePanelAlone)
+{
+    // The dialog goes with its window while the parts library is open: nothing of the panel is
+    // touched afterwards (proved under ASan) and nothing is applied.
+    PartsLibraryServices                        services;
+    EveryKindDesign                             design;
+    std::unique_ptr<QWidget>                    window = std::make_unique<QWidget>();
+    RocketComponent&                            added  = addBodyTube(design);
+    const std::vector<PresetBinding::PresetPtr> tubes =
+        services.presets().listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_FALSE(tubes.empty());
+    NestedPartsLibrary prompts(
+        services.prompts(), DeleteWindow{&window},
+        {.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.front()});
+    const GuiServices own = Gui::Test::withPrompts(services.services(), prompts);
+    ComponentConfigDialog::showDialog(*window, own, *design.document, added, {}, true);
+    QCoreApplication::processEvents();
+    EXPECT_EQ(prompts.asked(), 1);
+    EXPECT_EQ(window, nullptr);
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(added.getPresetComponent(), nullptr);
+    EXPECT_EQ(design.document->getUndoDetail().nextDescription, "Add Body Tube");
+}
+
+/// What the application's parts library showed: its size and parent, and the preset of the row
+/// it closed with.
+struct ShownPartsLibrary
+{
+    QSize                    size;
+    const QWidget*           parent{nullptr};
+    PresetBinding::PresetPtr preset;
+};
+
+/// Records @p shown of the parts library, then selects its first row and clicks Close.
+struct RecordAndClose
+{
+    ShownPartsLibrary* shown;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<ComponentPresetChooserDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        shown->size   = dialog->size();
+        shown->parent = dialog->parentWidget();
+        dialog->table().selectRow(0);
+        shown->preset = dialog->table().selectedPreset();
+        dialog->closeButton().click();
+    }
+};
+
+TEST_F(ComponentConfigDialogTest, TheApplicationsPartsLibraryOpensOverTheMainWindowAndApplies)
+{
+    // The application's questions (WidgetUserPrompts): the parts library is a child of the panel
+    // (Java: SwingUtilities.getWindowAncestor(RocketComponentConfig.this), the dialog), at 70 % of
+    // the window the dialog belongs to (Java: owner.getParent()); its Close applies the selected
+    // row's preset to the new component.
+    const PartsLibraryServices services;
+    EveryKindDesign            design;
+    QWidget                    main;
+    main.resize(1000, 800);
+    WidgetUserPrompts                widgets;
+    const GuiServices                own   = withPrompts(services.services(), widgets);
+    RocketComponent&                 added = addBodyTube(design);
+    ShownPartsLibrary                shown;
+    const Gui::Test::NextModalDialog close(RecordAndClose{.shown = &shown});
+    ComponentConfigDialog::showDialog(main, own, *design.document, added, {}, true);
+    const ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(QTest::qWaitFor([&close] { return close.acted(); }));
+    EXPECT_EQ(shown.size, QSize(700, 560));
+    EXPECT_EQ(shown.parent, &dialog->configurator());
+    ASSERT_NE(shown.preset, nullptr);
+    EXPECT_EQ(added.getPresetComponent(), shown.preset.get());
+    EXPECT_EQ(design.document->getUndoDescription(),
+              std::optional<std::string>("Use Preset Body Tube"));
+    EXPECT_EQ(ComponentConfigDialog::dialog(), dialog);
+}
+
+/// Deletes @p window (NextModalDialog's action), which owns the configuration dialog and with it
+/// the panel, the parts library's parent.
+struct DeleteWindowOfThePartsLibrary
+{
+    std::unique_ptr<QWidget>* window;
+
+    void operator()(QWidget& /*partsLibrary*/) const { window->reset(); }
+};
+
+TEST_F(ComponentConfigDialogTest, TheWindowGoingWhileTheApplicationsPartsLibraryIsOpenLeavesItAlone)
+{
+    // The application's parts library (WidgetUserPrompts: a modal dialog, a child of the panel)
+    // open, and its main window deleted in the parts library's own loop: the parts library goes
+    // with the panel and answers CLOSED, and nothing of the panel is touched afterwards (proved
+    // under ASan).
+    const PartsLibraryServices services;
+    EveryKindDesign            design;
+    std::unique_ptr<QWidget>   main = std::make_unique<QWidget>();
+    main->resize(1000, 800);
+    WidgetUserPrompts                widgets;
+    const GuiServices                own   = withPrompts(services.services(), widgets);
+    RocketComponent&                 added = addBodyTube(design);
+    const Gui::Test::NextModalDialog close(DeleteWindowOfThePartsLibrary{.window = &main});
+    ComponentConfigDialog::showDialog(*main, own, *design.document, added, {}, true);
+    ASSERT_NE(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(QTest::qWaitFor([&close] { return close.acted(); }));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(main, nullptr);
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(added.getPresetComponent(), nullptr);
+    EXPECT_EQ(design.document->getUndoDetail().nextDescription, "Add Body Tube");
 }
 
 }  // namespace

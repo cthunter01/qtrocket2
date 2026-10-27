@@ -35,4 +35,12 @@ void FromScratchPrompts::editDesignInformation(QWidget* parent, const GuiService
     m_widgets.editDesignInformation(parent, services, document);
 }
 
+UserPrompts::PresetAnswer FromScratchPrompts::choosePreset(QWidget* /*parent*/,
+                                                           const GuiServices& /*services*/,
+                                                           const PresetRequest& request)
+{
+    m_presetRequests.push_back(request);
+    return {.outcome = PresetOutcome::CLOSED, .preset = nullptr};
+}
+
 }  // namespace QtRocket::Gui::Test

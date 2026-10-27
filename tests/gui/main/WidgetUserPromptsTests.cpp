@@ -56,7 +56,6 @@
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/motor/IgnitionEvent.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
@@ -1528,20 +1527,12 @@ TEST_F(WidgetUserPromptsTest, ASaveAsDefaultThatTakesTheDialogAlongCancelsTheRen
 
 TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
 {
-    // Run 2 of Milestone 3 brings the parts library, run 3 the preferences' user files and the
-    // start-up's problems: until then every one of these gives its cancelling answer without a
-    // dialog (one would hang here: nothing answers it). The value dialogs and the motor chooser
-    // have their dialogs (the tests above; tests/gui/main/motor_chooser_prompt_tests.cpp).
-    WidgetUserPrompts                prompts;
-    const Gui::Test::TestGuiServices services;
-    const UserPrompts::PresetAnswer  preset =
-        prompts.choosePreset(nullptr, services.services(),
-                             {.componentKind   = ComponentKind::NOSE_CONE,
-                              .foreDiameter    = std::nullopt,
-                              .aftDiameter     = 0.0248,
-                              .flippedNoseCone = false});
-    EXPECT_EQ(preset.outcome, UserPrompts::PresetOutcome::CLOSED);
-    EXPECT_EQ(preset.preset, nullptr);
+    // Run 3 of Milestone 3 brings the preferences' user files and the start-up's problems: until
+    // then each of these gives its cancelling answer without a dialog (one would hang here:
+    // nothing answers it). The value dialogs, the motor chooser and the parts library have their
+    // dialogs (the tests above, tests/gui/main/motor_chooser_prompt_tests.cpp and
+    // tests/gui/dialogs/preset/).
+    WidgetUserPrompts            prompts;
     UserPrompts::OpenFileRequest files;
     files.selection         = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
     files.approveButtonText = QStringLiteral("Add");

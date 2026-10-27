@@ -11,11 +11,15 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "QtRocket/gui/app/ApplicationContext.h"
+#include "QtRocket/gui/app/ApplicationSession.h"
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/util/Error.h"
 #include "ScriptedUserPrompts.h"
+#include "TestGuiServices.h"
 #include "TestTempDir.h"
 #include "exit/FromScratchPrompts.h"
 #include "goldens/GoldenGuiReference.h"
@@ -174,6 +178,58 @@ TEST_F(FromScratchScenarioTest, TheFileChooserIsTheScenariosWhileItIsSet)
     ASSERT_EQ(scripted.prompts().size(), 1U);
     EXPECT_EQ(scripted.prompts().front().kind, PromptKind::SAVE_FILE);
     EXPECT_EQ(asked.size(), 1U);
+}
+
+TEST_F(FromScratchScenarioTest, ThePartsLibraryIsClosedWithoutAChoice)
+{
+    // The scenario's golden assumes no preset: OpenRocket's tool takes the parts library it opens
+    // for a new component as closed. The script is not asked.
+    const Gui::Test::TestGuiServices services;
+    Gui::Test::ScriptedUserPrompts   scripted;
+    Gui::Test::FromScratchPrompts    prompts(scripted);
+    const UserPrompts::PresetRequest request{.componentKind   = ComponentKind::NOSE_CONE,
+                                             .foreDiameter    = std::nullopt,
+                                             .aftDiameter     = 0.05,
+                                             .flippedNoseCone = false};
+    const UserPrompts::PresetAnswer  answer =
+        prompts.choosePreset(nullptr, services.services(), request);
+    EXPECT_EQ(answer.outcome, UserPrompts::PresetOutcome::CLOSED);
+    EXPECT_EQ(answer.preset, nullptr);
+    ASSERT_EQ(prompts.presetRequests().size(), 1U);
+    EXPECT_EQ(prompts.presetRequests().front().componentKind, ComponentKind::NOSE_CONE);
+    EXPECT_TRUE(scripted.prompts().empty());
+}
+
+TEST_F(FromScratchScenarioTest, TheApplicationOpensThePartsLibraryForANewComponent)
+{
+    // The application's preferences open the parts library for a new body tube (its default,
+    // AutoOpenPartsLibrary); the scenario's questions close it, and the tube keeps no preset.
+    const Result<GuiScenario> scenario = QtRocket::Test::parseGuiScenario(R"({
+      "schema": "gui-from-scratch-scenario", "schemaVersion": 1, "title": "parts library",
+      "steps": [
+        {"step": "new"},
+        {"step": "select", "paths": [["Sustainer"]]},
+        {"step": "add", "component": "BodyTube"},
+        {"step": "ok"}
+      ]})");
+    ASSERT_TRUE(scenario.has_value()) << scenario.error().toString();
+    const QtRocket::Test::TempDir directory;
+    FromScratchScenario           run(directory.path());
+    std::vector<std::string>      undoTexts;
+    const std::string             failure = run.run(
+        *scenario, [&undoTexts](const GuiScenarioStep& /*step*/, const GuiStepRecord& record) {
+            undoTexts.push_back(record.undo.text);
+        });
+    EXPECT_EQ(failure, "");
+    const auto* prompts =
+        dynamic_cast<const Gui::Test::FromScratchPrompts*>(&run.session().context().prompts());
+    ASSERT_NE(prompts, nullptr);
+    ASSERT_EQ(prompts->presetRequests().size(), 1U);
+    EXPECT_EQ(prompts->presetRequests().front().componentKind, ComponentKind::BODY_TUBE);
+    EXPECT_TRUE(run.prompts().prompts().empty());
+    // Nothing was chosen: the add's step is the last.
+    ASSERT_FALSE(undoTexts.empty());
+    EXPECT_EQ(undoTexts.back(), "Undo (Add Body Tube)");
 }
 
 }  // namespace
