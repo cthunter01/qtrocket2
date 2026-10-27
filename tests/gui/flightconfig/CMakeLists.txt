@@ -3,9 +3,17 @@
 target_sources(QtRocket_gui_tests PRIVATE
     flight_configuration_operations_golden_tests.cpp
     flight_configuration_tables_golden_tests.cpp
+    FlightConfigurablePanelTests.cpp
     FlightConfigurableTableModelTests.cpp
     FlightConfigurationCellTextTests.cpp
     FlightConfigurationEditingTests.cpp
+    FlightConfigurationPanelTests.cpp
+    FlightConfigurationTabSupport.cpp
     MotorCellDelegateTests.cpp
+    MotorConfigurationPanelTests.cpp
+    MotorMountConfigurationPanelTests.cpp
     MotorMountTableModelTests.cpp
+    RecoveryConfigurationPanelTests.cpp
+    RowColumnSelectionModelTests.cpp
+    SeparationConfigurationPanelTests.cpp
 )
