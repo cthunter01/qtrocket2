@@ -30,6 +30,7 @@ import info.openrocket.core.database.ComponentPresetDatabase;
 import info.openrocket.core.preset.ComponentPreset;
 import info.openrocket.core.preset.TypedKey;
 import info.openrocket.core.preset.xml.OpenRocketComponentLoader;
+import info.openrocket.core.rocketcomponent.Transition;
 import info.openrocket.core.unit.Unit;
 import info.openrocket.swing.gui.dialogs.preset.ComponentPresetRowFilter;
 import info.openrocket.swing.gui.dialogs.preset.ComponentPresetTable;
@@ -49,7 +50,8 @@ import info.openrocket.swing.gui.dialogs.preset.XTableColumnModel;
  * full, and the bundled one (the components directory given as an argument: every .orc file below
  * it, depth first, each directory in name order, as QtRocket's DirectoryIterator walks it, each
  * file's presets added with Database.addAll()), whose view orders are printed as the MD5 of their
- * rows' digests, one per line ("<digest>\n" for each view row, in view order).
+ * rows' keys, one per line ("<key>\n" for each view row, in view order; viewKey(): the digest, but
+ * for the six presets whose digest is not the same on every platform).
  *
  * Where QtRocket fixes an OpenRocket bug the transcript prints both: what OpenRocket does, and what
  * the fixed behaviour gives, computed with OpenRocket's own classes ("fixed:").
@@ -149,11 +151,34 @@ public class ComponentPresetTableProbe {
 		return "[" + line + "]";
 	}
 
-	/** The rows and the MD5 of their digests in view order. */
+	/**
+	 * The line digestOfView() hashes for a preset (QtRocket's presetViewKey()): its digest, but for a preset
+	 * whose digest is not the same on every platform "<type>|<manufacturer's simple name>|<part number>"
+	 * (the identity an .ork file stores for a preset, without the digest). The rule: the digest covers the
+	 * material's density, which ComponentPresetFactory derives for a NOSE_CONE with a HAACK or POWER Shape and
+	 * a Mass (the six nose cones of internal/semroc-legacy.orc; QtRocket's hasTranscendentalDensity()) from
+	 * the volume of that shape, through acos, sin and pow, whose last bits differ between the platforms'
+	 * libms (macOS gives BNC-55ACP a density 1 ulp above Linux's and Java's). Every other preset's digest
+	 * comes from + - * /, sqrt and the files' texts. The six part numbers differ, so the lines still tell
+	 * every row apart.
+	 */
+	static String viewKey(ComponentPreset preset) {
+		if (preset.getType() == ComponentPreset.Type.NOSE_CONE && preset.has(ComponentPreset.SHAPE)
+				&& preset.has(ComponentPreset.MASS)) {
+			Transition.Shape shape = preset.get(ComponentPreset.SHAPE);
+			if (shape == Transition.Shape.HAACK || shape == Transition.Shape.POWER) {
+				return preset.getType().name() + "|" + preset.getManufacturer().getSimpleName() + "|"
+						+ preset.getPartNo();
+			}
+		}
+		return preset.getDigest();
+	}
+
+	/** The rows and the MD5 of their keys (viewKey()) in view order. */
 	static String digestOfView(ComponentPresetTable table, List<ComponentPreset> presets) throws Exception {
 		StringBuilder text = new StringBuilder();
 		for (int i = 0; i < table.getRowCount(); i++) {
-			text.append(presets.get(table.convertRowIndexToModel(i)).getDigest()).append('\n');
+			text.append(viewKey(presets.get(table.convertRowIndexToModel(i)))).append('\n');
 		}
 		MessageDigest md5 = MessageDigest.getInstance("MD5");
 		StringBuilder hex = new StringBuilder();
@@ -572,7 +597,7 @@ public class ComponentPresetTableProbe {
 	}
 
 	static void bundledViews(ComponentPresetDatabase database) throws Exception {
-		System.out.println("== bundled views (the dialog's filters; md5 of the digests in view order)");
+		System.out.println("== bundled views (the dialog's filters; md5 of the keys in view order)");
 		for (ComponentPreset.Type type : ComponentPreset.Type.values()) {
 			List<ComponentPreset> presets = database.listForType(type);
 			ComponentPresetTable t = table(type, presets);

@@ -18,8 +18,11 @@
 #include "QtRocket/gui/dialogs/preset/ComponentPresetTableModel.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/TableSortKeys.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/Md5.h"
+#include "goldens/GoldenPresets.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -127,14 +130,37 @@ namespace QtRocket::Gui::Test
     return nullptr;
 }
 
-/// "rows <n> md5 <hex>": the number of view rows and the MD5 of their presets' digests in view
-/// order, each followed by '\n' (the probe's digestOfView()).
+/// The line presetDigestOfView() hashes for @p preset (the probe's viewKey()): its digest, but for
+/// a preset whose digest is not the same on every platform "<type>|<manufacturer's simple
+/// name>|<part number>" (the identity an .ork file stores for a preset, without the digest).
+/// The rule: the digest covers the material's density, which ComponentPresetFactory derives for a
+/// preset of hasTranscendentalDensity() (a NOSE_CONE with a HAACK or POWER Shape and a Mass: the
+/// six nose cones of internal/semroc-legacy.orc) from the volume of that shape, through acos, sin
+/// and pow, whose last bits differ between the platforms' libms (macOS gives BNC-55ACP a density
+/// 1 ulp above Linux's and Java's). Every other preset's digest comes from + - * /, sqrt and the
+/// files' texts (PresetGolden compares it exactly). The six part numbers differ (PresetGolden pins
+/// them), so the lines still tell every row apart. The view orders and the text filter depend on
+/// no such value: the only cell that shows one is the Material's, whose text rounds the density to
+/// 0.001 g/cm3, none of the six within 3e-5 g/cm3 of a rounding boundary.
+[[nodiscard]] inline std::string presetViewKey(const ComponentPreset& preset)
+{
+    if (QtRocket::Test::hasTranscendentalDensity(preset))
+    {
+        return std::string(componentPresetTypeName(preset.getType())) + "|" +
+               preset.getManufacturer().getSimpleName() + "|" + preset.getPartNo();
+    }
+    return preset.getDigest();
+}
+
+/// "rows <n> md5 <hex>": the number of view rows and the MD5 of their presets' presetViewKey()
+/// lines (the digests but for six presets) in view order, each followed by '\n' (the probe's
+/// digestOfView()).
 [[nodiscard]] inline std::string presetDigestOfView(const ComponentPresetFilterModel& filter)
 {
     std::string text;
     for (int row = 0; row < filter.rowCount(); ++row)
     {
-        text += filter.tableModel().preset(filter.modelRow(row))->getDigest() + '\n';
+        text += presetViewKey(*filter.tableModel().preset(filter.modelRow(row))) + '\n';
     }
     const std::span<const std::byte> bytes = std::as_bytes(std::span(text));
     return "rows " + std::to_string(filter.rowCount()) + " md5 " + toHex(md5(bytes));

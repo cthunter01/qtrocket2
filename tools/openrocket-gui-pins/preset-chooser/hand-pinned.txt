@@ -515,9 +515,9 @@ presets 43, body tubes 12
   BODY_TUBE: all 0 1 2 3 4 5 6 7 8 9 10 11; legacy hidden 0 1 2 3 4 5 6 7 8 9 10 11
 == the bundled database: 31 files, 5231 presets read, 5228 kept
   body tube favourites now: []
-== bundled views (the dialog's filters; md5 of the digests in view order)
+== bundled views (the dialog's filters; md5 of the keys in view order)
   BODY_TUBE: all rows 1496 md5 883c0d80e21a09c80fcbe21ab241fd73; legacy hidden rows 1089 md5 e123acb02aba2bf54cf770e790515b71
-  NOSE_CONE: all rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a; legacy hidden rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973
+  NOSE_CONE: all rows 1252 md5 ce658a870128b61fb3569052e218397d; legacy hidden rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973
   TRANSITION: all rows 613 md5 0b5b1227e9b22ed5ee8b6d59dfc16f3b; legacy hidden rows 360 md5 6404b883442b3a1b855ab37a4982714e
   TUBE_COUPLER: all rows 332 md5 f13396b22d64c3c2cd91b2a2def73d45; legacy hidden rows 237 md5 03c0a4b4d5c589b7ca94867b3ad224ec
   BULK_HEAD: all rows 186 md5 9677f77cd486f431c887c92b8f9ed7de; legacy hidden rows 115 md5 96049eb66928a484f923a32028aaec7d
@@ -539,18 +539,18 @@ presets 43, body tubes 12
   BODY_TUBE OuterDiameter (5) asc rows 1496 md5 e812cbb42ee0fb36a4db6e98de2f236c; desc rows 1496 md5 6acd377a886d895b3657578ca7cc8acb
   BODY_TUBE Length (9) asc rows 1496 md5 8485bd2594316769602be30a5c343168; desc rows 1496 md5 aeb9b1629bbe0dfd378399151d094ef8
   BODY_TUBE [4 desc, 9 asc, 2 asc] rows 1496 md5 650dc7cf19d7b340ff17057803e9c82a
-  NOSE_CONE Legacy (1) asc rows 1252 md5 af94d9b9d14a74a087ad043c1148ea87; desc rows 1252 md5 7e466865395dab86da415ee367307011
-  NOSE_CONE Manufacturer (2) asc rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a; desc rows 1252 md5 0844b886924c766e518872970beb7bda
-  NOSE_CONE PartNo (3) asc rows 1252 md5 cae371a29922d93a2bd5856305644582; desc rows 1252 md5 233a51710500aa3df72f398c99d8582b
-  NOSE_CONE Description (4) asc rows 1252 md5 1994d63abef5bcee353c300e241213b1; desc rows 1252 md5 b8068f45bbd15cd79bf50a1fb8a43f17
-  NOSE_CONE Shape (18) asc rows 1252 md5 8c1d62ff6a310eda7037195cb64185d9; desc rows 1252 md5 7af0fb9e5f93df6103f0d3e29b6ee746
-  NOSE_CONE AftOuterDiameter (7) asc rows 1252 md5 950167a2198fbcfe7ca7775f7db4545b; desc rows 1252 md5 5211084b8ea4ae1def45ed10dc3d4a79
-  NOSE_CONE AftShoulderDiameter (11) asc rows 1252 md5 64afdf27cde2664d10c048cd4ad5ef5b; desc rows 1252 md5 b21bc2f612f6dfe189fe98808ac4049b
-  NOSE_CONE AftShoulderLength (12) asc rows 1252 md5 2563a61decae708dccae0da0e88443d5; desc rows 1252 md5 8b89598d863376bd5b8037af4a727f4a
-  NOSE_CONE Length (9) asc rows 1252 md5 837d38ffdfaf8aa00c9cc69c5c31db1a; desc rows 1252 md5 08a8dbffd38d53bad1d61a51baf2ae81
-  NOSE_CONE Material (30) asc rows 1252 md5 0c0c991ec53ec1ce23760892adf3f134
-  NOSE_CONE Finish (29) asc rows 1252 md5 681f8e44be1399de46286df8ab256f1a
-  NOSE_CONE [4 desc, 9 asc, 2 asc] rows 1252 md5 09661386fefb5e35fb21f602201ec1d8
+  NOSE_CONE Legacy (1) asc rows 1252 md5 f6e2b5b069b8a947169bdc048098e9ce; desc rows 1252 md5 ebff06153a39e2e787bd096e94f2ad03
+  NOSE_CONE Manufacturer (2) asc rows 1252 md5 ce658a870128b61fb3569052e218397d; desc rows 1252 md5 8e934d1c4d060c26ff0f02499b758145
+  NOSE_CONE PartNo (3) asc rows 1252 md5 1939f8bd5384d2b84c7239fe3406c621; desc rows 1252 md5 761ee62a590493400973c23db399af07
+  NOSE_CONE Description (4) asc rows 1252 md5 8acd6c06f6ea530396e4f3d1d9851835; desc rows 1252 md5 a39d228efda000cdf71ce3c1a39a8a4e
+  NOSE_CONE Shape (18) asc rows 1252 md5 97604e4a945a2b870bf11699ef6f4ea0; desc rows 1252 md5 7a94076bf6cfaac1f545edad5ca461f6
+  NOSE_CONE AftOuterDiameter (7) asc rows 1252 md5 4c534e9859647951de6f7c521e7ef587; desc rows 1252 md5 eeedd9950d899f55678772038af3a885
+  NOSE_CONE AftShoulderDiameter (11) asc rows 1252 md5 da6364293e68d959a9219116dc9542b4; desc rows 1252 md5 a5ae7efac68fe16611a352705ba5da74
+  NOSE_CONE AftShoulderLength (12) asc rows 1252 md5 c3ce01db6a60ed0227050e9839dbc6a8; desc rows 1252 md5 11450f7b58e6dcab3f082ba27950694c
+  NOSE_CONE Length (9) asc rows 1252 md5 f8bcf89f41594e8f5f086d94dcd7c5dc; desc rows 1252 md5 cc75f49ce0c6704e5a15498fa8dabc66
+  NOSE_CONE Material (30) asc rows 1252 md5 758f4115f309cb0cb1d5a4be92b79cf6
+  NOSE_CONE Finish (29) asc rows 1252 md5 6a0098da62af019a8d1f5204b9d4fe10
+  NOSE_CONE [4 desc, 9 asc, 2 asc] rows 1252 md5 4dd41f2f717572225a94e01a4c6ce656
   PARACHUTE Legacy (1) asc rows 422 md5 7e951cead4b667e9115386a24cca04fd; desc rows 422 md5 6527f6b7e80348121ebe0a30f8cd4732
   PARACHUTE Manufacturer (2) asc rows 422 md5 38fe7c2f3c733e4723c3e10d70e4d76f; desc rows 422 md5 0e8193639092dd8dba178bbfa696eed1
   PARACHUTE PartNo (3) asc rows 422 md5 665887dd4b164d7ddd672be3de3e71fc; desc rows 422 md5 9053ec7f943c48c6a3892182fcd72014

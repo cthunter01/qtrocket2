@@ -178,9 +178,10 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   column sorted alone and header clicks, the header menu of each column (made by reflection, its items clicked)
   with its units and column items, the favourites, the selection through the filters, and the dialog's text,
   diameter and legacy filters (`ComponentPresetRowFilter` made by reflection); the bundled presets' views as the
-  MD5 of their digests in view order. Where QtRocket fixes an OpenRocket bug (the header menu's Sort on the view
-  index, bug 13; the text filter on the Boolean columns, bug 17) it prints the fixed result too, computed with
-  OpenRocket's classes. `NewComponentCancelProbe` replays what the configuration dialog's Cancel (one
+  MD5 of their keys in view order (`viewKey()`: each preset's digest, but for the six presets whose digest is not
+  the same on every platform; "Reproducibility"). Where QtRocket fixes an OpenRocket bug (the header menu's Sort
+  on the view index, bug 13; the text filter on the Boolean columns, bug 17) it prints the fixed result too,
+  computed with OpenRocket's classes. `NewComponentCancelProbe` replays what the configuration dialog's Cancel (one
   `document.undo()`) leaves of a body tube just added ("Add Body Tube"), after a preset was chosen for it
   (`PresetModel.setSelectedItem()`, as the parts library's Close applies it) and without one, and what a
   second undo leaves: the tube stays after Cancel once a preset was chosen (bug 15, which QtRocket fixes).
@@ -206,17 +207,18 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   Light, for every kind of component that takes presets in the scouting's design and for a flipped nose cone
   behind a transition: the table's columns, the boxes (text, tooltip, shown, ticked), the diameter filters'
   values and tolerances, the "Always open this dialog" box, and the table's rows (their number and the MD5 of
-  their digests in view order) after each step (the diameter boxes unticked, the legacy box ticked, five texts,
-  the text cleared, the boxes back); then Close with and without a selected row, double clicks, the "Always open"
-  box clicked and the "tables" node after each, and the dialog as a window (its size, default button, Escape,
-  the focus order of its `LayoutFocusTraversalPolicy`, for which it is shown without its modality on xvfb's
-  screen) with the table's Enter and Shift+Enter (`selectNextRowCell` and `selectPreviousRowCell`, run through
-  its input and action maps). The dialog is a `JDialog`, which a headless AWT refuses, so the probe runs under
-  `xvfb-run` with `-Djava.awt.headless=false`. Its `PresetModel` records the preset the dialog applies instead of
-  loading it. Where QtRocket fixes an OpenRocket bug the probe uses the fixed filter, made with OpenRocket's
-  classes, and prints both values (the flipped nose cone's base compared with the previous component's aft
-  diameter, bug 16); its texts never match a Boolean column's text (bug 17). Before each scenario it puts the
-  dialog's preferences back to their defaults and reseeds OpenRocket's UUIDs from the scenario's name.
+  their keys in view order, as `ComponentPresetTableProbe` hashes them) after each step (the diameter boxes
+  unticked, the legacy box ticked, five texts, the text cleared, the boxes back); then Close with and without a
+  selected row, double clicks, the "Always open" box clicked and the "tables" node after each, and the dialog as a
+  window (its size, default button, Escape, the focus order of its `LayoutFocusTraversalPolicy`, for which it is
+  shown without its modality on xvfb's screen) with the table's Enter and Shift+Enter (`selectNextRowCell` and
+  `selectPreviousRowCell`, run through its input and action maps). The dialog is a `JDialog`, which a headless AWT
+  refuses, so the probe runs under `xvfb-run` with `-Djava.awt.headless=false`. Its `PresetModel` records the
+  preset the dialog applies instead of loading it. Where QtRocket fixes an OpenRocket bug the probe uses the fixed
+  filter, made with OpenRocket's classes, and prints both values (the flipped nose cone's base compared with the
+  previous component's aft diameter, bug 16); its texts never match a Boolean column's text (bug 17). Before each
+  scenario it puts the dialog's preferences back to their defaults and reseeds OpenRocket's UUIDs from the
+  scenario's name.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -360,6 +362,22 @@ event dispatch thread inside the dialog's modal loop, and the transcript holds n
 same transcript.
 `motor-chooser` loads its designs (their UUIDs come from the files) and reseeds before each one all the same.
 
+The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
+libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
+preset's material density, which `ComponentPresetFactory` derives for a nose cone with a HAACK or POWER shape and
+a mass (the six nose cones of `internal/semroc-legacy.orc`) from the volume of that shape, through `acos`, `sin`
+and `pow`. macOS gives BNC-55ACP a density 1 ulp above Linux's and Java's, which changed every nose cone view
+that holds it (CI run 40560521356: the 1252 and 725 rows of `PresetChooserPins.h`, the NOSE_CONE view and sorts
+of `hand-pinned.txt`). So a view hashes a key per row: the preset's digest, but for a preset of that rule
+`<type>|<manufacturer's simple name>|<part number>` (the identity an `.ork` file stores for a preset, without the
+digest): `ComponentPresetTableProbe.viewKey()` here, `presetViewKey()` in
+`tests/gui/dialogs/preset/PresetTableTestSupport.h`, whose rule is the core preset golden's
+`hasTranscendentalDensity()` (which compares those six densities within a tolerance and not their digests,
+decision O-M3-14). Every other digest comes from `+ - * /`, `sqrt` and the files' texts. The six part numbers
+differ, so a hash still sees each row's place. No view order or text filter depends on such a value: the only
+cell that shows one, the Material's, rounds the density to 0.001 g/cm³, and none of the six lies within 3e-5
+g/cm³ of a rounding boundary.
+
 ## History
 
 The probes and generators were written by Milestone 2's parts G1 (`scale-figure`), G2 (`figure-paint`), G3
@@ -395,7 +413,10 @@ values the tests pin by hand; part S4 added `PresetChooserProbe` (from the M3 pr
 part S5 added `NewComponentCancelProbe` to `PresetGuiProbe`. The group's fixer committed the scratch probes of
 parts S4 and S5 that tests pinned by hand (`ConfigPresetRowProbe`, `DialogKeysProbe` and `SpaceRobotProbe`, their
 transcripts as the parts printed them, under a section line each) and added `PresetTableInputProbe` and `PresetShownProbe`, with
-`ShownChooser` for what the shown probes share.
+`ShownChooser` for what the shown probes share. After the run's merge, macOS CI failed the nose cone views that
+hold BNC-55ACP, one of the six presets whose digest is not the same on every platform, and the views took a key
+per row instead of the digest ("Reproducibility"): the section line and 21 MD5s on 13 lines of `hand-pinned.txt`
+and 9 views of `PresetChooserPins.h` changed.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

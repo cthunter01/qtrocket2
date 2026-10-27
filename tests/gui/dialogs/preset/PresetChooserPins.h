@@ -75,8 +75,10 @@ enum class PresetChooserStep
     AFT_ON,
 };
 
-/// The table's rows after a step: their number and the MD5 of their presets' digests in view
-/// order, each followed by '\n' (presetDigestOfView()'s "rows <n> md5 <hex>").
+/// The table's rows after a step: their number and the MD5 of their presets' keys in view order,
+/// each followed by '\n' (presetDigestOfView()'s "rows <n> md5 <hex>"; a key is the preset's
+/// digest, but for the six presets whose digest is not the same on every platform:
+/// presetViewKey()).
 struct PresetChooserViewPin
 {
     PresetChooserStep step;
@@ -494,13 +496,13 @@ inline constexpr std::array<PresetChooserColumnPin, 168> kPresetChooserColumns{{
 inline constexpr std::array<PresetChooserViewPin, 185> kPresetChooserViews{{
     {PresetChooserStep::OPEN, "", "rows 93 md5 26772867017071affefecb63f83f474d"},
     {PresetChooserStep::AFT_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
-    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::TEXT, "estes", "rows 243 md5 03dfaec12239d58ad0f7f01eb1b35cc2"},
     {PresetChooserStep::TEXT, "BT-20", "rows 14 md5 4825e8ed1115d0d4096120715f129962"},
     {PresetChooserStep::TEXT, "Cardboard", "rows 0 md5 d41d8cd98f00b204e9800998ecf8427e"},
-    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 b14e3a598dadb17fce67b0524fea3593"},
+    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 3603dacabc474894bbe42c487c498963"},
     {PresetChooserStep::TEXT, "2.48 cm", "rows 72 md5 89fc70aaacbe3600debbe4e61422bb5e"},
-    {PresetChooserStep::TEXT, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::TEXT, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::LEGACY_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
     {PresetChooserStep::AFT_ON, "", "rows 93 md5 26772867017071affefecb63f83f474d"},
     {PresetChooserStep::OPEN, "", "rows 0 md5 d41d8cd98f00b204e9800998ecf8427e"},
@@ -544,13 +546,13 @@ inline constexpr std::array<PresetChooserViewPin, 185> kPresetChooserViews{{
     {PresetChooserStep::AFT_ON, "", "rows 0 md5 d41d8cd98f00b204e9800998ecf8427e"},
     {PresetChooserStep::OPEN, "", "rows 105 md5 16ba25be024736abc4e5ae41018c865c"},
     {PresetChooserStep::AFT_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
-    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::TEXT, "estes", "rows 243 md5 03dfaec12239d58ad0f7f01eb1b35cc2"},
     {PresetChooserStep::TEXT, "BT-20", "rows 14 md5 4825e8ed1115d0d4096120715f129962"},
     {PresetChooserStep::TEXT, "Cardboard", "rows 0 md5 d41d8cd98f00b204e9800998ecf8427e"},
-    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 b14e3a598dadb17fce67b0524fea3593"},
+    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 3603dacabc474894bbe42c487c498963"},
     {PresetChooserStep::TEXT, "2.48 cm", "rows 72 md5 89fc70aaacbe3600debbe4e61422bb5e"},
-    {PresetChooserStep::TEXT, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::TEXT, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::LEGACY_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
     {PresetChooserStep::AFT_ON, "", "rows 105 md5 16ba25be024736abc4e5ae41018c865c"},
     {PresetChooserStep::OPEN, "", "rows 1089 md5 e123acb02aba2bf54cf770e790515b71"},
@@ -645,13 +647,13 @@ inline constexpr std::array<PresetChooserViewPin, 185> kPresetChooserViews{{
     {PresetChooserStep::LEGACY_OFF, "", "rows 1089 md5 e123acb02aba2bf54cf770e790515b71"},
     {PresetChooserStep::OPEN, "", "rows 105 md5 16ba25be024736abc4e5ae41018c865c"},
     {PresetChooserStep::AFT_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
-    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::LEGACY_ON, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::TEXT, "estes", "rows 243 md5 03dfaec12239d58ad0f7f01eb1b35cc2"},
     {PresetChooserStep::TEXT, "BT-20", "rows 14 md5 4825e8ed1115d0d4096120715f129962"},
     {PresetChooserStep::TEXT, "Cardboard", "rows 0 md5 d41d8cd98f00b204e9800998ecf8427e"},
-    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 b14e3a598dadb17fce67b0524fea3593"},
+    {PresetChooserStep::TEXT, "ogive", "rows 725 md5 3603dacabc474894bbe42c487c498963"},
     {PresetChooserStep::TEXT, "2.48 cm", "rows 72 md5 89fc70aaacbe3600debbe4e61422bb5e"},
-    {PresetChooserStep::TEXT, "", "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a"},
+    {PresetChooserStep::TEXT, "", "rows 1252 md5 ce658a870128b61fb3569052e218397d"},
     {PresetChooserStep::LEGACY_OFF, "", "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
     {PresetChooserStep::AFT_ON, "", "rows 105 md5 16ba25be024736abc4e5ae41018c865c"},
     {PresetChooserStep::OPEN, "", "rows 1089 md5 e123acb02aba2bf54cf770e790515b71"},

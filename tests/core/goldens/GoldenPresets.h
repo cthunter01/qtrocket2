@@ -42,8 +42,10 @@ inline constexpr double kTranscendentalDensityTolerance = 1e-10;
 /// OpenRocket's ComponentPresetFactory derives from the volume of a HAACK or a POWER shape, which
 /// goes through acos, sin and pow, whose last bits differ between the libms of the platforms: a
 /// NOSE_CONE preset with such a Shape and a Mass. Their density is compared within
-/// kTranscendentalDensityTolerance and their digest, which the density goes into, not at all.
-/// Every other value of the bundled presets comes from + - * /, sqrt and the files' texts.
+/// kTranscendentalDensityTolerance and their digest, which the density goes into, not at all; the
+/// GUI tests' view hashes take their identity instead of their digest (presetViewKey() in
+/// tests/gui/dialogs/preset/PresetTableTestSupport.h). Every other value of the bundled presets
+/// comes from + - * /, sqrt and the files' texts.
 [[nodiscard]] bool hasTranscendentalDensity(const ComponentPreset& preset);
 
 /// What differs between @p preset and its golden entry @p golden (an element of the "presets" of

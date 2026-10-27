@@ -7,8 +7,9 @@
 // 5f164fd0e with JDK 17; tools/openrocket-gui-pins/preset-chooser/hand-pinned.txt keeps its
 // transcript): ComponentPresetTable over the presets of smallPresetDatabase() and over the bundled
 // presets, the view's rows written as their model rows, a view of the bundled presets as the MD5 of
-// its presets' digests in view order. Where QtRocket fixes an OpenRocket bug the probe prints the
-// fixed result too ("fixed:"), computed with OpenRocket's classes.
+// its presets' keys in view order (presetViewKey(): the digest, but for the six nose cones whose
+// digest is not the same on every platform). Where QtRocket fixes an OpenRocket bug the probe
+// prints the fixed result too ("fixed:"), computed with OpenRocket's classes.
 
 #include "QtRocket/gui/dialogs/preset/ComponentPresetFilterModel.h"
 
@@ -495,7 +496,7 @@ constexpr std::array kBundledViews{
                 .all          = "rows 1496 md5 883c0d80e21a09c80fcbe21ab241fd73",
                 .legacyHidden = "rows 1089 md5 e123acb02aba2bf54cf770e790515b71"},
     BundledView{.type         = Type::NOSE_CONE,
-                .all          = "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a",
+                .all          = "rows 1252 md5 ce658a870128b61fb3569052e218397d",
                 .legacyHidden = "rows 855 md5 1cc3c6121e6984f5a3de7d9a679f7973"},
     BundledView{.type         = Type::TRANSITION,
                 .all          = "rows 613 md5 0b5b1227e9b22ed5ee8b6d59dfc16f3b",
@@ -565,47 +566,47 @@ constexpr std::array kBundledSorts{
                 .descending = "rows 1496 md5 aeb9b1629bbe0dfd378399151d094ef8"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 1,
-                .ascending  = "rows 1252 md5 af94d9b9d14a74a087ad043c1148ea87",
-                .descending = "rows 1252 md5 7e466865395dab86da415ee367307011"},
+                .ascending  = "rows 1252 md5 f6e2b5b069b8a947169bdc048098e9ce",
+                .descending = "rows 1252 md5 ebff06153a39e2e787bd096e94f2ad03"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 2,
-                .ascending  = "rows 1252 md5 de5e21507bb1f79fb984032aef2cb48a",
-                .descending = "rows 1252 md5 0844b886924c766e518872970beb7bda"},
+                .ascending  = "rows 1252 md5 ce658a870128b61fb3569052e218397d",
+                .descending = "rows 1252 md5 8e934d1c4d060c26ff0f02499b758145"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 3,
-                .ascending  = "rows 1252 md5 cae371a29922d93a2bd5856305644582",
-                .descending = "rows 1252 md5 233a51710500aa3df72f398c99d8582b"},
+                .ascending  = "rows 1252 md5 1939f8bd5384d2b84c7239fe3406c621",
+                .descending = "rows 1252 md5 761ee62a590493400973c23db399af07"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 4,
-                .ascending  = "rows 1252 md5 1994d63abef5bcee353c300e241213b1",
-                .descending = "rows 1252 md5 b8068f45bbd15cd79bf50a1fb8a43f17"},
+                .ascending  = "rows 1252 md5 8acd6c06f6ea530396e4f3d1d9851835",
+                .descending = "rows 1252 md5 a39d228efda000cdf71ce3c1a39a8a4e"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 18,
-                .ascending  = "rows 1252 md5 8c1d62ff6a310eda7037195cb64185d9",
-                .descending = "rows 1252 md5 7af0fb9e5f93df6103f0d3e29b6ee746"},
+                .ascending  = "rows 1252 md5 97604e4a945a2b870bf11699ef6f4ea0",
+                .descending = "rows 1252 md5 7a94076bf6cfaac1f545edad5ca461f6"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 7,
-                .ascending  = "rows 1252 md5 950167a2198fbcfe7ca7775f7db4545b",
-                .descending = "rows 1252 md5 5211084b8ea4ae1def45ed10dc3d4a79"},
+                .ascending  = "rows 1252 md5 4c534e9859647951de6f7c521e7ef587",
+                .descending = "rows 1252 md5 eeedd9950d899f55678772038af3a885"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 11,
-                .ascending  = "rows 1252 md5 64afdf27cde2664d10c048cd4ad5ef5b",
-                .descending = "rows 1252 md5 b21bc2f612f6dfe189fe98808ac4049b"},
+                .ascending  = "rows 1252 md5 da6364293e68d959a9219116dc9542b4",
+                .descending = "rows 1252 md5 a5ae7efac68fe16611a352705ba5da74"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 12,
-                .ascending  = "rows 1252 md5 2563a61decae708dccae0da0e88443d5",
-                .descending = "rows 1252 md5 8b89598d863376bd5b8037af4a727f4a"},
+                .ascending  = "rows 1252 md5 c3ce01db6a60ed0227050e9839dbc6a8",
+                .descending = "rows 1252 md5 11450f7b58e6dcab3f082ba27950694c"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 9,
-                .ascending  = "rows 1252 md5 837d38ffdfaf8aa00c9cc69c5c31db1a",
-                .descending = "rows 1252 md5 08a8dbffd38d53bad1d61a51baf2ae81"},
+                .ascending  = "rows 1252 md5 f8bcf89f41594e8f5f086d94dcd7c5dc",
+                .descending = "rows 1252 md5 cc75f49ce0c6704e5a15498fa8dabc66"},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 30,
-                .ascending  = "rows 1252 md5 0c0c991ec53ec1ce23760892adf3f134",
+                .ascending  = "rows 1252 md5 758f4115f309cb0cb1d5a4be92b79cf6",
                 .descending = {}},
     BundledSort{.type       = Type::NOSE_CONE,
                 .column     = 29,
-                .ascending  = "rows 1252 md5 681f8e44be1399de46286df8ab256f1a",
+                .ascending  = "rows 1252 md5 6a0098da62af019a8d1f5204b9d4fe10",
                 .descending = {}},
     BundledSort{.type       = Type::PARACHUTE,
                 .column     = 1,
@@ -752,7 +753,7 @@ TEST_F(ComponentPresetFilterModelTest, TheBundledPresetsSortAsInOpenRocket)
     EXPECT_EQ(presetDigestOfView(tubes.filter), "rows 1496 md5 650dc7cf19d7b340ff17057803e9c82a");
     FilteredTable noses(database, Type::NOSE_CONE);
     noses.filter.setSortKeys(keys);
-    EXPECT_EQ(presetDigestOfView(noses.filter), "rows 1252 md5 09661386fefb5e35fb21f602201ec1d8");
+    EXPECT_EQ(presetDigestOfView(noses.filter), "rows 1252 md5 4dd41f2f717572225a94e01a4c6ce656");
     FilteredTable chutes(database, Type::PARACHUTE);
     chutes.filter.setSortKeys(keys);
     EXPECT_EQ(presetDigestOfView(chutes.filter), "rows 422 md5 67f78b36202bbb90fa53ef9901c32f36");

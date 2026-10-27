@@ -88,8 +88,10 @@ enum class PresetChooserStep
     AFT_ON,
 }};
 
-/// The table's rows after a step: their number and the MD5 of their presets' digests in view
-/// order, each followed by '\\n' (presetDigestOfView()'s "rows <n> md5 <hex>").
+/// The table's rows after a step: their number and the MD5 of their presets' keys in view order,
+/// each followed by '\\n' (presetDigestOfView()'s "rows <n> md5 <hex>"; a key is the preset's
+/// digest, but for the six presets whose digest is not the same on every platform:
+/// presetViewKey()).
 struct PresetChooserViewPin
 {{
     PresetChooserStep step;

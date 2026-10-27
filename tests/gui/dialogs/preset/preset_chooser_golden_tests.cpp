@@ -5,8 +5,10 @@
 // walks data/components as QtRocket's DirectoryIterator does, so both databases hold the same
 // presets in the same order), the table's columns, the boxes, the diameter filters, the "Always
 // open" box and the table's rows after each step of the probe (their number and the MD5 of their
-// digests in view order); then what Close, a double click and the "Always open" box do, and the
-// dialog as a window: its size, default button, Escape, focus order and the table's Enter keys.
+// keys in view order, presetViewKey(): the digests, but for the six nose cones whose digest is not
+// the same on every platform); then what Close, a double click and the "Always open" box do, and
+// the dialog as a window: its size, default button, Escape, focus order and the table's Enter
+// keys.
 //
 // The designs are built here as the probe builds them, and the dialog is asked for as the
 // configuration dialog asks for it (PresetDiameterFilters::forComponent()). Where QtRocket fixes an

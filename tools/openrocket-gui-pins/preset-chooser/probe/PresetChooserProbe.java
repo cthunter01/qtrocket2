@@ -109,7 +109,8 @@ import info.openrocket.swing.gui.util.SwingPreferences;
  * (by reflection, before the first view), so that the views are QtRocket's</li>
  * <li>ALWAYS text | selected (the "Always open this dialog" box)</li>
  * <li>VIEW step | argument | rows n md5 hex: the rows after each step (the MD5 of the view rows'
- * digests, each followed by '\n', ComponentPresetTableProbe.digestOfView()); the steps: open, the
+ * keys, each followed by '\n', ComponentPresetTableProbe.digestOfView(): a preset's digest, but for
+ * the six whose digest is not the same on every platform, viewKey()); the steps: open, the
  * fore and the aft box unticked (when shown and ticked), the legacy box ticked, the texts, the text
  * cleared, the legacy box unticked, the fore and the aft box ticked again</li>
  * <li>PREFS MatchForeDiameter | MatchAftDiameter (after the steps)</li>
