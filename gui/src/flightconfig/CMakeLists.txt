@@ -4,6 +4,7 @@
 target_sources(QtRocket_gui PRIVATE
     FlightConfigurableTableModel.cpp ${gui_include_dir}/flightconfig/FlightConfigurableTableModel.h
     FlightConfigurationCellText.cpp ${gui_include_dir}/flightconfig/FlightConfigurationCellText.h
+    FlightConfigurationEditing.cpp ${gui_include_dir}/flightconfig/FlightConfigurationEditing.h
     MotorCellDelegate.cpp ${gui_include_dir}/flightconfig/MotorCellDelegate.h
     MotorMountTableModel.cpp ${gui_include_dir}/flightconfig/MotorMountTableModel.h
 )
