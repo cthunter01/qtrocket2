@@ -20,3 +20,6 @@ target_sources(QtRocket_gui PRIVATE
     UnitsPreferencesPanel.cpp ${gui_include_dir}/dialogs/UnitsPreferencesPanel.h
     WarningDialog.cpp ${gui_include_dir}/dialogs/WarningDialog.h
 )
+
+# The motor chooser (dialogs/motor/).
+add_subdirectory(motor)

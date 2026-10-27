@@ -22,3 +22,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     UnitsPreferencesPanelTests.cpp
     WarningDialogTests.cpp
 )
+
+# The motor chooser (dialogs/motor/).
+add_subdirectory(motor)
