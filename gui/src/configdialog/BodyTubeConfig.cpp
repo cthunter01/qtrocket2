@@ -23,6 +23,7 @@
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
+#include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
@@ -136,6 +137,8 @@ QWidget& BodyTubeConfig::makeGeneralTab()
         tr("Length:"), length, QStringLiteral("Length"),
         {.slider = SliderMapping::quadratic(0.0, kLengthSliderPosition, kLengthSliderMid,
                                             kLengthSliderMax)});
+    // It takes the focus once a preset is chosen (Java: focusElement = spin).
+    setPresetFocusField(*m_length.spinBox);
 
     // The outer diameter (the radius times 2) and its automatic state.
     const auto outer =

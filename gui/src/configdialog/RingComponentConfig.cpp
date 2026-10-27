@@ -22,6 +22,7 @@
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
+#include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/gui/widgets/ValueSlider.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/Bulkhead.h"
@@ -29,6 +30,7 @@
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ThicknessRingComponent.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -268,6 +270,14 @@ void RingComponentConfig::addGeneralTab(const GeneralTabTexts& texts, const QStr
                                         const QString& toolTip)
 {
     m_general = makeGeneralTab(*this, texts);
+    // The length takes the focus once a preset is chosen, for a ThicknessRingComponent only (Java:
+    // focusElement = spin when component instanceof ThicknessRingComponent: a tube coupler and an
+    // engine block here; InnerTubeConfig names its own).
+    if (m_general.length.spinBox != nullptr &&
+        dynamic_cast<const ThicknessRingComponent*>(&selection()->getMain()) != nullptr)
+    {
+        setPresetFocusField(*m_general.length.spinBox);
+    }
     insertTab(0, *m_general.page, title, toolTip);
     setSelectedTabIndex(0);
 }

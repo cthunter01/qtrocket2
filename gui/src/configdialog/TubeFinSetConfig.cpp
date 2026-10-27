@@ -26,6 +26,7 @@
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/IntSpinBox.h"
+#include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/unit/UnitGroup.h"
@@ -185,6 +186,8 @@ void TubeFinSetConfig::addTubeRows(QWidget& page, QGridLayout& grid)
         //: TubeFinSetCfg.lbl.Length
         tr("Length:"), length, QStringLiteral("Length"),
         {.slider = SliderMapping::fromRange(0.0, kLengthSliderMid, kLengthSliderMax)});
+    // It takes the focus once a preset is chosen (Java: focusElement = spin).
+    setPresetFocusField(*m_length.spinBox);
 
     // The outer diameter (the radius times 2) and its automatic state.
     const auto outer =

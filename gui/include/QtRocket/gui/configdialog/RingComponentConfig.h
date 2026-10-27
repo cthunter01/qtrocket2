@@ -57,8 +57,9 @@ class PlacementPanel;
 /// outer radius) and RadiusRingComponent.setThickness() (the inner radius from the main's outer
 /// radius). Here each component derives it from its own values.
 ///
-/// Not ported: Java's focusElement (the field focused after a preset is chosen: the presets are
-/// Milestone 3).
+/// The length field takes the focus once a preset is chosen (RocketComponentConfig's presets;
+/// Java: focusElement) for a ThicknessRingComponent only (a tube coupler and an engine block:
+/// Java's "component instanceof ThicknessRingComponent"), not for a centering ring or a bulkhead.
 class RingComponentConfig : public RocketComponentConfig
 {
     Q_OBJECT

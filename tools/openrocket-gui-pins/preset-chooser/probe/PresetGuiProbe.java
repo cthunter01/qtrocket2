@@ -12,7 +12,9 @@ import java.util.List;
  * tests/gui/widgets/PresetComboBoxTests.cpp) over the preset files given as arguments, then
  * TableRowTraversalProbe (TableRowTraversalPolicy, for tests/gui/widgets/TableRowTraversalTests.cpp),
  * then ComponentPresetTableProbe (the parts library's table, for tests/gui/dialogs/preset/) over the
- * same files and the components directory given as the last argument (the bundled presets).
+ * same files and the components directory given as the last argument (the bundled presets), then
+ * NewComponentCancelProbe (a new component's Cancel after a preset, for
+ * tests/gui/configdialog/ComponentConfigDialogTests.cpp) over the same files.
  */
 public class PresetGuiProbe {
 
@@ -32,5 +34,6 @@ public class PresetGuiProbe {
 		PresetComboProbe.run(presetFiles);
 		TableRowTraversalProbe.run();
 		ComponentPresetTableProbe.run(components);
+		NewComponentCancelProbe.run();
 	}
 }

@@ -1,5 +1,7 @@
 #include "TestGuiServices.h"
 
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+
 namespace QtRocket::Gui::Test
 {
 
@@ -11,6 +13,8 @@ TestGuiServices::TestGuiServices()
     m_context.setApplicationMaterials(&m_materials);
     m_context.setPreferences(&m_preferences);
     m_context.setComponentPresetDatabase(&m_presets);
+    // A new component's dialog does not open the parts library (GuiTestSupport.h).
+    m_preferences.putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, false);
 }
 
 }  // namespace QtRocket::Gui::Test

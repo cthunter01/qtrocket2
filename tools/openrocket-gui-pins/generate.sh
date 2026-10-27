@@ -22,8 +22,9 @@
 #   preset-chooser     tests/gui/dialogs/preset/PresetChooserPins.h (its probe runs under xvfb-run), and the
 #                      values tests/gui/settings/TableUiPreferencesTests.cpp,
 #                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp,
-#                      tests/gui/widgets/TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of
-#                      tests/gui/dialogs/preset/ pin by hand (checked only, see README.md)
+#                      tests/gui/widgets/TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of
+#                      tests/gui/dialogs/preset/ and tests/gui/configdialog/ComponentConfigDialogTests.cpp
+#                      pin by hand (checked only, see README.md)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -417,7 +418,7 @@ for family in "${families[@]}"; do
             "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc" \
             "${repo}/data/components"
         check_hand_pins "${family}" PresetGuiProbe \
-            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset"
+            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset and ComponentConfigDialogTests.cpp"
         # The parts library's dialog over the bundled presets: a JDialog, which a headless AWT refuses to make
         # (it is never shown).
         run_probe "${family}" PresetChooserProbe xvfb "${repo}/data/components"

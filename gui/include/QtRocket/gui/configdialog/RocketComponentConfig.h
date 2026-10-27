@@ -4,6 +4,7 @@
 #include <optional>
 
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
@@ -33,6 +34,7 @@ namespace QtRocket::Gui
 class ComponentSelection;
 class DescriptionArea;
 class IconToggleButton;
+class PresetComboBox;
 class StyledLabel;
 class TextCommitter;
 
@@ -44,7 +46,14 @@ class TextCommitter;
 ///
 /// - The header: "Component name:" and the name field, which commits on Enter and on the loss of
 ///   the focus and then commits the comment too (a TextCommitter of both: Java's
-///   TextFieldListener); a name given to several components names them all.
+///   TextFieldListener); a name given to several components names them all. Then, when every
+///   selected component is of the main component's class and that class takes presets (Java:
+///   allSameType && getPresetType() != null, the 13 kinds of presetTypeOf()), the preset row: the
+///   preset combo box (PresetComboBox on a PresetBinding of the selection: "Custom" and the
+///   favourite presets; Java's "growx 110" against the name field's "growx", here the stretch
+///   factors 110 and 100) and the button "Parts Library" (PresetModel.lbl.partsLib), which opens
+///   the parts library (selectPreset()). The focus goes from the name field to the combo box and
+///   the button, then to the tabs (Java's order list).
 /// - The tabs: the panel's own, then "Override" (the mass, the CG and the CD) and "Comment".
 /// - Below them the component's description (DescriptionArea, ComponentInfo.<class>), hidden until
 ///   the info button shows it; not in a multi-component edit.
@@ -74,9 +83,28 @@ class TextCommitter;
 /// in the TREE or UNDO change that ends it. updateFields() refreshes what no binding shows (the
 /// mass label); the dialog calls it after every other change of the rocket (Java's updateFields()).
 ///
+/// The presets (Java: selectPreset(), PresetModel.setSelectedItem() and setFocusElement()):
+/// - selectPreset() opens the parts library one turn of the event loop later (Java: invokeLater),
+///   through UserPrompts::choosePreset(), with the panel as its parent, for the main component:
+///   its kind, and the diameters and the flipped nose cone of
+///   PresetDiameterFilters::forComponent(). Nothing happens when the panel has no preset row or its
+///   selection has ended meanwhile (the dialog closed). When the parts library is left, the combo
+///   box reads the favourites again (PresetBinding::reread(): they may have been ticked in it),
+///   and a preset chosen there is applied as the combo box applies one
+///   (PresetComboBox::choosePreset(): the undo position "Use Preset <name>", then loadPreset() on
+///   every selected component), also when it is the main component's preset already (Java's
+///   setSelectedItem()).
+/// - Once a preset is chosen, there or in the combo box (PresetComboBox::presetChosen()), the
+///   field the panel names (setPresetFocusField(); Java: focusElement) takes the focus one turn of
+///   the event loop later (Java: setFocusElement() with invokeLater), when it is visible and
+///   enabled (Java's requestFocusInWindow() gives no focus to a field that is not showing). The
+///   panels name their length field: BodyTubeConfig, LaunchLugConfig, InnerTubeConfig,
+///   TubeFinSetConfig, and RingComponentConfig for a ThicknessRingComponent (a tube coupler, an
+///   engine block); the other kinds that take presets name none, as in Java.
+/// - While a component is based on a preset its fields look and work as always (Java).
+///
 /// Deviations from OpenRocket:
-/// - No preset combo box, "Parts Library" button or header menu (Milestones 3, 5 and 8), and no
-///   Appearance tab (Milestone 5).
+/// - No header menu (Milestones 5 and 8), and no Appearance tab (Milestone 5).
 /// - Component names never change the markup of a text: they are escaped in the multi-component
 ///   tooltip and in the CD's "overridden by" label (rich text), and the mass and CG "overridden by"
 ///   labels and the mass label are plain text (Java inserts the names into HTML, or into a label
@@ -160,6 +188,23 @@ public:
     /// Adds @p button to the button row, before Cancel (Java: addButtons(JButton...)).
     void addButton(QPushButton& button);
 
+    // ---------------------------------------------------------------------------- the presets
+
+    /// The preset combo box (objectName "presetComboBox", Java's field) and the "Parts Library"
+    /// button ("selectPresetButton") of the header; null when the panel has no preset row (see
+    /// the class comment).
+    [[nodiscard]] PresetComboBox* presetComboBox() const noexcept { return m_presetCombo; }
+    [[nodiscard]] QPushButton*    partsLibraryButton() const noexcept { return m_partsLibrary; }
+
+    /// The field that takes the focus once a preset is chosen (Java: focusElement); null for
+    /// none.
+    [[nodiscard]] QWidget* presetFocusField() const noexcept { return m_presetFocusField.data(); }
+
+    /// Opens the parts library for the main component one turn of the event loop later (Java:
+    /// selectPreset(), see the class comment): the "Parts Library" button, and the dialog for a
+    /// new component (ComponentConfigDialog's auto-open).
+    void selectPreset();
+
     /// Refreshes what no binding shows: the mass label (Java: updateFields(); a subclass that
     /// overrides it calls this one).
     virtual void updateFields();
@@ -193,8 +238,18 @@ public:
     /// the slider ends at the component's length.
     [[nodiscard]] static std::optional<double> overrideCGExtent(const RocketComponent& component);
 
+protected:
+    /// Names @p field, a field of the panel, as the one that takes the focus once a preset is
+    /// chosen (Java: focusElement = spin).
+    void setPresetFocusField(QWidget& field);
+
 private:
     void addHeader();
+    void addPresetRow(QWidget& header, QHBoxLayout& layout);
+    /// The parts library itself (selectPreset()'s queued call).
+    void openPartsLibrary();
+    /// Gives the focus to presetFocusField() (presetChosen()'s queued call).
+    void focusPresetField();
     void addOverrideTab();
     void addMassOverride(QGridLayout& grid);
     void addCGOverride(QGridLayout& grid);
@@ -223,6 +278,9 @@ private:
     QHBoxLayout*      m_buttonRow{nullptr};
     QPushButton*      m_cancelButton{nullptr};
     QPushButton*      m_okButton{nullptr};
+    PresetComboBox*   m_presetCombo{nullptr};
+    QPushButton*      m_partsLibrary{nullptr};
+    QPointer<QWidget> m_presetFocusField;
 };
 
 }  // namespace QtRocket::Gui

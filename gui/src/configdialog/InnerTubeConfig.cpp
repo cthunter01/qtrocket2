@@ -175,6 +175,8 @@ InnerTubeConfig::InnerTubeConfig(OpenRocketDocument& document, const GuiServices
               tr("General"),
               //: ThicknessRingCompCfg.tab.Generalprop
               tr("General properties"));
+    // The length takes the focus once a preset is chosen (Java: focusElement = spin).
+    setPresetFocusField(*m_general.length.spinBox);
     insertTab(1, *m_motor,
               //: InnerTubeCfg.tab.Motor
               tr("Motor"),

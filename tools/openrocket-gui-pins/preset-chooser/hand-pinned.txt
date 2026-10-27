@@ -575,3 +575,10 @@ presets 43, body tubes 12
   TRANSITION fore NaN (column 6) aft 0.0416 (column 7): rows 54 md5 5bb9773b93ff135012d86decff6fb5a3
   BODY_TUBE fore 0.0416 (column 5) aft NaN (column 5): rows 133 md5 8fa2e7b8f7ffa5cf74fd189f850f2a7a
   NOSE_CONE fore NaN (column -1) aft 0.0416 (column 7): rows 105 md5 16ba25be024736abc4e5ae41018c865c
+== a new component's Cancel
+  with a preset, added: undo 'Add Body Tube' redo null; tube preset null OR 0.025 L 0.2
+  with a preset, chosen: undo 'Use Preset Body Tube' redo null; tube preset 85865 OR 0.03175 L 0.3937
+  with a preset, after Cancel's undo: undo 'Add Body Tube' redo 'Use Preset Body Tube'; tube preset null OR 0.025 L 0.2
+  with a preset, after a second undo: undo null redo 'Add Body Tube'; no tube
+  without a preset, added: undo 'Add Body Tube' redo null; tube preset null OR 0.025 L 0.2
+  without a preset, after Cancel's undo: undo null redo 'Add Body Tube'; no tube
