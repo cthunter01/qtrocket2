@@ -60,7 +60,6 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "ScriptedUserPrompts.h"
-#include "TestGuiServices.h"
 #include "TestTempDir.h"
 #include "configdialog/ConfigDialogTestSupport.h"
 
