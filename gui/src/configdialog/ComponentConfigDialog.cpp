@@ -1,5 +1,6 @@
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 
+#include <cstddef>
 #include <format>
 #include <memory>
 #include <optional>
@@ -488,7 +489,16 @@ void ComponentConfigDialog::discardChanges()
     {
         while (document.getRocket().findComponent(id) != nullptr && document.isUndoAvailable())
         {
+            // An undo goes back a step, or from the changes made since the last step to that step.
+            // One that did neither (a slot of its events changed the document again, so the next
+            // one would only load the same step again) ends the loop.
+            const std::size_t position = document.getUndoDetail().position;
             document.undo();
+            const OpenRocketDocument::UndoDetail after = document.getUndoDetail();
+            if (after.position >= position && !after.clean)
+            {
+                break;
+            }
         }
     }
 }

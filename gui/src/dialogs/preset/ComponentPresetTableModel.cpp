@@ -574,6 +574,7 @@ void ComponentPresetTableModel::setFavorite(int row, bool favorite)
     checkRow(row);
     ComponentPresetFavorites::setFavorite(*m_preferences, presetAt(row), m_type, favorite);
     updateFavorites();
+    Q_EMIT favoriteSet(row);
 }
 
 void ComponentPresetTableModel::updateFavorites()

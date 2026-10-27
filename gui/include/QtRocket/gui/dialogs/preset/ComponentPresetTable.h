@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <QObject>
+#include <QString>
 #include <QTableView>
 
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
@@ -61,12 +62,21 @@ class ComponentPresetTableModel;
 /// row; without a selected row Enter goes to the first cell and Shift+Enter to the last (JTable
 /// without a lead cell, as a new table has); in a table without rows or shown columns they do
 /// nothing. Either way the key goes no further: Enter in the table does not press the dialog's
-/// default button, as in OpenRocket (a probe of its shown dialog under xvfb). Space ticks or
+/// default button, as in OpenRocket (DialogKeysProbe of tools/openrocket-gui-pins/preset-chooser,
+/// its dialog shown under xvfb). Space ticks or
 /// unticks the favourite of the current row when the current cell is in the favourite column
 /// (Qt's check box items; after Tab the current cell is in the first shown column, the favourite
 /// unless it was moved) and changes nothing in another column, as in OpenRocket (the same probe:
 /// JTable binds Space to addToSelection, and the favourite's check box editor takes the key all
-/// the same).
+/// the same). Typed text changes nothing (keyboardSearch() does nothing): JTable only starts
+/// editing the lead cell, and only the favourite can be edited, whose check box ignores letters.
+///
+/// The favourite column (Java: JTable's editor of a Boolean column, a JCheckBox that fills the
+/// cell): a click anywhere in the cell makes it current, selects its row and ticks or unticks the
+/// favourite; a double click ticks and unticks it (each of Swing's presses starts the editor
+/// again). Ticking or unticking a favourite, by the mouse, Space or ComponentPresetTableModel::
+/// setFavorite(), selects that row (setValueAt()'s setRowSelectionInterval()), so that Close
+/// applies the preset just ticked.
 ///
 /// The header menu (a right click on the header; populateHeaderMenu(), Java's ColumnPopupMenu):
 /// on a column, "Sort Ascending" and "Sort Descending" (check box items, never ticked), which sort
@@ -85,7 +95,9 @@ class ComponentPresetTableModel;
 /// headers, ComponentPresetTableModel::columnIdentifier()), in which the Legacy column may be
 /// stored as shown, and then puts the Legacy state back as it was before, as the dialog's
 /// constructor does (so at open the Legacy column is hidden and the box unticked, whatever was
-/// stored); storeUiPreferences() stores the layout (TableUiPreferences::store()), what the
+/// stored). The widths it computes for the columns without a stored width are measured over every
+/// row, the legacy rows too: OpenRocket loads the layout before the dialog sets its first row
+/// filter. storeUiPreferences() stores the layout (TableUiPreferences::store()), what the
 /// dialog's Close does.
 ///
 /// Deviations from OpenRocket:
@@ -181,6 +193,10 @@ public:
     /// The preset of the selected row (getSelectedComponentPreset()), null when none is.
     [[nodiscard]] PresetPtr selectedPreset() const;
 
+    /// Does nothing: typed text neither moves the selection nor edits a cell (see the class
+    /// comment; QAbstractItemView selects the next row whose text starts with it).
+    void keyboardSearch(const QString& search) override;
+
 Q_SIGNALS:
     /// Legacy was shown or hidden (setLegacyShown(), the header menu's Legacy item).
     void legacyShownChanged(bool shown);
@@ -203,6 +219,9 @@ private:
     void rememberSelection();
     /// Selects the remembered model row again when nothing is selected and the filters show it.
     void restoreSelection();
+    /// Selects the row of @p modelRow, whose favourite was just set, when the filters show it;
+    /// the current cell stays in its column.
+    void selectFavoriteRow(int modelRow);
     void showHeaderMenu(const QPoint& position);
 
     Preferences*                            m_preferences;

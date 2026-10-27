@@ -53,10 +53,15 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
 #include "configdialog/ConfigDialogTestSupport.h"
 #include "figure/FigureMouse.h"
+#include "rocket/preset/TestPresetDatabase.h"
 #include "tree/ProbeDesign.h"
 #include "tree/TreeViewMouse.h"
 #include "widgets/WidgetTestSupport.h"
@@ -320,6 +325,46 @@ TEST_F(ConfigDialogRequestsTest, AnAddButtonOfAKindWithPresetsOpensThePartsLibra
     EXPECT_EQ(added->kind(), ComponentKind::BODY_TUBE);
     EXPECT_EQ(added->getPresetComponent(), nullptr);
     EXPECT_EQ(window.document().getUndoDescription(), std::optional<std::string>("Add Body Tube"));
+}
+
+TEST_F(ConfigDialogRequestsTest, CancelAfterThePartsLibrarysPresetRemovesTheNewComponent)
+{
+    // The add button, the parts library opened for the new tube with a preset chosen, then
+    // Cancel, which removes the tube (bug 15 of the plan's section 10.3, fixed: OpenRocket's one
+    // undo leaves it), in a window whose tree, figure and undo actions follow every step.
+    preferences().putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, true);
+    preferences().putInt(PreferenceKeys::kBodyComponentInsertPositionKey, 2);
+    const ComponentPresetDatabase database = QtRocket::Test::smallPresetDatabase();
+    const std::vector<std::shared_ptr<const ComponentPreset>> tubes =
+        database.listForType(ComponentPresetType::BODY_TUBE);
+    ASSERT_GT(tubes.size(), 7U);
+    const MainWindow&                window = open();
+    const std::optional<std::string> before = window.document().getUndoDescription();
+    ComponentButton* const tube = panelOf(window).addButtons().button(ComponentKind::BODY_TUBE);
+    ASSERT_NE(tube, nullptr);
+    prompts().answerPreset({.outcome = UserPrompts::PresetOutcome::CHOSEN, .preset = tubes.at(7)});
+    tube->click();
+    EXPECT_TRUE(QTest::qWaitFor([this] { return !prompts().presetRequests().empty(); }));
+    // The focus move a chosen preset queues.
+    QCoreApplication::processEvents();
+    ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    const RocketComponent& added = dialog->configurator().selection()->getMain();
+    const Uuid             id    = added.getId();
+    ASSERT_NE(added.getPresetComponent(), nullptr);
+    EXPECT_EQ(added.getPresetComponent()->getPartNo(), "85865");
+    EXPECT_EQ(panelOf(window).selection().selectedComponent(), &added);
+    EXPECT_EQ(window.document().getUndoDescription(),
+              std::optional<std::string>("Use Preset Body Tube"));
+
+    prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(window.document().getRocket().findComponent(id), nullptr);
+    EXPECT_EQ(window.document().getUndoDescription(), before);
+    EXPECT_EQ(window.document().getRedoDescription(), std::optional<std::string>("Add Body Tube"));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(openDialog(), "none");
 }
 
 // =========================================================================== the selection

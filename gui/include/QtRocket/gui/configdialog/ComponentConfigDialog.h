@@ -93,8 +93,11 @@ class RocketComponentConfig;
 ///   after Cancel's undo": undo 'Add Body Tube', redo 'Use Preset Body Tube'). Here the undo goes
 ///   on, one step at a time, until the rocket has no component of the new component's id (or
 ///   nothing is left to undo), which is the probe's "after a second undo"; any other step added
-///   after the add while the dialog was open goes with it. An existing component's Cancel undoes
-///   once, as Java's: a preset chosen after another edit is undone alone, the edit stays.
+///   after the add while the dialog was open goes with it. An undo that neither goes back a step
+///   nor reaches the state of its step (a slot of its events changed the document again, so that
+///   every further undo would load the same step again) ends it there. An existing component's
+///   Cancel undoes once, as Java's: a preset chosen after another edit is undone alone, the edit
+///   stays.
 /// - The auto-open reads its two preferences without storing them; Java's
 ///   SwingPreferences.getBoolean() stores the default of each it does not find
 ///   ("<name>AlwaysOpenPreset" first, then AutoOpenPartsLibrary, as its condition reaches them).

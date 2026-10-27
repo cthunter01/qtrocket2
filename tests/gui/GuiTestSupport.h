@@ -7,8 +7,12 @@
 // opens the parts library for every new component of a kind that takes presets (the preference
 // AutoOpenPartsLibrary, true by default, as in OpenRocket: ComponentConfigDialog), which would ask
 // every test that adds a body tube, a nose cone, ... through an add button for a preset it did not
-// script. The tests of the auto-open turn it on; the exit replays (tests/gui/exit) run with the
-// application's own preferences, where FromScratchPrompts answers it.
+// script. The tests of the auto-open turn it on. Of the exit replays (tests/gui/exit), only the
+// from-scratch one (FromScratchScenario) answers the parts library, through FromScratchPrompts: it
+// runs with the application's own preferences, where the auto-open is on. The open-designs replay
+// (open_designs_exit_tests.cpp) uses DesignFileEnvironment's preferences, where it is on too, and
+// a plain ScriptedUserPrompts: a step of it that adds a component of a kind that takes presets must
+// script the question (answerPreset()) or turn AutoOpenPartsLibrary off first.
 
 #include <array>
 #include <filesystem>

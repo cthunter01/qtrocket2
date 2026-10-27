@@ -19,7 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
-| `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentConfigDialogTests.cpp` |
+| `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -129,6 +129,21 @@ Java 17's `Double.toString`).
   (`PresetModel.setSelectedItem()`, as the parts library's Close applies it) and without one, and what a
   second undo leaves: the tube stays after Cancel once a preset was chosen (bug 15, which QtRocket fixes).
   `PresetGuiProbe` runs the six; the tests pin its whole transcript by hand.
+  `ConfigPresetRowProbe` makes the configuration panel `ComponentConfigDialog` makes for each component of a
+  design with a component of every kind (and for two multi-component selections) and prints its preset row: the
+  preset combo box (its tooltip, 25 rows, not editable) and the "Parts Library" button, the start of the panel's
+  focus order and the field focused after a preset (`focusElement`). The panels need a parent `JDialog`, which a
+  headless AWT refuses, so it runs under `xvfb-run`; none is shown. `PresetShownProbe` shows the parts library on
+  xvfb's screen (`ShownChooser`: FlatLaf Light, a main window of 1000 x 800 pixels and a configuration dialog
+  owning the parts library, as in OpenRocket) and runs `DialogKeysProbe` (the focus order, Enter and Shift+Enter
+  in the table, none of which presses Close, Escape, Ctrl+Tab, Enter in the filter field), `SpaceRobotProbe`
+  (Space in the table: it ticks the favourite only in the favourite column) and `PresetTableInputProbe` (typed
+  text in the table changes nothing; a click anywhere in a favourite cell ticks it and selects its row, a double
+  click ticks and unticks it; the widths of a first open are measured over every row, the legacy ones too). A
+  `java.awt.Robot` presses the keys, each followed by the toolkit's idle wait and 150 ms; the clicks are mouse
+  events sent to the table, as AWT delivers them. Every probe starts from the preferences of a fresh store
+  (`ShownChooser.resetPreferences()`); they print no pixel width (the widths depend on the fonts), only the
+  windows' sizes and places, which the probe sets.
   `PresetChooserProbe` makes the parts library itself, `ComponentPresetChooserDialog`, as
   `RocketComponentConfig.selectPreset()` makes it (owned by a configuration dialog of a main window of 1000 x
   800 pixels), over the bundled presets bound as the application's database, with `SwingPreferences` and FlatLaf
@@ -183,7 +198,7 @@ Requirements:
 - OpenRocket's classes built from that checkout: the script reads `build.version` from core's
   `build.properties` on the class path (`<version>-SNAPSHOT-<short commit>`, stamped by OpenRocket's build)
   and refuses classes of another commit (`ALLOW_OTHER_COMMIT=1` overrides).
-- `python3`, `clang-format` and, for `rocket-panel` and `thrust-curves`, `xvfb-run`.
+- `python3`, `clang-format` and, for `rocket-panel`, `thrust-curves` and `preset-chooser`, `xvfb-run`.
 
 ```sh
 OPENROCKET_DIR=/path/to/openrocket OPENROCKET_CLASSPATH=... tools/openrocket-gui-pins/generate.sh        # every family
@@ -239,13 +254,16 @@ copy the new lines (`<work>/<probe>.hand-pinned.txt`) over `hand-pinned.txt`. Th
 lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-probe.out` and G1's
 `out.txt` in the Milestone 2 handoff).
 
-`PresetGuiProbe` (`preset-chooser`; its other probe, `PresetChooserProbe`, writes `PresetChooserPins.h`) has no
-table: the tests pin its whole transcript by hand
+`PresetGuiProbe`, `ConfigPresetRowProbe` and `PresetShownProbe` (`preset-chooser`; its other probe,
+`PresetChooserProbe`, writes `PresetChooserPins.h`) have no table: the tests pin their whole transcripts by hand
 (`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part,
 `PresetComboBoxTests.cpp` the `PresetComboProbe` part, `TableRowTraversalTests.cpp` the `TableRowTraversalProbe`
-part, the `ComponentPreset*Tests.cpp` of `tests/gui/dialogs/preset/` the `ComponentPresetTableProbe` part,
-`tests/gui/configdialog/ComponentConfigDialogTests.cpp` the `NewComponentCancelProbe` part), and its
-`hand-pinned.txt` keeps all of it.
+part, the `ComponentPreset*Tests.cpp` of `tests/gui/dialogs/preset/` the `ComponentPresetTableProbe`,
+`DialogKeysProbe`, `SpaceRobotProbe` and `PresetTableInputProbe` parts,
+`tests/gui/configdialog/ComponentConfigDialogTests.cpp` the `NewComponentCancelProbe` part,
+`tests/gui/configdialog/RocketComponentConfigTests.cpp` the `ConfigPresetRowProbe` part). The family's one
+`hand-pinned.txt` keeps the three transcripts in this order (generate.sh checks them together, as
+`PresetHandPins`).
 
 ## Reproducibility
 
@@ -303,7 +321,10 @@ unchanged.
 `preset-chooser` came in run 2 (group S): parts S1 to S3 wrote `PresetGuiProbe` and its five probes, whose
 values the tests pin by hand; part S4 added `PresetChooserProbe` (from the M3 presets scout's
 `PresetChooserProbe`, seeded, its scenarios kept and its transcript made a table) and `PresetChooserPins.h`;
-part S5 added `NewComponentCancelProbe` to `PresetGuiProbe`.
+part S5 added `NewComponentCancelProbe` to `PresetGuiProbe`. The group's fixer committed the scratch probes of
+parts S4 and S5 that tests pinned by hand (`ConfigPresetRowProbe`, `DialogKeysProbe` and `SpaceRobotProbe`, their
+transcripts as the parts printed them, under a section line each) and added `PresetTableInputProbe` and `PresetShownProbe`, with
+`ShownChooser` for what the shown probes share.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

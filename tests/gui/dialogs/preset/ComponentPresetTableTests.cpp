@@ -29,6 +29,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPushButton>
+#include <QRect>
 #include <QSignalSpy>
 #include <QString>
 #include <QTest>
@@ -43,6 +44,7 @@
 #include "QtRocket/gui/dialogs/preset/ComponentPresetFilterModel.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetTableModel.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/settings/TableUiPreferences.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/TableSortKeys.h"
@@ -503,6 +505,63 @@ TEST_F(ComponentPresetTableTest, LoadingTheLayoutHidesLegacyAgain)
               table.verticalHeader()->defaultSectionSize() + 4);
 }
 
+/// The shown columns of @p table but the favourite (a fixed section, the first shown).
+[[nodiscard]] std::vector<int> columnsButTheFavourite(const ComponentPresetTable& table)
+{
+    std::vector<int> columns = table.visibleColumns();
+    QTROCKET_ASSERT(!columns.empty() && columns.front() == Model::kFavoriteColumn);
+    columns.erase(columns.begin());
+    return columns;
+}
+
+/// The widths of @p columns of @p table.
+[[nodiscard]] std::vector<int> sectionSizes(const ComponentPresetTable& table,
+                                            std::span<const int>        columns)
+{
+    std::vector<int> sizes;
+    sizes.reserve(columns.size());
+    for (const int column : columns)
+    {
+        sizes.push_back(table.horizontalHeader()->sectionSize(column));
+    }
+    return sizes;
+}
+
+/// The optimal widths of @p columns of @p table, as TableUiPreferences::load() computes them.
+[[nodiscard]] std::vector<int> optimalWidths(ComponentPresetTable& table,
+                                             std::span<const int>  columns)
+{
+    return TableUiPreferences::computeOptimalColumnWidths(
+        table, columns, TableUiPreferences::kOptimalWidthMax, true);
+}
+
+TEST_F(ComponentPresetTableTest, AFirstOpenMeasuresTheColumnsOverEveryRow)
+{
+    // OpenRocket loads the layout before the dialog's first updateFilters()
+    // (ComponentPresetChooserDialog.java:174-178 and 229): GUIUtil.computeOptimalColumnWidths()
+    // measures the legacy rows too. The small database's two streamers: the legacy one's
+    // description ("Streamer, mylar, 1 in. x 30 in.") is the longer (probe:
+    // PresetTableInputProbe, "== ... the widths of a first open": every preferred width is the one
+    // over every row; those of Description and Length differ from the ones over the row shown).
+    SmallPresetTable opened(Type::STREAMER);
+    opened.table.loadUiPreferences(
+        GuiPreferenceKeys::componentPresetTableName(ComponentKind::STREAMER));
+    EXPECT_TRUE(opened.table.filterModel().hidesLegacy());
+    EXPECT_EQ(opened.rows(), "1");
+
+    SmallPresetTable every(Type::STREAMER);
+    every.table.filterModel().setHideLegacy(false);
+    ASSERT_EQ(every.rows(), "0 1");
+    const std::vector<int> columns   = columnsButTheFavourite(every.table);
+    const std::vector<int> overEvery = optimalWidths(every.table, columns);
+    SmallPresetTable       withoutRows(Type::STREAMER);
+    ASSERT_EQ(withoutRows.rows(), "1");
+    // The fixture tells the two apart.
+    ASSERT_NE(optimalWidths(withoutRows.table, columns), overEvery);
+    EXPECT_EQ(columnsButTheFavourite(opened.table), columns);
+    EXPECT_EQ(sectionSizes(opened.table, columns), overEvery);
+}
+
 /// The view's selected row as the probe's selected() writes it: "<row> (model <row>)", or "-1".
 [[nodiscard]] std::string selectedRowText(const SmallPresetTable& tubes)
 {
@@ -609,10 +668,10 @@ TEST_F(ComponentPresetTableTest, TabMovesTheSelectionFromRowToRow)
 
 TEST_F(ComponentPresetTableTest, SpaceTicksTheCurrentRowsFavourite)
 {
-    // Qt's check box items take Space. So does OpenRocket's favourite column (a probe of its shown
-    // dialog under xvfb with FlatLaf Light, Space pressed with a robot: the lead cell (4, 0)
-    // ticks row 4's favourite and unticks it again; at (2, 3) and (6, 1) nothing changes),
-    // although JTable binds Space to addToSelection.
+    // Qt's check box items take Space. So does OpenRocket's favourite column (probe:
+    // SpaceRobotProbe, its dialog shown under xvfb with FlatLaf Light, Space pressed with a robot:
+    // the lead cell (4, 0) ticks row 4's favourite and unticks it again; at (2, 3) and (6, 1)
+    // nothing changes), although JTable binds Space to addToSelection.
     SmallPresetTable tubes(Type::BODY_TUBE);
     QTest::keyClick(&tubes.table, Qt::Key_Tab);
     QTest::keyClick(&tubes.table, Qt::Key_Space);
@@ -700,9 +759,9 @@ struct TableInDialog
 
 TEST_F(ComponentPresetTableTest, EnterInTheTableDoesNotPressTheDefaultButton)
 {
-    // OpenRocket's JTable takes Enter, also without rows (a probe of its shown dialog under xvfb:
-    // Enter with a text no preset has leaves the dialog open); a text field passes it on to the
-    // dialog's default button.
+    // OpenRocket's JTable takes Enter, also without rows (probe: DialogKeysProbe, its dialog shown
+    // under xvfb: "empty table, Enter" leaves the dialog open); a text field passes it on to the
+    // dialog's default button ("Enter in the filter field").
     const TableInDialog shown;
     const QSignalSpy    clicked(shown.button, &QPushButton::clicked);
     QTest::keyClick(shown.table, Qt::Key_Return);
@@ -715,6 +774,105 @@ TEST_F(ComponentPresetTableTest, EnterInTheTableDoesNotPressTheDefaultButton)
     EXPECT_EQ(clicked.count(), 0);
     QTest::keyClick(shown.field, Qt::Key_Return);
     EXPECT_EQ(clicked.count(), 1);
+}
+
+TEST_F(ComponentPresetTableTest, SettingAFavouriteSelectsItsRow)
+{
+    // ComponentPresetTable.java:80-92: setValueAt() of the favourite ends with
+    // setRowSelectionInterval() of the row's view index, when the row is shown.
+    SmallPresetTable                  tubes(Type::BODY_TUBE);
+    Model&                            model  = tubes.table.tableModel();
+    const ComponentPresetFilterModel& filter = tubes.table.filterModel();
+    tubes.select(2);
+    const int fifth = filter.modelRow(5);
+    model.setFavorite(fifth, true);
+    EXPECT_EQ(TableRowTraversal::selectedRow(tubes.table), 5);
+    EXPECT_EQ(tubes.table.selectedPreset(), model.preset(fifth));
+    // Sorted by the favourite, descending: a row ticked moves up among the favourites, selected.
+    tubes.table.filterModel().setSortKeys(
+        {TableSortKeys::SortKey{.column = 0, .order = TableSortKeys::SortOrder::DESCENDING}});
+    const int ninth = filter.modelRow(9);
+    model.setFavorite(ninth, true);
+    EXPECT_LT(filter.viewRow(ninth), 2);
+    EXPECT_EQ(TableRowTraversal::selectedRow(tubes.table), filter.viewRow(ninth));
+    EXPECT_EQ(tubes.table.selectedPreset(), model.preset(ninth));
+}
+
+/// The cell of the favourite column in view row @p row of @p table.
+[[nodiscard]] QRect favouriteCell(const ComponentPresetTable& table, int row)
+{
+    return table.visualRect(table.filterModel().index(row, Model::kFavoriteColumn));
+}
+
+TEST_F(ComponentPresetTableTest, AClickAnywhereInTheFavouriteCellTicksItAndSelectsItsRow)
+{
+    // Swing's editor of a Boolean column is a JCheckBox that fills the cell (probe:
+    // PresetTableInputProbe, "== ... clicks in its favourite column": with view row 3 selected, a
+    // click near the left edge, in the middle and near the right edge of row 1's cell ticks it and
+    // selects row 1, a second click unticks it, and a double click ticks and unticks it, row 1
+    // selected, nothing applied). Qt's own check box items take only a click inside the style's
+    // indicator, and keep the selection.
+    ShownPresetTable shown;
+    ASSERT_TRUE(showActiveWith(shown.window, {shown.table}));
+    ComponentPresetTable& table = *shown.table;
+    const int             row   = table.filterModel().modelRow(1);
+    selectCell(table, 3, 2);
+    const QRect cell = favouriteCell(table, 1);
+    ASSERT_FALSE(cell.isEmpty());
+    const QPoint nearTheRight(cell.right() - 2, cell.center().y());
+    const QPoint nearTheLeft(cell.left() + 1, cell.center().y());
+    QTest::mouseClick(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheRight);
+    EXPECT_TRUE(table.tableModel().isFavorite(row));
+    EXPECT_EQ(TableRowTraversal::selectedRow(table), 1);
+    EXPECT_EQ(table.currentIndex().column(), Model::kFavoriteColumn);
+    QTest::mouseClick(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheLeft);
+    EXPECT_FALSE(table.tableModel().isFavorite(row));
+    // A double click: press, release, double click, release.
+    table.clearSelection();
+    QTest::mousePress(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheRight);
+    QTest::mouseRelease(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheRight);
+    EXPECT_TRUE(table.tableModel().isFavorite(row));
+    QTest::mouseDClick(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheRight);
+    QTest::mouseRelease(table.viewport(), Qt::LeftButton, Qt::NoModifier, nearTheRight);
+    EXPECT_FALSE(table.tableModel().isFavorite(row));
+    EXPECT_EQ(TableRowTraversal::selectedRow(table), 1);
+    // The right button ticks nothing.
+    QTest::mouseClick(table.viewport(), Qt::RightButton, Qt::NoModifier, nearTheRight);
+    EXPECT_FALSE(table.tableModel().isFavorite(row));
+    // A click in another column only selects.
+    const QRect other = table.visualRect(table.filterModel().index(2, Model::kManufacturerColumn));
+    QTest::mouseClick(table.viewport(), Qt::LeftButton, Qt::NoModifier, other.center());
+    EXPECT_EQ(TableRowTraversal::selectedRow(table), 2);
+    EXPECT_FALSE(table.tableModel().isFavorite(table.filterModel().modelRow(2)));
+}
+
+TEST_F(ComponentPresetTableTest, TypingChangesNothing)
+{
+    // JTable's typed keys only start editing the lead cell (autoStartsEdit): only the favourite
+    // can be edited, and its check box ignores letters (probe: PresetTableInputProbe, "== ... typed
+    // text in its table": 'B' and '8' with the lead cell (0, 2) leave the selection as it was, 'x'
+    // with the lead cell (0, 0) starts the favourite's editor and ticks nothing).
+    // QAbstractItemView's keyboard search would select the next row whose text starts with what
+    // was typed: here BT-20's for 'B', 85865's for '8'.
+    constexpr int    kPartNumberColumn = Model::kManufacturerColumn + 1;  // ORDERED_KEY_LIST
+    SmallPresetTable tubes(Type::BODY_TUBE);
+    const Model&     model = tubes.table.tableModel();
+    ASSERT_EQ(model.cellText(tubes.table.filterModel().modelRow(0), kPartNumberColumn),
+              QStringLiteral("30615"));
+    selectCell(tubes.table, 0, 2);
+    ASSERT_EQ(tubes.table.currentIndex().column(), kPartNumberColumn);
+    const Model::PresetPtr selected = tubes.table.selectedPreset();
+    ASSERT_NE(selected, nullptr);
+    QTest::keyClicks(&tubes.table, QStringLiteral("B"));
+    EXPECT_EQ(tubes.table.selectedPreset(), selected);
+    QTest::keyClicks(&tubes.table, QStringLiteral("8"));
+    EXPECT_EQ(tubes.table.selectedPreset(), selected);
+    EXPECT_EQ(tubes.table.currentIndex().column(), kPartNumberColumn);
+    // In the favourite column a letter ticks nothing.
+    selectCell(tubes.table, 0, 0);
+    QTest::keyClicks(&tubes.table, QStringLiteral("x"));
+    EXPECT_EQ(tubes.table.selectedPreset(), selected);
+    EXPECT_FALSE(model.isFavorite(tubes.table.filterModel().modelRow(0)));
 }
 
 }  // namespace

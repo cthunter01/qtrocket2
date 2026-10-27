@@ -582,3 +582,84 @@ presets 43, body tubes 12
   with a preset, after a second undo: undo null redo 'Add Body Tube'; no tube
   without a preset, added: undo 'Add Body Tube' redo null; tube preset null OR 0.025 L 0.2
   without a preset, after Cancel's undo: undo null redo 'Add Body Tube'; no tube
+== the preset row
+  Rocket (RocketConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  AxialStage (AxialStageConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  NoseCone (NoseConeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  BodyTube (BodyTubeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  TrapezoidFinSet (TrapezoidFinSetConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  EllipticalFinSet (EllipticalFinSetConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  FreeformFinSet (FreeformFinSetConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  TubeFinSet (TubeFinSetConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  LaunchLug (LaunchLugConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  RailButton (RailButtonConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  InnerTube (InnerTubeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  EngineBlock (ThicknessRingComponentConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  TubeCoupler (ThicknessRingComponentConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  CenteringRing (CenteringRingConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  Bulkhead (BulkheadConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  MassComponent (MassComponentConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  ShockCord (ShockCordConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  Parachute (ParachuteConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  Streamer (StreamerConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  PodSet (ComponentAssemblyConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  BodyTube (BodyTubeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  ParallelStage (AxialStageConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+  BodyTube (BodyTubeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  Transition (TransitionConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus null
+  BodyTube with BodyTube (BodyTubeConfig): combo ttip='<html>Select a preset model from a list of favorites (selected in the component preset dialog), <br>or select 'Custom' when no preset is required.</html>' rows=25 editable=false; button 'Parts Library' ttip='Select a preset model for this rocket component from a library of parts.'; order name, combo, button 'Parts Library', tabs; focus spinner Length
+  BodyTube with NoseCone (RocketComponentConfig): no combo; order name, tabs, JCheckBox, JCheckBox; focus null
+== the parts library shown: its keys
+frame java.awt.Dimension[width=1000,height=800] config java.awt.Dimension[width=400,height=300] dialog java.awt.Dimension[width=700,height=560] at java.awt.Point[x=200,y=150] frame at java.awt.Point[x=50,y=50] rows 12
+initial focus JTextField
+Tab: -> JCheckBox 'Show Legacy Database' -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable -> ComponentPresetTable
+table focused, nothing selected: visible true row 6 col 0 lead 6 focus ComponentPresetTable preset null
+Enter, nothing selected: visible true row 7 col 0 lead 7 focus ComponentPresetTable preset null
+row 2 col 3 selected: visible true row 2 col 3 lead 2 focus ComponentPresetTable preset null
+Enter: visible true row 3 col 3 lead 3 focus ComponentPresetTable preset null
+Shift+Enter: visible true row 2 col 3 lead 2 focus ComponentPresetTable preset null
+Enter on the last row: visible true row 0 col 4 lead 0 focus ComponentPresetTable preset null
+Shift+Enter on row 0: visible true row 11 col 2 lead 11 focus ComponentPresetTable preset null
+Enter on the last cell: visible true row 0 col 0 lead 0 focus ComponentPresetTable preset null
+Space: visible true row 0 col -1 lead 0 focus ComponentPresetTable preset null favourite of row 0 true
+Escape in the table: visible false row -1 col -1 lead -1 focus null preset null
+fresh, table focused: visible true row -1 col -1 lead -1 focus ComponentPresetTable preset null
+fresh, Enter: visible true row 0 col 0 lead 0 focus ComponentPresetTable preset null
+Ctrl+Tab: JCheckBox 'Always open this dialog when creating a new Body Tube'
+Tab: JButton 'Close'
+Tab: JTextField
+fresh, Shift+Enter: visible true row 11 col 6 lead 11 focus ComponentPresetTable preset null lead col 6 of 7
+empty table: visible true row -1 col -1 lead -1 focus ComponentPresetTable preset null rows 0
+empty table, Enter: visible true row -1 col -1 lead -1 focus ComponentPresetTable preset null
+one row: visible true row -1 col -1 lead -1 focus ComponentPresetTable preset null rows 1
+one row, Enter: visible true row 0 col 0 lead 0 focus ComponentPresetTable preset null
+one row, Enter: visible true row 0 col 1 lead 0 focus ComponentPresetTable preset null
+between tubes, Tab: JTextField -> JCheckBox 'Show Legacy Database' -> JCheckBox 'Match fore diameter' -> JCheckBox 'Match aft diameter' -> ComponentPresetTable
+second dialog java.awt.Dimension[width=700,height=560] at java.awt.Point[x=200,y=150], text focused: visible true row 1 col -1 lead 1 focus JTextField preset null
+Enter in the filter field: visible false row 1 col -1 lead 1 focus null preset 31360
+third dialog java.awt.Dimension[width=700,height=560] at java.awt.Point[x=200,y=150] focus JTextField
+Escape: visible false row -1 col -1 lead -1 focus null preset 31360
+== the parts library shown: Space in its table
+Space at (2,3): favourites ............ -> ............; visible true row 2 col 3 lead 2 focus ComponentPresetTable preset null editing false
+Space at (4,0): favourites ............ -> ....x.......; visible true row 4 col -1 lead 4 focus ComponentPresetTable preset null editing false
+Space at (4,0): favourites ....x....... -> ............; visible true row 4 col -1 lead 4 focus ComponentPresetTable preset null editing false
+Space at (6,1): favourites ............ -> ............; visible true row 6 col 1 lead 6 focus ComponentPresetTable preset null editing false
+== the parts library shown: typed text in its table
+  lead (0, 2) '30615': visible true row 0 col 2 lead 0 focus ComponentPresetTable preset null editing false favourites ............
+  'B': visible true row 0 col 2 lead 0 focus ComponentPresetTable preset null editing false favourites ............
+  '8': visible true row 0 col 2 lead 0 focus ComponentPresetTable preset null editing false favourites ............
+  'x', the lead cell (0, 0): visible true row 0 col 0 lead 0 focus ComponentPresetTable preset null editing true favourites ............
+== the parts library shown: clicks in its favourite column
+  x 2 of 23, view row 3 selected; a click: favourite true, selected row 1, lead column -1, editing false, visible true, preset null; a second click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null; view row 3 selected, a double click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null
+  x 11 of 23, view row 3 selected; a click: favourite true, selected row 1, lead column -1, editing false, visible true, preset null; a second click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null; view row 3 selected, a double click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null
+  x 20 of 23, view row 3 selected; a click: favourite true, selected row 1, lead column -1, editing false, visible true, preset null; a second click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null; view row 3 selected, a double click: favourite false, selected row 1, lead column -1, editing false, visible true, preset null
+== the parts library: the widths of a first open (streamers)
+  rows shown 1, every row 2
+  … Favorite: over every row false, over the rows shown false, the two differ false
+  Manufacturer: over every row true, over the rows shown true, the two differ false
+  Part Number: over every row true, over the rows shown true, the two differ false
+  Description: over every row true, over the rows shown false, the two differ true
+  Length: over every row true, over the rows shown false, the two differ true
+  Width: over every row true, over the rows shown true, the two differ false
+  Thickness: over every row true, over the rows shown true, the two differ false
+  Material: over every row true, over the rows shown true, the two differ false

@@ -14,14 +14,23 @@
 #include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
+#include <QEvent>
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QModelIndex>
+#include <QMouseEvent>
 #include <QObject>
 #include <QPoint>
+#include <QPointF>
+#include <QRect>
+#include <QString>
+#include <QStyle>
+#include <QStyleOptionViewItem>
+#include <QStyledItemDelegate>
 #include <QTableView>
+#include <QVariant>
 #include <QWidget>
 #include <Qt>
 
@@ -76,6 +85,49 @@ void checkColumn(int column)
     return identifiers;
 }
 
+/// The favourite column's cells (Java: JTable's editor of a Boolean column, a JCheckBox that fills
+/// the cell): the left button released anywhere in the cell ticks or unticks the favourite, and so
+/// does the second click of a double click (each of Swing's presses starts the editor again, so a
+/// double click ticks and unticks); the press is the view's, which makes the cell current and
+/// selects its row, as JTable's press does. Space and Select on the current cell are Qt's
+/// (QStyledItemDelegate). Qt's own delegate takes a click only inside the style's check indicator
+/// and leaves the row's selection as it was.
+class FavoriteCellDelegate final : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+protected:
+    bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option,
+                     const QModelIndex& index) override
+    {
+        const QEvent::Type type = event->type();
+        if (type != QEvent::MouseButtonPress && type != QEvent::MouseButtonRelease &&
+            type != QEvent::MouseButtonDblClick)
+        {
+            return QStyledItemDelegate::editorEvent(event, model, option, index);
+        }
+        const auto* const   mouse = dynamic_cast<const QMouseEvent*>(event);
+        const Qt::ItemFlags flags = model->flags(index);
+        if (type == QEvent::MouseButtonPress || mouse == nullptr ||
+            mouse->button() != Qt::LeftButton ||
+            !option.rect.contains(mouse->position().toPoint()) ||
+            !flags.testFlag(Qt::ItemIsUserCheckable) || !flags.testFlag(Qt::ItemIsEnabled) ||
+            !option.state.testFlag(QStyle::State_Enabled))
+        {
+            return false;
+        }
+        const QVariant state = index.data(Qt::CheckStateRole);
+        if (!state.isValid())
+        {
+            return false;
+        }
+        const bool checked = state.toInt() == static_cast<int>(Qt::Checked);
+        return model->setData(index, static_cast<int>(checked ? Qt::Unchecked : Qt::Checked),
+                              Qt::CheckStateRole);
+    }
+};
+
 }  // namespace
 
 ComponentPresetTable::ComponentPresetTable(ComponentPresetType type, std::vector<PresetPtr> presets,
@@ -109,6 +161,7 @@ ComponentPresetTable::ComponentPresetTable(ComponentPresetType type, std::vector
     // the row height and 4 pixels, its minimum and maximum too.
     header.setSectionResizeMode(TableModel::kFavoriteColumn, QHeaderView::Fixed);
     header.resizeSection(TableModel::kFavoriteColumn, verticalHeader()->defaultSectionSize() + 4);
+    setItemDelegateForColumn(TableModel::kFavoriteColumn, makeChild<FavoriteCellDelegate>(this));
     // The normal left/right and tab/shift-tab key action traverses each cell/column of the table
     // instead of going to the next row (OpenRocket's comment).
     TableRowTraversal::install(*this);
@@ -128,6 +181,9 @@ ComponentPresetTable::ComponentPresetTable(ComponentPresetType type, std::vector
             guarded([this] { restoreSelection(); }, QStringLiteral("ComponentPresetTable")));
     connect(m_filter, &QAbstractItemModel::layoutChanged, this,
             guarded([this] { restoreSelection(); }, QStringLiteral("ComponentPresetTable")));
+    connect(m_model, &TableModel::favoriteSet, this,
+            guarded([this](int row) { selectFavoriteRow(row); },
+                    QStringLiteral("ComponentPresetTable")));
     // As the dialog opens: the Legacy column hidden, the legacy rows filtered out.
     applyLegacy(false);
 }
@@ -136,6 +192,7 @@ ComponentPresetTable::~ComponentPresetTable()
 {
     // QWidget's destructor deletes the models and the selection model after this object's members
     // are gone: none of their signals may reach this table's slots then.
+    disconnect(m_model, nullptr, this, nullptr);
     disconnect(m_filter, nullptr, this, nullptr);
     disconnect(selectionModel(), nullptr, this, nullptr);
     disconnect(horizontalHeader(), nullptr, this, nullptr);
@@ -249,6 +306,9 @@ void ComponentPresetTable::loadUiPreferences(std::string_view tableName)
     // The dialog keeps the box's state through the load, which may show the Legacy column
     // ("Restore legacy state (may change during UI preference loading)", OpenRocket's comment).
     const bool legacyShown = m_legacyShown;
+    // OpenRocket loads the layout before the dialog's first updateFilters(): the widths it
+    // computes are measured over every row, the legacy rows too. applyLegacy() filters them again.
+    m_filter->setHideLegacy(false);
     TableUiPreferences::load(*this, m_identifiers, tableName, *m_preferences);
     applyLegacy(legacyShown);
 }
@@ -262,6 +322,12 @@ ComponentPresetTable::PresetPtr ComponentPresetTable::selectedPreset() const
 {
     const int row = m_filter->modelRow(TableRowTraversal::selectedRow(*this));
     return row < 0 ? nullptr : m_model->preset(row);
+}
+
+void ComponentPresetTable::keyboardSearch(const QString& /*search*/)
+{
+    // JTable's typed keys only start editing the lead cell (autoStartsEdit): the favourite's check
+    // box, which ignores them, or no cell at all.
 }
 
 void ComponentPresetTable::rowsAboutToBeRemoved(const QModelIndex& parent, int start, int end)
@@ -378,6 +444,26 @@ void ComponentPresetTable::restoreSelection()
     const std::vector<int> shown = visibleColumns();
     selectionModel()->setCurrentIndex(
         m_filter->index(row, shown.empty() ? 0 : shown.front()),
+        QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+}
+
+void ComponentPresetTable::selectFavoriteRow(int modelRow)
+{
+    // Java's setValueAt(): convertRowIndexToView(), then setRowSelectionInterval() of a shown row.
+    const int row = m_filter->viewRow(modelRow);
+    if (row < 0)
+    {
+        return;
+    }
+    const QModelIndex      current = currentIndex();
+    const std::vector<int> shown   = visibleColumns();
+    int column = current.isValid() ? current.column() : TableModel::kFavoriteColumn;
+    if (!current.isValid() && !shown.empty())
+    {
+        column = shown.front();
+    }
+    selectionModel()->setCurrentIndex(
+        m_filter->index(row, column),
         QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
 }
 

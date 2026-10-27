@@ -23,8 +23,9 @@
 #                      values tests/gui/settings/TableUiPreferencesTests.cpp,
 #                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp,
 #                      tests/gui/widgets/TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of
-#                      tests/gui/dialogs/preset/ and tests/gui/configdialog/ComponentConfigDialogTests.cpp
-#                      pin by hand (checked only, see README.md)
+#                      tests/gui/dialogs/preset/, tests/gui/configdialog/ComponentConfigDialogTests.cpp and
+#                      RocketComponentConfigTests.cpp pin by hand (checked only, see README.md; two of their
+#                      probes run under xvfb-run, one of them shows the parts library and presses its keys)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -414,11 +415,18 @@ for family in "${families[@]}"; do
     preset-chooser)
         # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order,
         # then the bundled presets' directory (ComponentPresetTableProbe's bundled database).
-        run_probe "${family}" PresetGuiProbe headless "${repo}/tests/data/presets/every-kind.orc" \
-            "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc" \
-            "${repo}/data/components"
-        check_hand_pins "${family}" PresetGuiProbe \
-            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset and ComponentConfigDialogTests.cpp"
+        presets=("${repo}/tests/data/presets/every-kind.orc" "${repo}/tests/data/presets/legacy.orc"
+            "${repo}/data/components/database/estes_ps2.orc")
+        run_probe "${family}" PresetGuiProbe headless "${presets[@]}" "${repo}/data/components"
+        # The configuration panels need a parent dialog and the parts library is shown (a robot presses
+        # its keys): both refused by a headless AWT. Their transcripts follow PresetGuiProbe's in the
+        # family's one snapshot.
+        run_probe "${family}" ConfigPresetRowProbe xvfb "${presets[@]}"
+        run_probe "${family}" PresetShownProbe xvfb "${presets[@]}"
+        cat "${work}/PresetGuiProbe.txt" "${work}/ConfigPresetRowProbe.txt" "${work}/PresetShownProbe.txt" \
+            > "${work}/PresetHandPins.txt"
+        check_hand_pins "${family}" PresetHandPins \
+            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp, the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset, ComponentConfigDialogTests.cpp and RocketComponentConfigTests.cpp"
         # The parts library's dialog over the bundled presets: a JDialog, which a headless AWT refuses to make
         # (it is never shown).
         run_probe "${family}" PresetChooserProbe xvfb "${repo}/data/components"

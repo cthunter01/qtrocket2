@@ -627,9 +627,10 @@ TEST_F(RocketComponentConfigTest, ReleaseEndsTheBindings)
 
 // =========================================================================== the presets
 
-// Expectations marked "probe" are OpenRocket's own, printed by a probe of Milestone 3 run 2 part S5
-// (ConfigPresetRowProbe, OpenRocket 5f164fd0e, JDK 17, under xvfb: the panels need a parent
-// dialog, which is never shown; not in tools/, so its transcript is summed up here): the panel
+// Expectations marked "probe" are OpenRocket's own, printed by
+// tools/openrocket-gui-pins/preset-chooser/probe/ConfigPresetRowProbe.java (OpenRocket 5f164fd0e,
+// JDK 17, under xvfb: the panels need a parent dialog, which is never shown; the family's
+// hand-pinned.txt keeps its transcript, "== the preset row"): the panel
 // ComponentConfigDialog makes for each component of a design with a component of every kind, and
 // for two body tubes and for a body tube with a nose cone (config listeners), and of each panel
 // whether it has the preset combo box (its tooltip, 25 rows, not editable) and the "Parts Library"

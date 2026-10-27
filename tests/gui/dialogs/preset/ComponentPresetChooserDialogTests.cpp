@@ -545,7 +545,8 @@ TEST_F(ComponentPresetChooserDialogTest, EnterPressesCloseButNotInTheTable)
     bool            stillOpen   = true;
     int             selectedRow = -1;
     {
-        // Enter in the text field: Close, the default button, with view row 2 selected.
+        // Enter in the text field: Close, the default button, with view row 2 selected (probe:
+        // DialogKeysProbe, "Enter in the filter field" applies the selected row's preset).
         const NextModalDialog           enter(PressKey{.row         = 2,
                                                        .objectName  = "filterText",
                                                        .key         = Qt::Key_Return,
@@ -560,7 +561,8 @@ TEST_F(ComponentPresetChooserDialogTest, EnterPressesCloseButNotInTheTable)
     EXPECT_FALSE(stillOpen);
     EXPECT_EQ(tableKeys(services.preferences()).size(), 22U);
     {
-        // Enter in the table moves to the next row (JTable's selectNextRowCell); Escape closes.
+        // Enter in the table moves to the next row (JTable's selectNextRowCell); Escape closes
+        // (DialogKeysProbe: "Enter", "Escape in the table").
         const NextModalDialog           enter(PressKey{.row         = 2,
                                                        .objectName  = "componentSelectionTable",
                                                        .key         = Qt::Key_Return,

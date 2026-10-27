@@ -166,7 +166,7 @@ public:
     [[nodiscard]] bool isFavorite(int row) const;
     /// ComponentPresetTable's setValueAt() of the favourite column: stores the preset of @p row as
     /// a favourite of the table's type, or removes it (every preset with its preferenceKey()
-    /// changes with it), then updateFavorites().
+    /// changes with it), then updateFavorites(), then favoriteSet().
     void setFavorite(int row, bool favorite);
     /// Reads the favourites again (Java: updateFavorites()): every favourite cell may change
     /// (dataChanged()), then favoritesChanged().
@@ -175,6 +175,9 @@ public:
 Q_SIGNALS:
     /// The favourites were read again: a sort by the favourite column may have changed.
     void favoritesChanged();
+    /// setFavorite() set the favourite of @p row, after favoritesChanged(): the table selects the
+    /// row (Java's setValueAt() ends with setRowSelectionInterval()).
+    void favoriteSet(int row);
     /// A column shows its values in another unit: the text filter may match other rows.
     void unitChanged(int column);
 
