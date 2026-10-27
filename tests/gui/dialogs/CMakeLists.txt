@@ -22,3 +22,5 @@ target_sources(QtRocket_gui_tests PRIVATE
     UnitsPreferencesPanelTests.cpp
     WarningDialogTests.cpp
 )
+# The parts library (dialogs/preset/).
+add_subdirectory(preset)

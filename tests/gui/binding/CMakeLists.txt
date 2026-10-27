@@ -10,6 +10,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     MaterialBindingTests.cpp
     multi_edit_tests.cpp
     PresetBindingTests.cpp
+    PresetDiameterFiltersTests.cpp
     PropertySourceTests.cpp
     SliderMappingTests.cpp
     StringBindingTests.cpp

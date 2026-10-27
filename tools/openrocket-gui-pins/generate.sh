@@ -20,9 +20,9 @@
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
 #   preset-chooser     the values tests/gui/settings/TableUiPreferencesTests.cpp,
-#                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp
-#                      and tests/gui/widgets/TableRowTraversalTests.cpp pin by hand (checked only, see
-#                      README.md)
+#                      tests/gui/binding/PresetBindingTests.cpp, tests/gui/widgets/PresetComboBoxTests.cpp,
+#                      tests/gui/widgets/TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of
+#                      tests/gui/dialogs/preset/ pin by hand (checked only, see README.md)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -410,11 +410,13 @@ for family in "${families[@]}"; do
             "$(generated "${file}")" "${commit}"
         ;;
     preset-chooser)
-        # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order.
+        # The presets of tests/core/rocket/preset/TestPresetDatabase.h's smallPresetDatabase(), in its order,
+        # then the bundled presets' directory (ComponentPresetTableProbe's bundled database).
         run_probe "${family}" PresetGuiProbe headless "${repo}/tests/data/presets/every-kind.orc" \
-            "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc"
+            "${repo}/tests/data/presets/legacy.orc" "${repo}/data/components/database/estes_ps2.orc" \
+            "${repo}/data/components"
         check_hand_pins "${family}" PresetGuiProbe \
-            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp and TableRowTraversalTests.cpp"
+            "TableUiPreferencesTests.cpp, PresetBindingTests.cpp, PresetComboBoxTests.cpp, TableRowTraversalTests.cpp and the ComponentPreset*Tests.cpp of tests/gui/dialogs/preset"
         continue
         ;;
     esac

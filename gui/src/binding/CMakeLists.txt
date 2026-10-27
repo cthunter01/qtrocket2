@@ -10,6 +10,7 @@ target_sources(QtRocket_gui PRIVATE
     IntBinding.cpp ${gui_include_dir}/binding/IntBinding.h
     MaterialBinding.cpp ${gui_include_dir}/binding/MaterialBinding.h
     PresetBinding.cpp ${gui_include_dir}/binding/PresetBinding.h
+    PresetDiameterFilters.cpp ${gui_include_dir}/binding/PresetDiameterFilters.h
     ${gui_include_dir}/binding/PropertySource.h
     SliderMapping.cpp ${gui_include_dir}/binding/SliderMapping.h
     StringBinding.cpp ${gui_include_dir}/binding/StringBinding.h

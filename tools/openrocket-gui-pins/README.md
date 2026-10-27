@@ -19,7 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
-| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp` |
+| `preset-chooser` | none (values pinned by hand) | `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`) | none | `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -116,7 +116,15 @@ Java 17's `Double.toString`).
   its selected item, also a copy of the preset). `TableRowTraversalProbe` runs `TableRowTraversalPolicy`'s four
   actions beyond its JUnit test (no selection, several rows, no rows, one row, a table of single rows, a laid-out
   table of 100 rows, an empty filtered table) and prints the key bindings and focus traversal keys of a table
-  with the policy. `PresetGuiProbe` runs the four; the tests pin its whole transcript by hand.
+  with the policy. `ComponentPresetTableProbe` makes the parts library's `ComponentPresetTable` (headless: the
+  dialog is not made) over the same presets and over the bundled ones (`data/components`, the last argument,
+  walked as QtRocket's `DirectoryIterator` walks it): the columns of every type, the text of every cell, each
+  column sorted alone and header clicks, the header menu of each column (made by reflection, its items clicked)
+  with its units and column items, the favourites, the selection through the filters, and the dialog's text,
+  diameter and legacy filters (`ComponentPresetRowFilter` made by reflection); the bundled presets' views as the
+  MD5 of their digests in view order. Where QtRocket fixes an OpenRocket bug (the header menu's Sort on the view
+  index, bug 13; the text filter on the Boolean columns, bug 17) it prints the fixed result too, computed with
+  OpenRocket's classes. `PresetGuiProbe` runs the five; the tests pin its whole transcript by hand.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -213,7 +221,8 @@ lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-
 `PresetGuiProbe` (`preset-chooser`) has no table yet: the tests pin its whole transcript by hand
 (`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part,
 `PresetComboBoxTests.cpp` the `PresetComboProbe` part, `TableRowTraversalTests.cpp` the `TableRowTraversalProbe`
-part), and its `hand-pinned.txt` keeps all of it.
+part, the `ComponentPreset*Tests.cpp` of `tests/gui/dialogs/preset/` the `ComponentPresetTableProbe` part), and
+its `hand-pinned.txt` keeps all of it.
 
 ## Reproducibility
 

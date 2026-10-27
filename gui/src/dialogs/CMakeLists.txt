@@ -20,3 +20,5 @@ target_sources(QtRocket_gui PRIVATE
     UnitsPreferencesPanel.cpp ${gui_include_dir}/dialogs/UnitsPreferencesPanel.h
     WarningDialog.cpp ${gui_include_dir}/dialogs/WarningDialog.h
 )
+# The parts library (dialogs/preset/).
+add_subdirectory(preset)
