@@ -19,6 +19,8 @@
 #   component-drop     the DndProbe table of tests/gui/tree/ComponentDropTests.cpp
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #   thrust-curves      tests/gui/plot/ThrustCurvePins.h (the probe runs under xvfb-run)
+#   flight-config      tests/gui/flightconfig/FlightConfigurationTablePins.h (the tables of the Motors &
+#                      Configuration tab)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -55,7 +57,7 @@
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
-    material-combo component-editing component-drop actions-rules thrust-curves)
+    material-combo component-editing component-drop actions-rules thrust-curves flight-config)
 
 check=false
 families=()
@@ -404,6 +406,12 @@ for family in "${families[@]}"; do
         file=tests/gui/plot/ThrustCurvePins.h
         python3 -I "${here}/${family}/gen_thrust_curve_pins.py" "${work}/ThrustCurvesProbe.txt" \
             "$(generated "${file}")" "${commit}"
+        ;;
+    flight-config)
+        run_probe "${family}" FlightConfigurationTablesProbe headless "${examples}"
+        file=tests/gui/flightconfig/FlightConfigurationTablePins.h
+        python3 -I "${here}/${family}/gen_flight_configuration_table_pins.py" \
+            "${work}/FlightConfigurationTablesProbe.txt" "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

@@ -19,6 +19,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
 | `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
+| `flight-config` | `tests/gui/flightconfig/FlightConfigurationTablePins.h` | `FlightConfigurationTablesProbe` | `gen_flight_configuration_table_pins.py` | `flight_configuration_tables_golden_tests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -28,14 +29,15 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 ## What the probes pin
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
-(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`) bind
-`SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply FlatLaf Light, as the
-application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and back); `scale-figure`
-binds `SwingPreferences` without a theme; the two material probes keep `ServicesForTesting`'s preferences, the
-four component probes swing's. All but the material, component and `preferences` probes load OpenRocket's
-motor database and no component presets. `figure-paint`, `rocket-info`, `ribbon` and `rocket-panel` settle a
-design they load from `data/examples` or build with `TestRockets` as the golden harness settles it (a copy of
-`tools/openrocket-goldens`' `AutomaticDimensions`). Every double is printed exactly (`Double.toHexString` or
+(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
+`flight-config`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply
+FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and
+back); `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
+`ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component
+and `preferences` probes load OpenRocket's motor database and no component presets. `figure-paint`,
+`rocket-info`, `ribbon` and `rocket-panel` settle a design they load from `data/examples` or build with
+`TestRockets` as the golden harness settles it (a copy of `tools/openrocket-goldens`'
+`AutomaticDimensions`). Every double is printed exactly (`Double.toHexString` or
 Java 17's `Double.toString`).
 
 - `figure-paint`: OpenRocket's `RocketFigure` painted headless, as `RocketPanel.create2DPreviewFigure()`
@@ -101,6 +103,20 @@ Java 17's `Double.toString`).
   is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
   `-Djava.awt.headless=false`; no window is shown. The test builds each list from the keys, so it does not
   depend on QtRocket's port of the comparator.
+- `flight-config`: the tables of the "Motors & Configuration" tab over the 16 examples (as loaded, not
+  settled) and the 13 test rockets, as OpenRocket's own code makes them (`FlightConfigurationTablesProbe`, a
+  generalisation of the M3 config-tab scout's `NamesProbe`, which copied the renderers' code): the
+  `FlightConfigurableTableModel` subclasses the three panels make in `initializeTable()` (taken from the
+  panels' compiled anonymous classes) and `MotorMountTableModel` (package-private, by reflection), every cell
+  rendered by the panel's own cell renderer (`MotorTableCellRenderer`, `RecoveryTableCellRenderer`,
+  `SeparationTableCellRenderer`: inner classes, whose outer panel is allocated without its constructor, with
+  the rocket, the translator and the `RocketDescriptor` its renderers read) into a `JTable`, not selected and
+  without focus. It prints the rows (the configuration ids, raw names and overrides), every header, every
+  cell's texts and style (plain or italic, `TEXT` or `TEXT_DIM`) with the flags the shading follows
+  (`hasIgnitionOverride()`, `isDefault()`, `containsId()`), the motor-mount rows, and column 0 of the last
+  row after `setName()` with 14 raw names. Each test rocket is built twice, from two seeds, to tell the ids
+  its maker draws (compared by row) from the ones it sets. Part 1 of the family (run 2, part F2); part 2
+  (the operation transcripts) is part F3's.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -167,8 +183,8 @@ The generator writes the table into the work directory (a spliced test file into
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
 byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
 when a table differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`,
-`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All twelve families take about a
-minute.
+`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All thirteen families take about
+a minute.
 
 The tables in test code: `scale-figure` replaces the rows of `kFigureRows` (a "clang-format off" block),
 `material-binding` the bodies of `kBulkRows`, `kBulkGroups`, `kLineRows`, `kLineGroups`, `kSurfaceRows` and
@@ -223,7 +239,9 @@ The other nine families of Milestone 2 print nothing such a map orders, and thei
 printed the same transcript in two unseeded runs and in four runs seeded with different keys (2026-10-23),
 where the two seeded probes print another transcript for every other key. The families of Milestone 3 seed
 their probes whatever they print (the rule since then): `thrust-curves` builds no design and prints nothing
-a hash map orders, and installs `DeterministicUuids` in `bootstrap()` all the same.
+a hash map orders, and installs `DeterministicUuids` in `bootstrap()` all the same. `flight-config`
+reseeds from the scenario's name before each design, and builds each test rocket a second time, from the
+key `"<scenario>#drawn"`, first.
 
 ## History
 
@@ -246,6 +264,10 @@ every motor set of the bundled database. The run's fixer had its generator write
 `std::array` of a stated size instead of through `std::to_array` (the repository's other tables of hundreds
 of rows are written so; MSVC had never evaluated a `std::to_array` of over a thousand rows), the rows
 unchanged.
+
+Run 2 added `flight-config` (part F2, from the M3 config-tab scout's `NamesProbe`, run on OpenRocket's own
+table models and renderers instead of copies of their code, its output tab-separated, as the names hold
+" | ").
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,
