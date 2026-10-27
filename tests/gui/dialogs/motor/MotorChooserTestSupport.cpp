@@ -4,6 +4,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <QModelIndex>
@@ -13,13 +14,18 @@
 
 #include "QtRocket/gui/dialogs/motor/MotorTableModel.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
+#include "QtRocket/motor/ThrustCurveMotorSet.h"
+#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/motor/chooser/MotorTableSorter.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/Md5.h"
 
 namespace QtRocket::Gui::Test
@@ -63,6 +69,20 @@ std::string sortKeysText(const MotorTableSorter& sorter)
     return text;
 }
 
+const ThrustCurveMotorSet& findMotorSet(const ThrustCurveMotorSetDatabase& database,
+                                        std::string_view manufacturer, std::string_view designation)
+{
+    for (const ThrustCurveMotorSet& set : database.getMotorSets())
+    {
+        if (set.getManufacturer() != nullptr && set.getManufacturer()->matches(manufacturer) &&
+            set.getDesignation() == designation)
+        {
+            return set;
+        }
+    }
+    bug("no motor set " + std::string(manufacturer) + " " + std::string(designation));
+}
+
 InnerTubeMount::InnerTubeMount()
 {
     AxialStage& stage = m_rocket.addChild(std::make_unique<AxialStage>());
@@ -91,6 +111,30 @@ FlightConfigurationId BodyTubeMount::configure(std::shared_ptr<const ThrustCurve
     configuration.setMotor(std::move(motor));
     configuration.setEjectionDelay(delay);
     m_mount->setMotorConfig(configuration, fcid);
+    return fcid;
+}
+
+FlightConfigurationId BodyTubeMount::configure(std::shared_ptr<const ThrustCurveMotor> motor,
+                                               double delay, double nozzleExitDiameter)
+{
+    const FlightConfigurationId fcid;
+    m_rocket.createFlightConfiguration(fcid);
+    MotorConfiguration configuration(*m_mount, fcid);
+    configuration.setMotor(std::move(motor));
+    configuration.setEjectionDelay(delay);
+    const Result<void> nozzle = configuration.setNozzleExitDiameter(nozzleExitDiameter);
+    if (!nozzle)
+    {
+        bug("the nozzle exit diameter is refused: " + nozzle.error().message);
+    }
+    m_mount->setMotorConfig(configuration, fcid);
+    return fcid;
+}
+
+FlightConfigurationId BodyTubeMount::addEmptyConfiguration()
+{
+    const FlightConfigurationId fcid;
+    m_rocket.createFlightConfiguration(fcid);
     return fcid;
 }
 

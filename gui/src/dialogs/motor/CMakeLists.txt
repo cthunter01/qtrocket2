@@ -4,5 +4,7 @@
 target_sources(QtRocket_gui PRIVATE
     CheckList.cpp ${gui_include_dir}/dialogs/motor/CheckList.h
     MotorFilterPanel.cpp ${gui_include_dir}/dialogs/motor/MotorFilterPanel.h
+    MotorInformationPanel.cpp ${gui_include_dir}/dialogs/motor/MotorInformationPanel.h
     MotorTableModel.cpp ${gui_include_dir}/dialogs/motor/MotorTableModel.h
+    ThrustCurveMotorSelectionPanel.cpp ${gui_include_dir}/dialogs/motor/ThrustCurveMotorSelectionPanel.h
 )

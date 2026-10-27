@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -16,6 +17,8 @@
 namespace QtRocket
 {
 class MotorTableSorter;
+class ThrustCurveMotorSet;
+class ThrustCurveMotorSetDatabase;
 }  // namespace QtRocket
 
 namespace QtRocket::Gui
@@ -36,6 +39,13 @@ namespace QtRocket::Gui::Test
 /// The sort keys of @p sorter as the pins write them: "<column><A|D>" each, the primary first,
 /// separated by spaces ("4A 2A 0A").
 [[nodiscard]] std::string sortKeysText(const MotorTableSorter& sorter);
+
+/// The set of @p database whose manufacturer matches @p manufacturer (Manufacturer::matches(),
+/// as the probes' findSet()) and whose designation is @p designation.
+/// @throws BugError when there is none
+[[nodiscard]] const ThrustCurveMotorSet& findMotorSet(const ThrustCurveMotorSetDatabase& database,
+                                                      std::string_view manufacturer,
+                                                      std::string_view designation);
 
 /// The 28 mm mount of the probe's scenarios: an inner tube of outer radius 14.5 mm and inner
 /// radius 14 mm, 0.1 m long, in a body tube of a rocket's stage, with a flight configuration of
@@ -66,6 +76,14 @@ public:
     /// A new flight configuration whose override gives the mount @p motor with the ejection delay
     /// @p delay.
     FlightConfigurationId configure(std::shared_ptr<const ThrustCurveMotor> motor, double delay);
+
+    /// The same with the nozzle exit diameter @p nozzleExitDiameter (at most the motor's
+    /// diameter: a BugError otherwise).
+    FlightConfigurationId configure(std::shared_ptr<const ThrustCurveMotor> motor, double delay,
+                                    double nozzleExitDiameter);
+
+    /// A new flight configuration in which the mount has no motor (the mount's default).
+    FlightConfigurationId addEmptyConfiguration();
 
 private:
     Rocket    m_rocket;

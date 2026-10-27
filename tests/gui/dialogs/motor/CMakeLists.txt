@@ -3,8 +3,11 @@
 # (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
     CheckListTests.cpp
+    motor_information_golden_tests.cpp
     motor_table_golden_tests.cpp
     MotorChooserTestSupport.cpp
     MotorFilterPanelTests.cpp
+    MotorInformationPanelTests.cpp
     MotorTableModelTests.cpp
+    ThrustCurveMotorSelectionPanelTests.cpp
 )

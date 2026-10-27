@@ -1,0 +1,223 @@
+VERSION	[Motor DB version: Unknown]	[null]
+COUNT	initial	[Number of motors: 1458]	[Number of motors currently visible in the motor selection table]	rows=1458
+COUNT	search zzz	[Number of motors: None]	[Number of motors currently visible in the motor selection table]	rows=0
+COUNT	search estes c6	[Number of motors: 1]	[Number of motors currently visible in the motor selection table]	rows=1
+COUNT	search cleared	[Number of motors: 1458]	[Number of motors currently visible in the motor selection table]	rows=1458
+ENABLED	no motor	curveLabel=false	curveBox=false	delayLabel=false	delayBox=false	nozzleLabel=false	nozzleSpinner=false	nozzleUnit=false	curves=0	delays=0
+ENABLED	AeroTech E15W	curveLabel=true	curveBox=true	delayLabel=true	delayBox=true	nozzleLabel=true	nozzleSpinner=true	nozzleUnit=true	curves=2	delays=7
+ENABLED	AeroTech E16W	curveLabel=false	curveBox=false	delayLabel=true	delayBox=true	nozzleLabel=true	nozzleSpinner=true	nozzleUnit=true	curves=1	delays=5
+DELAY	Estes C6	delay=0.0 (0x0.0p0)	text=[0]	selected=[0]	index=0	actions=[comboBoxChanged 0]
+DELAY	type 5.04, Enter	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[comboBoxChanged 5.04, comboBoxEdited 5]
+DELAY	Enter on the text shown	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[comboBoxEdited 5]
+DELAY	type 6, focus lost	delay=6.0 (0x1.8p2)	text=[6]	selected=[6]	index=-1	actions=[comboBoxChanged 6, comboBoxEdited 6]
+DELAY	type 5.04, Enter again	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[comboBoxChanged 5.04, comboBoxEdited 5]
+DELAY	focus lost, text unchanged	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[]
+DELAY	type 5 (the text shown), focus lost	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[]
+DELAY	type 4.99, focus lost	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[comboBoxChanged 4.99, comboBoxEdited 5]
+DELAY	focus lost again	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[]
+DELAY	choose item 1	delay=3.0 (0x1.8p1)	text=[3]	selected=[3]	index=1	actions=[comboBoxChanged 3]
+DELAY	choose item 1 again	delay=3.0 (0x1.8p1)	text=[3]	selected=[3]	index=1	actions=[comboBoxChanged 3]
+DELAY	choose the last item	delay=Infinity (Infinity)	text=[Plugged]	selected=[Plugged]	index=4	actions=[comboBoxChanged Plugged]
+DELAY	type abc, Enter	delay=Infinity (Infinity)	text=[Plugged]	selected=[Plugged]	index=4	actions=[comboBoxChanged abc, comboBoxEdited Plugged]
+DELAY	type abc, focus lost	delay=Infinity (Infinity)	text=[Plugged]	selected=[Plugged]	index=4	actions=[comboBoxChanged abc, comboBoxEdited Plugged]
+DELAY	type 7, focus lost	delay=7.0 (0x1.cp2)	text=[7]	selected=[7]	index=3	actions=[comboBoxChanged 7, comboBoxEdited 7]
+DELAY	type 3, focus lost	delay=3.0 (0x1.8p1)	text=[3]	selected=[3]	index=1	actions=[comboBoxChanged 3, comboBoxEdited 3]
+DELAY	type 0x1p3, Enter	delay=8.0 (0x1.0p3)	text=[8]	selected=[8]	index=-1	actions=[comboBoxChanged 0x1p3, comboBoxEdited 8]
+DELAY	type none, Enter	delay=Infinity (Infinity)	text=[Plugged]	selected=[Plugged]	index=4	actions=[comboBoxChanged none, comboBoxEdited Plugged]
+DELAY	type ' 5 ', Enter	delay=5.0 (0x1.4p2)	text=[5]	selected=[5]	index=2	actions=[comboBoxChanged  5 , comboBoxEdited 5]
+DELAY	type NaN, Enter	delay=NaN (NaN)	text=[NaN]	selected=[NaN]	index=-1	actions=[comboBoxChanged NaN, comboBoxEdited NaN]
+DELAY	type 2, Enter	delay=2.0 (0x1.0p1)	text=[2]	selected=[2]	index=-1	actions=[comboBoxChanged 2, comboBoxEdited 2]
+DELAY	then Estes 1/2A3	delay=2.0 (0x1.0p1)	text=[2]	selected=[2]	index=0	actions=[comboBoxChanged 2]
+INFO	no motor	manufacturer=[]	designation=[]	common=[]	impulse=[]	class=[]	impulseTip=[<null>]	classTip=[<null>]	avg=[]	max=[]	burn=[]	launch=[]	empty=[]	type=[]	case=[]	prop=[]	compatible=[]	points=[]	updated=[]	source=[]	comment=[No description available.]	commentMd5=e2c9e2b54b8bb424cc64937c8fdc068f	italic=true	series=[]	strokes=[]
+INFO	Klima C6 item 0 curve 0	manufacturer=[Klima]	designation=[C6]	common=[C6]	impulse=[9.99 Ns]	class=[(100% C)]	impulseTip=[Class C (5 Ns - 10 Ns)]	classTip=[Class C (5 Ns - 10 Ns)]	avg=[6.17 N]	max=[15 N]	burn=[1.61 s]	launch=[20.5 g]	empty=[10.9 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[composite]	compatible=[<html><html>]	points=[15]	updated=[2020-10-17]	source=[manual]	comment=[Raketenmodellbau Klima GmbH Official manufacturer thrust data - C6 Created by Leo Nutz for OpenRocket, released into the Public Domain (3/2014)]	commentMd5=897581b9c53da4d56601c3f92cd3f5d4	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[3.0|1.0]
+INFO	Klima C6 item 1 curve 1	manufacturer=[Klima]	designation=[C6]	common=[C6]	impulse=[7.48 Ns]	class=[(50% C)]	impulseTip=[Class C (5 Ns - 10 Ns)]	classTip=[Class C (5 Ns - 10 Ns)]	avg=[4 N]	max=[11.6 N]	burn=[1.86 s]	launch=[20.5 g]	empty=[10.9 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[composite]	compatible=[<html><html>]	points=[15]	updated=[2020-10-17]	source=[manual]	comment=[Raketenmodellbau Klima GmbH Official manufacturer thrust data - C6 Created by Leo Nutz for OpenRocket, released into the Public Domain (3/2014)]	commentMd5=897581b9c53da4d56601c3f92cd3f5d4	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[1.0|3.0]
+INFO	AeroTech E15W item 0 curve 0	manufacturer=[AeroTech]	designation=[E15W]	common=[E15]	impulse=[39.9 Ns]	class=[(99% E)]	impulseTip=[Class E (20 Ns - 40 Ns)]	classTip=[Class E (20 Ns - 40 Ns)]	avg=[15.9 N]	max=[28.8 N]	burn=[2.51 s]	launch=[50.1 g]	empty=[30 g]	type=[Single-use]	case=[SU 24.0x70.0]	prop=[White Lightning]	compatible=[<html><html>]	points=[44]	updated=[2021-09-08]	source=[ThrustCurve.org]	comment=[Aerotech E15 RASP.ENG file made from NAR published data File produced July 4, 2000 Submitted to ThrustCurve.org by Chris Kobel (3/30/07) The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=1dd301ec9e88e53496f0d99f093446de	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[3.0|1.0|1.0]
+INFO	AeroTech E15W item 1 curve 1	manufacturer=[AeroTech]	designation=[E15W]	common=[E15]	impulse=[39.7 Ns]	class=[(99% E)]	impulseTip=[Class E (20 Ns - 40 Ns)]	classTip=[Class E (20 Ns - 40 Ns)]	avg=[15.7 N]	max=[28.8 N]	burn=[2.53 s]	launch=[50.1 g]	empty=[30 g]	type=[Single-use]	case=[SU 24.0x70.0]	prop=[White Lightning]	compatible=[<html><html>]	points=[32]	updated=[2021-09-08]	source=[ThrustCurve.org]	comment=[Aerotech E15 RASP.ENG file made from NAR published data File produced July 4, 2000 Submitted to ThrustCurve.org by Chris Kobel (3/30/07) The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=1dd301ec9e88e53496f0d99f093446de	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|3.0|1.0]
+INFO	AeroTech E15W item 2 curve 2	manufacturer=[AeroTech]	designation=[E15W]	common=[E15]	impulse=[34.7 Ns]	class=[(73% E)]	impulseTip=[Class E (20 Ns - 40 Ns)]	classTip=[Class E (20 Ns - 40 Ns)]	avg=[22.1 N]	max=[34.7 N]	burn=[1.56 s]	launch=[50.1 g]	empty=[30 g]	type=[Single-use]	case=[SU 24.0x70.0]	prop=[White Lightning]	compatible=[<html><html>]	points=[31]	updated=[2021-09-08]	source=[ThrustCurve.org]	comment=[Aerotech E15 RASP.ENG file made from NAR published data File produced July 4, 2000 Submitted to ThrustCurve.org by Chris Kobel (3/30/07) The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=1dd301ec9e88e53496f0d99f093446de	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|1.0|3.0]
+INFO	AeroTech E16W item 0 curve 0	manufacturer=[AeroTech]	designation=[E16W]	common=[E16]	impulse=[37.7 Ns]	class=[(88% E)]	impulseTip=[Class E (20 Ns - 40 Ns)]	classTip=[Class E (20 Ns - 40 Ns)]	avg=[20.8 N]	max=[37.2 N]	burn=[1.8 s]	launch=[107 g]	empty=[88 g]	type=[Reloadable]	case=[RMS-29/40-120]	prop=[White Lightning]	compatible=[<html><html>]	points=[23]	updated=[2019-04-17]	source=[ThrustCurve.org]	comment=[Aerotech E16 RASP.ENG file made from NAR published data File produced July 4, 2000 Submitted to ThrustCurve.org by Chris Kobel (3/30/07) The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file.  The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=975012ae0154390fa666c2a892d106ab	italic=false	series=[Thrust (0)]	strokes=[3.0]
+INFO	AeroTech G12ST item 0 curve 0	manufacturer=[AeroTech]	designation=[G12ST]	common=[G12]	impulse=[146 Ns]	class=[(82% G)]	impulseTip=[Class G (80 Ns - 160 Ns)]	classTip=[Class G (80 Ns - 160 Ns)]	avg=[11.7 N]	max=[31.3 N]	burn=[12.4 s]	launch=[155 g]	empty=[72.7 g]	type=[Single-use]	case=[SU 29.0x153.0]	prop=[Super Thunder]	compatible=[<html><html>]	points=[25]	updated=[2021-01-30]	source=[ThrustCurve.org]	comment=[TMT Certified 142-G11-P 8-26-18]	commentMd5=833cb1544adbf8a7f759a536f28d096a	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[3.0|1.0]
+INFO	AeroTech G12ST item 1 curve 1	manufacturer=[AeroTech]	designation=[G12ST]	common=[G12]	impulse=[142 Ns]	class=[(77% G)]	impulseTip=[Class G (80 Ns - 160 Ns)]	classTip=[Class G (80 Ns - 160 Ns)]	avg=[10.9 N]	max=[33.8 N]	burn=[13 s]	launch=[155 g]	empty=[72.7 g]	type=[Single-use]	case=[SU 29.0x153.0]	prop=[Super Thunder]	compatible=[<html><html>]	points=[20]	updated=[2021-01-30]	source=[ThrustCurve.org]	comment=[TMT Certified 142-G11-P 8-26-18]	commentMd5=833cb1544adbf8a7f759a536f28d096a	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[1.0|3.0]
+INFO	AeroTech J145H_2JET_STD item 0 curve 0	manufacturer=[AeroTech]	designation=[J145H_2JET_STD]	common=[J145]	impulse=[822 Ns]	class=[(28% J)]	impulseTip=[Class J (640 Ns - 1280 Ns)]	classTip=[Class J (640 Ns - 1280 Ns)]	avg=[166 N]	max=[300 N]	burn=[4.9 s]	launch=[1797 g]	empty=[1387 g]	type=[Hybrid]	case=[RMS-54/1280]	prop=[]	compatible=[<html>RMS-54/1280, RMS-54/1706, RMS-54/2560<html>]	points=[26]	updated=[2022-06-15]	source=[ThrustCurve.org]	comment=[AeroTech J145H converted from TMT test stand data 1999 (www.tripoli.org) provided by ThrustCurve.org (www.thrustcurve.org)]	commentMd5=7b46bcad97c3f884831f095a4733147a	italic=false	series=[Thrust (0)]	strokes=[3.0]
+INFO	AeroTech M1850W item 0 curve 0	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7805 Ns]	class=[(52% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1897 N]	max=[4486 N]	burn=[4.07 s]	launch=[6693 g]	empty=[2742 g]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[73]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[3.0|1.0|1.0]
+INFO	AeroTech M1850W item 1 curve 1	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7922 Ns]	class=[(55% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1925 N]	max=[4486 N]	burn=[4.07 s]	launch=[6693 g]	empty=[2742 g]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[61]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|3.0|1.0]
+INFO	AeroTech M1850W item 2 curve 2	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7366 Ns]	class=[(44% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1354 N]	max=[2411 N]	burn=[5.41 s]	launch=[6693 g]	empty=[2742 g]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[23]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|1.0|3.0]
+INFO	Cesaroni Technology Inc. 117G69-14A item 0 curve 0	manufacturer=[Cesaroni Technology Inc.]	designation=[117G69-14A]	common=[G69]	impulse=[130 Ns]	class=[(63% G)]	impulseTip=[Class G (80 Ns - 160 Ns)]	classTip=[Class G (80 Ns - 160 Ns)]	avg=[67 N]	max=[85.9 N]	burn=[1.94 s]	launch=[204 g]	empty=[138 g]	type=[Reloadable]	case=[Pro38-1G]	prop=[Skidmark]	compatible=[<html>Pro38-1G, Pro38-2G, Pro38-4G<html>]	points=[23]	updated=[2021-06-13]	source=[ThrustCurve.org]	comment=[Pro38 G69]	commentMd5=e5394a587783ab2995da78ce4d57a420	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[3.0|1.0|1.0]
+INFO	Cesaroni Technology Inc. 117G69-14A item 1 curve 1	manufacturer=[Cesaroni Technology Inc.]	designation=[117G69-14A]	common=[G69]	impulse=[116 Ns]	class=[(45% G)]	impulseTip=[Class G (80 Ns - 160 Ns)]	classTip=[Class G (80 Ns - 160 Ns)]	avg=[61.1 N]	max=[91.9 N]	burn=[1.9 s]	launch=[204 g]	empty=[138 g]	type=[Reloadable]	case=[Pro38-1G]	prop=[Skidmark]	compatible=[<html>Pro38-1G, Pro38-2G, Pro38-4G<html>]	points=[19]	updated=[2021-06-13]	source=[ThrustCurve.org]	comment=[Pro38 G69]	commentMd5=e5394a587783ab2995da78ce4d57a420	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|3.0|1.0]
+INFO	Cesaroni Technology Inc. 117G69-14A item 2 curve 2	manufacturer=[Cesaroni Technology Inc.]	designation=[117G69-14A]	common=[G69]	impulse=[133 Ns]	class=[(66% G)]	impulseTip=[Class G (80 Ns - 160 Ns)]	classTip=[Class G (80 Ns - 160 Ns)]	avg=[69.2 N]	max=[84.5 N]	burn=[1.92 s]	launch=[204 g]	empty=[138 g]	type=[Reloadable]	case=[Pro38-1G]	prop=[Skidmark]	compatible=[<html>Pro38-1G, Pro38-2G, Pro38-4G<html>]	points=[12]	updated=[2021-06-13]	source=[ThrustCurve.org]	comment=[Pro38 G69]	commentMd5=e5394a587783ab2995da78ce4d57a420	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|1.0|3.0]
+INFO	Estes 1/2A3 item 0 curve 0	manufacturer=[Estes]	designation=[1/2A3]	common=[1/2A3]	impulse=[1.09 Ns]	class=[(75% 1/2A)]	impulseTip=[Class 1/2A (0.625 Ns - 1.25 Ns)]	classTip=[Class 1/2A (0.625 Ns - 1.25 Ns)]	avg=[3.24 N]	max=[7.62 N]	burn=[0.336 s]	launch=[6.6 g]	empty=[4.6 g]	type=[Single-use]	case=[SU 13.0x45.0]	prop=[black powder]	compatible=[<html><html>]	points=[27]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes 1/2A3T RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=e5fc3e88077421e47855a12f7e28b94b	italic=false	series=[Thrust (0)]	strokes=[3.0]
+INFO	Estes A8 item 0 curve 0	manufacturer=[Estes]	designation=[A8]	common=[A8]	impulse=[2.15 Ns]	class=[(72% A)]	impulseTip=[Class A (1.25 Ns - 2.5 Ns)]	classTip=[Class A (1.25 Ns - 2.5 Ns)]	avg=[4.08 N]	max=[9.56 N]	burn=[0.527 s]	launch=[16.3 g]	empty=[13.1 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[25]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes A8 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=e7cff670504fadd29375fba5590b0d8c	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[3.0|1.0]
+INFO	Estes A8 item 1 curve 1	manufacturer=[Estes]	designation=[A8]	common=[A8]	impulse=[2.32 Ns]	class=[(86% A)]	impulseTip=[Class A (1.25 Ns - 2.5 Ns)]	classTip=[Class A (1.25 Ns - 2.5 Ns)]	avg=[3.48 N]	max=[9.73 N]	burn=[0.663 s]	launch=[16.3 g]	empty=[13 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[23]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes A8 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=e7cff670504fadd29375fba5590b0d8c	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[1.0|3.0]
+INFO	Estes C6 item 0 curve 0	manufacturer=[Estes]	designation=[C6]	common=[C6]	impulse=[8.82 Ns]	class=[(76% C)]	impulseTip=[Class C (5 Ns - 10 Ns)]	classTip=[Class C (5 Ns - 10 Ns)]	avg=[4.81 N]	max=[14.1 N]	burn=[1.83 s]	launch=[23.1 g]	empty=[12.3 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[24]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes C6 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=2d9f849b1b78c8adfa4785df1a6c9cc7	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[3.0|1.0]
+INFO	Estes C6 item 1 curve 1	manufacturer=[Estes]	designation=[C6]	common=[C6]	impulse=[10 Ns]	class=[(1% D)]	impulseTip=[Class D (10 Ns - 20 Ns)]	classTip=[Class D (10 Ns - 20 Ns)]	avg=[4.98 N]	max=[11.6 N]	burn=[2.01 s]	launch=[23.1 g]	empty=[12.3 g]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[21]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes C6 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=2d9f849b1b78c8adfa4785df1a6c9cc7	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[1.0|3.0]
+INFO	Quest B6W item 0 curve 0	manufacturer=[Quest]	designation=[B6W]	common=[B6]	impulse=[5.04 Ns]	class=[(1% C)]	impulseTip=[Class C (5 Ns - 10 Ns)]	classTip=[Class C (5 Ns - 10 Ns)]	avg=[4.43 N]	max=[9.3 N]	burn=[1.14 s]	launch=[18.3 g]	empty=[15.5 g]	type=[Single-use]	case=[SU 18.0x79.0]	prop=[White Lightning]	compatible=[<html><html>]	points=[16]	updated=[2021-05-25]	source=[ThrustCurve.org]	comment=[data from TMT certification, tested April 12, 2021]	commentMd5=d0eccadd0accf86dd84a3597222b6caa	italic=false	series=[Thrust (0)]	strokes=[3.0]
+INFO	imperial Estes C6 item 0 curve 0	manufacturer=[Estes]	designation=[C6]	common=[C6]	impulse=[8.82 Ns]	class=[(76% C)]	impulseTip=[Class C (5 Ns - 10 Ns)]	classTip=[Class C (5 Ns - 10 Ns)]	avg=[4.81 N]	max=[14.1 N]	burn=[1.83 s]	launch=[0.815 oz]	empty=[0.434 oz]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[24]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes C6 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=2d9f849b1b78c8adfa4785df1a6c9cc7	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[3.0|1.0]
+INFO	imperial Estes C6 item 1 curve 1	manufacturer=[Estes]	designation=[C6]	common=[C6]	impulse=[10 Ns]	class=[(1% D)]	impulseTip=[Class D (10 Ns - 20 Ns)]	classTip=[Class D (10 Ns - 20 Ns)]	avg=[4.98 N]	max=[11.6 N]	burn=[2.01 s]	launch=[0.815 oz]	empty=[0.434 oz]	type=[Single-use]	case=[SU 18.0x70.0]	prop=[black powder]	compatible=[<html><html>]	points=[21]	updated=[2019-10-05]	source=[ThrustCurve.org]	comment=[Estes C6 RASP.ENG file made from NAR published data File produced October 3, 2000 The total impulse, peak thrust, average thrust and burn time are the same as the averaged static test data on the NAR web site in the certification file. The curve drawn with these data points is as close to the certification curve as can be with such a limited number of points (32) allowed with wRASP up to v1.6.]	commentMd5=2d9f849b1b78c8adfa4785df1a6c9cc7	italic=false	series=[Thrust (0)|Thrust (1)]	strokes=[1.0|3.0]
+INFO	imperial AeroTech M1850W item 0 curve 0	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7805 Ns]	class=[(52% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1897 N]	max=[4486 N]	burn=[4.07 s]	launch=[236 oz]	empty=[96.7 oz]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[73]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[3.0|1.0|1.0]
+INFO	imperial AeroTech M1850W item 1 curve 1	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7922 Ns]	class=[(55% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1925 N]	max=[4486 N]	burn=[4.07 s]	launch=[236 oz]	empty=[96.7 oz]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[61]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|3.0|1.0]
+INFO	imperial AeroTech M1850W item 2 curve 2	manufacturer=[AeroTech]	designation=[M1850W]	common=[M1850]	impulse=[7366 Ns]	class=[(44% M)]	impulseTip=[Class M (5120 Ns - 10240 Ns)]	classTip=[Class M (5120 Ns - 10240 Ns)]	avg=[1354 N]	max=[2411 N]	burn=[5.41 s]	launch=[236 oz]	empty=[96.7 oz]	type=[Reloadable]	case=[RMS-75/7680]	prop=[White Lightning]	compatible=[<html><html>]	points=[23]	updated=[2024-01-23]	source=[ThrustCurve.org]	comment=[75-7680 case Greg Gardner - 10/25/07]	commentMd5=18f3a51bacbc39c1aa43c4f1a172f3ca	italic=false	series=[Thrust (0)|Thrust (1)|Thrust (2)]	strokes=[1.0|1.0|3.0]
+UPDATED	[<null>]	[]
+UPDATED	[]	[]
+UPDATED	[   ]	[]
+UPDATED	[2024-01-02]	[2024-01-02]
+UPDATED	[ 2024-01-02 ]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05Z]	[2024-01-02]
+UPDATED	[ 2024-01-02T03:04:05Z<U+0009>]	[2024-01-02]
+UPDATED	[2024-01-02T23:30:00Z]	[2024-01-02]
+UPDATED	[2024-01-02T03:04Z]	[2024-01-02T03:04Z]
+UPDATED	[2024-01-02T03:04:05.123456789Z]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05.1234567891Z]	[2024-01-02T03:04:05.1234567891Z]
+UPDATED	[2024-01-02T03:04:05.Z]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05,5Z]	[2024-01-02T03:04:05,5Z]
+UPDATED	[2024-01-02T03:04:05+02:00]	[2024-01-02]
+UPDATED	[2024-01-02T01:04:05+02:00]	[2024-01-01]
+UPDATED	[2024-01-02T22:04:05-02:00]	[2024-01-03]
+UPDATED	[2024-01-02T03:04:05+0200]	[2024-01-02T03:04:05+0200]
+UPDATED	[2024-01-02T03:04:05+02]	[2024-01-02T03:04:05+02]
+UPDATED	[2024-01-02T03:04:05+02:00:30]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05-00:00]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05+18:00]	[2024-01-01]
+UPDATED	[2024-01-02T03:04:05+19:00]	[2024-01-02T03:04:05+19:00]
+UPDATED	[2024-01-02t03:04:05z]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05z]	[2024-01-02]
+UPDATED	[2024-01-02T24:00:00Z]	[2024-01-03]
+UPDATED	[2024-01-02T23:59:60Z]	[2024-01-02]
+UPDATED	[2016-12-31T23:59:60Z]	[2016-12-31]
+UPDATED	[2024-01-02T23:60:00Z]	[2024-01-02T23:60:00Z]
+UPDATED	[2024-02-29T00:00:00Z]	[2024-02-29]
+UPDATED	[2023-02-29T00:00:00Z]	[2023-02-29T00:00:00Z]
+UPDATED	[2024-02-30T00:00:00Z]	[2024-02-30T00:00:00Z]
+UPDATED	[2024-04-31T00:00:00Z]	[2024-04-31T00:00:00Z]
+UPDATED	[2024-01-02 03:04:05Z]	[2024-01-02 03:04:05Z]
+UPDATED	[2024-1-2T03:04:05Z]	[2024-1-2T03:04:05Z]
+UPDATED	[20240102T030405Z]	[20240102T030405Z]
+UPDATED	[2024-01-02T3:04:05Z]	[2024-01-02T3:04:05Z]
+UPDATED	[2024-01-02T03:04:05]	[2024-01-02T03:04:05]
+UPDATED	[+2024-01-02T03:04:05Z]	[+2024-01-02T03:04:05Z]
+UPDATED	[+12024-01-02T03:04:05Z]	[+12024-01-02]
+UPDATED	[12024-01-02T03:04:05Z]	[12024-01-02T03:04:05Z]
+UPDATED	[0000-01-01T00:00:00Z]	[0000-01-01]
+UPDATED	[-0001-12-31T00:00:00Z]	[-0001-12-31]
+UPDATED	[0999-01-01T00:00:00Z]	[0999-01-01]
+UPDATED	[999-01-01T00:00:00Z]	[999-01-01T00:00:00Z]
+UPDATED	[2024-01-02T03:04:05Z[UTC]]	[2024-01-02T03:04:05Z[UTC]]
+UPDATED	[2024-01-02T03:04:05.5Z]	[2024-01-02]
+UPDATED	[2024-01-02T12:00:60Z]	[2024-01-02T12:00:60Z]
+UPDATED	[2024-01-02T23:58:60Z]	[2024-01-02T23:58:60Z]
+UPDATED	[2024-01-02T23:59:60.5Z]	[2024-01-02]
+UPDATED	[2024-01-02T24:00:01Z]	[2024-01-02T24:00:01Z]
+UPDATED	[2024-01-02T24:01:00Z]	[2024-01-02T24:01:00Z]
+UPDATED	[2024-01-02T24:00:00.5Z]	[2024-01-02T24:00:00.5Z]
+UPDATED	[2024-12-31T24:00:00Z]	[2025-01-01]
+UPDATED	[2024-01-02T25:00:00Z]	[2024-01-02T25:00:00Z]
+UPDATED	[2024-13-02T03:04:05Z]	[2024-13-02T03:04:05Z]
+UPDATED	[2024-00-02T03:04:05Z]	[2024-00-02T03:04:05Z]
+UPDATED	[2024-01-00T03:04:05Z]	[2024-01-00T03:04:05Z]
+UPDATED	[2024-01-32T03:04:05Z]	[2024-01-32T03:04:05Z]
+UPDATED	[2024-01-02T03:04:05.000000000Z]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05-18:00]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05-18:01]	[2024-01-02T03:04:05-18:01]
+UPDATED	[2024-01-02T03:04:05+2:00]	[2024-01-02T03:04:05+2:00]
+UPDATED	[2024-01-02T03:04:05+02:0]	[2024-01-02T03:04:05+02:0]
+UPDATED	[2024-01-02T03:04:05+02:00:3]	[2024-01-02T03:04:05+02:00:3]
+UPDATED	[2024-01-02T03:04:05+02:00:60]	[2024-01-02T03:04:05+02:00:60]
+UPDATED	[2024-01-02T03:04:05+02:60]	[2024-01-02T03:04:05+02:60]
+UPDATED	[2024-01-02T03:04:05+24:00]	[2024-01-02T03:04:05+24:00]
+UPDATED	[<U+FF12><U+FF10><U+FF12><U+FF14>-01-02T03:04:05Z]	[<U+FF12><U+FF10><U+FF12><U+FF14>-01-02T03:04:05Z]
+UPDATED	[2024-01-02T03:04:05<U+0660>Z]	[2024-01-02T03:04:05<U+0660>Z]
+UPDATED	[+0999-01-01T00:00:00Z]	[+0999-01-01T00:00:00Z]
+UPDATED	[+10000-01-01T00:00:00Z]	[+10000-01-01]
+UPDATED	[-10000-01-01T00:00:00Z]	[-10000-01-01]
+UPDATED	[-2024-01-02T03:04:05Z]	[-2024-01-02]
+UPDATED	[+999999999-12-31T23:59:59Z]	[+999999999-12-31]
+UPDATED	[+1000000000-12-31T23:59:59Z]	throws java.time.DateTimeException
+UPDATED	[+1000000001-01-01T00:00:00Z]	[+1000000001-01-01T00:00:00Z]
+UPDATED	[-1000000000-01-01T00:00:00Z]	throws java.time.DateTimeException
+UPDATED	[-1000000001-01-01T00:00:00Z]	[-1000000001-01-01T00:00:00Z]
+UPDATED	[2024-01-02T03:04:05Z ]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05+00:00]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05.123+05:30]	[2024-01-01]
+UPDATED	[1970-01-01T00:00:00Z]	[1970-01-01]
+UPDATED	[1969-12-31T23:59:59.999999999Z]	[1969-12-31]
+UPDATED	[2024-01-02T03:04:05ZZ]	[2024-01-02T03:04:05ZZ]
+UPDATED	[2024-01-02T03:04:05..5Z]	[2024-01-02T03:04:05..5Z]
+UPDATED	[2024-01-02T03:04:5Z]	[2024-01-02T03:04:5Z]
+UPDATED	[-0000-01-01T00:00:00Z]	[-0000-01-01T00:00:00Z]
+UPDATED	[+00000-01-01T00:00:00Z]	[0000-01-01]
+UPDATED	[+01000-01-01T00:00:00Z]	[1000-01-01]
+UPDATED	[2024-01-02T23:59:60+02:00]	[2024-01-02]
+UPDATED	[2024-01-02T21:59:60Z]	[2024-01-02T21:59:60Z]
+UPDATED	[2024-01-02T24:00:00.0Z]	[2024-01-03]
+UPDATED	[2024-01-02T24:00:00.Z]	[2024-01-03]
+UPDATED	[2024-01-02T03:04:05+18:00:01]	[2024-01-02T03:04:05+18:00:01]
+UPDATED	[2024-01-02T03:04:05+00:00:00]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05-00:00:01]	[2024-01-02]
+UPDATED	[2024-01-02T03:04:05.Z]	[2024-01-02]
+ZONE	[2024-01-02T03:04:05Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[ 2024-01-02T03:04:05Z<U+0009>]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T23:30:00Z]	Z=2024-01-02	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T03:04:05.123456789Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05.Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05+02:00]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T01:04:05+02:00]	Z=2024-01-01	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T22:04:05-02:00]	Z=2024-01-03	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T03:04:05+02:00:30]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05-00:00]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05+18:00]	Z=2024-01-01	-06:00=2024-01-01	+05:30=2024-01-01	+14:00=2024-01-01	-12:00=2023-12-31
+ZONE	[2024-01-02t03:04:05z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T24:00:00Z]	Z=2024-01-03	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T23:59:60Z]	Z=2024-01-02	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2016-12-31T23:59:60Z]	Z=2016-12-31	-06:00=2016-12-31	+05:30=2017-01-01	+14:00=2017-01-01	-12:00=2016-12-31
+ZONE	[2024-02-29T00:00:00Z]	Z=2024-02-29	-06:00=2024-02-28	+05:30=2024-02-29	+14:00=2024-02-29	-12:00=2024-02-28
+ZONE	[+12024-01-02T03:04:05Z]	Z=+12024-01-02	-06:00=+12024-01-01	+05:30=+12024-01-02	+14:00=+12024-01-02	-12:00=+12024-01-01
+ZONE	[0000-01-01T00:00:00Z]	Z=0000-01-01	-06:00=-0001-12-31	+05:30=0000-01-01	+14:00=0000-01-01	-12:00=-0001-12-31
+ZONE	[-0001-12-31T00:00:00Z]	Z=-0001-12-31	-06:00=-0001-12-30	+05:30=-0001-12-31	+14:00=-0001-12-31	-12:00=-0001-12-30
+ZONE	[0999-01-01T00:00:00Z]	Z=0999-01-01	-06:00=0998-12-31	+05:30=0999-01-01	+14:00=0999-01-01	-12:00=0998-12-31
+ZONE	[2024-01-02T03:04:05.5Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T23:59:60.5Z]	Z=2024-01-02	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-12-31T24:00:00Z]	Z=2025-01-01	-06:00=2024-12-31	+05:30=2025-01-01	+14:00=2025-01-01	-12:00=2024-12-31
+ZONE	[2024-01-02T03:04:05.000000000Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05-18:00]	Z=2024-01-02	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[+10000-01-01T00:00:00Z]	Z=+10000-01-01	-06:00=9999-12-31	+05:30=+10000-01-01	+14:00=+10000-01-01	-12:00=9999-12-31
+ZONE	[-10000-01-01T00:00:00Z]	Z=-10000-01-01	-06:00=-10001-12-31	+05:30=-10000-01-01	+14:00=-10000-01-01	-12:00=-10001-12-31
+ZONE	[-2024-01-02T03:04:05Z]	Z=-2024-01-02	-06:00=-2024-01-01	+05:30=-2024-01-02	+14:00=-2024-01-02	-12:00=-2024-01-01
+ZONE	[+999999999-12-31T23:59:59Z]	Z=+999999999-12-31	-06:00=+999999999-12-31	+05:30=throws java.time.DateTimeException	+14:00=throws java.time.DateTimeException	-12:00=+999999999-12-31
+ZONE	[+1000000000-12-31T23:59:59Z]	Z=throws java.time.DateTimeException	-06:00=throws java.time.DateTimeException	+05:30=throws java.time.DateTimeException	+14:00=throws java.time.DateTimeException	-12:00=throws java.time.DateTimeException
+ZONE	[-1000000000-01-01T00:00:00Z]	Z=throws java.time.DateTimeException	-06:00=throws java.time.DateTimeException	+05:30=throws java.time.DateTimeException	+14:00=throws java.time.DateTimeException	-12:00=throws java.time.DateTimeException
+ZONE	[2024-01-02T03:04:05Z ]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05+00:00]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05.123+05:30]	Z=2024-01-01	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[1970-01-01T00:00:00Z]	Z=1970-01-01	-06:00=1969-12-31	+05:30=1970-01-01	+14:00=1970-01-01	-12:00=1969-12-31
+ZONE	[1969-12-31T23:59:59.999999999Z]	Z=1969-12-31	-06:00=1969-12-31	+05:30=1970-01-01	+14:00=1970-01-01	-12:00=1969-12-31
+ZONE	[+00000-01-01T00:00:00Z]	Z=0000-01-01	-06:00=-0001-12-31	+05:30=0000-01-01	+14:00=0000-01-01	-12:00=-0001-12-31
+ZONE	[+01000-01-01T00:00:00Z]	Z=1000-01-01	-06:00=0999-12-31	+05:30=1000-01-01	+14:00=1000-01-01	-12:00=0999-12-31
+ZONE	[2024-01-02T23:59:60+02:00]	Z=2024-01-02	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T24:00:00.0Z]	Z=2024-01-03	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T24:00:00.Z]	Z=2024-01-03	-06:00=2024-01-02	+05:30=2024-01-03	+14:00=2024-01-03	-12:00=2024-01-02
+ZONE	[2024-01-02T03:04:05+00:00:00]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05-00:00:01]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+ZONE	[2024-01-02T03:04:05.Z]	Z=2024-01-02	-06:00=2024-01-01	+05:30=2024-01-02	+14:00=2024-01-02	-12:00=2024-01-01
+SOURCE	[<null>]	[]
+SOURCE	[]	[]
+SOURCE	[  ]	[]
+SOURCE	[thrustcurve.org]	[ThrustCurve.org]
+SOURCE	[ thrustcurve.org ]	[ThrustCurve.org]
+SOURCE	[THRUSTCURVE.ORG]	[ThrustCurve.org]
+SOURCE	[ThrustCurve.org]	[ThrustCurve.org]
+SOURCE	[thrustcurve.orgx]	[thrustcurve.orgx]
+SOURCE	[www.thrustcurve.org]	[www.thrustcurve.org]
+SOURCE	[Manufacturer]	[Manufacturer]
+SOURCE	[ cert ]	[cert]
+SOURCE	[thrustcurve<U+00A0>org]	[thrustcurve<U+00A0>org]
+NAMECOLUMN	sorted by Name, row 10	selected=Quest A3T	row=10	rowSet=Quest A3T	curveItem=[A3T]
+NAMECOLUMN	common name	selected=Estes A3	row=10	rowSet=Estes A3	curveItem=[A3]
+NAMECOLUMN	designation	selected=Quest A3T	row=10	rowSet=Quest A3T	curveItem=[A3T]
+NAMECOLUMN	Quest B6W	selected=Quest B6W	row=28	rowSet=Quest B6W	curveItem=[B6W]
+NAMECOLUMN	common name again	selected=Quest B6	row=28	rowSet=Quest B6	curveItem=[B6]
+NAMECOLUMN	designation again	selected=Quest B6W	row=28	rowSet=Quest B6W	curveItem=[B6W]
+STALE	fresh panel	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[]	curveBox=false	delays=[]	delayText=[]	delayBox=false	nozzleText=[0]	info=[]	series=0
+STALE	fresh panel, empty configuration	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[]	curveBox=false	delays=[]	delayText=[]	delayBox=false	nozzleText=[0]	info=[]	series=0
+STALE	fresh panel, empty configuration, open()	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=none	curves=[]	curveBox=false	delays=[]	delayText=[]	delayBox=false	nozzleText=[0]	info=[]	series=0
+STALE	Estes C6 configuration	motor=C6	set=Estes C6	delay=5.0 (0x1.4p2)	nozzle=0.004 (0x1.0624dd2f1a9fcp-8)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[5]	delayBox=true	nozzleText=[0.4]	info=[C6]	series=2
+STALE	then the empty configuration	motor=none	set=none	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[5]	delayBox=true	nozzleText=[0]	info=[C6]	series=2
+STALE	then open()	motor=C6	set=Estes C6	delay=0.0 (0x0.0p0)	nozzle=0.0 (0x0.0p0)	rowSet=Estes C6	curves=[C6|C6]	curveBox=true	delays=[0|3|5|7|Plugged]	delayText=[0]	delayBox=true	nozzleText=[0]	info=[C6]	series=2
