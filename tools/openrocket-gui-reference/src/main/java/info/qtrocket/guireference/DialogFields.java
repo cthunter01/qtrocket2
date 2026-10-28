@@ -14,8 +14,10 @@ import javax.swing.ComboBoxModel;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.material.Material;
 import info.openrocket.core.rocketcomponent.BodyTube;
+import info.openrocket.core.rocketcomponent.ClusterConfiguration;
 import info.openrocket.core.rocketcomponent.ExternalComponent;
 import info.openrocket.core.rocketcomponent.FinSet;
+import info.openrocket.core.rocketcomponent.InnerTube;
 import info.openrocket.core.rocketcomponent.MassComponent;
 import info.openrocket.core.rocketcomponent.MassObject;
 import info.openrocket.core.rocketcomponent.NoseCone;
@@ -328,6 +330,25 @@ final class DialogFields {
 		};
 	}
 
+	/**
+	 * The cluster buttons of an inner tube (InnerTubeConfig's ClusterSelectionPanel): the item is the XML name
+	 * of a configuration of ClusterConfiguration.CONFIGURATIONS, whose button a click sets.
+	 */
+	private static Control clusterButtons(InnerTube tube) {
+		return new Control() {
+			@Override
+			public void choose(String item) {
+				for (ClusterConfiguration configuration : ClusterConfiguration.CONFIGURATIONS) {
+					if (configuration.getXMLName().equals(item)) {
+						tube.setClusterConfiguration(configuration);
+						return;
+					}
+				}
+				throw new IllegalArgumentException("the cluster panel has no configuration " + item);
+			}
+		};
+	}
+
 	/** A check box bound to a BooleanModel: a click toggles it, so a user clicks only to change it. */
 	private static Control checkBox(BooleanModel model) {
 		return new Control() {
@@ -519,6 +540,14 @@ final class DialogFields {
 		f.put("OuterRadius", length("OuterRadius", 2, 0));
 		f.put("InnerRadius", length("InnerRadius", 2, 0));
 		f.put("Thickness", length("Thickness", 1, 0));
+		// InnerTubeConfig.clusterTab (:280-420): ClusterSelectionPanel's buttons, one per configuration of
+		// ClusterConfiguration.CONFIGURATIONS (a click sets it: ClusterButton.mouseClicked, :592-596; the item
+		// is its XML name, "4-ring"), the tube separation (:307, the relative model, the preference's default)
+		// and the rotation (:383).
+		f.put("ClusterConfiguration", (d, c) -> clusterButtons((InnerTube) c));
+		f.put("ClusterScale", (d, c) -> spinner(new DoubleModel(c, "ClusterScale", 1, UnitGroup.UNITS_NONE, 0)));
+		f.put("ClusterRotation", (d, c) -> spinner(
+				new DoubleModel(c, "ClusterRotation", 1, UnitGroup.UNITS_ANGLE, -Math.PI, Math.PI)));
 
 		// CenteringRingConfig.java:23 builds RingComponentConfig.generalTab with a length (labelled
 		// "Thickness"), an outer and an inner diameter and no thickness: RingComponentConfig.java:48 Length,

@@ -36,7 +36,8 @@ if (!new File(openrocketCoreDir, 'src/main/java/info/openrocket/core/startup/App
 // variable of that file ("implementation \"group:artifact:$name\"", the variable being one of its
 // "def name = \"value\"" lines or an ext property "name = otherName" set from one), and LWJGL's
 // modules, whose versions come from the LWJGL BOM the Swing build imports. Neither the LWJGL natives
-// nor the test dependencies are needed: the tool never opens a window, let alone the 3D view.
+// nor the test dependencies are needed: the tool never opens the 3D view (its scenarios of version 2 open
+// the Motors & Configuration tab and its dialogs on a virtual display, nothing else).
 def implementationLines = { File buildFile ->
     def text = buildFile.readLines()
     def variables = [:]
@@ -163,8 +164,21 @@ tasks.named('compileJava', JavaCompile) {
     options.compilerArgs += ['-Xlint:all', '-Werror']
 }
 
+// The bundled component presets of OpenRocket's openrocket-database submodule: OpenRocket's own build copies its
+// orc/ directory into core/src/main/resources/datafiles/components/database (core/build.gradle,
+// externalComponentsCopy, without *.bak files), a git-ignored copy that this build keeps off the class path (see
+// above); this build copies the submodule's orc/ to the same place of its own resources instead, so that
+// ComponentPresetDatabaseLoader finds internal/ and database/ in one datafiles/components directory, as in
+// OpenRocket. generate.sh checks that the submodule is at the commit the checkout records when a scenario of
+// version 2 (whose start-up loads the presets) is generated.
+def presetDatabaseDir = new File(openrocketCoreDir, 'resources-src/datafiles/openrocket-database/orc')
+
 tasks.named('processOpenrocketResources', ProcessResources) {
     inputs.property('openrocketShortHash', openrocketShortHash)
+    from(presetDatabaseDir) {
+        into 'datafiles/components/database'
+        exclude '**/*.bak'
+    }
     filesMatching('build.properties') {
         filter { line ->
             if (line.startsWith('build.version=') && line.trim().endsWith('-SNAPSHOT')) {

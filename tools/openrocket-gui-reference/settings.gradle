@@ -1,4 +1,4 @@
 // The GUI reference tool: a stand-alone Gradle project (not part of the CMake build) that compiles
-// OpenRocket's core and Swing modules from a local checkout and runs the from-scratch scenario of
-// tests/data/goldens/gui/from-scratch on them. See README.md; run it through generate.sh.
+// OpenRocket's core and Swing modules from a local checkout and runs the scenarios of
+// tests/data/goldens/gui/<scenario> on them. See README.md; run it through generate.sh.
 rootProject.name = 'openrocket-gui-reference'
