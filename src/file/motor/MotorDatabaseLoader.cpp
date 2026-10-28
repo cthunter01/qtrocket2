@@ -187,6 +187,8 @@ void MotorDatabaseLoader::loadFile(const std::filesystem::path& file)
 {
     if (isSqliteFile(file))
     {
+        // OpenRocket logs a user's database that does not read (loadSqlite()'s BugException is
+        // caught by loadFile()'s catch (Exception)).
         if (Result<void> loaded = loadSqlite(file); !loaded)
         {
             addProblem(file, std::move(loaded.error()));
@@ -194,22 +196,26 @@ void MotorDatabaseLoader::loadFile(const std::filesystem::path& file)
         return;
     }
 
+    // A file that cannot be opened OpenRocket logs (the FileInputStream of loadFile(loader, file)
+    // throws before the loader runs).
     Result<std::vector<std::byte>> bytes = readFile(file);
     if (!bytes)
     {
         addProblem(file, std::move(bytes.error()));
         return;
     }
+    // OpenRocket's dialog: the IllegalArgumentException or IOException of loader.load() and of
+    // addMotorsFromBuilders().
     Result<std::vector<ThrustCurveMotor::Builder>> motors =
         m_loader->load(*bytes, pathToUtf8(file.filename()));
     if (!motors)
     {
-        addProblem(file, std::move(motors.error()));
+        addProblem(file, std::move(motors.error()), true);
         return;
     }
     if (Result<void> added = addMotorsFromBuilders(*motors); !added)
     {
-        addProblem(file, std::move(added.error()));
+        addProblem(file, std::move(added.error()), true);
     }
 }
 
@@ -247,9 +253,11 @@ Result<void> MotorDatabaseLoader::addMotorsFromBuilders(
     return {};
 }
 
-void MotorDatabaseLoader::addProblem(const std::filesystem::path& file, Error error)
+void MotorDatabaseLoader::addProblem(const std::filesystem::path& file, Error error,
+                                     bool refusedFile)
 {
-    m_problems.push_back(Problem{.file = file, .error = std::move(error)});
+    m_problems.push_back(
+        Problem{.file = file, .error = std::move(error), .refusedFile = refusedFile});
 }
 
 }  // namespace QtRocket

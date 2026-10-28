@@ -1,6 +1,7 @@
 // QtRocket: the graphical application (OpenRocket's OpenRocket.main() and SwingStartup.main()).
 // It reads the command line (--help, --version, design files to open), makes the services
-// (ApplicationContext: the user's preferences, the materials, the motor database) and starts the
+// (ApplicationContext: the user's preferences, the materials, the motor database and the
+// component presets, the bundled ones and the user's) and starts the
 // application (ApplicationSession: the error hook, the windows, the first window), then runs the
 // event loop until the last window is closed or the user quits. A failure of the start is shown
 // in the internal error dialog (StartupGuard).
@@ -12,11 +13,15 @@
 // --version print shows only where the output goes to a file or a pipe
 // (QtRocket.exe --version | more).
 //
-// Two environment variables are test hooks of the program (the test gui.start,
+// Three environment variables are test hooks of the program (the test gui.start,
 // tests/gui/CMakeLists.txt); nothing else sets them:
 // - QTROCKET_TEST_SETTINGS_DIRECTORY: the directory the preferences file goes into
 //   (<directory>/QtRocket/QtRocket.ini) instead of the user's, so that a test of the program
 //   leaves the user's preferences alone;
+// - QTROCKET_TEST_USER_DATA_DIRECTORY: the user's data directory (DataPaths::userDataDirectory(),
+//   where the start makes the default directories of the user's thrust curves and component
+//   presets and reads them) instead of the platform's, so that a test of the program makes no
+//   directory in the user's home;
 // - QTROCKET_TEST_QUIT_AFTER_START (any value but empty): the application quits as File > Quit
 //   does as soon as its event loop runs.
 
@@ -25,6 +30,7 @@
 #include <memory>
 #include <optional>
 #include <print>
+#include <utility>
 
 #include <QApplication>
 #include <QCommandLineOption>
@@ -132,12 +138,18 @@ int startApplication(QtRocket::Gui::Application& application, const CommandLine&
     {
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, directory);
     }
-    ApplicationSession session(application,
-                               std::make_unique<QtRocket::Gui::ApplicationContext>(
-                                   QtRocket::Gui::SettingsPreferences::openDefault(),
-                                   QtRocket::Gui::DataPaths::forApplication(),
-                                   std::make_unique<QtRocket::Gui::WidgetUserPrompts>()),
-                               commandLine.options);
+    QtRocket::Gui::DataPaths dataPaths = QtRocket::Gui::DataPaths::forApplication();
+    if (const QString directory = qEnvironmentVariable("QTROCKET_TEST_USER_DATA_DIRECTORY");
+        !directory.isEmpty())
+    {
+        dataPaths = dataPaths.withUserDataDirectory(QtRocket::Gui::QtStrings::toPath(directory));
+    }
+    ApplicationSession session(
+        application,
+        std::make_unique<QtRocket::Gui::ApplicationContext>(
+            QtRocket::Gui::SettingsPreferences::openDefault(), std::move(dataPaths),
+            std::make_unique<QtRocket::Gui::WidgetUserPrompts>()),
+        commandLine.options);
     // Queued: the slot that asked to exit returns first, and an exit asked before the event
     // loop runs ends it as soon as it does.
     QObject::connect(&session, &ApplicationSession::exitRequested, &application,

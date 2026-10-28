@@ -25,9 +25,10 @@ class GeneralMotorLoader;
 ///
 /// Deviations: OpenRocket loads on a background thread and shows a dialog for a user file it
 /// cannot read; this loader runs in the caller's thread and records such files as problems
-/// (getProblems()). It has no remote updater and no serialized (.ser) fallback. The files of a
-/// directory are read in name order (Java's File.listFiles() order is unspecified), and a
-/// directory reached twice through links is read once.
+/// (getProblems(); Problem::refusedFile tells those OpenRocket shows from those it logs). It has
+/// no remote updater and no serialized (.ser) fallback. The files of a directory are read in
+/// name order (Java's File.listFiles() order is unspecified), and a directory reached twice
+/// through links is read once.
 class MotorDatabaseLoader
 {
 public:
@@ -36,6 +37,16 @@ public:
     {
         std::filesystem::path file;
         Error                 error;
+        /// Whether the problem is a user's motor file that its loader refused, or of which a
+        /// motor was refused (ThrustCurveMotor::Builder::build()): the IllegalArgumentException
+        /// or IOException of loader.load() and addMotorsFromBuilders() for which OpenRocket shows
+        /// its dialog ("Error upon thrust curve import": the error message in italics, then
+        /// "Thrust curve '<b>'{0}'</b>' will be ignored during import." with this file,
+        /// MotorDbLoaderDlg.message1 and .message2). The other problems OpenRocket logs: a file
+        /// that cannot be opened or read, a user's database file that does not read, a path
+        /// without a supported extension or that is neither file nor directory, a directory that
+        /// cannot be listed, and the bundled database's.
+        bool refusedFile{false};
     };
 
     /// The extensions of user motor files: GeneralMotorLoader's plus "db", an SQLite database
@@ -113,7 +124,7 @@ private:
     [[nodiscard]] Result<void> addMotorsFromBuilders(
         const std::vector<ThrustCurveMotor::Builder>& motorBuilders);
 
-    void addProblem(const std::filesystem::path& file, Error error);
+    void addProblem(const std::filesystem::path& file, Error error, bool refusedFile = false);
 
     std::unique_ptr<GeneralMotorLoader>                  m_loader;
     ThrustCurveMotorSetDatabase                          m_database;

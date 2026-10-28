@@ -1526,21 +1526,89 @@ TEST_F(WidgetUserPromptsTest, ASaveAsDefaultThatTakesTheDialogAlongCancelsTheRen
 
 TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
 {
-    // Run 3 of Milestone 3 brings the preferences' user files and the start-up's problems: until
-    // then each of these gives its cancelling answer without a dialog (one would hang here:
-    // nothing answers it). The value dialogs, the motor chooser and the parts library have their
-    // dialogs (the tests above, tests/gui/main/motor_chooser_prompt_tests.cpp and
+    // Run 3 of Milestone 3 brings the preferences' user files: until then this gives its
+    // cancelling answer without a dialog (one would hang here: nothing answers it). The value
+    // dialogs, the motor chooser, the parts library and the start-up's problems have their
+    // dialogs (the tests above and below, tests/gui/main/motor_chooser_prompt_tests.cpp and
     // tests/gui/dialogs/preset/).
     WidgetUserPrompts            prompts;
     UserPrompts::OpenFileRequest files;
     files.selection         = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
     files.approveButtonText = QStringLiteral("Add");
     EXPECT_EQ(prompts.askOpenFiles(nullptr, files), std::nullopt);
+}
+
+/// The text of OpenRocket's warning about a thrust-curve file @p file that its loader refused
+/// with @p message (MotorDatabaseLoader.loadFile(), without the paragraph's width).
+[[nodiscard]] QString thrustCurveWarning(const QString& message, const QString& file)
+{
+    return QStringLiteral("<html><body><p><i>") + message +
+           QStringLiteral("</i>.<br><br>Thrust curve <b>") + file +
+           QStringLiteral(
+               "</b> will be ignored during import.<br>You can try replacing, deleting "
+               "or manually editing the thrust curve file to fix this issue."
+               "</p></body></html>");
+}
+
+/// The text of OpenRocket's warning about a component preset file @p file that could not be
+/// read (ComponentPresetDatabaseLoader.showLoadingErrorDialog(), without the paragraph's width).
+[[nodiscard]] QString componentPresetWarning(const QString& message, const QString& file)
+{
+    return QStringLiteral("<html><body><p><i>") + message +
+           QStringLiteral("</i>.<br><br>Component preset <b>") + file +
+           QStringLiteral(
+               "</b> will be ignored during import.<br>You can try replacing, deleting "
+               "or manually editing the component preset file to fix this issue."
+               "</p></body></html>");
+}
+
+TEST_F(WidgetUserPromptsTest, ShowsTheStartsDatabaseProblemsInOneMessage)
+{
+    const std::filesystem::path motorFile = std::filesystem::path("motors") / "broken.eng";
     const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+         .file     = motorFile,
+         .message  = QStringLiteral("Illegal number")},
         {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
          .file     = "broken.orc",
          .message  = QStringLiteral("Unexpected end of file")}};
+    WidgetUserPrompts                prompts;
+    QStringList                      lines;
+    QString                          title;
+    const Gui::Test::NextModalDialog close(CloseMessage{.lines = &lines, .title = &title});
     prompts.showDatabaseProblems(nullptr, problems);
+    EXPECT_EQ(title, QStringLiteral(
+                         "Error upon thrust curve import / Error upon component preset import"));
+    EXPECT_EQ(lines, (QStringList{thrustCurveWarning(QStringLiteral("Illegal number"),
+                                                     QtStrings::fromPath(motorFile)),
+                                  componentPresetWarning(QStringLiteral("Unexpected end of file"),
+                                                         QStringLiteral("broken.orc"))}));
+}
+
+TEST_F(WidgetUserPromptsTest, TheDatabaseProblemsAreTitledAfterTheirDatabase)
+{
+    const std::vector<UserPrompts::DatabaseProblem> motors{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES, .file = "a.eng", .message = {}},
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES, .file = "b.rse", .message = {}}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemsTitle(motors),
+              QStringLiteral("Error upon thrust curve import"));
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(motors).size(), 2);
+    const std::vector<UserPrompts::DatabaseProblem> presets{
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS, .file = "a.orc", .message = {}}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemsTitle(presets),
+              QStringLiteral("Error upon component preset import"));
+}
+
+TEST_F(WidgetUserPromptsTest, TheDatabaseProblemsShowTheFileAndTheMessageAsTheyAre)
+{
+    // OpenRocket's HTML would read them as markup.
+    const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
+         .file     = "a<b>&c.orc",
+         .message  = QStringLiteral("Expected '<' & more")}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(problems),
+              QStringList{componentPresetWarning(QStringLiteral("Expected '&lt;' &amp; more"),
+                                                 QStringLiteral("a&lt;b&gt;&amp;c.orc"))});
 }
 }  // namespace
 

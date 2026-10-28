@@ -311,6 +311,18 @@ TEST_F(ThrustCurveMotorSelectionPanelTest, ShowsTheMotorDatabasesVersion)
               QStringLiteral("Motor DB version: Unknown"));
 }
 
+TEST_F(ThrustCurveMotorSelectionPanelTest, StartsWithTheVersionOfItsServices)
+{
+    // The application's services give the version of the bundled metadata.json.
+    Gui::Test::TestGuiServices services;
+    services.startupData().motorDatabaseVersion = 20260418111610;
+    QWidget                                     window;
+    const ThrustCurveMotorSelectionPanel* const panel = makePanel(services, window);
+    const auto* const label = panel->findChild<QLabel*>(QStringLiteral("motorDbVersionLabel"));
+    ASSERT_NE(label, nullptr);
+    EXPECT_EQ(label->text(), QStringLiteral("Motor DB version: 20260418111610"));
+}
+
 TEST_F(ThrustCurveMotorSelectionPanelTest, EnablesTheCurveListForMoreThanOneCurve)
 {
     // ENABLED AeroTech E15W / AeroTech E16W.

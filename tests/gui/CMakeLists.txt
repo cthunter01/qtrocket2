@@ -96,18 +96,20 @@ add_test(NAME gui.help
         -P "${PROJECT_SOURCE_DIR}/tests/core/cli/RunCli.cmake")
 set_tests_properties(gui.help PROPERTIES LABELS "gui;lint" TIMEOUT 300
     ENVIRONMENT "${gui_program_environment};QT_QPA_PLATFORM=no-such-platform")
-# The application started and quit, through the two test hooks of the program (gui/main.cpp), offscreen: it makes
+# The application started and quit, through the three test hooks of the program (gui/main.cpp), offscreen: it makes
 # its services, opens the window of a New design, quits as File > Quit does as soon as its event loop runs, and exits
 # with 0 and nothing on the standard error (under the asan preset: no report of the sanitizers either). Its
 # preferences go into the test's work directory, never into the user's, and hold what every start stores (the default
-# component materials). As GuiTestMain.cpp sets them up for the GUI's tests: Qt paints on the GUI thread only
+# component materials); so does the user's data directory, where the start makes the default directories of the
+# user's thrust curves and component presets (user/ThrustCurves, user/Components). As GuiTestMain.cpp sets them up for the GUI's tests: Qt paints on the GUI thread only
 # (QT_NO_GUI_THREADPOOL: ThreadSanitizer cannot see the locking of Qt's own painting threads in an uninstrumented Qt),
 # and the offscreen platform's fonts: on Windows it reads them from QT_QPA_FONTDIR only (Qt's packages have no
 # lib/fonts, of which it warns), and on macOS its font family "Sans Serif" does not exist, of which Qt's font
 # database warns once (the category is off).
 set(gui_start_directory ${CMAKE_CURRENT_BINARY_DIR}/work/start)
 set(gui_start_environment ${gui_program_environment} QT_QPA_PLATFORM=offscreen QT_NO_GUI_THREADPOOL=1
-    QTROCKET_TEST_QUIT_AFTER_START=1 QTROCKET_TEST_SETTINGS_DIRECTORY=${gui_start_directory}/settings)
+    QTROCKET_TEST_QUIT_AFTER_START=1 QTROCKET_TEST_SETTINGS_DIRECTORY=${gui_start_directory}/settings
+    QTROCKET_TEST_USER_DATA_DIRECTORY=${gui_start_directory}/user)
 if(WIN32)
     set(gui_windows_directory "$ENV{WINDIR}")
     if(gui_windows_directory STREQUAL "")

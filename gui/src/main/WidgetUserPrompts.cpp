@@ -1,5 +1,6 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -13,6 +14,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QGridLayout>
+#include <QLatin1Char>
 #include <QLayout>
 #include <QMessageBox>
 #include <QObject>
@@ -20,9 +22,11 @@
 #include <QPushButton>
 #include <QString>
 #include <QStringList>
+#include <QStringView>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtTypes>
 
 #include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
 #include "QtRocket/gui/dialogs/DeploymentSelectionDialog.h"
@@ -61,6 +65,82 @@ constexpr int kDescriptionRows     = 5;
 constexpr int kDescriptionMinWidth = 100;
 /// The size of the small note of the insert position question (StyledLabel(text, -2)).
 constexpr double kNoteSize = -2.0;
+
+/// The texts of OpenRocket's warning about a file the start could not load into a database.
+struct DatabaseTexts
+{
+    /// MotorDbLoaderDlg.title, ComponentDbLoaderDlg.title.
+    QString title;
+    /// .message1, a MessageFormat pattern with the file as {0}.
+    QString ignored;
+    /// .message2.
+    QString advice;
+};
+
+/// The texts of OpenRocket's warning about a file of @p database.
+[[nodiscard]] DatabaseTexts databaseTexts(UserPrompts::DatabaseKind database)
+{
+    switch (database)
+    {
+        case UserPrompts::DatabaseKind::THRUST_CURVES:
+            return {//: MotorDbLoaderDlg.title
+                    .title = WidgetUserPrompts::tr("Error upon thrust curve import"),
+                    //: MotorDbLoaderDlg.message1
+                    .ignored = WidgetUserPrompts::tr(
+                        "Thrust curve '<b>'{0}'</b>' will be ignored during import."),
+                    //: MotorDbLoaderDlg.message2
+                    .advice =
+                        WidgetUserPrompts::tr("You can try replacing, deleting or manually editing "
+                                              "the thrust curve file to fix this issue.")};
+        case UserPrompts::DatabaseKind::COMPONENT_PRESETS:
+            return {//: ComponentDbLoaderDlg.title
+                    .title = WidgetUserPrompts::tr("Error upon component preset import"),
+                    //: ComponentDbLoaderDlg.message1
+                    .ignored = WidgetUserPrompts::tr(
+                        "Component preset '<b>'{0}'</b>' will be ignored during import."),
+                    //: ComponentDbLoaderDlg.message2
+                    .advice =
+                        WidgetUserPrompts::tr("You can try replacing, deleting or manually editing "
+                                              "the component preset file to fix this issue.")};
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+/// java.text.MessageFormat.format(@p pattern, @p argument) for a pattern whose only argument is
+/// {0}: the text between single quotes is taken as it is, two single quotes are one, and {0}
+/// outside quotes is @p argument.
+[[nodiscard]] QString formatMessage(const QString& pattern, const QString& argument)
+{
+    constexpr QStringView kArgument = u"{0}";
+    QString               text;
+    bool                  quoted = false;
+    for (qsizetype index = 0; index < pattern.size(); ++index)
+    {
+        const QChar character = pattern.at(index);
+        if (character == QLatin1Char('\''))
+        {
+            if (index + 1 < pattern.size() && pattern.at(index + 1) == QLatin1Char('\''))
+            {
+                text.append(character);
+                ++index;
+            }
+            else
+            {
+                quoted = !quoted;
+            }
+        }
+        else if (!quoted && QStringView(pattern).sliced(index).startsWith(kArgument))
+        {
+            text.append(argument);
+            index += kArgument.size() - 1;
+        }
+        else
+        {
+            text.append(character);
+        }
+    }
+    return text;
+}
 
 /// Whether the question's parent was destroyed while a dialog of it was open: it had one and its
 /// pointer is null now.
@@ -616,11 +696,47 @@ void WidgetUserPrompts::showErrorsAndWarnings(QWidget*                        pa
                                               message.warnings);
 }
 
-void WidgetUserPrompts::showDatabaseProblems(QWidget* /*parent*/,
-                                             std::span<const DatabaseProblem> /*problems*/)
+QString WidgetUserPrompts::databaseProblemsTitle(std::span<const DatabaseProblem> problems)
 {
-    // Run 3 of Milestone 3 (the start-up): one message with OpenRocket's MotorDbLoaderDlg and
-    // ComponentDbLoaderDlg texts. Until then: nothing is shown.
+    QStringList titles;
+    for (const DatabaseKind database :
+         {DatabaseKind::THRUST_CURVES, DatabaseKind::COMPONENT_PRESETS})
+    {
+        if (std::ranges::any_of(problems, [database](const DatabaseProblem& problem) {
+                return problem.database == database;
+            }))
+        {
+            titles.append(databaseTexts(database).title);
+        }
+    }
+    return titles.join(QStringLiteral(" / "));
+}
+
+QStringList WidgetUserPrompts::databaseProblemLines(std::span<const DatabaseProblem> problems)
+{
+    QStringList lines;
+    for (const DatabaseProblem& problem : problems)
+    {
+        // MotorDatabaseLoader.loadFile() and ComponentPresetDatabaseLoader.
+        // showLoadingErrorDialog(): "<html><body><p style='width: 400px;'><i>" + message +
+        // "</i>.<br><br>" + MessageFormat.format(message1, path) + "<br>" + message2 +
+        // "</p></body></html>".
+        const DatabaseTexts texts = databaseTexts(problem.database);
+        lines.append(
+            QStringLiteral("<html><body><p><i>") + problem.message.toHtmlEscaped() +
+            QStringLiteral("</i>.<br><br>") +
+            formatMessage(texts.ignored, QtStrings::fromPath(problem.file).toHtmlEscaped()) +
+            QStringLiteral("<br>") + texts.advice + QStringLiteral("</p></body></html>"));
+    }
+    return lines;
+}
+
+void WidgetUserPrompts::showDatabaseProblems(QWidget*                         parent,
+                                             std::span<const DatabaseProblem> problems)
+{
+    // JOptionPane(message, WARNING_MESSAGE).createDialog(null, title), one for all the files.
+    DetailDialog::showDetailedMessageDialog(parent, databaseProblemLines(problems), std::nullopt,
+                                            databaseProblemsTitle(problems), Severity::WARNING);
 }
 
 UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*              parent,

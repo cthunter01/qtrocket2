@@ -19,7 +19,10 @@
 //   text first (on macOS the offscreen platform's font family "Sans Serif" does not exist, which
 //   Qt warns of once).
 // - QStandardPaths' test mode, and every QSettings made without a file name is an INI file in a
-//   temporary directory of this process (the code under test takes its own INI file anyway).
+//   temporary directory of this process (the code under test takes its own INI file anyway). In
+//   that mode the application's data (DataPaths::forApplication()) has no user's data directory
+//   and no bundled component presets: no test reads the user's files or makes directories in the
+//   user's home.
 // - A Qt warning, critical or fatal message during a test fails it (ExpectedQtMessage).
 // - So does a report of the error hook (Guard: a guarded slot or the notify() backstop caught an
 //   exception, or the code reported an error condition) that the test does not expect: the

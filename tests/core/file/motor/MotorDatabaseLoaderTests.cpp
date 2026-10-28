@@ -156,6 +156,12 @@ TEST(MotorDatabaseLoader, RecordsFilesItCannotLoad)
     EXPECT_EQ(problems[2].error.code, ErrorCode::PARSE);
     EXPECT_EQ(problems[3].file, partly);
     EXPECT_EQ(problems[3].error.message, "Negative thrust.");
+    // OpenRocket shows its dialog for the files the loader or a motor's builder refused, and logs
+    // the others.
+    EXPECT_FALSE(problems[0].refusedFile);
+    EXPECT_FALSE(problems[1].refusedFile);
+    EXPECT_TRUE(problems[2].refusedFile);
+    EXPECT_TRUE(problems[3].refusedFile);
 
     // partly.eng's A8 and good.eng's A8 (the same curve) plus the counted B4.
     EXPECT_EQ(loader.getMotorCount(), 3);
@@ -178,6 +184,8 @@ TEST(MotorDatabaseLoader, ReadsAUserDatabaseFile)
     loader.loadUserDefinedMotors(broken);
     ASSERT_EQ(loader.getProblems().size(), 1U);
     EXPECT_EQ(loader.getProblems().front().error.code, ErrorCode::DATABASE);
+    // OpenRocket logs it (loadSqlite()'s BugException, caught by loadFile()).
+    EXPECT_FALSE(loader.getProblems().front().refusedFile);
 }
 
 TEST(MotorDatabaseLoader, PrefersAReadableMotorLibraryDatabase)

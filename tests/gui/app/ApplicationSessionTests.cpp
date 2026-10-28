@@ -1,5 +1,6 @@
 #include "QtRocket/gui/app/ApplicationSession.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -22,6 +23,7 @@
 #include <QSignalSpy>
 #include <QString>
 #include <QStringList>
+#include <QWidget>
 #include <QWindow>
 #include <Qt>
 #include <QtContainerFwd>
@@ -59,8 +61,10 @@
 #include "unit/DefaultUnitsGuard.h"
 
 // The start of the application as main() makes it (gui/main.cpp): an ApplicationContext over a
-// preferences file of the test's own and the data of the build tree, then the ApplicationSession,
-// on the tests' Application, without the event loop (or with it, for a moment).
+// preferences file of the test's own and the data of the build tree (in QStandardPaths' test mode
+// without the bundled presets and the user's data: DataPaths::forApplication()), then the
+// ApplicationSession, on the tests' Application, without the event loop (or with it, for a
+// moment).
 
 namespace QtRocket::Gui
 {
@@ -509,6 +513,94 @@ TEST_F(ApplicationSessionTest, AMissingMotorDatabaseIsShownOverTheFirstWindow)
                              "that uses a missing motor opens without it."));
     EXPECT_TRUE(message.texts.at(3).startsWith(QtStrings::fromPath(nowhere.motorDirectory()) +
                                                QStringLiteral(": No SQLite motor database")));
+}
+
+/// Records in @p windowOpen whether a design window is open (HookedUserPrompts' hook).
+struct RecordWhetherAWindowIsOpen
+{
+    bool* windowOpen;
+
+    void operator()() const
+    {
+        *windowOpen =
+            std::ranges::any_of(QApplication::topLevelWidgets(), [](const QWidget* widget) {
+                return qobject_cast<const MainWindow*>(widget) != nullptr;
+            });
+    }
+};
+
+TEST_F(ApplicationSessionTest, TheUsersFilesThatCannotBeLoadedAreShownOnceOverTheFirstWindow)
+{
+    // MotorDatabaseLoader's and ComponentPresetDatabaseLoader's warnings, in one message once
+    // the first window is open.
+    const std::filesystem::path brokenMotor =
+        directory().write(std::filesystem::path("user") / "ThrustCurves" / "broken.eng", "junk\n");
+    const std::filesystem::path brokenPreset =
+        directory().write(std::filesystem::path("user") / "Components" / "broken.orc", "<not xml");
+    auto                            hooked     = std::make_unique<Gui::Test::HookedUserPrompts>();
+    Gui::Test::ScriptedUserPrompts& scripted   = hooked->scripted();
+    bool                            windowOpen = false;
+    hooked->beforeNextMessage(RecordWhetherAWindowIsOpen{.windowOpen = &windowOpen});
+    ApplicationSession& session = start(
+        makeContext(std::move(hooked), scripted,
+                    DataPaths::forApplication().withUserDataDirectory(directory().resolve("user"))),
+        options(Behaviour::KEEP_RUNNING));
+    EXPECT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_TRUE(windowOpen);
+    ASSERT_EQ(scripted.prompts().size(), 1U);
+    EXPECT_EQ(scripted.prompts().front().kind, PromptKind::DATABASE_PROBLEMS);
+    ASSERT_EQ(scripted.databaseProblems().size(), 2U);
+    EXPECT_EQ(scripted.databaseProblems().front().database,
+              UserPrompts::DatabaseKind::THRUST_CURVES);
+    EXPECT_EQ(scripted.databaseProblems().front().file, brokenMotor);
+    EXPECT_EQ(scripted.databaseProblems().back().database,
+              UserPrompts::DatabaseKind::COMPONENT_PRESETS);
+    EXPECT_EQ(scripted.databaseProblems().back().file, brokenPreset);
+
+    // Once: the window of a reopen shows nothing more.
+    EXPECT_TRUE(session.windows().close(firstWindow(session)));
+    session.reopenIfNoWindow();
+    EXPECT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_EQ(scripted.prompts().size(), 1U);
+}
+
+TEST_F(ApplicationSessionTest, TheBundledMotorDatabasesProblemsComeFirst)
+{
+    // A bundled database that cannot be read stops the motors' load (MotorDatabaseLoader.
+    // loadDatabase(): the user's thrust curves are not read), not the presets': the message of the
+    // motor database, then the user's preset file.
+    static_cast<void>(directory().write(
+        std::filesystem::path("data") / "motors" / "initial_motors.db", "not a database"));
+    static_cast<void>(
+        directory().write(std::filesystem::path("user") / "ThrustCurves" / "broken.eng", "junk\n"));
+    const std::filesystem::path brokenPreset =
+        directory().write(std::filesystem::path("user") / "Components" / "broken.orc", "<not xml");
+    const DataPaths           broken  = DataPaths(directory().resolve("data"))
+                                            .withComponentDirectory(std::nullopt)
+                                            .withUserDataDirectory(directory().resolve("user"));
+    const ApplicationSession& session = start(makeContext(broken));
+    EXPECT_TRUE(session.context().userThrustCurveProblems().empty());
+    ASSERT_EQ(prompts().prompts().size(), 2U);
+    EXPECT_EQ(prompts().prompts().front().kind, PromptKind::MESSAGE);
+    EXPECT_EQ(prompts().prompts().front().title, QStringLiteral("Motor database"));
+    EXPECT_EQ(prompts().prompts().back().kind, PromptKind::DATABASE_PROBLEMS);
+    ASSERT_EQ(prompts().databaseProblems().size(), 1U);
+    EXPECT_EQ(prompts().databaseProblems().front().file, brokenPreset);
+}
+
+TEST_F(ApplicationSessionTest, AMissingBundledMotorDatabaseStillReadsTheUsersThrustCurves)
+{
+    // No bundled database is a problem, not a failure: the user's files are read.
+    const std::filesystem::path brokenMotor =
+        directory().write(std::filesystem::path("user") / "ThrustCurves" / "broken.eng", "junk\n");
+    const DataPaths nowhere = DataPaths(directory().resolve("no data"))
+                                  .withComponentDirectory(std::nullopt)
+                                  .withUserDataDirectory(directory().resolve("user"));
+    start(makeContext(nowhere));
+    ASSERT_EQ(prompts().prompts().size(), 2U);
+    EXPECT_EQ(prompts().prompts().front().title, QStringLiteral("Motor database"));
+    ASSERT_EQ(prompts().databaseProblems().size(), 1U);
+    EXPECT_EQ(prompts().databaseProblems().front().file, brokenMotor);
 }
 
 TEST_F(ApplicationSessionTest, PutsTheHooksItReplacedBack)
