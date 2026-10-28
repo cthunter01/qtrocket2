@@ -29,21 +29,35 @@
 //   their texts and that of the stability margin, painted in the figure (GoldenDesign's mass.json
 //   and aero.json, within the golden tolerance; the GUI reference's state.json for its CG); for
 //   the designs without goldens, what the command-line tool's 'info' prints, which computes as
-//   the core.
+//   the core;
+// - the "Motors & Configuration" tab (Milestone 3, plan section 10.5), when it is chosen, shows
+//   OpenRocket's tab of the loaded design (OpenDesignsTabPins.h, the open-designs family of
+//   tools/openrocket-gui-pins: OpenRocket's real FlightConfigurationPanel over the same file):
+//   the rows and their configurations, the three sub-tabs, every button, the help text of a
+//   design without a motor mount, the three tables cell by cell through the panels' models (the
+//   texts, the shading, the selection the tables make), the motor mount table, and the design's
+//   selection that the Motors table sets; opening it changes nothing, and a click on a row
+//   chooses its configuration, in the design view's configuration selector too.
 //
-// The environment of the windows is that of the core's golden tests (DesignFileEnvironment
-// without component presets, as the application has none before Milestone 3: the bundled motor
+// The environment of the windows is that of the core's golden tests (DesignFileEnvironment with
+// the six component presets of the example designs, Presets::EXAMPLES: the bundled motor
 // database, OpenRocket's test preferences and materials, the bundled extensions), so that the
 // goldens apply; the thirteen test rockets are loaded against the seven motors of TestRockets, as
-// resave_golden_tests.cpp loads them (their motors are synthetic). The windows are those of the
-// application without its start-up: a WindowManager with ConfigDialogRequests and
-// DocumentFileOperations, as ApplicationSession connects them (the application's own start is
-// tested in tests/gui/app/).
+// resave_golden_tests.cpp loads them (their motors are synthetic). The six presets are the only
+// ones the designs name, and the bundled presets give the same six
+// (OpenDesignsExitGoldenPresets): with them the three examples that name presets, and their
+// re-saves, load without the six "No matching ComponentPreset" warnings an application without
+// presets gives, as with the application's bundled presets, at no cost (the bundled presets take a
+// second and a half to read in a debug build). The windows are those of the application without
+// its start-up: a WindowManager with ConfigDialogRequests and DocumentFileOperations, as
+// ApplicationSession connects them (the application's own start is tested in tests/gui/app/).
 //
-// Each of the five tests of a design opens it anew, so that ctest runs them as separate processes
-// in parallel: 331 tests, about 20 s on 8 jobs in a debug build (145 s of processes, none above
-// 1.2 s; the examples, whose archives hold flight data, take the longest) and about 65 s under
-// the asan preset (500 s of processes, none above 6 s).
+// Each of the six tests of a design opens it anew, so that ctest runs them as separate processes
+// in parallel: 399 tests. Milestone 2's 331 took about 20 s on 8 jobs in a debug build (145 s of
+// processes, none above 1.2 s; the examples, whose archives hold flight data, take the longest)
+// and about 65 s under the asan preset (500 s of processes, none above 6 s); the tab's test of a
+// design costs about what each of the other five costs (most of it is the opening), and the test
+// of the presets reads the bundled ones once (a few seconds).
 
 #include <algorithm>
 #include <array>
@@ -73,6 +87,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QFont>
 #include <QIcon>
 #include <QImage>
 #include <QLatin1Char>
@@ -86,6 +101,7 @@
 #include <QPushButton>
 #include <QRegion>
 #include <QString>
+#include <QTabWidget>
 #include <QTest>
 #include <QTextCursor>
 #include <QVariant>
@@ -98,6 +114,7 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "GuiTestSupport.h"
+#include "OpenDesignsTabPins.h"
 #include "QtRocket/cli/CliOutput.h"
 #include "QtRocket/cli/InfoCommand.h"
 #include "QtRocket/document/OpenRocketDocument.h"
@@ -110,6 +127,14 @@
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketInfo.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurablePanel.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurableTableModel.h"
+#include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
+#include "QtRocket/gui/flightconfig/MotorConfigurationPanel.h"
+#include "QtRocket/gui/flightconfig/MotorMountConfigurationPanel.h"
+#include "QtRocket/gui/flightconfig/MotorMountTableModel.h"
+#include "QtRocket/gui/flightconfig/RecoveryConfigurationPanel.h"
+#include "QtRocket/gui/flightconfig/SeparationConfigurationPanel.h"
 #include "QtRocket/gui/main/ConfigDialogRequests.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/DocumentFileOperations.h"
@@ -126,15 +151,18 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
+#include "QtRocket/gui/widgets/IconButton.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/mass/MassCalculator.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/MassObject.h"
 #include "QtRocket/rocket/NoseCone.h"
@@ -144,7 +172,9 @@
 #include "QtRocket/rocket/StabilityUnits.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -159,6 +189,8 @@
 #include "figure/RecordingPaintDevice.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
+#include "flightconfig/FlightConfigurationTabSupport.h"
+#include "flightconfig/FlightConfigurationTablePins.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenDesign.h"
 #include "goldens/GoldenExamples.h"
@@ -166,6 +198,8 @@
 #include "goldens/GoldenMismatches.h"
 #include "goldens/GoldenResaves.h"
 #include "motor/TestMotorDatabase.h"
+#include "rocket/preset/ExamplePresets.h"
+#include "rocket/preset/TestPresetDatabase.h"
 
 namespace QtRocket::Gui
 {
@@ -308,21 +342,8 @@ struct LoadWarnings
     std::span<const std::string_view> warnings;
 };
 
-// The three examples that name component presets, of which the application has none before
-// Milestone 3 (the original and OpenRocket's re-save alike): example_files_tests.cpp,
-// presetWarnings(), and GoldenExamples.h ("Presets::NONE: three examples give six warnings").
-constexpr std::array<std::string_view, 1> kPrintableWarnings{
-    "No matching ComponentPreset for component Paper Body Tube -- DO NOT PRINT found matching "
-    "Estes BT-50FE, 30359"};
-constexpr std::array<std::string_view, 2> kDeployableWarnings{
-    "No matching ComponentPreset for component Parachute, plastic, preassembled, 10 in., PN 2262 "
-    "found matching Estes PK-10, 2262",
-    "No matching ComponentPreset for component Parachute kit, plastic, 8 in., PN 2260 found "
-    "matching Estes PK-8, 2260"};
-constexpr std::array<std::string_view, 3> kPodsWarnings{
-    "No matching ComponentPreset for component Nose Cone found matching Estes PNC-50YR, 72604",
-    "No matching ComponentPreset for component Body Tube found matching Estes BT-50, 30352",
-    "No matching ComponentPreset for component Nose Cone found matching Estes PNC-20, 072606"};
+// (The three examples that name component presets, and their re-saves, find them all in the six
+// presets of the environment, and give no warning: OpenDesignsExitGoldenPresets.)
 // OpenRocket's re-save of the parallel boosters names its six textures by the absolute paths
 // "/datafiles/textures/*", which a design may not read (decision D8 of 2026-10-14; GoldenExamples.h
 // and LoaderWarningsTests.cpp, decalFileOutsideDesign()).
@@ -346,16 +367,6 @@ constexpr std::array<std::string_view, 1> kScriptWarnings{
     "Scripts that OpenRocket trusts have been disabled: QtRocket runs no scripts."};
 
 constexpr std::array kLoadWarnings{
-    LoadWarnings{.design   = "example_3d_printable_nose_cone_and_fins",
-                 .warnings = kPrintableWarnings},
-    LoadWarnings{.design   = "resave_example_3d_printable_nose_cone_and_fins",
-                 .warnings = kPrintableWarnings},
-    LoadWarnings{.design = "example_deployable_payload", .warnings = kDeployableWarnings},
-    LoadWarnings{.design = "resave_example_deployable_payload", .warnings = kDeployableWarnings},
-    LoadWarnings{.design   = "example_pods_powered_with_recovery_deployment",
-                 .warnings = kPodsWarnings},
-    LoadWarnings{.design   = "resave_example_pods_powered_with_recovery_deployment",
-                 .warnings = kPodsWarnings},
     LoadWarnings{.design = "resave_example_parallel_booster_staging", .warnings = kTextureWarnings},
     LoadWarnings{.design   = "legacy_v1_7_simulation_extensions_and_scripting",
                  .warnings = kScriptWarnings},
@@ -410,15 +421,16 @@ constexpr std::array                      kOpeningChanges{
 
 // ===================================================================== the environment
 
-/// The services of the windows (see the top of the file): a DesignFileEnvironment without
-/// component presets over @p motors, OpenRocket's built-in materials as the application's
-/// materials, no component presets for the windows either, and the scripted questions.
+/// The services of the windows (see the top of the file): a DesignFileEnvironment with the six
+/// component presets of the example designs over @p motors, OpenRocket's built-in materials as
+/// the application's materials, the environment's presets as the windows' presets too (the parts
+/// library's), and the scripted questions.
 class DesignServices
 {
 public:
     explicit DesignServices(const ThrustCurveMotorSetDatabase& motors)
-      : m_environment(DesignFileEnvironment::Presets::NONE, motors),
-        m_services(m_environment.preferences(), m_materials, motors, m_presets,
+      : m_environment(DesignFileEnvironment::Presets::EXAMPLES, motors),
+        m_services(m_environment.preferences(), m_materials, motors, m_environment.presets(),
                    m_environment.context(), m_prompts)
     {
         addBuiltinMaterials(m_materials);
@@ -434,7 +446,6 @@ public:
 private:
     DesignFileEnvironment          m_environment;
     MaterialStorage                m_materials;
-    ComponentPresetDatabase        m_presets;
     Gui::Test::ScriptedUserPrompts m_prompts;
     GuiServices                    m_services;
 };
@@ -1756,6 +1767,470 @@ TEST_P(OpenDesignsExitGolden, ShowsTheGoldenNumbersInItsOverlay)
         EXPECT_EQ(QtRocket::Test::selectedIndex(rocket), item);
         expectOverlayOf(subject);
     }
+}
+
+// ============================================================ the Motors & Configuration tab
+
+using Gui::Test::CellStylePin;
+using Gui::Test::ConfigurationRowPin;
+using Gui::Test::EnabledPin;
+using Gui::Test::MotorCellPin;
+using Gui::Test::MotorMountRowPin;
+using Gui::Test::OpenDesignTabPin;
+using Gui::Test::ValueCellPin;
+
+/// The pins of OpenRocket's tab for the design named @p name; null when there are none.
+[[nodiscard]] const OpenDesignTabPin* tabPinOf(std::string_view name)
+{
+    for (const OpenDesignTabPin& pin : Gui::Test::kOpenDesignTabs)
+    {
+        if (pin.design == name)
+        {
+            return &pin;
+        }
+    }
+    return nullptr;
+}
+
+/// The names of the designs the pins of OpenRocket's tab are of, in their order.
+[[nodiscard]] std::vector<std::string_view> tabPinDesigns()
+{
+    std::vector<std::string_view> names;
+    std::ranges::transform(Gui::Test::kOpenDesignTabs, std::back_inserter(names),
+                           &OpenDesignTabPin::design);
+    return names;
+}
+
+/// The names of @p designs, in their order.
+[[nodiscard]] std::vector<std::string_view> namesOf(const std::vector<OpenDesign>& designs)
+{
+    std::vector<std::string_view> names;
+    std::ranges::transform(designs, std::back_inserter(names),
+                           [](const OpenDesign& design) { return std::string_view(design.name); });
+    return names;
+}
+
+// The pins of OpenRocket's tab (OpenDesignsTabPins.h) come from the goldens' OpenRocket, are of
+// the 66 designs of the suite in its order, and their two styles' colours are the run-2 pins'
+// (FlightConfigurationTablePins.h, which tests them against ThemeColors' light ones).
+TEST(OpenDesignsExitGoldenDesigns, HaveOpenRocketsTabEach)
+{
+    EXPECT_EQ(Gui::Test::kOpenDesignsTabPinsCommit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
+    EXPECT_EQ(tabPinDesigns(), namesOf(openDesigns()));
+    EXPECT_EQ(Gui::Test::kOpenDesignsTabTextColour, Gui::Test::kJavaTextColour);
+    EXPECT_EQ(Gui::Test::kOpenDesignsTabDimTextColour, Gui::Test::kJavaDimTextColour);
+}
+
+/// The text of @p value (a model's data), as UTF-8, as the pins hold their texts (and a failure
+/// prints them).
+[[nodiscard]] std::string textOf(const QVariant& value)
+{
+    return QtStrings::toUtf8(value.toString());
+}
+
+/// The configuration of the row @p row of @p model as Java's @p pin: its key (unless the loader
+/// draws it: compared by row only), raw name and override of the default name (column 0:
+/// expectNamesAsJava()).
+void expectRowAsJava(const FlightConfigurableTableModel& model, std::size_t row,
+                     const ConfigurationRowPin& pin, const Preferences& preferences)
+{
+    SCOPED_TRACE(std::format("row {}", row));
+    const FlightConfigurationId& id = model.configurationIds()[row];
+    if (!pin.drawn)
+    {
+        EXPECT_EQ(id.key().toString(), pin.key);
+    }
+    const Rocket&              rocket        = model.rocket();
+    const FlightConfiguration& configuration = rocket.getFlightConfiguration(id);
+    EXPECT_EQ(configuration.getNameRaw(preferences), pin.rawName);
+    EXPECT_EQ(configuration.isNameOverridden(preferences), pin.nameOverridden);
+}
+
+/// The rows of @p model as Java's @p rows (expectRowAsJava()).
+void expectRowsAsJava(const FlightConfigurableTableModel&  model,
+                      std::span<const ConfigurationRowPin> rows, const Preferences& preferences)
+{
+    ASSERT_EQ(model.configurationIds().size(), rows.size());
+    for (std::size_t row = 0; row < rows.size(); ++row)
+    {
+        expectRowAsJava(model, row, rows[row], preferences);
+    }
+}
+
+/// The headers of @p model as Java's @p headers, column 0 ("Configuration") included.
+void expectHeadersAsJava(const FlightConfigurableTableModel& model,
+                         std::span<const std::string_view>   headers)
+{
+    ASSERT_EQ(static_cast<std::size_t>(model.columnCount()), headers.size());
+    for (std::size_t column = 0; column < headers.size(); ++column)
+    {
+        EXPECT_EQ(textOf(model.headerData(static_cast<int>(column), Qt::Horizontal)),
+                  headers[column])
+            << "column " << column;
+    }
+}
+
+/// Column 0 of @p model: the rows' names as Java's renderer writes them (the same in the three
+/// tables), regular.
+void expectNamesAsJava(const FlightConfigurableTableModel&  model,
+                       std::span<const ConfigurationRowPin> rows)
+{
+    ASSERT_EQ(static_cast<std::size_t>(model.rowCount()), rows.size());
+    for (std::size_t row = 0; row < rows.size(); ++row)
+    {
+        const QModelIndex index = model.index(static_cast<int>(row), 0);
+        EXPECT_EQ(textOf(model.data(index)), rows[row].name) << "row " << row;
+        EXPECT_FALSE(model.data(index, FlightConfigurableTableModel::kDefaultRole).toBool())
+            << "row " << row;
+        EXPECT_FALSE(model.data(index, Qt::FontRole).isValid()) << "row " << row;
+    }
+}
+
+/// The motor cell of @p model at @p pin as Java's: the motor label always regular, the ignition
+/// shaded where Java shades it (the cell's configuration has no ignition override).
+void expectMotorCellAsJava(const FlightConfigurableTableModel& model, const MotorCellPin& pin)
+{
+    SCOPED_TRACE(std::format("row {}, column {}", pin.row, pin.column));
+    const QModelIndex index = model.index(pin.row, pin.column);
+    EXPECT_EQ(textOf(model.data(index)), pin.motor);
+    EXPECT_EQ(textOf(model.data(index, FlightConfigurableTableModel::kIgnitionTextRole)),
+              pin.ignition);
+    const bool shaded = pin.ignitionStyle == CellStylePin::SHADED;
+    EXPECT_EQ(shaded, !pin.ignitionOverride);
+    EXPECT_EQ(model.data(index, FlightConfigurableTableModel::kDefaultRole).toBool(), shaded);
+    EXPECT_FALSE(model.data(index, Qt::FontRole).isValid());
+}
+
+/// The recovery or stage cell of @p model at @p pin as Java's. QtRocket shades a cell whose
+/// configuration has no value of its own (!containsId(): OpenRocket's bug 1, fixed by the user's
+/// decision U-M3-5, FlightConfigurableTableModel), where Java shades by isDefault(), which is
+/// false for every cell of a loaded design.
+void expectValueCellAsJava(const FlightConfigurableTableModel& model, const ValueCellPin& pin)
+{
+    SCOPED_TRACE(std::format("row {}, column {}", pin.row, pin.column));
+    const QModelIndex index = model.index(pin.row, pin.column);
+    EXPECT_EQ(textOf(model.data(index)), pin.text);
+    EXPECT_EQ(pin.style == CellStylePin::SHADED, pin.isDefault);
+    const bool shaded = !pin.containsId;
+    EXPECT_EQ(model.data(index, FlightConfigurableTableModel::kDefaultRole).toBool(), shaded);
+    EXPECT_EQ(qvariant_cast<QFont>(model.data(index, Qt::FontRole)).italic(), shaded);
+    EXPECT_EQ(model.data(index, Qt::ForegroundRole).isValid(), shaded);
+}
+
+/// The cells of @p model, every component's column of every row, as Java's @p cells.
+template <class Pin>
+void expectCellsAsJava(const FlightConfigurableTableModel& model, std::span<const Pin> cells,
+                       void (*expectCell)(const FlightConfigurableTableModel&, const Pin&))
+{
+    ASSERT_EQ(cells.size(), static_cast<std::size_t>(model.rowCount()) *
+                                static_cast<std::size_t>(std::max(model.columnCount() - 1, 0)));
+    for (const Pin& pin : cells)
+    {
+        expectCell(model, pin);
+    }
+}
+
+/// The table of @p panel as Java's: its headers, column 0, its cells and the rows and columns it
+/// selected (made with the window: the rocket's selected configuration in the last column).
+template <class Pin>
+void expectTableAsJava(const FlightConfigurablePanel&    panel,
+                       std::span<const std::string_view> headers, std::span<const Pin> cells,
+                       std::string_view selection, std::span<const ConfigurationRowPin> rows,
+                       void (*expectCell)(const FlightConfigurableTableModel&, const Pin&))
+{
+    const FlightConfigurableTableModel& model = panel.tableModel();
+    expectHeadersAsJava(model, headers);
+    expectNamesAsJava(model, rows);
+    expectCellsAsJava(model, cells, expectCell);
+    EXPECT_EQ(Gui::Test::FlightConfigurationTab::lines(panel), selection);
+}
+
+/// The sub-tabs of @p tab as Java's: their titles, which are enabled, and the current one.
+void expectSubTabsAsJava(const FlightConfigurationPanel& tab, const OpenDesignTabPin& pin)
+{
+    const QTabWidget& tabs = *tab.tabs();
+    ASSERT_EQ(static_cast<std::size_t>(tabs.count()), pin.tabs.size());
+    for (std::size_t i = 0; i < pin.tabs.size(); ++i)
+    {
+        const int index = static_cast<int>(i);
+        EXPECT_EQ(QtStrings::toUtf8(tabs.tabText(index)), pin.tabs[i].name);
+        EXPECT_EQ(tabs.isTabEnabled(index), pin.tabs[i].enabled) << pin.tabs[i].name;
+    }
+    EXPECT_EQ(tabs.currentIndex(), pin.currentTab);
+}
+
+/// A button of the tab, by the name of the Java field that holds it ("<panel>.<field>":
+/// OpenDesignsTabPins.h).
+struct TabButton
+{
+    std::string_view name;
+    const QPushButton* (*button)(const FlightConfigurationPanel& tab);
+};
+
+const std::array<TabButton, 12> kTabButtons{{
+    {.name   = "tab.newConfButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.newConfigurationButton();
+     }},
+    {.name   = "tab.renameConfButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.renameConfigurationButton();
+     }},
+    {.name   = "tab.removeConfButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.deleteConfigurationButton();
+     }},
+    {.name   = "tab.duplicateConfButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.duplicateConfigurationButton();
+     }},
+    {.name   = "motors.selectMotorButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.motorConfigurationPanel().selectMotorButton();
+     }},
+    {.name   = "motors.deleteMotorButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.motorConfigurationPanel().deleteMotorButton();
+     }},
+    {.name   = "motors.selectIgnitionButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.motorConfigurationPanel().selectIgnitionButton();
+     }},
+    {.name   = "motors.resetIgnitionButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.motorConfigurationPanel().resetIgnitionButton();
+     }},
+    {.name   = "recovery.selectDeploymentButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.recoveryConfigurationPanel().selectDeploymentButton();
+     }},
+    {.name   = "recovery.resetDeploymentButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.recoveryConfigurationPanel().resetDeploymentButton();
+     }},
+    {.name   = "stages.selectSeparationButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.separationConfigurationPanel().selectSeparationButton();
+     }},
+    // Java's field of the Stages panel's Reset button is named resetDeploymentButton.
+    {.name   = "stages.resetDeploymentButton",
+     .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
+         return tab.separationConfigurationPanel().resetSeparationButton();
+     }},
+}};
+
+/// Whether @p button itself is enabled, as Java's isEnabled() tells: a disabled sub-tab disables
+/// its page and so every widget on it (QTabWidget::setTabEnabled()), which a JTabbedPane does
+/// not.
+[[nodiscard]] bool isEnabledItself(const QPushButton& button)
+{
+    return !button.testAttribute(Qt::WA_ForceDisabled);
+}
+
+/// The buttons of @p tab as Java's @p buttons (kTabButtons' order, the probe's).
+void expectButtonsAsJava(const FlightConfigurationPanel& tab, std::span<const EnabledPin> buttons)
+{
+    ASSERT_EQ(buttons.size(), kTabButtons.size());
+    for (std::size_t i = 0; i < buttons.size(); ++i)
+    {
+        EXPECT_EQ(kTabButtons.at(i).name, buttons[i].name);
+        const QPushButton* const button = kTabButtons.at(i).button(tab);
+        ASSERT_NE(button, nullptr) << buttons[i].name;
+        EXPECT_EQ(isEnabledItself(*button), buttons[i].enabled) << buttons[i].name;
+    }
+}
+
+/// The motor mount table @p model as Java's @p rows: every MotorMount, its check box and name.
+void expectMotorMountsAsJava(const MotorMountTableModel&       model,
+                             std::span<const MotorMountRowPin> rows)
+{
+    ASSERT_EQ(static_cast<std::size_t>(model.rowCount()), rows.size());
+    for (std::size_t row = 0; row < rows.size(); ++row)
+    {
+        const int r = static_cast<int>(row);
+        EXPECT_EQ(
+            model.data(model.index(r, MotorMountTableModel::kMotorMountColumn), Qt::CheckStateRole)
+                .toInt(),
+            static_cast<int>(rows[row].motorMount ? Qt::Checked : Qt::Unchecked))
+            << "row " << row;
+        EXPECT_EQ(textOf(model.data(model.index(r, MotorMountTableModel::kNameColumn))),
+                  rows[row].name)
+            << "row " << row;
+    }
+}
+
+/// The names of the components of @p selection, "[A, B]".
+[[nodiscard]] std::string selectedNames(const DocumentSelectionModel& selection)
+{
+    std::string text = "[";
+    for (const RocketComponent* const component : selection.selectedComponents())
+    {
+        text += (text.size() > 1 ? ", " : "") + component->getName();
+    }
+    return text + "]";
+}
+
+/// The Motors panel of @p tab as Java's: its table (expectTableAsJava()), its help text instead of
+/// the table for a design without an acting motor mount, and its motor mount table.
+void expectMotorsAsJava(const FlightConfigurationPanel& tab, const OpenDesignTabPin& pin)
+{
+    const MotorConfigurationPanel& motors = tab.motorConfigurationPanel();
+    expectTableAsJava(motors, pin.motorHeaders, pin.motorCells, pin.motorSelection,
+                      pin.configurations, &expectMotorCellAsJava);
+    EXPECT_EQ(motors.isShowingHelp(), pin.motorHelpShown);
+    expectMotorMountsAsJava(motors.motorMountConfigurationPanel().model(), pin.motorMounts);
+}
+
+/// Clicks each row of the Motors table of @p tab, a tab of @p window, in its last column, as the
+/// user chooses a configuration there, and expects the rocket's selected configuration to follow,
+/// and with it the configuration selector of the design view (OpenRocket's table listener sets
+/// Rocket.setSelectedConfiguration(), which the ribbon's ConfigurationComboBox shows: its item 0 is
+/// the default configuration).
+void expectRowsChooseTheConfiguration(const MainWindow& window, const FlightConfigurationPanel& tab)
+{
+    const MotorConfigurationPanel&      motors   = tab.motorConfigurationPanel();
+    const FlightConfigurableTableModel& model    = motors.tableModel();
+    const Rocket&                       rocket   = window.document().getRocket();
+    const ConfigurationComboBox&        selector = rocketPanelOf(window).configurationSelector();
+    for (int row = 0; row < model.rowCount(); ++row)
+    {
+        const int column = model.columnCount() - 1;
+        motors.table().scrollTo(model.index(row, column));
+        Gui::Test::FlightConfigurationTab::click(motors, row, column);
+        settle();
+        EXPECT_EQ(rocket.getSelectedConfiguration().getId(),
+                  model.configurationIds()[static_cast<std::size_t>(row)])
+            << "row " << row;
+        EXPECT_EQ(selector.currentIndex(), row + 1) << "row " << row;
+    }
+}
+
+/// The questions and messages File > Open of @p design gives: the file question, and the message
+/// of the load's warnings when it has any.
+[[nodiscard]] std::size_t questionsOfTheOpening(const OpenDesign& design)
+{
+    return expectedLoadWarnings(design).empty() ? 1U : 2U;
+}
+
+TEST_P(OpenDesignsExitGolden, TheConfigurationTabShowsOpenRocketsTables)
+{
+    // The tab as the user chooses it after File > Open, against OpenRocket's (OpenDesignsTabProbe:
+    // its FlightConfigurationPanel made with the window, then takeTheSpotlight()).
+    const OpenDesignTabPin* const pin = tabPinOf(GetParam().name);
+    ASSERT_NE(pin, nullptr) << "no pins of OpenRocket's tab";
+    MainWindow* const window = open();
+    ASSERT_NE(window, nullptr);
+    const Rocket&               rocket   = window->document().getRocket();
+    const FlightConfigurationId selected = rocket.getSelectedConfiguration().getId();
+    window->selectTab(MainWindow::kFlightConfigurationTab);
+    settle();
+    EXPECT_EQ(window->selectedTab(), MainWindow::kFlightConfigurationTab);
+    const FlightConfigurationPanel* const tab = window->componentFlightConfigurationPanel();
+    ASSERT_NE(tab, nullptr);
+
+    // The rows: the rocket's configurations, its selected one, its stages.
+    const FlightConfigurableTableModel& rows = tab->motorConfigurationPanel().tableModel();
+    expectRowsAsJava(rows, pin->configurations, preferences());
+    EXPECT_EQ(rows.rowOf(selected), pin->selectedRow);
+    EXPECT_EQ(static_cast<int>(rocket.getStageCount()), pin->stageCount);
+    // The sub-tabs and every button.
+    expectSubTabsAsJava(*tab, *pin);
+    expectButtonsAsJava(*tab, pin->buttons);
+    // The three tables, cell by cell, and the motor mounts.
+    {
+        SCOPED_TRACE("motors");
+        expectMotorsAsJava(*tab, *pin);
+    }
+    {
+        SCOPED_TRACE("recovery");
+        expectTableAsJava(tab->recoveryConfigurationPanel(), pin->recoveryHeaders,
+                          pin->recoveryCells, pin->recoverySelection, pin->configurations,
+                          &expectValueCellAsJava);
+    }
+    {
+        SCOPED_TRACE("stages");
+        expectTableAsJava(tab->separationConfigurationPanel(), pin->stageHeaders, pin->stageCells,
+                          pin->stageSelection, pin->configurations, &expectValueCellAsJava);
+    }
+    // The design's selection, which the Motors table's selected columns set when the tab took the
+    // spotlight (the top stage the window selected at its making, when no column is selected).
+    EXPECT_EQ(selectedNames(designPanelOf(*window).selection()), pin->designSelection);
+    // Choosing the tab changed nothing (as in OpenRocket: the probe's AFTER line).
+    EXPECT_TRUE(window->document().isSaved());
+    EXPECT_FALSE(window->isWindowModified());
+    EXPECT_FALSE(window->document().isUndoAvailable());
+    EXPECT_EQ(rocket.getSelectedConfiguration().getId(), selected);
+    EXPECT_EQ(prompts().prompts().size(), questionsOfTheOpening(GetParam()));
+
+    // Each row, clicked, chooses its configuration, in the design view too.
+    expectRowsChooseTheConfiguration(*window, *tab);
+}
+
+// ======================================================================= the presets
+
+/// What a preset of the database is to the suite: "<type>|<manufacturer>|<part number>|<digest>".
+[[nodiscard]] std::string presetIdentity(const ComponentPreset& preset)
+{
+    return std::format("{}|{}|{}|{}", componentPresetTypeName(preset.getType()),
+                       preset.getManufacturer().getSimpleName(), preset.getPartNo(),
+                       preset.getDigest());
+}
+
+/// What @p database gives the .ork loader for each of the six <preset> elements of the example
+/// designs (ComponentPresetSetter's lookup: the first preset of find(manufacturer, part number)
+/// with the element's digest), as presetIdentity(); "none" for an element it finds nothing for.
+[[nodiscard]] std::vector<std::string> presetsFoundIn(const ComponentPresetDatabase& database)
+{
+    std::vector<std::string> found;
+    found.reserve(QtRocket::Test::kExamplePresetReferences.size());
+    for (const QtRocket::Test::ExamplePresetReference& reference :
+         QtRocket::Test::kExamplePresetReferences)
+    {
+        std::string identity = "none";
+        for (const std::shared_ptr<const ComponentPreset>& preset :
+             database.find(reference.manufacturer, reference.partNo))
+        {
+            if (preset->getDigest() == reference.digest)
+            {
+                identity = presetIdentity(*preset);
+                break;
+            }
+        }
+        found.push_back(std::move(identity));
+    }
+    return found;
+}
+
+/// The six <preset> elements of the example designs, as presetIdentity() writes a preset.
+[[nodiscard]] std::vector<std::string> referencedPresets()
+{
+    std::vector<std::string> references;
+    references.reserve(QtRocket::Test::kExamplePresetReferences.size());
+    for (const QtRocket::Test::ExamplePresetReference& reference :
+         QtRocket::Test::kExamplePresetReferences)
+    {
+        references.push_back(std::format("{}|{}|{}|{}", componentPresetTypeName(reference.type),
+                                         reference.manufacturer, reference.partNo,
+                                         reference.digest));
+    }
+    return references;
+}
+
+// The windows of the suite load with the six presets of the example designs
+// (DesignFileEnvironment::Presets::EXAMPLES) where the application loads its bundled presets
+// (data/components), which give the same loads: every <preset> element of the 66 designs finds one
+// of the six (OpensWithItsTitleTreeAndLoadWarnings: no "No matching ComponentPreset" warning; the
+// core's ExampleFilesWithTheBundledPresets for the examples with the bundled presets), and for
+// each of the six elements the bundled presets give the loader the same preset as the six: the
+// same type, manufacturer, part number and digest, the MD5 of all its properties. One test: the
+// bundled presets are read once per process.
+TEST(OpenDesignsExitGoldenPresets, TheBundledDatabaseGivesTheSixOfTheExamples)
+{
+    const ComponentPresetDatabase examples =
+        DesignFileEnvironment::presetDatabase(DesignFileEnvironment::Presets::EXAMPLES);
+    EXPECT_EQ(examples.size(), QtRocket::Test::kExamplePresetReferences.size());
+    EXPECT_EQ(presetsFoundIn(examples), referencedPresets());
+    EXPECT_EQ(presetsFoundIn(QtRocket::Test::bundledPresetDatabase()), referencedPresets());
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, OpenDesignsExitGolden, ::testing::ValuesIn(openDesigns()),
