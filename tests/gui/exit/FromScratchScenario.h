@@ -88,6 +88,14 @@ class FromScratchPrompts;
 /// the test scripted it). The last window closed leaves the application running with the menus
 /// of no window (LastWindowBehaviour::KEEP_RUNNING, the macOS behaviour), so that a closed design
 /// can be opened again through File > Open (closeWindow(), openSavedFile()).
+///
+/// The base of FlightConfigurationScenario, the driver of the scenarios of version 2 (the Motors &
+/// Configuration tab, Milestone 3), which does the steps of its own (perform()), adds to the
+/// records what version 2 records (record()) and gives the application prompts of its own; the
+/// steps of version 1 that a scenario of version 2 has (select, edit, choose, ok, undo, redo, the
+/// steps of Save as) are done here, as in the from-scratch scenario. A choose step of the field
+/// "ClusterConfiguration" (the inner tube's cluster layouts, ClusterSelectionPanel) is a click on
+/// the button of the layout the step names by its XML name ("4-ring"), as OpenRocket's tool does.
 class FromScratchScenario
 {
 public:
@@ -98,7 +106,7 @@ public:
     /// The application (see the class comment), started, with its preferences and the saves in
     /// @p directory, which must exist and outlive the object.
     explicit FromScratchScenario(std::filesystem::path directory);
-    ~FromScratchScenario();
+    virtual ~FromScratchScenario();
     FromScratchScenario(const FromScratchScenario&)            = delete;
     FromScratchScenario& operator=(const FromScratchScenario&) = delete;
     FromScratchScenario(FromScratchScenario&&)                 = delete;
@@ -141,7 +149,7 @@ public:
     [[nodiscard]] MainWindow* openSavedFile(std::string& problem);
 
     /// What the GUI shows now, as the record of @p step (see the class comment).
-    [[nodiscard]] QtRocket::Test::GuiStepRecord record(
+    [[nodiscard]] virtual QtRocket::Test::GuiStepRecord record(
         const QtRocket::Test::GuiScenarioStep& step) const;
 
     /// @p step as the failures name it: "step <index> (<kind> <what it names>)".
@@ -164,9 +172,28 @@ public:
     static constexpr std::array<ButtonName, 1> kButtons{
         ButtonName{.step = "convertToFreeform", .objectName = "convertButton"}};
 
+protected:
+    /// Makes the application's questions over the scenario's script @p scripted (which outlives
+    /// them).
+    using PromptsFactory =
+        std::function<std::unique_ptr<FromScratchPrompts>(UserPrompts& scripted)>;
+
+    /// The application as the public constructor makes it, its questions those @p makePrompts
+    /// makes (a subclass's prompts).
+    FromScratchScenario(std::filesystem::path directory, const PromptsFactory& makePrompts);
+
+    /// Does @p step; what went wrong, or "". The steps of version 2 are none of this class's (an
+    /// error): a subclass does them.
+    [[nodiscard]] virtual std::string perform(const QtRocket::Test::GuiScenarioStep& step);
+
+    /// The application's questions.
+    [[nodiscard]] FromScratchPrompts& scenarioPrompts() const noexcept { return *m_prompts; }
+    /// Makes @p window the scenario's window (File > Open's).
+    void setScenarioWindow(MainWindow* window) { m_window = window; }
+    /// The scenario's window, which must be open.
+    [[nodiscard]] MainWindow& scenarioWindow() const;
+
 private:
-    /// Does @p step; what went wrong, or "".
-    [[nodiscard]] std::string perform(const QtRocket::Test::GuiScenarioStep& step);
     [[nodiscard]] std::string newDesign();
     [[nodiscard]] std::string select(const QtRocket::Test::GuiScenarioStep& step);
     [[nodiscard]] std::string add(const QtRocket::Test::GuiScenarioStep& step);
@@ -186,8 +213,6 @@ private:
     /// Calls the observer with the record of @p step.
     void observe(const QtRocket::Test::GuiScenarioStep& step) const;
 
-    /// The scenario's window, which must be open.
-    [[nodiscard]] MainWindow& scenarioWindow() const;
     /// The window's design panel; the window must be open.
     [[nodiscard]] DesignPanel& designPanel() const;
     /// The dialog the field steps work in: the "Save Design Info" dialog while it is open, else

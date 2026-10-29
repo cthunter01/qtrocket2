@@ -21,6 +21,7 @@ import info.openrocket.core.appearance.Decal;
 import info.openrocket.core.appearance.DecalImage;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.OpenRocketDocumentFactory;
+import info.openrocket.core.document.Simulation;
 import info.openrocket.core.file.DatabaseMotorFinder;
 import info.openrocket.core.file.DocumentLoadingContext;
 import info.openrocket.core.file.openrocket.importt.OpenRocketHandler;
@@ -67,6 +68,8 @@ import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
 import info.openrocket.core.rocketcomponent.TubeFinSet;
 import info.openrocket.core.rocketcomponent.position.AnglePositionable;
 import info.openrocket.core.rocketcomponent.position.RadiusPositionable;
+import info.openrocket.core.simulation.extension.SimulationExtension;
+import info.openrocket.core.simulation.extension.impl.ScriptingExtension;
 import info.openrocket.core.util.CoordinateIF;
 import info.openrocket.core.util.ModID;
 import info.openrocket.core.util.ORColor;
@@ -81,11 +84,11 @@ import info.openrocket.core.util.ORColor;
  * its name and what it holds (two blanks deeper per level), the decal images, the selected and every
  * flight configuration. An id is printed in full when it is among the known ones (or made of a hash),
  * else as "random".</li>
- * <li>{@link #loadedState}: RecordedProbe.run ("full") of tier 9c without the simulations (a document
- * made from scratch has none; the tool checks that) and ExampleProbe.documentPreferenceLines: the
- * version line, the warnings, the document lines, the change events of the load, the dump, the names
- * of the flight configurations, the motors, the decal images, the document preferences and
- * materials.</li>
+ * <li>{@link #loadedState}: RecordedProbe.run ("full") of tier 9c and ExampleProbe.documentPreferenceLines:
+ * the version line, the warnings, the document lines (with the simulations), the change events of the
+ * load, the dump, the names of the flight configurations and the configuration of every simulation, the
+ * motors, the decal images, the simulations (SimulationLines), the document preferences and materials. A
+ * document made from scratch has no simulation, so that its lines are those of Milestone 2's tool.</li>
  * <li>{@link #numbers}: RecordedProbe.numbers, asked of a load on which nothing else was asked.</li>
  * </ul>
  * The order of the getters is part of the state (an automatic dimension stores what it computes), as
@@ -545,9 +548,17 @@ final class RocketState {
 			lines.add("config " + (index < 0 ? "default" : String.valueOf(index)) + " active=" + active);
 			index++;
 		}
-		if (doc.getSimulationCount() != 0) {
-			throw new IllegalStateException("the tool describes no simulations; the document has "
-					+ doc.getSimulationCount());
+		for (Simulation sim : doc.getSimulations()) {
+			StringBuilder ext = new StringBuilder();
+			for (SimulationExtension e : sim.getSimulationExtensions()) {
+				ext.append(e.getClass().getSimpleName());
+				if (e instanceof ScriptingExtension)
+					ext.append(((ScriptingExtension) e).isEnabled() ? "(enabled)" : "(disabled)");
+				ext.append(' ');
+			}
+			lines.add("sim '" + oneLine(sim.getName()) + "' status=" + sim.getStatus().name() + " branches="
+					+ (sim.getSimulatedData() == null ? "none" : String.valueOf(sim.getSimulatedData().getBranchCount()))
+					+ " ext=[" + ext.toString().trim() + "]");
 		}
 		lines.add("storage fileType=" + doc.getDefaultStorageOptions().getFileType() + " saveSimulationData="
 				+ doc.getDefaultStorageOptions().getSaveSimulationData() + " explicitlySet="
@@ -606,7 +617,7 @@ final class RocketState {
 		return lines;
 	}
 
-	/** The names of the flight configurations as they are shown (there is no simulation). */
+	/** The names of the flight configurations as they are shown, and the configuration of every simulation. */
 	static List<String> nameLines(OpenRocketDocument doc) {
 		List<String> lines = new ArrayList<>();
 		Rocket rocket = doc.getRocket();
@@ -614,6 +625,11 @@ final class RocketState {
 		int index = 0;
 		for (FlightConfigurationId id : rocket.getIds()) {
 			lines.add("name " + index + " '" + oneLine(rocket.getFlightConfiguration(id).getName()) + "'");
+			index++;
+		}
+		index = 0;
+		for (Simulation sim : doc.getSimulations()) {
+			lines.add("simulation " + index + " config=" + rocket.getIds().indexOf(sim.getFlightConfigurationId()));
 			index++;
 		}
 		return lines;
@@ -668,6 +684,9 @@ final class RocketState {
 		lines.addAll(nameLines(doc));
 		lines.addAll(motorLines(doc.getRocket()));
 		lines.addAll(decalLines(doc));
+		for (int i = 0; i < doc.getSimulationCount(); i++) {
+			SimulationLines.add(lines, i, doc.getSimulation(i));
+		}
 		lines.addAll(documentPreferenceLines(doc));
 		return lines;
 	}

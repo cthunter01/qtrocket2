@@ -1,0 +1,51 @@
+{
+  "schema": "gui-scenario",
+  "schemaVersion": 2,
+  "title": "Flight configurations of the from-scratch design in the Motors & Configuration tab",
+  "steps": [
+    {"step": "open", "file": "tests/data/goldens/gui/from-scratch/rocket.ork", "note": "OpenRocket's save of the from-scratch scenario: an inner tube as the motor mount, no configuration"},
+    {"step": "tab", "tab": "flightConfiguration", "note": "the Motors & Configuration tab, on its Motors sub-tab"},
+
+    {"step": "mountCheck", "mount": ["Sustainer", "Body Tube"], "checked": true, "note": "the body tube becomes a second motor mount: a column of its own"},
+    {"step": "newConfiguration", "answer": {"search": "D12", "motor": {"manufacturer": "Estes", "designation": "D12"}, "delay": "5", "button": "ok"}, "note": "New: the chooser opens for the new row in the last column (the inner tube); the body tube's cell shows its default ignition"},
+    {"step": "mountCheck", "mount": ["Sustainer", "Body Tube"], "checked": false},
+    {"step": "selectMotor", "answer": {"nozzleExitDiameter": {"text": "5", "unit": "mm"}, "button": "ok"}, "note": "the configured cell: the chooser opens with its motor and delay"},
+    {"step": "selectMotor", "answer": {"search": "Estes", "button": "cancel"}, "note": "Cancel changes nothing; the search text stays for the next opening"},
+    {"step": "newConfiguration", "answer": {"search": "C11", "motor": {"manufacturer": "Estes", "designation": "C11"}, "delay": "7", "button": "ok"}},
+
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Sustainer", "Body Tube", "Inner Tube"]}]},
+    {"step": "selectIgnition", "answer": {"scope": "all", "event": "LAUNCH", "delay": {"text": "1", "unit": "s"}, "button": "ok"}, "note": "the default ignition, for every configuration"},
+    {"step": "selectIgnition", "answer": {"scope": "this", "event": "AUTOMATIC", "delay": {"text": "0", "unit": "s"}, "button": "ok"}, "note": "an override for the first configuration only"},
+    {"step": "selectIgnition", "answer": {"button": "cancel"}},
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Sustainer", "Body Tube", "Inner Tube"]}, {"row": 1, "column": ["Sustainer", "Body Tube", "Inner Tube"], "with": "ctrl"}]},
+    {"step": "resetIgnition", "note": "both cells have a motor configuration of their own: each goes back to Automatic"},
+
+    {"step": "configTab", "tab": "recovery"},
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Sustainer", "Body Tube", "Parachute"]}]},
+    {"step": "selectDeployment", "answer": {"scope": "this", "event": "ALTITUDE", "altitude": {"text": "200", "unit": "m"}, "delay": {"text": "0", "unit": "s"}, "button": "ok"}},
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Sustainer", "Body Tube", "Parachute"]}]},
+    {"step": "selectDeployment", "answer": {"button": "cancel"}},
+    {"step": "resetDeployment"},
+    {"step": "renameConfiguration", "answer": {"name": "Flight {motors}", "saveAsDefault": true, "button": "cancel"}, "note": "Save as default stores the default name for new configurations; the rename itself is cancelled"},
+    {"step": "undo", "note": "back to a state stored before Save as default (Reset deployment undone): its configurations keep the old default name"},
+    {"step": "redo"},
+    {"step": "newConfiguration", "answer": {"scope": "this", "event": "APOGEE", "delay": {"text": "1", "unit": "s"}, "button": "ok"}, "note": "New on the Recovery sub-tab: the deployment question for the new row in the last column (the drogue); the new configuration takes the new default name"},
+
+    {"step": "configTab", "tab": "motors"},
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Sustainer", "Body Tube", "Inner Tube"]}]},
+    {"step": "renameConfiguration", "answer": {"name": "{motors} flight", "button": "ok"}},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Sustainer", "Body Tube", "Inner Tube"]}]},
+    {"step": "selectMotor", "answer": {"delay": "Plugged", "button": "ok"}, "note": "the last opening of this cell: C11 has no plugged delay of its own"},
+    {"step": "renameConfiguration", "answer": {"name": "{manufacturers | motors}", "button": "ok"}},
+    {"step": "renameConfiguration", "answer": {"button": "reset"}, "note": "Reset to default: the default name stored by Save as default"},
+    {"step": "duplicateConfiguration"},
+    {"step": "deleteConfiguration", "note": "the copy, which Duplicate selected"},
+    {"step": "undo"},
+    {"step": "redo"},
+
+    {"step": "saveAs", "note": "File > Save as: the design information dialog first"},
+    {"step": "type", "field": "Designer", "text": "QtRocket flight configurations"},
+    {"step": "ok"},
+    {"step": "chooseFile", "file": "rocket", "note": "typed without the extension, which Save as adds"}
+  ]
+}

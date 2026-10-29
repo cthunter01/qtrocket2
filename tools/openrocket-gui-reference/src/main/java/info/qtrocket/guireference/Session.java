@@ -3,15 +3,20 @@ package info.qtrocket.guireference;
 import java.awt.HeadlessException;
 import java.awt.event.ActionEvent;
 import java.awt.geom.Point2D;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.Action;
 import javax.swing.DefaultListSelectionModel;
@@ -21,13 +26,17 @@ import javax.swing.tree.TreeSelectionModel;
 
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.OpenRocketDocumentFactory;
+import info.openrocket.core.document.Simulation;
 import info.openrocket.core.document.StorageOptions.FileType;
+import info.openrocket.core.file.GeneralRocketLoader;
 import info.openrocket.core.file.GeneralRocketSaver;
 import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.rocketcomponent.FinSet;
 import info.openrocket.core.rocketcomponent.FreeformFinSet;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.simulation.FlightData;
+import info.openrocket.core.simulation.FlightDataBranch;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.unit.UnitGroup;
 import info.openrocket.core.util.CoordinateIF;
@@ -67,6 +76,11 @@ import info.openrocket.swing.gui.util.SwingPreferences;
  * <li>the parts library OpenRocket opens for a new component with presets
  * (ComponentConfigDialog.showDialog, AutoOpenPartsLibrary): never, as if closed without a choice.</li>
  * </ul>
+ * A session of a version 2 scenario (Session.open: File &gt; Open, on the event dispatch thread of a JVM
+ * with a display) has the same design window, without the add buttons' steps, Copy and Paste, and with
+ * OpenRocket's real Motors &amp; Configuration tab (FlightConfigurationTab), the window's tab, QtRocket's
+ * fix of bug 6 in the undo history (DefaultIgnitions) and the rocket's listeners in the order they were
+ * registered (orderListeners).
  */
 final class Session {
 
@@ -106,14 +120,56 @@ final class Session {
 	/** Whether the rocket fired a tree or undo change since the flag was last cleared. */
 	private boolean treeOrUndoChange = false;
 
+	/** The Motors &amp; Configuration tab of a version 2 session (null in version 1). */
+	private final FlightConfigurationTab tab;
+	/** QtRocket's fix of bug 6 in the undo history of a version 2 session (null in version 1). */
+	private final DefaultIgnitions defaultIgnitions;
+	/** The window's tab in a version 2 session: "design" or "flightConfiguration". */
+	private String windowTab = "design";
+
 	/**
 	 * File &gt; New (BasicFrame.newAction): a new document and its window, with the parts of the
-	 * BasicFrame constructor (:216-372) and of DesignPanel (:217) that run headless.
+	 * BasicFrame constructor (:216-372) and of DesignPanel (:217) that run headless (version 1).
 	 */
 	Session(File saveDirectory) throws Exception {
+		this(saveDirectory, OpenRocketDocumentFactory.createNewRocket(), false);
+	}
+
+	/**
+	 * File &gt; Open of @p file (version 2, on the event dispatch thread of a JVM with a display):
+	 * BasicFrame.open(file, parent) (:1586-1673) with OpenFileWorker.doInBackground (the load, then
+	 * setFile and setSaved(true)); the warnings dialog it shows for a load with warnings is a failure of
+	 * the tool. Left out: MRUDesignFile.addFile (the list of recent files) and closeIfReplaceable() (the
+	 * window it replaces). Then the window, as for File &gt; New, with the Motors &amp; Configuration tab.
+	 */
+	static Session open(File saveDirectory, File file) throws Exception {
+		GeneralRocketLoader loader = new GeneralRocketLoader(file);
+		OpenRocketDocument document;
+		try (InputStream is = new BufferedInputStream(new FileInputStream(file))) {
+			String fileName = file.getName().replaceFirst("[.][^.]+$", "");
+			document = loader.load(is, fileName);
+		}
+		document.setFile(file);
+		document.setSaved(true);
+		if (!loader.getWarnings().isEmpty()) {
+			throw new IllegalStateException("the load of " + file + " has warnings, which File > Open shows: "
+					+ loader.getWarnings());
+		}
+		return new Session(saveDirectory, document, true);
+	}
+
+	/**
+	 * The window of @p openedDocument: the parts of the BasicFrame constructor (:216-372) and of
+	 * DesignPanel (:217) that run headless, and in version 2 (@p withTab) the Motors &amp; Configuration
+	 * tab after them (:251).
+	 */
+	private Session(File saveDirectory, OpenRocketDocument openedDocument, boolean withTab) throws Exception {
 		this.saveDirectory = saveDirectory;
-		document = OpenRocketDocumentFactory.createNewRocket();
+		document = openedDocument;
 		rocket = document.getRocket();
+		if (withTab) {
+			orderListeners(rocket);
+		}
 
 		componentSelectionModel = new DefaultTreeSelectionModel();
 		componentSelectionModel.setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
@@ -136,6 +192,10 @@ final class Session {
 		field.setAccessible(true);
 		buttons = (ComponentButton[][]) field.get(addButtons);
 
+		// BasicFrame.java:251: the Motors & Configuration tab, after the design panel.
+		tab = withTab ? new FlightConfigurationTab(document, selectionModel) : null;
+		defaultIgnitions = withTab ? new DefaultIgnitions(document) : null;
+
 		// BasicFrame.java:363-372: the sustainer is selected when the window opens.
 		componentSelectionModel.setSelectionPath(new TreePath(rocket.getChild(0)));
 		tree.setSelectionRow(1);
@@ -149,6 +209,44 @@ final class Session {
 				treeOrUndoChange = true;
 			}
 		});
+	}
+
+	/**
+	 * Version 2: the rocket's listeners notified in the order they were registered. OpenRocket's Rocket keeps
+	 * them in a HashSet (Rocket.java:46, notifyAllListeners :765-779), most of them hashed by identity, so that
+	 * the order in which the panels and the table models of the Motors &amp; Configuration tab see an event
+	 * changes from one run to the next, and with it what the tables keep selected: a table model's
+	 * fireTableStructureChanged() clears its table's selection, and FlightConfigurationPanel.stateChanged()
+	 * selects the rocket's configuration again, so the table ends with a selection only when the panel comes
+	 * second. The tool replaces the set with a LinkedHashSet (one of the orders OpenRocket may take) before any
+	 * listener of the window is registered, and the tab registers its FlightConfigurationPanel again after its
+	 * table models (FlightConfigurationTab), the order QtRocket's panel connects in. The document's own
+	 * listener, the only one the load registers, stays first.
+	 */
+	private static void orderListeners(Rocket rocket) {
+		Set<?> listeners = (Set<?>) Reflection.get(Rocket.class, rocket, "listenerList");
+		if (listeners.size() > 1) {
+			throw new IllegalStateException("the loaded rocket has " + listeners.size()
+					+ " listeners, whose order is unknown");
+		}
+		Reflection.set(Rocket.class, rocket, "listenerList", new LinkedHashSet<>(listeners));
+	}
+
+	/** Closes the window of a version 2 session (its tab's frame and dialogs). */
+	void dispose() {
+		if (tab != null) {
+			tab.dispose();
+		}
+	}
+
+	/** The Motors &amp; Configuration tab of a version 2 session, null in version 1. */
+	FlightConfigurationTab tab() {
+		return tab;
+	}
+
+	/** The window's tab of a version 2 session: "design" or "flightConfiguration". */
+	String windowTab() {
+		return windowTab;
 	}
 
 	OpenRocketDocument document() {
@@ -186,6 +284,21 @@ final class Session {
 	// ------------------------------------------------------------------ the steps
 
 	void run(Scenario.Step step) throws Exception {
+		if (tab == null) {
+			runStep(step);
+			return;
+		}
+		// Version 2 (on the event dispatch thread): QtRocket's fix of bug 6 around every step.
+		defaultIgnitions.beginStep();
+		tab.beginStep();
+		runStep(step);
+		if (step.kind() == Scenario.Kind.UNDO || step.kind() == Scenario.Kind.REDO) {
+			defaultIgnitions.restoreAfterUndoOrRedo();
+		}
+		defaultIgnitions.endStep();
+	}
+
+	private void runStep(Scenario.Step step) throws Exception {
 		Scenario.Kind kind = step.kind();
 		boolean inDialog = switch (kind) {
 			case TYPE, CHOOSE, CHECK, EDIT_POINT, INSERT_POINT, BUTTON, OK -> true;
@@ -200,9 +313,18 @@ final class Session {
 		if (fileChooserOpen != (kind == Scenario.Kind.CHOOSE_FILE)) {
 			throw new IllegalStateException(fileChooserOpen ? "the file chooser is open" : "no file chooser is open");
 		}
+		if (tab != null) {
+			requireWindowTab(kind);
+		}
 		treeOrUndoChange = false;
+		if (Scenario.TAB_KINDS.contains(kind)) {
+			tab.run(step);
+			return;
+		}
 		switch (kind) {
 			case NEW -> throw new IllegalStateException("File > New is the first step only");
+			case OPEN -> throw new IllegalStateException("File > Open is the first step only");
+			case TAB -> selectWindowTab(step.tab());
 			case SELECT -> select(step.paths());
 			case ADD -> add(step.component());
 			case EDIT -> edit();
@@ -229,11 +351,71 @@ final class Session {
 			}
 			case SAVE_AS -> saveAs();
 			case CHOOSE_FILE -> chooseFile(step.file());
+			default -> throw new IllegalStateException("no step of the design: " + kind.name);
 		}
 		// ComponentConfigDialog.componentChanged closes the dialog on a tree or undo change: a step in a
 		// dialog that makes one would leave no dialog in the GUI.
 		if (inDialog && kind != Scenario.Kind.BUTTON && treeOrUndoChange) {
 			throw new IllegalStateException("the step changed the tree, which closes the dialog");
+		}
+	}
+
+	/**
+	 * Version 2: the steps of the Motors &amp; Configuration tab need that tab, a click on the component tree
+	 * the design tab; the menus (Edit, Undo, Redo, Save as) and an open dialog work on either.
+	 */
+	private void requireWindowTab(Scenario.Kind kind) {
+		if (Scenario.TAB_KINDS.contains(kind) && !windowTab.equals("flightConfiguration")) {
+			throw new IllegalStateException("the step " + kind.name + " needs the tab flightConfiguration");
+		}
+		if (kind == Scenario.Kind.SELECT && !windowTab.equals("design")) {
+			throw new IllegalStateException("the component tree is on the design tab");
+		}
+	}
+
+	/**
+	 * A click on the window's tab @p name: BasicFrame.stateChanged (:2518-2537), which gives the spotlight to
+	 * the tab's panel: DesignPanel.takeTheSpotlight() (the focus to the component tree) or
+	 * FlightConfigurationPanel.takeTheSpotlight() (the focus to the current sub-tab's table, and the design
+	 * selection becomes its selected columns' components).
+	 */
+	private void selectWindowTab(String name) {
+		if (windowTab.equals(name)) {
+			throw new IllegalStateException("the tab " + name + " is the current one already");
+		}
+		windowTab = name;
+		if (name.equals("flightConfiguration")) {
+			tab.takeTheSpotlight();
+		} else {
+			tree.requestFocusInWindow();
+		}
+	}
+
+	/**
+	 * Version 2: StorageOptionChooser.verifyStorageOptions (:136-181) asks how to store the simulated data
+	 * when a simulation holds some and the document's storage options are not set explicitly: a question the
+	 * scenarios do not answer (QtRocket's exit compares saves without stored flights). The tool fails before
+	 * it would be asked, with the same rule.
+	 */
+	private void requireNoStorageQuestion() {
+		if (document.getDefaultStorageOptions().isExplicitlySet()) {
+			return;
+		}
+		for (Simulation s : document.getSimulations()) {
+			if (s.getStatus() == Simulation.Status.NOT_SIMULATED || s.getStatus() == Simulation.Status.EXTERNAL) {
+				continue;
+			}
+			FlightData data = s.getSimulatedData();
+			if (data == null) {
+				continue;
+			}
+			for (int i = 0; i < data.getBranchCount(); i++) {
+				FlightDataBranch branch = data.getBranch(i);
+				if (branch != null && branch.getLength() > 0) {
+					throw new IllegalStateException("Save as would ask how to store the data of the simulation "
+							+ s.getName());
+				}
+			}
 		}
 	}
 
@@ -486,6 +668,9 @@ final class Session {
 			throw new IllegalStateException(file + " exists: Save as would ask whether to overwrite it");
 		}
 		file = FileHelper.forceExtension(file, "ork");
+		if (tab != null) {
+			requireNoStorageQuestion();
+		}
 		if (!StorageOptionChooser.verifyStorageOptions(document, null)) {
 			throw new IllegalStateException("the storage options were not confirmed");
 		}

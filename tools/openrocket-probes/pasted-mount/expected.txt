@@ -1,0 +1,232 @@
+source Two stage high power rocket.ork: ids [S1, S2]
+target A simple model rocket.ork: ids [T1, T2, T3, T4, T5]
+
+== mount
+pasted Sustainer/Body tube/Booster motor mount into Sustainer/Body tube at 8
+  motors Sustainer/Body tube/Booster motor mount: default AUTOMATIC+0.0, [S1 H148R-0 AUTOMATIC+0.0 (overridden), S2 I357T-14 AUTOMATIC+0.0 (overridden)]
+  configuration T1 '[A8-3]': motors [Sustainer/Body tube/Inner Tube A8-3], active stages [0]
+  configuration T2 '[B4-4]': motors [Sustainer/Body tube/Inner Tube B4-4], active stages [0]
+  configuration T3 '[C6-3]': motors [Sustainer/Body tube/Inner Tube C6-3], active stages [0]
+  configuration T4 '[C6-5]': motors [Sustainer/Body tube/Inner Tube C6-5], active stages [0]
+  configuration T5 '[C6-7]': motors [Sustainer/Body tube/Inner Tube C6-7], active stages [0]
+  motors: Configuration | Inner Tube | Booster motor mount
+    0: [A8-3] | A8-3 / Automatic | None / ~Default (Automatic)
+    1: [B4-4] | B4-4 / Automatic | None / ~Default (Automatic)
+    2: [C6-3] | C6-3 / Automatic | None / ~Default (Automatic)
+    3: [C6-5] | C6-5 / Automatic | None / ~Default (Automatic)
+    4: [C6-7] | C6-7 / Automatic | None / ~Default (Automatic)
+  recovery: Configuration | Parachute
+    0: [A8-3] | Ejection charge
+    1: [B4-4] | Ejection charge
+    2: [C6-3] | Ejection charge
+    3: [C6-5] | Ejection charge
+    4: [C6-7] | Ejection charge
+  stages: Configuration
+    0: [A8-3]
+    1: [B4-4]
+    2: [C6-3]
+    3: [C6-5]
+    4: [C6-7]
+archive: [rocket.ork, decals/BodyStripe.png, decals/TailStripe.png, thrustcurves/c049499ca03fd69115352e5d4be72de7.rse, thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse, thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse]
+save:
+  A simple model rocket: <motorconfiguration configid="T1">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T2">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T3">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T4" default="true">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T5">
+  A simple model rocket: <stage number="0" active="true"/>
+  Inner Tube: <motor configid="T1">
+  Inner Tube: <ignitionconfiguration configid="T1">
+  Inner Tube: <motor configid="T2">
+  Inner Tube: <ignitionconfiguration configid="T2">
+  Inner Tube: <motor configid="T3">
+  Inner Tube: <ignitionconfiguration configid="T3">
+  Inner Tube: <motor configid="T4">
+  Inner Tube: <ignitionconfiguration configid="T4">
+  Inner Tube: <motor configid="T5">
+  Inner Tube: <ignitionconfiguration configid="T5">
+  Simulation 1: <configid>T1</configid>
+  Simulation 2: <configid>T2</configid>
+  Simulation 3 - too short delay: <configid>T3</configid>
+  Simulation 4: <configid>T4</configid>
+  Simulation 5: <configid>T5</configid>
+element Booster motor mount (- the source's save, + the target's):
+  - <motor configid="S1">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+  - <designation>H148R</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.152</length>
+  - <delay>0.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S1">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+  - <motor configid="S2">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>1a3327383625336706131b2a9d198139</digest>
+  - <designation>I357T</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.203</length>
+  - <delay>14.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S2">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+reload: warnings 0, ids [T1, T2, T3, T4, T5]
+  motors Sustainer/Body tube/Booster motor mount: default AUTOMATIC+0.0, []
+  motors: Configuration | Inner Tube | Booster motor mount
+    0: [A8-3] | A8-3 / Automatic | None / Automatic
+    1: [B4-4] | B4-4 / Automatic | None / Automatic
+    2: [C6-3] | C6-3 / Automatic | None / Automatic
+    3: [C6-5] | C6-5 / Automatic | None / Automatic
+    4: [C6-7] | C6-7 / Automatic | None / Automatic
+  recovery: Configuration | Parachute
+    0: [A8-3] | Ejection charge
+    1: [B4-4] | Ejection charge
+    2: [C6-3] | Ejection charge
+    3: [C6-5] | Ejection charge
+    4: [C6-7] | Ejection charge
+  stages: Configuration
+    0: [A8-3]
+    1: [B4-4]
+    2: [C6-3]
+    3: [C6-5]
+    4: [C6-7]
+resave same as the save
+
+== stage
+pasted Booster into A simple model rocket at 1
+  separations Booster (stage 1): default EJECTION/200.0/0.0, [S1 BURNOUT/200.0/0.0, S2 UPPER_IGNITION/200.0/0.0]
+  deployments Booster/Booster airframe/Booster Chute: default EJECTION/200.0/0.0, [S1 APOGEE/200.0/0.0, S2 APOGEE/200.0/0.0]
+  motors Booster/Booster fin section/Booster motor mount: default AUTOMATIC+0.0, [S1 H148R-0 AUTOMATIC+0.0 (overridden), S2 I357T-14 AUTOMATIC+0.0 (overridden)]
+  configuration T1 '[A8-3; None]': motors [Sustainer/Body tube/Inner Tube A8-3], active stages [0, 1]
+  configuration T2 '[B4-4; None]': motors [Sustainer/Body tube/Inner Tube B4-4], active stages [0, 1]
+  configuration T3 '[C6-3; None]': motors [Sustainer/Body tube/Inner Tube C6-3], active stages [0, 1]
+  configuration T4 '[C6-5; None]': motors [Sustainer/Body tube/Inner Tube C6-5], active stages [0, 1]
+  configuration T5 '[C6-7; None]': motors [Sustainer/Body tube/Inner Tube C6-7], active stages [0, 1]
+  motors: Configuration | Inner Tube | Booster motor mount
+    0: [A8-3; None] | A8-3 / Automatic | None / ~Default (Automatic)
+    1: [B4-4; None] | B4-4 / Automatic | None / ~Default (Automatic)
+    2: [C6-3; None] | C6-3 / Automatic | None / ~Default (Automatic)
+    3: [C6-5; None] | C6-5 / Automatic | None / ~Default (Automatic)
+    4: [C6-7; None] | C6-7 / Automatic | None / ~Default (Automatic)
+  recovery: Configuration | Parachute | Booster Chute
+    0: [A8-3; None] | Ejection charge | Ejection charge
+    1: [B4-4; None] | Ejection charge | Ejection charge
+    2: [C6-3; None] | Ejection charge | Ejection charge
+    3: [C6-5; None] | Ejection charge | Ejection charge
+    4: [C6-7; None] | Ejection charge | Ejection charge
+  stages: Configuration | Booster
+    0: [A8-3; None] | Current stage ejection charge
+    1: [B4-4; None] | Current stage ejection charge
+    2: [C6-3; None] | Current stage ejection charge
+    3: [C6-5; None] | Current stage ejection charge
+    4: [C6-7; None] | Current stage ejection charge
+archive: [rocket.ork, decals/BodyStripe.png, decals/TailStripe.png, thrustcurves/c049499ca03fd69115352e5d4be72de7.rse, thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse, thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse]
+save:
+  A simple model rocket: <motorconfiguration configid="T1">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <stage number="1" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T2">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <stage number="1" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T3">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <stage number="1" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T4" default="true">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <stage number="1" active="true"/>
+  A simple model rocket: <motorconfiguration configid="T5">
+  A simple model rocket: <stage number="0" active="true"/>
+  A simple model rocket: <stage number="1" active="true"/>
+  Inner Tube: <motor configid="T1">
+  Inner Tube: <ignitionconfiguration configid="T1">
+  Inner Tube: <motor configid="T2">
+  Inner Tube: <ignitionconfiguration configid="T2">
+  Inner Tube: <motor configid="T3">
+  Inner Tube: <ignitionconfiguration configid="T3">
+  Inner Tube: <motor configid="T4">
+  Inner Tube: <ignitionconfiguration configid="T4">
+  Inner Tube: <motor configid="T5">
+  Inner Tube: <ignitionconfiguration configid="T5">
+  Booster: <separationconfiguration configid="S1">
+  Booster: <separationconfiguration configid="S2">
+  Booster Chute: <deploymentconfiguration configid="S1">
+  Booster Chute: <deploymentconfiguration configid="S2">
+  Simulation 1: <configid>T1</configid>
+  Simulation 2: <configid>T2</configid>
+  Simulation 3 - too short delay: <configid>T3</configid>
+  Simulation 4: <configid>T4</configid>
+  Simulation 5: <configid>T5</configid>
+element Booster (- the source's save, + the target's):
+  - <motor configid="S1">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+  - <designation>H148R</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.152</length>
+  - <delay>0.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S1">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+  - <motor configid="S2">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>1a3327383625336706131b2a9d198139</digest>
+  - <designation>I357T</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.203</length>
+  - <delay>14.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S2">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+reload: warnings 0, ids [T1, T2, T3, T4, T5]
+  separations Booster (stage 1): default EJECTION/200.0/0.0, [S1 BURNOUT/200.0/0.0, S2 UPPER_IGNITION/200.0/0.0]
+  deployments Booster/Booster airframe/Booster Chute: default EJECTION/200.0/0.0, [S1 APOGEE/200.0/0.0, S2 APOGEE/200.0/0.0]
+  motors Booster/Booster fin section/Booster motor mount: default AUTOMATIC+0.0, []
+  motors: Configuration | Inner Tube | Booster motor mount
+    0: [A8-3; None] | A8-3 / Automatic | None / Automatic
+    1: [B4-4; None] | B4-4 / Automatic | None / Automatic
+    2: [C6-3; None] | C6-3 / Automatic | None / Automatic
+    3: [C6-5; None] | C6-5 / Automatic | None / Automatic
+    4: [C6-7; None] | C6-7 / Automatic | None / Automatic
+  recovery: Configuration | Parachute | Booster Chute
+    0: [A8-3; None] | Ejection charge | Ejection charge
+    1: [B4-4; None] | Ejection charge | Ejection charge
+    2: [C6-3; None] | Ejection charge | Ejection charge
+    3: [C6-5; None] | Ejection charge | Ejection charge
+    4: [C6-7; None] | Ejection charge | Ejection charge
+  stages: Configuration | Booster
+    0: [A8-3; None] | Current stage ejection charge
+    1: [B4-4; None] | Current stage ejection charge
+    2: [C6-3; None] | Current stage ejection charge
+    3: [C6-5; None] | Current stage ejection charge
+    4: [C6-7; None] | Current stage ejection charge
+resave same as the save
+
+== back
+pasted Booster/Booster fin section/Booster motor mount into the source at 5
+  motors Booster/Booster fin section/Booster motor mount: default AUTOMATIC+0.0, [S1 H148R-0 AUTOMATIC+0.0 (overridden), S2 I357T-14 AUTOMATIC+0.0 (overridden)]
+  motors: Configuration | Sustainer Motor Mount | Booster motor mount | Booster motor mount
+    0: [H148R-0; H148R-0] | H148R-0 / Burnout | H148R-0 / Automatic | H148R-0 / Automatic
+    1: [I59WN-P; I357T-14] | I59WN-P / Burnout | I357T-14 / Automatic | I357T-14 / Automatic
+  recovery: Configuration | Sustainer Main | Sustainer Drogue | Booster Chute
+    0: [H148R-0; H148R-0] | Altitude 152 m | Apogee | Apogee
+    1: [I59WN-P; I357T-14] | Altitude 152 m | Apogee | Apogee
+  stages: Configuration | Booster
+    0: [H148R-0; H148R-0] | Current stage motor burnout
+    1: [I59WN-P; I357T-14] | Upper stage motor ignition

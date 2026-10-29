@@ -1033,7 +1033,7 @@ has no Java and never runs it. Two steps:
 # 1. QtRocket writes its saves (DISABLED_ tests, which ctest and CI never run), the core's first:
 cmake --build --preset clang-debug
 build/clang-debug/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
-build/clang-debug/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='FromScratchInteropSave.*'
+build/clang-debug/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='*InteropSave*'
 # 2. OpenRocket reads them:
 tools/openrocket-goldens/interop.sh            # or: interop.sh <saves directory>
 ```
@@ -1043,7 +1043,7 @@ The test `OrkInteropSaves.DISABLED_WritesTheSavesOfTheInteropCheck`
 directory above the `bin/` of the test program (`build/clang-debug/interop-saves` here, which is
 the default directory of `interop.sh`); a command-line argument `--interop-saves=<directory>` of the
 test program names another directory. It removes the saves of an earlier run from the directory
-first (the files of the names it can write, and the GUI's save below, nothing else) and writes 65
+first (the files of the names it can write, and the GUI's saves below, nothing else) and writes 65
 files, each named `<input>.<form>.ork` after the input of `manifest.json` and the form of the save
 (`zip-data`, `zip-nodata`: an `.ork` archive of `GeneralRocketSaver` with or without the simulation
 data; `plain-data`, `plain-nodata`: the plain XML of `OpenRocketSaver`). A directory that holds any
@@ -1053,7 +1053,14 @@ first save of a load of its own, as OpenRocket's save it is compared with. The G
 (`tests/gui/exit/from_scratch_exit_tests.cpp`, the same `--interop-saves=<directory>`) then adds a
 66th file, `gui-from-scratch.zip-nodata.ork`, the input `gui-from-scratch`, which `manifest.json` does
 not list: the rocket QtRocket's GUI designs from scratch in the exit test `FromScratchExitGolden` (the
-steps of `tests/data/goldens/gui/from-scratch/scenario.json`), saved with Save as.
+steps of `tests/data/goldens/gui/from-scratch/scenario.json`), saved with Save as. Their
+`Scenarios/FlightConfigurationsInteropSave.DISABLED_WritesTheSaveForTheInteropCheck/<scenario>`
+(`tests/gui/exit/flight_configurations_exit_tests.cpp`) adds the 67th and 68th,
+`gui-flight-configurations.zip-nodata.ork` and `gui-multi-stage.zip-nodata.ork`, the inputs
+`gui-<scenario>` (`InteropCheck.GUI_TAB_SCENARIOS`, which no manifest lists either): the design file
+each scenario of the Motors & Configuration tab opens, changed in QtRocket's tab by the steps of
+`tests/data/goldens/gui/<scenario>/scenario.json` in the exit test `FlightConfigurationsExitGolden`, and
+saved with Save as. The filter `*InteropSave*` runs the three writers.
 
 | Inputs | Loaded by QtRocket | Saved as |
 |---|---|---|
@@ -1062,6 +1069,7 @@ steps of `tests/data/goldens/gui/from-scratch/scenario.json`), saved with Save a
 | the 18 legacy files | from `tests/data/ork`, as `RecordedOrkFiles.h` records them | an archive with the simulation data; plain XML with it for `v1.6-apocd.ork`, whose archive OpenRocket cannot save either (`archiveError`) |
 | the 2 coverage documents | from their re-saves | an archive with the document's default storage options |
 | the GUI's from-scratch design | made in QtRocket's GUI (`FromScratchScenario`), not loaded; its input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/from-scratch/rocket.ork` (`tools/openrocket-gui-reference`) | Save as: an archive with the document's default storage options (no data: the design has no simulation) |
+| the 2 designs of the tab's scenarios | opened (File > Open) from the file the scenario names (the from-scratch save, the two-stage example's re-save) and changed in QtRocket's tab (`FlightConfigurationScenario`); the input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/<scenario>/rocket.ork` (`tools/openrocket-gui-reference`, version 2) | Save as: an archive with the document's default storage options (no data: the scenarios' simulations were never run) |
 
 `interop.sh` needs what `generate.sh` needs (Java 17; the OpenRocket checkout at the commit of the
 goldens with its preset submodule, without local changes, or `ALLOW_DIRTY=1`; it warns when the
@@ -1080,7 +1088,12 @@ give the mounts real motors of the same designations); the GUI's design in that 
 after its start-up, in which `tools/openrocket-gui-reference` loads the saved design (as
 `GuiReferenceEnvironment.h` of the C++ tests has it): no preset, no motor, and the default component
 materials the start-up stores (Balsa for fin sets, Polystyrene for nose cones), the test preferences
-otherwise (`InteropCheck.guiInjector()`). With Q OpenRocket's load of QtRocket's save,
+otherwise (`InteropCheck.guiInjector()`); the designs of the tab's scenarios in that of version 2's
+start-up (`GuiReferenceEnvironment(Databases::BUNDLED)`): the bundled motors and component presets (the
+harness's: 1458 motor sets of 1588 motors, 5228 presets) with the same default component materials
+(`InteropCheck.guiTabInjector()`). The design file a scenario opens is the one its `state.json` names
+(`input.file`), with the SHA-256 recorded there; another one stops the check (exit status 1) before
+any file is read. With Q OpenRocket's load of QtRocket's save,
 O its load of the input and OO its load of its own save of O in the same form, a file passes when:
 
 - every load warning of Q is on the allow-list below and O gives the same warning;
@@ -1090,9 +1103,10 @@ O its load of the input and OO its load of its own save of O in the same form, a
   did;
 - OpenRocket's re-save of Q (`OpenRocketSaver`, with the simulation data) is its re-save of OO, line for
   line, the ids the loaders drew for a design that names none numbered by their first occurrence
-  (`withDrawnIdsNumbered()` of `GoldenResaves.h`; every id for the GUI's design, whose ids QtRocket's
-  GUI drew at random and the reference tool's `DeterministicUuids` for OpenRocket's save of the
-  scenario), but for the lines on the allow-list. OO, not the
+  (`withDrawnIdsNumbered()` of `GoldenResaves.h`; every id for the GUI's from-scratch design, whose ids
+  QtRocket's GUI drew at random and the reference tool's `DeterministicUuids` for OpenRocket's save of
+  the scenario; for a design of the tab's scenarios, every id the file it opens does not name: those of
+  the configurations New and Duplicate made), but for the lines on the allow-list. OO, not the
   committed re-save: OpenRocket's own round trip changes a design (its saver writes the warning type
   `RecoveryHighSpeedDeployment`, which its loader reads as `Other` without the speed);
 - the geometry, mass and aerodynamics documents of Q, dumped after the re-save and the settling of
@@ -1103,8 +1117,10 @@ O its load of the input and OO its load of its own save of O in the same form, a
   components have the same ids in Q and OO (the coverage documents and `v1.9-chute-release.ork`; the
   files of the formats 1.0 to 1.8 name no component id, so the two loaders draw other ones, and
   OpenRocket's sums follow the ids in the last bit: the report lists these seventeen under "not
-  compared", and the GUI's design, whose components have other ids than in OpenRocket's save of the
-  scenario; it has no goldens of its own either);
+  compared", and the GUI's from-scratch design, whose components have other ids than in OpenRocket's
+  save of the scenario; it has no goldens of its own either); and those of OO for a design of the tab's
+  scenarios, whose components keep the ids of the file it opens, the ids of the configurations the
+  scenario made numbered on both sides as in the re-saves (the dumps name the configurations by id);
 - the options of every simulation are those of O, or of OO where OpenRocket's own save changes them
   (a random seed that is not fixed is drawn by each load and left out); for an example or a test
   rocket, made reproducible as the harness makes them, also the options and extensions of the golden
@@ -1122,7 +1138,7 @@ O its load of the input and OO its load of its own save of O in the same form, a
 
 The allow-list (`InteropCheck.ALLOWED_WARNINGS`, `ALLOWED_RESAVE_CHANGES`, and the thrust curves:
 a synthetic digest in a test rocket, `ALLOWED_CURVES` in any other input). Each allowance has to be
-used exactly as often as `EXPECTED_ALLOWANCES` says over all 66 files (the counts below), so that it
+used exactly as often as `EXPECTED_ALLOWANCES` says over all 68 files (the counts below), so that it
 cannot hide a new case of its kind:
 
 | What | Where | Why |
@@ -1144,6 +1160,12 @@ none for a QtRocket save. The whole check takes about 25 s. The run of Milestone
 at the merge of its run 4, OpenRocket 5f164fd0e, JDK 17), with the GUI's save: 66 files of 50
 inputs, 0 failed; the same allowances; not compared: the dumps of those seventeen legacy files and of
 the GUI's design (whose re-save, 235 lines, is OpenRocket's re-save of its own save of the scenario).
+The run of Milestone 3 (run 3, part X4: QtRocket at the commit of the part, OpenRocket 5f164fd0e,
+JDK 17), with the saves of the tab's two scenarios: 68 files of 52 inputs, 0 failed; the same
+allowances; not compared: the same dumps. `gui-flight-configurations` (14 components, 3 simulations;
+an archive of `rocket.ork` and 2 thrust curves; a re-save of 390 lines) and `gui-multi-stage` (50
+components, 3 simulations; 2 thrust curves; 1085 lines) pass every check, the dumps included; OpenRocket
+logs nothing for them. About 20 s.
 
 ## Figure pin tables
 

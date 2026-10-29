@@ -4,10 +4,11 @@
 #   tools/openrocket-goldens/interop.sh [<saves directory>]
 #
 # The saves are written first by DISABLED_ tests of the C++ tests (tests/core/goldens/ork_interop_saves_tests.cpp,
-# then the GUI's save of its from-scratch design, tests/gui/exit/from_scratch_exit_tests.cpp):
+# then the GUI's saves of its from-scratch design and of the two scenarios of the Motors & Configuration tab,
+# tests/gui/exit/from_scratch_exit_tests.cpp and tests/gui/exit/flight_configurations_exit_tests.cpp):
 #
 #   build/clang-debug/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
-#   build/clang-debug/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='FromScratchInteropSave.*'
+#   build/clang-debug/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='*InteropSave*'
 #
 # which write them into build/clang-debug/interop-saves, the default directory of this script.
 #

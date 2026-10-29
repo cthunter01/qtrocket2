@@ -4,9 +4,15 @@
 # case). Their suites carry "Golden" in their names, so that tests/gui/CMakeLists.txt gives them the labels gui and
 # golden.
 target_sources(QtRocket_gui_tests PRIVATE
+    flight_configurations_exit_tests.cpp
+    FlightConfigurationPrompts.cpp
+    FlightConfigurationScenario.cpp
+    FlightConfigurationScenarioTests.cpp
     from_scratch_exit_tests.cpp
     FromScratchPrompts.cpp
     FromScratchScenario.cpp
     FromScratchScenarioTests.cpp
     open_designs_exit_tests.cpp
+    pasted_motor_mount_tests.cpp
+    ScenarioInput.cpp
 )
