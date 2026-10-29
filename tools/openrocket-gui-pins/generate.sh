@@ -30,6 +30,9 @@
 #                      tests/gui/dialogs/preset/, tests/gui/configdialog/ComponentConfigDialogTests.cpp and
 #                      RocketComponentConfigTests.cpp pin by hand (checked only, see README.md; two of their
 #                      probes run under xvfb-run, one of them shows the parts library and presses its keys)
+#   open-designs       tests/gui/exit/OpenDesignsTabPins.h (the Motors & Configuration tab of each design of
+#                      OpenDesignsExitGolden) and OpenDesignsPartsLibraryPins.h (the parts library of each
+#                      component of its examples that takes presets; both probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -62,13 +65,13 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, thrust-curves, flight-config and preset-chooser,
+# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser and open-designs,
 # xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser)
+    preset-chooser open-designs)
 
 check=false
 families=()
@@ -126,7 +129,7 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves flight-config preset-chooser; do
+for family in rocket-panel thrust-curves flight-config preset-chooser open-designs; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -459,6 +462,23 @@ for family in "${families[@]}"; do
         file=tests/gui/dialogs/preset/PresetChooserPins.h
         python3 -I "${here}/${family}/gen_preset_chooser_pins.py" "${work}/PresetChooserProbe.txt" \
             "$(generated "${file}")" "${commit}"
+        ;;
+    open-designs)
+        # The designs of OpenDesignsExitGolden, in its order; OpenRocket's FlightConfigurationPanel makes a
+        # MotorChooserDialog, a JDialog, which a headless AWT refuses to make (it is never shown). The six
+        # presets of the example designs come from the bundled presets' directory.
+        python3 -I "${here}/${family}/designs.py" "${repo}" > "${work}/open-designs.txt"
+        run_probe "${family}" OpenDesignsTabProbe xvfb "${work}/open-designs.txt" "${repo}/data/components"
+        tab=tests/gui/exit/OpenDesignsTabPins.h
+        python3 -I "${here}/${family}/gen_open_designs_tab_pins.py" "${work}/OpenDesignsTabProbe.txt" \
+            "$(generated "${tab}")" "${commit}"
+        finish "${tab}"
+        # The parts library of each component of the examples that takes presets, over the bundled presets:
+        # OpenRocket's ComponentPresetChooserDialog, a JDialog (never shown).
+        run_probe "${family}" OpenDesignsPartsLibraryProbe xvfb "${work}/open-designs.txt" "${repo}/data/components"
+        file=tests/gui/exit/OpenDesignsPartsLibraryPins.h
+        python3 -I "${here}/${family}/gen_open_designs_parts_library_pins.py" \
+            "${work}/OpenDesignsPartsLibraryProbe.txt" "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

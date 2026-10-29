@@ -205,6 +205,51 @@ def expect_fields(fields, count, line):
         raise SystemExit("expected %d fields: %r" % (count, line))
 
 
+# The rows of the structs of HEADER_TOP, written positionally (the header's tables suppress
+# modernize-use-designated-initializers): these functions are the one place that knows the order of their
+# fields. open-designs/gen_open_designs_tab_pins.py writes its rows of these structs (OpenDesignsTabPins.h
+# includes this family's header) through them too, so a change of a struct's fields is a change of both
+# generators' output: regenerate both families (generate.sh flight-config open-designs).
+
+
+def configuration(fields, line):
+    """The row of a C line (index, key, drawn, raw name, overridden); its column 0 comes with its M0 line."""
+    expect_fields(fields, 6, line)
+    return {"key": fields[2], "drawn": boolean(fields[3]), "raw": fields[4], "overridden": boolean(fields[5])}
+
+
+def configuration_row(row, scenario):
+    """A ConfigurationRowPin of @p row (configuration(), with the column 0 of its M0 line) of @p scenario."""
+    if "name" not in row:
+        raise SystemExit("no column 0 for a row of " + scenario)
+    return "    {%s, %s, %s, %s, %s}," % (cpp_string(row["key"]), row["drawn"], cpp_string(row["raw"]),
+                                         row["overridden"], cpp_string(row["name"]))
+
+
+def motor_cell_row(fields, line):
+    """A MotorCellPin of an M line (row, column, motor, motor style, ignition, ignition style, override,
+    containsId)."""
+    expect_fields(fields, 9, line)
+    style(fields[4], line, regular_only=True)
+    return "    {%d, %d, %s, %s, %s, %s, %s}," % (
+        int(fields[1]), int(fields[2]), cpp_string(fields[3]), cpp_string(fields[5]), style(fields[6], line),
+        boolean(fields[7]), boolean(fields[8]))
+
+
+def value_cell_row(fields, line):
+    """A ValueCellPin of an R or T line (row, column, text, style, isDefault, containsId)."""
+    expect_fields(fields, 7, line)
+    return "    {%d, %d, %s, %s, %s, %s}," % (
+        int(fields[1]), int(fields[2]), cpp_string(fields[3]), style(fields[4], line), boolean(fields[5]),
+        boolean(fields[6]))
+
+
+def motor_mount_row(fields, line):
+    """A MotorMountRowPin of a P line (index, isMotorMount, name)."""
+    expect_fields(fields, 4, line)
+    return "    {%s, %s}," % (boolean(fields[2]), cpp_string(fields[3]))
+
+
 def parse(lines):
     colours = None
     scenarios = []
@@ -227,11 +272,10 @@ def parse(lines):
             current["selected"] = int(fields[1])
             current["stages"] = int(fields[2])
         elif tag == "C":
-            expect_fields(fields, 6, line)
+            row = configuration(fields, line)
             if int(fields[1]) != len(current["configurations"]):
                 raise SystemExit("rows out of order: " + line)
-            current["configurations"].append({"key": fields[2], "drawn": boolean(fields[3]), "raw": fields[4],
-                                              "overridden": boolean(fields[5])})
+            current["configurations"].append(row)
         elif tag in ("MH", "RH", "TH"):
             expect_fields(fields, 3, line)
             headers = current[{"MH": "motorHeaders", "RH": "recoveryHeaders", "TH": "stageHeaders"}[tag]]
@@ -244,22 +288,14 @@ def parse(lines):
             style(fields[3], line, regular_only=True)
             current["configurations"][row]["name"] = fields[2]
         elif tag == "M":
-            expect_fields(fields, 9, line)
-            style(fields[4], line, regular_only=True)
-            current["motorCells"].append("    {%d, %d, %s, %s, %s, %s, %s}," % (
-                int(fields[1]), int(fields[2]), cpp_string(fields[3]), cpp_string(fields[5]),
-                style(fields[6], line), boolean(fields[7]), boolean(fields[8])))
+            current["motorCells"].append(motor_cell_row(fields, line))
         elif tag in ("R", "T"):
-            expect_fields(fields, 7, line)
-            cells = current["recoveryCells" if tag == "R" else "stageCells"]
-            cells.append("    {%d, %d, %s, %s, %s, %s}," % (
-                int(fields[1]), int(fields[2]), cpp_string(fields[3]), style(fields[4], line),
-                boolean(fields[5]), boolean(fields[6])))
+            current["recoveryCells" if tag == "R" else "stageCells"].append(value_cell_row(fields, line))
         elif tag == "P":
-            expect_fields(fields, 4, line)
+            row = motor_mount_row(fields, line)
             if int(fields[1]) != len(current["mounts"]):
                 raise SystemExit("mount rows out of order: " + line)
-            current["mounts"].append("    {%s, %s}," % (boolean(fields[2]), cpp_string(fields[3])))
+            current["mounts"].append(row)
         elif tag == "N":
             expect_fields(fields, 3, line)
             current["names"].append("    {%s, %s}," % (cpp_string(fields[1]), cpp_string(fields[2])))
@@ -290,12 +326,7 @@ def main():
     for scenario in scenarios:
         name = ident(scenario["name"])
         source, design = scenario["name"].split(":", 1)
-        rows = []
-        for row in scenario["configurations"]:
-            if "name" not in row:
-                raise SystemExit("no column 0 for a row of " + scenario["name"])
-            rows.append("    {%s, %s, %s, %s, %s}," % (cpp_string(row["key"]), row["drawn"], cpp_string(row["raw"]),
-                                                     row["overridden"], cpp_string(row["name"])))
+        rows = [configuration_row(row, scenario["name"]) for row in scenario["configurations"]]
         names = {}
         for part, element, key in (("Configurations", "ConfigurationRowPin", None),
                                    ("MotorHeaders", "std::string_view", "motorHeaders"),

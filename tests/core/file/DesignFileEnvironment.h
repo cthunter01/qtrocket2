@@ -95,6 +95,10 @@ public:
     /// the store and cannot write to it; the loads write through the context.
     [[nodiscard]] InMemoryPreferences&       preferences() noexcept { return m_preferences; }
     [[nodiscard]] const InMemoryPreferences& preferences() const noexcept { return m_preferences; }
+    /// The component presets the loads find (those of the environment's Presets), for what else
+    /// looks presets up in a test that loads through the environment: the GUI's services of the
+    /// exit suite OpenDesignsExitGolden, whose windows' parts library lists them.
+    [[nodiscard]] const ComponentPresetDatabase& presets() const noexcept { return m_presets; }
 
     /// A new database of the presets @p presets: empty, the six of the examples, or a copy of the
     /// bundled ones, which shares them (the first call of a process reads them).
