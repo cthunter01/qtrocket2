@@ -1,0 +1,41 @@
+{
+  "schema": "gui-scenario",
+  "schemaVersion": 2,
+  "title": "Separations, an upper-stage ignition and a cluster of a two-stage design in the Motors & Configuration tab",
+  "steps": [
+    {"step": "open", "file": "tests/data/goldens/example-two-stage-high-power-rocket/resave/rocket.ork", "note": "OpenRocket's re-save of its example 'Two stage high power rocket': two configurations, a motor in each stage"},
+    {"step": "tab", "tab": "flightConfiguration"},
+    {"step": "configTab", "tab": "stages", "note": "the booster's separation, per configuration"},
+
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Booster"]}]},
+    {"step": "selectSeparation", "answer": {"scope": "this", "event": "BURNOUT", "delay": {"text": "1", "unit": "s"}, "button": "ok"}},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Booster"]}]},
+    {"step": "selectSeparation", "answer": {"scope": "this", "event": "ALTITUDE_DESCENDING", "altitude": {"text": "300", "unit": "ft"}, "delay": {"text": "0", "unit": "s"}, "button": "ok"}, "note": "an altitude in feet"},
+    {"step": "selectCells", "cells": [{"row": 0, "column": ["Booster"]}, {"row": 1, "column": ["Booster"], "with": "shift"}]},
+    {"step": "selectSeparation", "answer": {"scope": "all", "event": "EJECTION", "delay": {"text": "0.5", "unit": "s"}, "button": "ok"}, "note": "the default separation: every override goes"},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Booster"]}]},
+    {"step": "selectSeparation", "answer": {"scope": "this", "event": "NEVER", "delay": {"text": "0", "unit": "s"}, "button": "ok"}},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Booster"]}]},
+    {"step": "resetSeparation"},
+    {"step": "newConfiguration", "answer": {"scope": "this", "event": "APOGEE", "delay": {"text": "2", "unit": "s"}, "button": "ok"}, "note": "New on the Stages sub-tab: the separation question for the new row"},
+
+    {"step": "configTab", "tab": "motors"},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Sustainer", "Sustainer Fin Section", "Inner Tube", "Sustainer Motor Mount"]}]},
+    {"step": "selectIgnition", "answer": {"scope": "this", "event": "BURNOUT", "delay": {"text": "2", "unit": "s"}, "button": "ok"}, "note": "the upper stage's motor ignites 2 s after the booster's burnout"},
+    {"step": "selectCells", "cells": [{"row": 1, "column": ["Booster", "Booster fin section", "Booster motor mount"]}]},
+    {"step": "deleteMotor", "note": "the booster's motor of the second configuration"},
+
+    {"step": "tab", "tab": "design"},
+    {"step": "select", "paths": [["Sustainer", "Sustainer Fin Section", "Inner Tube", "Sustainer Motor Mount"]]},
+    {"step": "edit"},
+    {"step": "choose", "field": "ClusterConfiguration", "item": "4-ring", "note": "a cluster of four: the tab shows the motor count"},
+    {"step": "ok"},
+    {"step": "tab", "tab": "flightConfiguration"},
+    {"step": "undo"},
+    {"step": "redo"},
+
+    {"step": "saveAs", "note": "File > Save as: the design information dialog first"},
+    {"step": "ok"},
+    {"step": "chooseFile", "file": "rocket", "note": "typed without the extension, which Save as adds"}
+  ]
+}

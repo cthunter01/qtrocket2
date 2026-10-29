@@ -499,6 +499,7 @@ add_executable(QtRocket_core_tests
     goldens/example_simulation_stable_golden_tests.cpp
     goldens/figure_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
+    goldens/flight_configurations_reference_golden_tests.cpp
     goldens/from_scratch_reference_golden_tests.cpp
     goldens/GoldenExamplesTests.cpp
     goldens/goldens_schema_tests.cpp

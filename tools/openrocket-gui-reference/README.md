@@ -44,11 +44,17 @@ Files of the tool:
   and `Reflection`.
 - `src/main/resources/logback.xml`: keeps OpenRocket's log to its warnings and errors.
 
-QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h`.
+QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h` (both versions).
 `tests/core/goldens/from_scratch_reference_golden_tests.cpp` (suite `FromScratchReferenceGolden`,
 label `golden`) checks that the from-scratch state.json is the record of the committed scenario, that
 the reference comes from the OpenRocket of the other goldens, and that QtRocket loads `rocket.ork`
 without warnings into exactly OpenRocket's state.
+`tests/core/goldens/flight_configurations_reference_golden_tests.cpp` (suite
+`FlightConfigurationsReferenceGolden`, label `golden`) checks the same for the scenarios of version 2,
+and moreover that each state.json is the record of its input file, that the start-up loaded QtRocket's
+bundled databases, that the questions belong to their steps, that QtRocket loads the input into the
+tree of the open step, that the archive held the thrust curves of the design's motors, and that the
+expected differences (`kGuiExpectedDifferences`) name recorded questions.
 
 ## Regenerating
 
@@ -95,7 +101,9 @@ directories and logs).
 
 Edit a `scenario.json` by hand and regenerate: `FromScratchReferenceGolden` fails while the
 from-scratch state.json records another scenario (the SHA-256 of its bytes); a state.json of version 2
-records its scenario and its input file the same way.
+records its scenario and its input file the same way, which `FlightConfigurationsReferenceGolden`
+checks (`flight-configurations` opens the from-scratch reference's `rocket.ork`, `multi-stage` a
+re-save of `tools/openrocket-goldens`: regenerate them after a change of those).
 
 ## How OpenRocket is run
 
@@ -414,6 +422,26 @@ Traps of OpenRocket's tab that the tool reports, and how to write around them:
   has no decal files beside it), and its simulations must hold no flight data (a re-save of an example,
   `tests/data/goldens/example-*/resave/rocket.ork`, has none).
 
+The committed scenarios of version 2 (each directory's README.md tells them step by step):
+
+- `flight-configurations`, 37 steps, on the from-scratch design: the body tube made a second motor
+  mount and back, New with the chooser twice (Estes D12-5, C11-7), the nozzle exit diameter, a
+  cancelled chooser, the ignition for all configurations and an override, a cancelled ignition
+  question, Reset ignition on two rows, a deployment override, a cancelled deployment question,
+  Reset deployment, Save as default of the rename dialog (cancelled), New on the Recovery sub-tab
+  with its deployment question, the renames `{motors} flight` and `{manufacturers | motors}`, a
+  Plugged delay, Reset to default, Duplicate, Delete, Undo, Redo and Save as.
+- `multi-stage`, 30 steps, on OpenRocket's re-save of the example "Two stage high power rocket": the
+  booster's separation per configuration (one at an altitude in feet) and for all configurations
+  over two rows, Never, Reset separation, New on the Stages sub-tab with its separation question,
+  the upper stage's ignition, the booster's motor of a configuration deleted, the sustainer's mount
+  made a cluster of four in its configuration dialog, Undo, Redo and Save as.
+
+Where QtRocket's fixes of OpenRocket's bugs show in them, the record is OpenRocket's with the tool's
+fix (bugs 5 and 6), the scenario avoids the step (bugs 2, 3, 4, 8, 20 and 21), or
+`kGuiExpectedDifferences` of `GoldenGuiReference.h` names the recorded member that QtRocket's GUI
+shows otherwise (bug 1: the scope a deployment or separation question starts on, four questions).
+
 ## state.json
 
 ### Version 1
@@ -463,7 +491,7 @@ Two things a comparison has to know:
   override after the reload (`ign=AUTOMATIC:0.0:true`), because the loader sets the saved
   `<ignitionevent>` with `MotorConfiguration.setIgnitionEvent`, which marks it so
   (`MotorMountHandler.java:101-115`, `MotorConfiguration.java:198-205`). In OpenRocket as in
-  QtRocket; `from_scratch_reference_golden_tests.cpp` lists it (`kSaveAndReloadChanges`).
+  QtRocket; `GoldenGuiReference.h` lists it (`kGuiSaveAndReloadChanges`).
 - The number of change events of the load (`events rocket=`) depends on the default component
   materials of the application's preferences, which OpenRocket's GUI start-up stores; QtRocket's
   test stores them too (`loadDefaultComponentMaterials()`).
@@ -524,3 +552,9 @@ questions never stay open across steps), and:
 
 `loaded` as in version 1. The ids of the tree lines are `random`: `flightConfiguration.selectedConfiguration`
 and the `simulations` name the configurations by their rows.
+The saved file is loaded with the bundled databases of the start-up (`GuiReferenceEnvironment.h`'s
+`Databases::BUNDLED`). What a save and a reload change in a scenario's design is listed per scenario
+by `guiReloadChanges()` of `GoldenGuiReference.h`: in `flight-configurations` the two configurations
+named `Flight {motors}`, the default name at the save, which `RocketSaver` saves without their
+`<name>` (`FlightConfiguration.isNameOverridden()`), so that the reload gives them the default name
+`[{motors}]`; nothing in `multi-stage`.

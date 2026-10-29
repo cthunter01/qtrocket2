@@ -622,6 +622,27 @@ std::string FromScratchScenario::perform(const GuiScenarioStep& step)
             return saveAs(step);
         case GuiStepKind::CHOOSE_FILE:
             return "no file chooser is open";
+        case GuiStepKind::OPEN:
+        case GuiStepKind::TAB:
+        case GuiStepKind::CONFIG_TAB:
+        case GuiStepKind::SELECT_CELLS:
+        case GuiStepKind::MOUNT_CHECK:
+        case GuiStepKind::NEW_CONFIGURATION:
+        case GuiStepKind::RENAME_CONFIGURATION:
+        case GuiStepKind::DELETE_CONFIGURATION:
+        case GuiStepKind::DUPLICATE_CONFIGURATION:
+        case GuiStepKind::SELECT_MOTOR:
+        case GuiStepKind::DELETE_MOTOR:
+        case GuiStepKind::SELECT_IGNITION:
+        case GuiStepKind::RESET_IGNITION:
+        case GuiStepKind::SELECT_DEPLOYMENT:
+        case GuiStepKind::RESET_DEPLOYMENT:
+        case GuiStepKind::SELECT_SEPARATION:
+        case GuiStepKind::RESET_SEPARATION:
+            // The steps of the scenarios of version 2 (parseGuiScenario() refuses them in one of
+            // version 1).
+            return std::format("\"{}\" is no step of the from-scratch scenario",
+                               QtRocket::Test::guiStepName(step.kind));
     }
     QTROCKET_UNREACHABLE();
 }
