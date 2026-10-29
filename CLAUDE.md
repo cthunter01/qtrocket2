@@ -1,10 +1,11 @@
 # QtRocket
 
 C++23 re-implementation of OpenRocket (Java, GPLv3): the Qt-free library `QtRocket_core` (component model,
-aerodynamics, mass, flight simulation, `.ork` files, motor database, CSV export, the 2D figure's geometry), the
-command-line tool `QtRocket_cli` (Milestone 1, the headless core) and the Qt 6 Widgets GUI `QtRocket` (`gui/`,
-Milestone 2: OpenRocket's Design tab without motors, component presets, simulations, appearance and the 3D views;
-`docs/gui-differences.md` lists what comes later). Built with CMake presets + Ninja, tested with GoogleTest.
+aerodynamics, mass, flight simulation, `.ork` files, motor database, component presets, CSV export, the 2D
+figure's geometry), the command-line tool `QtRocket_cli` (Milestone 1, the headless core) and the Qt 6 Widgets GUI
+`QtRocket` (`gui/`: Milestone 2, OpenRocket's Design tab; Milestone 3, the "Motors & Configuration" tab, the motor
+chooser and the parts library; no simulations, appearance or 3D views yet: `docs/gui-differences.md` lists what
+comes later). Built with CMake presets + Ninja, tested with GoogleTest.
 Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
 
 ## Commands
@@ -65,7 +66,9 @@ the workflow or create a tag only when the user asks.
 - Test support to reuse, never duplicate (`find tests/core tests/gui -name '*.h'` lists it all):
   - core: `tests/core/TestPaths.h`, `tests/core/TestTempDir.h`, `tests/core/unit/DefaultUnitsGuard.h`,
     `tests/core/rocket/TestRockets.h` (OpenRocket's TestRockets), `tests/core/document/TestDocuments.h` (its 16
-    document makers), `tests/core/motor/TestMotorDatabase.h`, `tests/core/simulation/FlightDifferences.h`,
+    document makers), `tests/core/motor/TestMotorDatabase.h` (the bundled motors, `smallMotorDatabase()`,
+    `estesA8Database()`), `tests/core/rocket/preset/TestPresetDatabase.h` (the bundled presets,
+    `smallPresetDatabase()`) and `ExamplePresets.h`, `tests/core/simulation/FlightDifferences.h`,
     `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h`, `RecordedOrkFiles.h` and
     `OpenRocketSaverTestMotors.h` in `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h` (with
     `GoldenGuiReference.h`, the GUI reference's scenario and records) and `GuiReferenceEnvironment.h`,
@@ -78,13 +81,22 @@ the workflow or create a tag only when the user asks.
     `configdialog/ConfigDialogTestSupport.h` (the fixture `ConfigDialogTest`), `dialogs/PreferencesPageTranscript.h`
     (`chooseItem()`), `main/FileMenusTestSupport.h`, `widgets/WidgetTestSupport.h` (focus, typing, the wheel),
     `figure/RecordingPaintDevice.h` (what is painted, without pixels), `FigureMouse.h`, `tree/TreeViewMouse.h`,
-    `exit/FromScratchScenario.h`
+    `exit/FromScratchScenario.h`, `plot/PlotReadback.h` (a plot's series, axes and drawn texts, without
+    pixels), `flightconfig/FlightConfigurationTabSupport.h` (the tab in a window of its own),
+    `binding/PresetTestSupport.h`, `dialogs/motor/MotorChooserTestSupport.h`,
+    `dialogs/preset/PresetTableTestSupport.h`
   - and the `*Support.h`, `*Pins.h` and `*Transcript.h` headers beside each subsystem's or area's tests
+  - the bundled motor and preset databases are read once per test process (the presets take a second and a
+    half, several under ASan), never per test; only the tests that start the application as `main()` does
+    (`app/`, `exit/`) read them for each `ApplicationContext` (the presets only when a test asks for them);
+    models, choosers and `QAbstractItemModelTester` take the small ones
 - `tests/data/`: test fixtures (`ork/`, `motors/`, `csv/`, `cli/`, `fin-images/`, ...) and `goldens/`, OpenRocket's
   results for the 16 examples and the 13 test rockets (generated; never edited by hand), with the GUI reference
   `goldens/gui/from-scratch/` (`scenario.json`, its input, is written by hand)
 - `data/`: the shipped data, installed to `share/QtRocket/`: `motors/initial_motors.db` (OpenRocket's motor
-  database) and `examples/*.ork` (OpenRocket's 16 example designs)
+  database) with `metadata.json` (its version), `components/` (the bundled presets, byte for byte: `database/`,
+  the Apache-2.0 openrocket-database, and `internal/`, OpenRocket's legacy files) and `examples/*.ork`
+  (OpenRocket's 16 example designs)
 - `tools/`: the Java programs that write the generated data, mostly from OpenRocket's compiled classes, each with
   a README that says how to run it; never built by CMake or CI. `openrocket-goldens/` (`tests/data/goldens/`; its
   `figure-pins/`: the core's figure pin tables), `openrocket-test-documents/` (`goldens/test-documents/`),
@@ -92,6 +104,8 @@ the workflow or create a tag only when the user asks.
   one subdirectory per family), `openrocket-panel-pins/` (the configuration panels' pins),
   `openrocket-component-factory/` (`tests/data/component-factory/`), `openrocket-expression-parser/`
   (`src/util/ExpressionParserTables.h` and its parity cases), `openrocket-fin-import/` (`tests/data/fin-images/`),
+  `openrocket-motor-chooser/` (the core's pins of `motor/chooser/` and MotorCorrelation),
+  `openrocket-collation/` (`src/util/JavaCollationTables.h`, JDK 17's en_US collator, and its pins),
   `openrocket-probes/` (probes whose output tests pin by hand, with what they printed)
 - `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy),
   `QtRocket_configure_qt_target()` and `QtRocket_automoc_follows_sources()`;
@@ -135,7 +149,10 @@ subsystem or area is added there too.
 - Port OpenRocket faithfully: read the Java source line by line, never work from memory. A ported JUnit test keeps
   its expectations and tolerances and names its Java original in a comment (`Port of ...`); never loosen or drop an
   assertion to make a test pass. A deliberate difference from OpenRocket is documented where it is made; one of the
-  GUI that a user can notice also goes into `docs/gui-differences.md`
+  GUI that a user can notice also goes into `docs/gui-differences.md`. An OpenRocket bug the user decided to fix
+  keeps its number there ("bug 6": the source's comments give the number); one found while porting that crashes,
+  hangs or loses a change may be fixed too, documented where it is made and listed there under "More OpenRocket
+  bugs, found while porting"
 - Golden tests: a GoogleTest suite whose name contains `Golden` gets the ctest label `golden`, whatever its file
   and in both test executables (the comparisons are mostly in `*_golden_tests.cpp`; the CLI's milestone run
   `cli.milestone` carries it too). Re-run `ctest --preset clang-debug -L golden` after any change to `aero/`,
@@ -161,7 +178,9 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text
   given to rocketplot goes through `rocketplot::literalText()`: a `$` starts math, of which rocketplot, built
-  without its math font, warns once per process (a test would fail or pass by test order)
+  without its math font, warns once per process (a test would fail or pass by test order). Every plot calls
+  `plot/PlotTheme::apply()` when it is made and at a `PaletteChange` of the widget that holds it; rocketplot's own
+  dialogs (Export..., Color...) are replaced through `plot/PlotExport`
 - Every Qt target calls `QtRocket_configure_qt_target()`: per-target AUTOMOC and `QT_NO_KEYWORDS` (also PUBLIC on
   `QtRocket_gui`: the core's `Signal::emit()`), `QT_ENABLE_STRICT_MODE_UP_TO=0x060800`,
   `QT_WARN_DEPRECATED_UP_TO=0x060800`, `QT_NO_CAST_FROM_ASCII`. So `Q_SIGNALS`/`Q_EMIT`, no `Q_SLOTS` (connect
@@ -178,20 +197,22 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   parentless window or dialog lives on the stack or in a `std::unique_ptr`; a parented object goes with
   `deleteLater()`, never `delete`; a modal question's dialog through `dialogs/ModalDialog` (on the heap: its parent
   may be destroyed during its event loop; `dialogs/OptionDialog` for JOptionPane's)
-- Services: `util/GuiServices` (preferences, materials, motors, loading context, `UserPrompts`, by reference), built
-  for the program only by `app/ApplicationContext`. Every modal question goes through `UserPrompts` (widgets:
+- Services: `util/GuiServices` (preferences, materials, motors, presets, loading context, `UserPrompts`, the
+  start's data, by reference; keep it trivially copyable), built for the program only by
+  `app/ApplicationContext`. Every modal question goes through `UserPrompts` (widgets:
   `main/WidgetUserPrompts`). The only process-wide state: `main/OpenRocketClipboard::instance()`, the configuration
   dialog (`ComponentConfigDialog`'s statics), `Guard`'s error hook and `UndoRedoActions`' undo-error flag
   (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is a cache. A window's parts ask for the configuration
   dialog by signal (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers;
   `app/ApplicationSession` makes it, with the error hook, the windows, the file operations and the recent files (a
   `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`,
-  `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`, `gui.start`, labels `gui` and `lint`:
-  nothing may reach the standard error)
+  `QTROCKET_TEST_USER_DATA_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`,
+  `gui.start`, on Linux `gui.start-data-home`, labels `gui` and `lint`: nothing may reach the standard error)
 - Text: every user-visible string is `tr("<the English text of OpenRocket's messages.properties>")` with a
   `//: <key>` translator comment above it (OpenRocket's typos verbatim; "OpenRocket" becomes "QtRocket" in
   QtRocket's own texts); core enums through `util/EnumText`, menu texts through `util/MenuText` (mnemonics, `&`);
-  other literals are `QStringLiteral`; non-ASCII as escapes (no digit right after an octal escape: MSVC's C4125).
+  other literals are `QStringLiteral`; non-ASCII as escapes (no digit right after an octal escape: MSVC's C4125;
+  the editing tools can turn a typed `\u` escape into its character: check with `grep -P '[^\x00-\x7F]'`).
   Paths go through `pathFromUtf8`/`pathToUtf8`, never `toStdString()`
 - The core's objects: no component pointer survives a `TREE` or `UNDO` event (`Rocket::loadFrom` replaces every
   component: keep ids); never undo, redo or `addUndoPosition` inside a rocket slot (queue it); never `freeze()` a
@@ -216,9 +237,15 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `WindowManager` its own), a default unit, a current directory or a palette left behind; one that opens the
   configuration dialog calls `ComponentConfigDialog::forgetPreviousDialogs()` (or derives from `ConfigDialogTest`).
   The whole application: an `ApplicationSession` over `SettingsPreferences` of a temporary INI file and the test's
-  prompts (`app/design_window_integration_tests.cpp`). Never show a window on the desktop; every modal question is
-  answered by a scripted double; no pixel or font assertions (compare geometry and texts); `objectName` = the Java
-  property
+  prompts (`app/design_window_integration_tests.cpp`); there `DataPaths::forApplication()` has no bundled presets
+  and no user data directory (QStandardPaths' test mode): a test opts in with `withComponentDirectory()` or
+  `withUserDataDirectory()`. `TestGuiServices` turns "Automatically open the Parts Library dialog" off (a new
+  component would ask for a preset; `GuiTestSupport.h`). Never show a window on the desktop; every modal question
+  is answered by a scripted double; no pixel or font assertions (compare geometry and texts); `objectName` = the
+  Java property. A test that shows Qt's own `QFileDialog` is a `WidgetFileDialogTest`
+  (`main/WidgetUserPromptsTests.cpp`): only that suite runs under the `RESOURCE_LOCK` `qt_file_dialog_settings` of
+  `tests/gui/CMakeLists.txt`, as QFileDialog's history lives in the registry or CFPreferences on Windows and macOS,
+  where parallel dialogs watch each other's temporary directories
 - Labels: `tests/gui/` gives its tests the label `gui` as a directory property and its `*Golden*` suites `golden`
   through a second `gtest_discover_tests()` (a list in its `PROPERTIES` loses its `;`). A `TEST_P`'s printed
   parameter becomes part of the ctest name: print a short name, never a path
@@ -232,10 +259,17 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `OrkInteropSaves`, which removes it as an earlier save) for `tools/openrocket-goldens/interop.sh`, which checks it
   as the input `gui-from-scratch` against OpenRocket's save of the scenario
 - Traps: `QCoreApplication::processEvents()` does not run `deleteLater()` (`sendPostedEvents(nullptr,
-  QEvent::DeferredDelete)`); `QTreeView::visualRect()` is no visibility test; a window shown offscreen warns "This
-  plugin does not support propagateSizeHints()" unless its layout was activated before `show()` (the tests'
-  `ExpectedQtMessage` drops it, the program's `gui.start` does not); Qt's traps on other platforms are in section
-  Portability. On Windows, Qt's `bin` must be on PATH to run the GUI and its tests (also ctest's listing)
+  QEvent::DeferredDelete)`), nor does a new palette reach the widgets before `sendPostedEvents()`; inside a
+  `TEST_F` body `Test::` is `testing::Test` (write `Gui::Test::`); `QTest::mouseDClick()` sends the double click
+  alone (a real one is press, release, double click, release); a combo box's item is chosen offscreen with
+  `setCurrentIndex()` and `activated()`, not through its popup, and a popup shown offscreen needs
+  `OffscreenPopupWarnings` (`widgets/WidgetTestSupport.h`); a `QDialogButtonBox` makes its first accepting button
+  the default when it is shown, whatever its `autoDefault` (plain buttons where Return must not accept); a member
+  declared after `Q_SIGNALS:` without an access specifier is a signal; `QTreeView::visualRect()` is no
+  visibility test; a window shown offscreen warns "This plugin does not support propagateSizeHints()" unless its
+  layout was activated before `show()` (the tests' `ExpectedQtMessage` drops it, the program's `gui.start` does
+  not); Qt's traps on other platforms are in section Portability. On Windows, Qt's `bin` must be on PATH to run
+  the GUI and its tests (also ctest's listing)
 - After a change to `gui/`, the `tidy` and `asan` presets as for the core
 
 ## clang-tidy
@@ -246,8 +280,10 @@ The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
   macros `UPPER_CASE`
 - Every getter and pure function is `[[nodiscard]]`; single-argument constructors are `explicit`
 - No pointer arithmetic, `reinterpret_cast` or `const_cast` (`std::bit_cast` for the bits of a double); include
-  exactly the headers whose symbols you use (misc-include-cleaner); `std::format`/`std::print`, never printf or
-  iostream formatting; no `std::getenv` in a test (concurrency-mt-unsafe)
+  exactly the headers whose symbols you use (misc-include-cleaner, which does not see a member used through a
+  `std::shared_ptr<const T>`: bind a `const T&`); `std::format`/`std::print`, never printf or iostream formatting;
+  no `std::getenv` in a test (concurrency-mt-unsafe). GCC's `-Wdangling-reference` (ci-gcc) flags a reference to
+  the result of a function given a temporary `const std::string&` or `const QString&`: take `std::string_view`
 - A suppression is `// NOLINTNEXTLINE(check-name): reason` on a line of its own, short enough not to be wrapped,
   or for a whole table a `// NOLINTBEGIN(check-name): reason` ... `// NOLINTEND(check-name)` block; never a
   trailing `NOLINT`

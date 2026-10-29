@@ -134,7 +134,7 @@ class DecalImage;
 ///   images that another document keeps apart: an image and a copy that makeUniqueImage() made
 ///   of it, while the copy has no decal file of its own (OpenRocket's decal editor gives it one
 ///   right away, EditDecalHelper.launchEditor(); the two share theirs only when that export
-///   failed, and QtRocket has no decal editor before Milestone 3). Components that show the two
+///   failed, and QtRocket has no decal editor yet). Components that show the two
 ///   then come into this registry with one image, the first in name order, and the decals of
 ///   the other are renamed to it; the bytes are the same. Java's pasted components keep the two
 ///   image objects, which its saver writes under their two names.

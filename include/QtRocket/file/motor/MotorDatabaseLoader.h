@@ -25,9 +25,16 @@ class GeneralMotorLoader;
 ///
 /// Deviations: OpenRocket loads on a background thread and shows a dialog for a user file it
 /// cannot read; this loader runs in the caller's thread and records such files as problems
-/// (getProblems()). It has no remote updater and no serialized (.ser) fallback. The files of a
-/// directory are read in name order (Java's File.listFiles() order is unspecified), and a
-/// directory reached twice through links is read once.
+/// (getProblems(); Problem::refusedFile tells those OpenRocket shows from those it logs). It has
+/// no remote updater and no serialized (.ser) fallback. The files of a directory are read in
+/// name order (Java's File.listFiles() order is unspecified), and a directory reached twice
+/// through links is read once. A file a directory's search finds that is not a regular file (a
+/// FIFO, a socket, a device, or a link to one, with a motor file's extension) is not opened: a
+/// problem (ErrorCode::UNSUPPORTED_FORMAT, "<path> is not a regular file; it was not read"),
+/// which OpenRocket would log. OpenRocket opens it, which blocks for a FIFO and reads a device
+/// without an end; on its loader's thread only the motor chooser waits, but the GUI's start
+/// reads the user's files before its first window (ComponentPresetDatabaseLoader skips such
+/// files too).
 class MotorDatabaseLoader
 {
 public:
@@ -36,6 +43,16 @@ public:
     {
         std::filesystem::path file;
         Error                 error;
+        /// Whether the problem is a user's motor file that its loader refused, or of which a
+        /// motor was refused (ThrustCurveMotor::Builder::build()): the IllegalArgumentException
+        /// or IOException of loader.load() and addMotorsFromBuilders() for which OpenRocket shows
+        /// its dialog ("Error upon thrust curve import": the error message in italics, then
+        /// "Thrust curve '<b>'{0}'</b>' will be ignored during import." with this file,
+        /// MotorDbLoaderDlg.message1 and .message2). The other problems OpenRocket logs: a file
+        /// that cannot be opened or read, a user's database file that does not read, a path
+        /// without a supported extension or that is neither file nor directory, a directory that
+        /// cannot be listed, and the bundled database's.
+        bool refusedFile{false};
     };
 
     /// The extensions of user motor files: GeneralMotorLoader's plus "db", an SQLite database
@@ -71,9 +88,10 @@ public:
     /// Loads the user's motor files (loadUserDefinedMotors(), with the files OpenRocket's
     /// preferences list): a file with one of kUserMotorExtensions (ignoring ASCII case) is read
     /// with a GeneralMotorLoader, or as a database for "db"; a directory is searched recursively
-    /// for such files, skipping names that start with '.'. A file that cannot be read, has another
-    /// extension, is rejected by its loader or holds a motor ThrustCurveMotor rejects is recorded
-    /// as a problem; the motors of a file before a rejected one stay loaded, as in OpenRocket.
+    /// for such files, skipping names that start with '.' and not opening one that is no regular
+    /// file. A file that cannot be read, has another extension, is rejected by its loader or
+    /// holds a motor ThrustCurveMotor rejects is recorded as a problem; the motors of a file
+    /// before a rejected one stay loaded, as in OpenRocket.
     void loadUserDefinedMotors(std::span<const std::filesystem::path> userFiles);
 
     /// The database loaded so far (getDatabase()).
@@ -113,7 +131,7 @@ private:
     [[nodiscard]] Result<void> addMotorsFromBuilders(
         const std::vector<ThrustCurveMotor::Builder>& motorBuilders);
 
-    void addProblem(const std::filesystem::path& file, Error error);
+    void addProblem(const std::filesystem::path& file, Error error, bool refusedFile = false);
 
     std::unique_ptr<GeneralMotorLoader>                  m_loader;
     ThrustCurveMotorSetDatabase                          m_database;

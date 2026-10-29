@@ -12,6 +12,7 @@
 #include <QMenu>
 #include <QMetaObject>
 #include <QObject>
+#include <QPointer>
 #include <QScopeGuard>
 #include <QString>
 #include <QStringList>
@@ -247,6 +248,16 @@ void ApplicationSession::restoreHooks()
 
 void ApplicationSession::showStartupProblems(MainWindow& window)
 {
+    const QPointer<MainWindow> guard(&window);
+    showMotorDatabaseProblems(window);
+    if (!guard.isNull())
+    {
+        showDatabaseProblems(window);
+    }
+}
+
+void ApplicationSession::showMotorDatabaseProblems(MainWindow& window)
+{
     const std::vector<MotorDatabaseLoader::Problem>& problems = m_context->motorDatabaseProblems();
     if (problems.empty())
     {
@@ -264,6 +275,17 @@ void ApplicationSession::showStartupProblems(MainWindow& window)
     m_context->prompts().showMessage(&window, {.severity = UserPrompts::Severity::WARNING,
                                                .title    = tr("Motor database"),
                                                .lines    = lines});
+}
+
+void ApplicationSession::showDatabaseProblems(MainWindow& window)
+{
+    // The warnings of MotorDatabaseLoader.loadFile() and ComponentPresetDatabaseLoader.
+    // showLoadingErrorDialog(), in one message.
+    if (const std::vector<UserPrompts::DatabaseProblem>& problems = m_context->databaseProblems();
+        !problems.empty())
+    {
+        m_context->prompts().showDatabaseProblems(&window, problems);
+    }
 }
 
 }  // namespace QtRocket::Gui

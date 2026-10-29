@@ -49,9 +49,10 @@ endif()
 include(${PROJECT_SOURCE_DIR}/cmake/ProjectOptions.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
-# QtRocket_data: the build tree has the installed layout, so the programs find data/ (the motor database and the
-# example designs) in share/QtRocket beside their bin/, as in an archive (src/cli/DataDirectory.cpp, and the GUI's own
-# rule). The programs and the test executables that read it depend on this copy.
+# QtRocket_data: the build tree has the installed layout, so the programs find data/ (the motor database, the
+# component presets and the example designs) in share/QtRocket beside their bin/, as in an archive
+# (src/cli/DataDirectory.cpp, and the GUI's own rule). The programs and the test executables that read it depend on
+# this copy.
 file(GLOB_RECURSE qtrocket_data_files CONFIGURE_DEPENDS LIST_DIRECTORIES false
      RELATIVE ${PROJECT_SOURCE_DIR}/data ${PROJECT_SOURCE_DIR}/data/*)
 set(qtrocket_data_copies "")
@@ -76,7 +77,8 @@ if(QTROCKET_BUILD_GUI)
     add_subdirectory(gui)
 endif()
 
-# Shipped data files: the motor database and the example designs (read at run time from share/QtRocket).
+# Shipped data files: the motor database, the component presets and the example designs (read at run time from
+# share/QtRocket).
 include(GNUInstallDirs)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/QtRocket)
 # The licence, OpenRocket's and the third-party notices, and the README go with every archive (share/doc/QtRocket).

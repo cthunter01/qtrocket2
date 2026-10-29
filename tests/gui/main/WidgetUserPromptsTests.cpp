@@ -1,5 +1,8 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -8,23 +11,32 @@
 #include <vector>
 
 #include <QAbstractButton>
+#include <QAction>
+#include <QApplication>
 #include <QChar>
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QObject>
 #include <QPlainTextEdit>
+#include <QPoint>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRect>
+#include <QScreen>
+#include <QScrollArea>
 #include <QSettings>
 #include <QString>
 #include <QStringList>
 #include <QTest>
+#include <QTimer>
 #include <QVariant>
 #include <QWidget>
 #include <Qt>
@@ -51,6 +63,7 @@
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/util/Guard.h"
+#include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
@@ -62,6 +75,7 @@
 #include "ScriptedUserPrompts.h"
 #include "TestTempDir.h"
 #include "configdialog/ConfigDialogTestSupport.h"
+#include "widgets/WidgetTestSupport.h"
 
 // The dialogs are shown (offscreen) and answered by NextModalDialog from their own event loop.
 
@@ -631,6 +645,7 @@ struct FileDialogSeen
     QFileDialog::AcceptMode acceptMode        = QFileDialog::AcceptOpen;
     bool                    confirmsOverwrite = true;
     bool                    qtDialog          = false;
+    bool                    showDirsOnly      = false;
     QString                 description;
     QString                 acceptLabel;
 };
@@ -673,6 +688,7 @@ struct ChooseFile
         seen->acceptMode        = dialog.acceptMode();
         seen->confirmsOverwrite = !dialog.testOption(QFileDialog::DontConfirmOverwrite);
         seen->qtDialog          = dialog.testOption(QFileDialog::DontUseNativeDialog);
+        seen->showDirsOnly      = dialog.testOption(QFileDialog::ShowDirsOnly);
         seen->acceptLabel       = dialog.labelText(QFileDialog::Accept);
         if (const auto* const area = dialog.findChild<DescriptionArea*>(); area != nullptr)
         {
@@ -1316,6 +1332,213 @@ TEST_F(WidgetFileDialogTest, AFileQuestionWhoseParentIsDestroyedAsksNothingMore)
     EXPECT_EQ(parent, nullptr);
 }
 
+/// Answers the next popup menu that the code under test opens (QMenu::exec()), as
+/// NextModalDialog answers a modal dialog: armed right before the call, it polls from the menu's
+/// event loop for the active popup and hands it to the action, once. A menu that does not appear
+/// within NextModalDialog::kTimeout fails the test, and so does one that never comes.
+class NextPopupMenu
+{
+public:
+    explicit NextPopupMenu(Gui::Test::NextModalDialog::Action action) : m_action(std::move(action))
+    {
+        m_timer.setInterval(std::chrono::milliseconds(1));
+        QObject::connect(&m_timer, &QTimer::timeout, &m_timer, [this] { poll(); });
+        m_elapsed.start();
+        m_timer.start();
+    }
+
+    ~NextPopupMenu()
+    {
+        m_timer.stop();
+        if (!m_acted)
+        {
+            ADD_FAILURE() << "no popup menu was shown to answer";
+        }
+    }
+
+    NextPopupMenu(const NextPopupMenu&)            = delete;
+    NextPopupMenu& operator=(const NextPopupMenu&) = delete;
+    NextPopupMenu(NextPopupMenu&&)                 = delete;
+    NextPopupMenu& operator=(NextPopupMenu&&)      = delete;
+
+private:
+    void poll()
+    {
+        QWidget* const menu = QApplication::activePopupWidget();
+        if (menu != nullptr && menu->isVisible())
+        {
+            m_timer.stop();
+            m_acted = true;
+            m_action(*menu);
+            return;
+        }
+        if (m_elapsed.durationElapsed() > Gui::Test::NextModalDialog::kTimeout)
+        {
+            m_timer.stop();
+            m_acted = true;
+            ADD_FAILURE() << "no popup menu appeared";
+        }
+    }
+
+    Gui::Test::NextModalDialog::Action m_action;
+    QTimer                             m_timer;
+    QElapsedTimer                      m_elapsed;
+    bool                               m_acted = false;
+};
+
+/// What a popup menu looked like: its objectName, its items ("<objectName>:<text>") and where it
+/// opened.
+struct MenuSeen
+{
+    QString     objectName;
+    QStringList items;
+    QPoint      position;
+};
+
+/// Records the popup menu and chooses its item named @p item with the keys (Return on it), or
+/// closes it (Escape) for an empty one.
+struct ChooseMenuItem
+{
+    QString   item;
+    MenuSeen* seen = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const menu = qobject_cast<QMenu*>(&widget);
+        ASSERT_NE(menu, nullptr);
+        if (seen != nullptr)
+        {
+            record(*menu);
+        }
+        if (item.isEmpty())
+        {
+            QTest::keyClick(menu, Qt::Key_Escape);
+            return;
+        }
+        auto* const action = menu->findChild<QAction*>(item);
+        ASSERT_NE(action, nullptr);
+        menu->setActiveAction(action);
+        QTest::keyClick(menu, Qt::Key_Return);
+    }
+
+    void record(const QMenu& menu) const
+    {
+        seen->objectName = menu.objectName();
+        seen->position   = menu.pos();
+        for (const QAction* action : menu.actions())
+        {
+            seen->items.append(action->objectName() + QChar(u':') + action->text());
+        }
+    }
+};
+
+/// A request for a file or a directory, as the preferences' Add makes one, starting in
+/// @p directory.
+[[nodiscard]] UserPrompts::OpenFileRequest fileOrDirectoryRequest(
+    const std::filesystem::path& directory)
+{
+    UserPrompts::OpenFileRequest request;
+    request.title              = QStringLiteral("Add");
+    request.nameFilters        = {QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
+                                  QStringLiteral("Images (*.png)")};
+    request.directory          = directory;
+    request.selectedNameFilter = QStringLiteral("Images (*.png)");
+    request.selection          = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
+    request.approveButtonText  = QStringLiteral("Add");
+    return request;
+}
+
+/// Where the window and its button are in the menu's test.
+constexpr QRect kWindowGeometry{100, 100, 300, 200};
+constexpr QRect kButtonGeometry{10, 20, 80, 30};
+
+TEST_F(WidgetFileDialogTest, AFileOrADirectoryIsChosenInAMenuFirst)
+{
+    // GeneralPreferencesPanel's Add (the user's decision U-M3-6c): the menu "File..." /
+    // "Directory..." below the button that asks, then the platform's file dialog for the
+    // request.
+    WidgetUserPrompts prompts;
+    QWidget           window;
+    window.setGeometry(kWindowGeometry);
+    auto* const button = makeChild<QPushButton>(&window, QStringLiteral("Add"));
+    button->setGeometry(kButtonGeometry);
+    MenuSeen                                   menu;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::OpenFileAnswer> answer;
+    {
+        const Gui::Test::OffscreenPopupWarnings warnings;
+        const NextPopupMenu choose(ChooseMenuItem{.item = QStringLiteral("file"), .seen = &menu});
+        const Gui::Test::NextModalDialog file(ChooseFile{.file = path("b.png"), .seen = &seen});
+        answer = prompts.askOpenFiles(button, fileOrDirectoryRequest(directory().path()));
+    }
+    EXPECT_EQ(menu.objectName, QStringLiteral("fileOrDirectoryMenu"));
+    EXPECT_EQ(menu.items, (QStringList{QStringLiteral("file:File..."),
+                                       QStringLiteral("directory:Directory...")}));
+    EXPECT_EQ(menu.position, button->mapToGlobal(QPoint(0, button->height())));
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("b.png")));
+    EXPECT_TRUE(isSamePath(openedDirectoryOf(answer), directory().path()));
+    EXPECT_EQ(seen.objectName, QStringLiteral("openFileDialog"));
+    EXPECT_EQ(seen.title, QStringLiteral("Add"));
+    EXPECT_EQ(seen.nameFilters, (QStringList{QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
+                                             QStringLiteral("Images (*.png)")}));
+    EXPECT_EQ(seen.selectedFilter, QStringLiteral("Images (*.png)"));
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    EXPECT_EQ(seen.fileMode, QFileDialog::ExistingFile);
+    EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptOpen);
+    EXPECT_EQ(seen.acceptLabel, QStringLiteral("Add"));
+    // The platform's own dialog where it has one.
+    EXPECT_FALSE(seen.qtDialog);
+}
+
+TEST_F(WidgetFileDialogTest, ADirectoryIsChosenInTheFolderDialog)
+{
+    WidgetUserPrompts           prompts;
+    const std::filesystem::path motors = directory().resolve("motors");
+    std::filesystem::create_directory(motors);
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::OpenFileAnswer> answer;
+    {
+        const Gui::Test::OffscreenPopupWarnings warnings;
+        const NextPopupMenu choose(ChooseMenuItem{.item = QStringLiteral("directory")});
+        const Gui::Test::NextModalDialog folder(
+            ChooseFile{.file = QtStrings::fromPath(motors), .seen = &seen});
+        answer = prompts.askOpenFiles(nullptr, fileOrDirectoryRequest(directory().path()));
+    }
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isFile(filesOf(answer), motors));
+    EXPECT_EQ(seen.objectName, QStringLiteral("openDirectoryDialog"));
+    EXPECT_EQ(seen.title, QStringLiteral("Add"));
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    EXPECT_EQ(seen.fileMode, QFileDialog::Directory);
+    EXPECT_TRUE(seen.showDirsOnly);
+    EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptOpen);
+    EXPECT_EQ(seen.acceptLabel, QStringLiteral("Add"));
+    EXPECT_FALSE(seen.qtDialog);
+}
+
+TEST_F(WidgetFileDialogTest, AFileOrDirectoryMenuClosedWithoutAChoiceShowsNoDialog)
+{
+    // No dialog is armed: one would hang here.
+    WidgetUserPrompts                       prompts;
+    const Gui::Test::OffscreenPopupWarnings warnings;
+    const NextPopupMenu                     close(ChooseMenuItem{});
+    EXPECT_EQ(prompts.askOpenFiles(nullptr, fileOrDirectoryRequest(directory().path())),
+              std::nullopt);
+}
+
+TEST_F(WidgetFileDialogTest, AFileOrDirectoryQuestionWhoseParentGoesWithItsMenuShowsNoDialog)
+{
+    // The menu is the child of the question's parent and goes with it (proved under ASan).
+    WidgetUserPrompts                       prompts;
+    auto                                    parent = std::make_unique<QWidget>();
+    const Gui::Test::OffscreenPopupWarnings warnings;
+    const NextPopupMenu                     destroy(DestroyParent{.parent = &parent});
+    EXPECT_EQ(prompts.askOpenFiles(parent.get(), fileOrDirectoryRequest(directory().path())),
+              std::nullopt);
+    EXPECT_EQ(parent, nullptr);
+}
+
 /// A rename's "Save as default" callback that counts its calls.
 struct CountSaveAsDefault
 {
@@ -1524,23 +1747,147 @@ TEST_F(WidgetUserPromptsTest, ASaveAsDefaultThatTakesTheDialogAlongCancelsTheRen
     EXPECT_EQ(parent, nullptr);
 }
 
-TEST_F(WidgetUserPromptsTest, TheMilestoneThreeQuestionsCancelAtOnceUntilTheirDialogsCome)
+/// The text of OpenRocket's warning about a thrust-curve file @p file that its loader refused
+/// with @p message (MotorDatabaseLoader.loadFile(), without the paragraph's width).
+[[nodiscard]] QString thrustCurveWarning(const QString& message, const QString& file)
 {
-    // Run 3 of Milestone 3 brings the preferences' user files and the start-up's problems: until
-    // then each of these gives its cancelling answer without a dialog (one would hang here:
-    // nothing answers it). The value dialogs, the motor chooser and the parts library have their
-    // dialogs (the tests above, tests/gui/main/motor_chooser_prompt_tests.cpp and
-    // tests/gui/dialogs/preset/).
-    WidgetUserPrompts            prompts;
-    UserPrompts::OpenFileRequest files;
-    files.selection         = UserPrompts::OpenFileSelection::FILES_AND_DIRECTORIES;
-    files.approveButtonText = QStringLiteral("Add");
-    EXPECT_EQ(prompts.askOpenFiles(nullptr, files), std::nullopt);
+    return QStringLiteral("<html><body><p><i>") + message +
+           QStringLiteral("</i>.<br><br>Thrust curve <b>") + file +
+           QStringLiteral(
+               "</b> will be ignored during import.<br>You can try replacing, deleting "
+               "or manually editing the thrust curve file to fix this issue."
+               "</p></body></html>");
+}
+
+/// The text of OpenRocket's warning about a component preset file @p file that could not be
+/// read (ComponentPresetDatabaseLoader.showLoadingErrorDialog(), without the paragraph's width).
+[[nodiscard]] QString componentPresetWarning(const QString& message, const QString& file)
+{
+    return QStringLiteral("<html><body><p><i>") + message +
+           QStringLiteral("</i>.<br><br>Component preset <b>") + file +
+           QStringLiteral(
+               "</b> will be ignored during import.<br>You can try replacing, deleting "
+               "or manually editing the component preset file to fix this issue."
+               "</p></body></html>");
+}
+
+TEST_F(WidgetUserPromptsTest, ShowsTheStartsDatabaseProblemsInOneMessage)
+{
+    const std::filesystem::path motorFile = std::filesystem::path("motors") / "broken.eng";
     const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+         .file     = motorFile,
+         .message  = QStringLiteral("Illegal number")},
         {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
          .file     = "broken.orc",
          .message  = QStringLiteral("Unexpected end of file")}};
+    WidgetUserPrompts                prompts;
+    QStringList                      lines;
+    QString                          title;
+    const Gui::Test::NextModalDialog close(CloseMessage{.lines = &lines, .title = &title});
     prompts.showDatabaseProblems(nullptr, problems);
+    EXPECT_EQ(title, QStringLiteral(
+                         "Error upon thrust curve import / Error upon component preset import"));
+    EXPECT_EQ(lines, (QStringList{thrustCurveWarning(QStringLiteral("Illegal number"),
+                                                     QtStrings::fromPath(motorFile)),
+                                  componentPresetWarning(QStringLiteral("Unexpected end of file"),
+                                                         QStringLiteral("broken.orc"))}));
+}
+
+TEST_F(WidgetUserPromptsTest, TheDatabaseProblemsAreTitledAfterTheirDatabase)
+{
+    const std::vector<UserPrompts::DatabaseProblem> motors{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES, .file = "a.eng", .message = {}},
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES, .file = "b.rse", .message = {}}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemsTitle(motors),
+              QStringLiteral("Error upon thrust curve import"));
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(motors).size(), 2);
+    const std::vector<UserPrompts::DatabaseProblem> presets{
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS, .file = "a.orc", .message = {}}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemsTitle(presets),
+              QStringLiteral("Error upon component preset import"));
+}
+
+TEST_F(WidgetUserPromptsTest, TheDatabaseProblemsShowTheFileAndTheMessageAsTheyAre)
+{
+    // OpenRocket's HTML would read them as markup.
+    const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
+         .file     = "a<b>&c.orc",
+         .message  = QStringLiteral("Expected '<' & more")}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(problems),
+              QStringList{componentPresetWarning(QStringLiteral("Expected '&lt;' &amp; more"),
+                                                 QStringLiteral("a&lt;b&gt;&amp;c.orc"))});
+}
+
+TEST_F(WidgetUserPromptsTest, AThrustCurveMessageKeepsTheLineBreaksOfOpenRocketsMessages)
+{
+    // RASPMotorLoader's messages hold "<br>" and "&nbsp" for this warning: they stay markup
+    // ("&nbsp" with the ';' Qt needs). Any other '<' or '&', the file's name, and a preset
+    // file's message, are text.
+    const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+         .file     = "a<br>&nbsp.eng",
+         .message  = QStringLiteral("Illegal file format.<br>&nbsp x &nbsp; y < z & more")},
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
+         .file     = "b.orc",
+         .message  = QStringLiteral("a<br>&nbsp b")}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(problems),
+              (QStringList{
+                  thrustCurveWarning(
+                      QStringLiteral("Illegal file format.<br>&nbsp; x &nbsp; y &lt; z &amp; more"),
+                      QStringLiteral("a&lt;br&gt;&amp;nbsp.eng")),
+                  componentPresetWarning(QStringLiteral("a&lt;br&gt;&amp;nbsp b"),
+                                         QStringLiteral("b.orc"))}));
+}
+
+/// Records whether the message of the database problems wraps its lines at 400 pixels (as
+/// OpenRocket's paragraphs), scrolls them in an area that holds every line or that is no
+/// taller than two thirds of the screen, and fits the screen, and closes it.
+struct CheckWrappedProblems
+{
+    /// OpenRocket's "<p style='width: 400px;'>".
+    static constexpr int kWidth = 400;
+
+    bool* wrapped;
+    bool* fits;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<DetailDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        ASSERT_NE(dialog->messageArea(), nullptr);
+        *wrapped = std::ranges::all_of(dialog->messageLabels(), [](const QLabel* label) {
+            return label->wordWrap() && label->minimumWidth() == kWidth &&
+                   label->maximumWidth() == kWidth;
+        });
+        ASSERT_NE(dialog->screen(), nullptr);
+        const int screenHeight = dialog->screen()->availableGeometry().height();
+        *fits = dialog->messageArea()->height() <=
+                    static_cast<int>(screenHeight * DetailDialog::kMaximumScreenShare) &&
+                dialog->height() < screenHeight;
+        dialog->buttonBox()->button(QDialogButtonBox::Ok)->click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, TheMessageOfManyDatabaseProblemsScrolls)
+{
+    // One line for each of 60 files would be some 6000 pixels tall.
+    constexpr std::size_t                           kFiles = 60;
+    const std::vector<UserPrompts::DatabaseProblem> problems(
+        kFiles, {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+                 .file     = std::filesystem::path("motors") / "broken.eng",
+                 .message  = QStringLiteral("Illegal file format. Could not convert value to a "
+                                            "number.<br>Verify that each number is correctly "
+                                            "formatted.")});
+    WidgetUserPrompts                prompts;
+    bool                             wrapped = false;
+    bool                             fits    = false;
+    const Gui::Test::NextModalDialog check(
+        CheckWrappedProblems{.wrapped = &wrapped, .fits = &fits});
+    prompts.showDatabaseProblems(nullptr, problems);
+    EXPECT_TRUE(wrapped);
+    EXPECT_TRUE(fits);
 }
 }  // namespace
 

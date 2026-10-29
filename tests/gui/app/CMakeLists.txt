@@ -6,5 +6,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     ApplicationTests.cpp
     DataPathsTests.cpp
     design_window_integration_tests.cpp
+    MotorDatabaseMetadataIOTests.cpp
     StartupGuardTests.cpp
 )

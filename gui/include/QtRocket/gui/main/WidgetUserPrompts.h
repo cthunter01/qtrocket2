@@ -7,6 +7,7 @@
 #include <QChar>
 #include <QCoreApplication>
 #include <QString>
+#include <QStringList>
 
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -57,7 +58,12 @@ class GuiServices;
 ///   '<name>' may not contain the character ' <c> '. Please remove it.") for a name with one of
 ///   / \ : * ? " < > | (SaveFileNames, the name relative to the dialog's directory) and asks
 ///   again, in that directory with that name; a save that offers a storage option asks "Save
-///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it;
+///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it; a request
+///   for a file or a directory (OpenFileSelection::FILES_AND_DIRECTORIES: the preferences' Add)
+///   first opens a menu "File..." / "Directory..." below the widget that asks (the Add button;
+///   at the mouse pointer when a window asks), then the platform's dialog for the choice: the
+///   file dialog with the request's filters, or the folder dialog; the menu closed without a
+///   choice gives no file and shows no dialog;
 /// - editDesignInformation(): BasicFrame.showSaveRocketInfoDialog()'s "Save Design Info"
 ///   (SaveDesignInfoDialog, with the services the caller gives), whose outcome changes nothing of
 ///   the Save As that asks it (the user's decision R3-3);
@@ -69,16 +75,19 @@ class GuiServices;
 /// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message (DetailDialog
 ///   without details);
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
+/// - showDatabaseProblems(): the warnings of OpenRocket's MotorDatabaseLoader and
+///   ComponentPresetDatabaseLoader ("Error upon thrust curve import", "Error upon component
+///   preset import") in one message box (DetailDialog without details, its lines wrapped):
+///   databaseProblemsTitle() and databaseProblemLines();
 /// - showInternalError(): the internal error dialog (InternalErrorDialog).
 ///
 /// Milestone 3's value dialogs, motor chooser (MotorChooserDialog, one per window) and parts
-/// library (ComponentPresetChooserDialog) answer their questions. Until run 3 builds theirs, an
-/// askOpenFiles() for files and directories (the preferences' user files) gives its cancelling
-/// answer at once, without a dialog, and showDatabaseProblems() (the start-up) shows nothing.
+/// library (ComponentPresetChooserDialog) answer their questions.
 ///
-/// Each dialog is made for its question (ModalDialog), so that it survives its parent being
-/// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no
-/// file), and a question of two dialogs does not show the second one.
+/// Each dialog is made for its question (ModalDialog), and so is the menu of a file or a
+/// directory, so that it survives its parent being destroyed while it is open: the question then
+/// gives its cancelling answer (Cancel, No, no file), and a question of two dialogs (or of the
+/// menu and a dialog) does not show the second one.
 ///
 /// Deviations: OpenRocket asks the insert position over no window (JOptionPane with a null
 /// parent) and looks for a decal file over none either; here every question has the caller's
@@ -87,7 +96,16 @@ class GuiServices;
 /// throws (the probe: "a$b.ork" IllegalArgumentException, "a$1.ork" IndexOutOfBoundsException)
 /// and one with "\" loses it ("a\b.ork" shows "ab.ork"). The file dialogs are Qt's
 /// (QFileDialog), with the platform's own where it has one (Swing's JFileChooser); the storage
-/// option is a question after the save dialog rather than beside its files.
+/// option is a question after the save dialog rather than beside its files. A file or a directory
+/// is chosen in two steps, the menu and then a dialog for one of the two, as Qt's dialogs choose
+/// either files or a directory (the user's decision U-M3-6c), where JFileChooser shows both at
+/// once; the menu's texts are QtRocket's. The start-up's database problems are one modal message
+/// for every file (O-M3-21), where OpenRocket's loaders show a modeless warning, always on top,
+/// for each; its lines put the file and the loader's message in as they are (escaped), where
+/// OpenRocket's HTML reads a '<' or '&' in them as markup, except for the "<br>" and "&nbsp" of
+/// OpenRocket's own RASP messages (written for this warning), which show as a line break and a
+/// space; the lines are 400 pixels wide, as OpenRocket's paragraphs, and the message scrolls
+/// when it is taller than two thirds of the screen (DetailDialog::wrapMessage()).
 ///
 /// Its own state is none: one object serves every window (app/ApplicationContext owns it).
 class WidgetUserPrompts final : public UserPrompts
@@ -109,6 +127,20 @@ public:
     /// The text of the "Illegal filename" warning about the name @p fileName, which holds the
     /// character @p character.
     [[nodiscard]] static QString illegalFileNameText(const QString& fileName, QChar character);
+    /// The title of the message of the start-up's database problems @p problems: the title of
+    /// OpenRocket's warning for their database (MotorDbLoaderDlg.title "Error upon thrust curve
+    /// import", ComponentDbLoaderDlg.title "Error upon component preset import"), both joined
+    /// by " / " when files of both failed.
+    [[nodiscard]] static QString databaseProblemsTitle(std::span<const DatabaseProblem> problems);
+    /// The lines of that message: for each problem in order, the text of OpenRocket's warning
+    /// about its file (rich text: the loader's message in italics and a period, an empty line,
+    /// "Thrust curve <b><file></b> will be ignored during import." (MotorDbLoaderDlg.message1
+    /// as MessageFormat reads it) and "You can try replacing, deleting or manually editing the
+    /// thrust curve file to fix this issue." (.message2); ComponentDbLoaderDlg's for a component
+    /// preset file). The message and the file are escaped, but for the "<br>" and "&nbsp" of a
+    /// thrust-curve file's message, which stay markup ("&nbsp;").
+    [[nodiscard]] static QStringList databaseProblemLines(
+        std::span<const DatabaseProblem> problems);
 
     [[nodiscard]] InsertPositionAnswer askInsertPosition(QWidget*               parent,
                                                          InsertPositionQuestion question) override;

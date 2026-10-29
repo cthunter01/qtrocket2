@@ -13,6 +13,7 @@ TestGuiServices::TestGuiServices()
     m_context.setApplicationMaterials(&m_materials);
     m_context.setPreferences(&m_preferences);
     m_context.setComponentPresetDatabase(&m_presets);
+    m_services.setStartupData(m_startupData);
     // A new component's dialog does not open the parts library (GuiTestSupport.h).
     m_preferences.putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, false);
 }

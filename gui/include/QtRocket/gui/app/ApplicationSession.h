@@ -48,14 +48,20 @@ class MainWindow;
 /// 4. the first window: the files of the command line (openFiles()), or when none was opened
 ///    and no window is open (one may have opened while a question of the files ran: a file the
 ///    macOS Finder asked to open), reopen() (the most recent design or a New design);
-/// 5. the problems of the start the user is to know of: the motor database's (a message);
+/// 5. the problems of the start the user is to know of, once, over the first window: the bundled
+///    motor database's (a message of QtRocket's), then the user's thrust-curve and component
+///    preset files that could not be loaded (UserPrompts::showDatabaseProblems(), one message
+///    for all, with the texts of OpenRocket's warnings);
 /// 6. for the tests of the program: with Options::quitAfterStart, a quit as File > Quit does
 ///    as soon as the event loop runs.
 ///
 /// Deviations: a report from another thread does not wait for the dialog (SwingExceptionHandler
 /// waits for an uncaught exception's, invokeAndWait()), so that a worker the GUI thread waits for
 /// cannot block it. OpenRocket's splash screen, welcome dialog, update checks, plug-in migration
-/// and look-and-feel set-up have no counterpart (the splash: Milestone 9). On macOS, Qt reports the
+/// and look-and-feel set-up have no counterpart (the splash: Milestone 9). OpenRocket's loaders
+/// show a modeless warning, always on top, for each user file they cannot load, from their
+/// threads, while the first window opens; here one modal message lists them all once that
+/// window is open (O-M3-21). On macOS, Qt reports the
 /// Dock's reopen as the application becoming active, which it also becomes by other means
 /// (Cmd-Tab): whenever the application becomes active without a window, a New design opens,
 /// where OpenRocket opens one only for the Dock's reopen.
@@ -140,8 +146,15 @@ Q_SIGNALS:
 private:
     /// The error hook: the internal error dialog, and its Quit.
     void showInternalError(const Guard::Failure& failure);
-    /// The motor database's problems, as a message over @p window.
+    /// What the user is to know of the start (step 5 of the class comment), over @p window:
+    /// showMotorDatabaseProblems(), then showDatabaseProblems() (unless the window was closed
+    /// meanwhile).
     void showStartupProblems(MainWindow& window);
+    /// The bundled motor database's problems, as a message over @p window.
+    void showMotorDatabaseProblems(MainWindow& window);
+    /// The user's files that could not be loaded (ApplicationContext::databaseProblems()), as one
+    /// message over @p window (UserPrompts::showDatabaseProblems()).
+    void showDatabaseProblems(MainWindow& window);
     /// Fills File > Open recent and File > Open example of @p menus, the menus of @p window
     /// (null for the menus of no window).
     void installFileMenus(MainMenus& menus, MainWindow* window);

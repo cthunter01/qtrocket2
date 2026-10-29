@@ -1,5 +1,6 @@
 #include "QtRocket/gui/dialogs/DetailDialog.h"
 
+#include <algorithm>
 #include <optional>
 
 #include <QAbstractButton>
@@ -10,6 +11,9 @@
 #include <QObject>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QRect>
+#include <QScreen>
+#include <QScrollArea>
 #include <QString>
 #include <QStringList>
 #include <QTextCursor>
@@ -107,6 +111,65 @@ TEST_F(DetailDialogTest, ShowDetailedMessageDialogReturnsWhenTheDialogIsClosed)
         QStringLiteral("Memory statistics"), Severity::INFORMATION);
     EXPECT_TRUE(answer.acted());
     EXPECT_TRUE(checked);
+}
+
+/// A paragraph that takes several lines at 400 pixels.
+[[nodiscard]] QString longParagraph()
+{
+    return QStringLiteral(
+        "<html><body><p><i>Illegal file format. Motor header line must contain 7 fields:<br>"
+        "&nbsp; designation diameter length delays propellantWeight totalWeight "
+        "manufacturer</i>.<br><br>Thrust curve <b>/home/user/motors/broken.eng</b> will be "
+        "ignored during import.<br>You can try replacing, deleting or manually editing the "
+        "thrust curve file to fix this issue.</p></body></html>");
+}
+
+/// Whether every message line of @p dialog wraps at @p width pixels, in more than three lines
+/// for longParagraph().
+[[nodiscard]] bool wrapsEveryLineAt(const DetailDialog& dialog, int width)
+{
+    return std::ranges::all_of(dialog.messageLabels(), [width](const QLabel* label) {
+        return label->wordWrap() && label->minimumWidth() == width &&
+               label->maximumWidth() == width &&
+               label->heightForWidth(width) > 3 * label->fontMetrics().lineSpacing();
+    });
+}
+
+TEST_F(DetailDialogTest, AWrappedMessageIsAsTallAsItsLines)
+{
+    constexpr int kWidth = 400;
+    DetailDialog  dialog({longParagraph(), longParagraph()}, std::nullopt,
+                         QStringLiteral("Error upon thrust curve import"), Severity::WARNING);
+    EXPECT_EQ(dialog.messageArea(), nullptr);
+    dialog.wrapMessage(kWidth);
+    EXPECT_TRUE(wrapsEveryLineAt(dialog, kWidth));
+    // Two paragraphs fit the screen: the area holds them without a scroll bar.
+    const QScrollArea* area = dialog.messageArea();
+    ASSERT_NE(area, nullptr);
+    ASSERT_NE(area->widget(), nullptr);
+    EXPECT_EQ(area->widget()->findChildren<QLabel*>().size(), 2);
+    EXPECT_EQ(area->width(), kWidth);
+    EXPECT_EQ(area->height(), area->widget()->heightForWidth(kWidth));
+    EXPECT_EQ(dialog.messageLines(), (QStringList{longParagraph(), longParagraph()}));
+}
+
+TEST_F(DetailDialogTest, AWrappedMessageScrollsWhenItIsTallerThanTwoThirdsOfTheScreen)
+{
+    constexpr int     kWidth = 400;
+    const QStringList lines(100, longParagraph());
+    DetailDialog      dialog(lines, std::nullopt, QStringLiteral("Error upon thrust curve import"),
+                             Severity::WARNING);
+    dialog.wrapMessage(kWidth);
+    const QScrollArea* area = dialog.messageArea();
+    ASSERT_NE(area, nullptr);
+    ASSERT_NE(area->widget(), nullptr);
+    ASSERT_NE(dialog.screen(), nullptr);
+    const int screenHeight = dialog.screen()->availableGeometry().height();
+    EXPECT_EQ(area->height(), static_cast<int>(screenHeight * DetailDialog::kMaximumScreenShare));
+    EXPECT_GT(area->widget()->heightForWidth(kWidth), area->height());
+    // The scroll bar beside the lines.
+    EXPECT_GT(area->width(), kWidth);
+    EXPECT_LT(dialog.sizeHint().height(), screenHeight);
 }
 
 }  // namespace

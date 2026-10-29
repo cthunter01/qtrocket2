@@ -2,12 +2,17 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <format>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
@@ -156,6 +161,12 @@ TEST(MotorDatabaseLoader, RecordsFilesItCannotLoad)
     EXPECT_EQ(problems[2].error.code, ErrorCode::PARSE);
     EXPECT_EQ(problems[3].file, partly);
     EXPECT_EQ(problems[3].error.message, "Negative thrust.");
+    // OpenRocket shows its dialog for the files the loader or a motor's builder refused, and logs
+    // the others.
+    EXPECT_FALSE(problems[0].refusedFile);
+    EXPECT_FALSE(problems[1].refusedFile);
+    EXPECT_TRUE(problems[2].refusedFile);
+    EXPECT_TRUE(problems[3].refusedFile);
 
     // partly.eng's A8 and good.eng's A8 (the same curve) plus the counted B4.
     EXPECT_EQ(loader.getMotorCount(), 3);
@@ -178,6 +189,8 @@ TEST(MotorDatabaseLoader, ReadsAUserDatabaseFile)
     loader.loadUserDefinedMotors(broken);
     ASSERT_EQ(loader.getProblems().size(), 1U);
     EXPECT_EQ(loader.getProblems().front().error.code, ErrorCode::DATABASE);
+    // OpenRocket logs it (loadSqlite()'s BugException, caught by loadFile()).
+    EXPECT_FALSE(loader.getProblems().front().refusedFile);
 }
 
 TEST(MotorDatabaseLoader, PrefersAReadableMotorLibraryDatabase)
@@ -269,6 +282,82 @@ TEST(MotorDatabaseLoader, ReadsADirectoryReachedTwiceThroughLinksOnce)
     EXPECT_TRUE(loader.getProblems().empty());
     EXPECT_EQ(loader.getMotorCount(), 1);  // a.eng once, and no endless loop
 }
+
+/// Makes @p link a symbolic link to @p target; false where links cannot be made.
+[[nodiscard]] bool makeMotorFileLink(const std::filesystem::path& target,
+                                     const std::filesystem::path& link)
+{
+    std::error_code error;
+    std::filesystem::create_symlink(target, link, error);
+    return !error;
+}
+
+/// The problems of @p loader, one line each: " refused" for those OpenRocket shows, the error's
+/// code and its message.
+[[nodiscard]] std::vector<std::string> motorProblemLines(const MotorDatabaseLoader& loader)
+{
+    std::vector<std::string> lines;
+    for (const MotorDatabaseLoader::Problem& problem : loader.getProblems())
+    {
+        lines.push_back(std::format("{}{}: {}", problem.refusedFile ? "refused " : "",
+                                    QtRocket::toString(problem.error.code), problem.error.message));
+    }
+    return lines;
+}
+
+// A file a directory's search finds that is not a regular file is not opened (a device, here
+// through a link: /dev/zero would be read without an end, /dev/null as an empty motor file);
+// OpenRocket opens it. OpenRocket would log the problem, not show it. A listed one is neither
+// file nor directory, as before.
+TEST(MotorDatabaseLoader, DoesNotOpenAWalkedFileThatIsNoRegularFile)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.write("user/a.eng", kA8));
+    const std::filesystem::path device = "/dev/null";
+    const std::filesystem::path link   = tempDir.resolve("user") / "null.eng";
+    std::error_code             error;
+    if (!std::filesystem::is_character_file(device, error) || !makeMotorFileLink(device, link))
+    {
+        GTEST_SKIP() << "no /dev/null or no links here";
+    }
+    MotorDatabaseLoader loader;
+    loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{tempDir.resolve("user"), link});
+    EXPECT_EQ(motorProblemLines(loader),
+              (std::vector<std::string>{"UNSUPPORTED_FORMAT: " + QtRocket::pathToUtf8(link) +
+                                            " is not a regular file; it was not read",
+                                        "NOT_FOUND: User-defined motor file " +
+                                            QtRocket::pathToUtf8(link) +
+                                            " is neither file nor directory"}));
+    // a.eng beside it.
+    EXPECT_EQ(loader.getMotorCount(), 1);
+}
+
+#ifndef _WIN32
+// The same for a FIFO, whose open would wait for a writer that never comes, with a thrust
+// curve's extension or a database's.
+TEST(MotorDatabaseLoader, DoesNotOpenAWalkedFifo)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.write("user/b.eng", kA8));
+    const std::filesystem::path curve    = tempDir.resolve("user") / "a.eng";
+    const std::filesystem::path database = tempDir.resolve("user") / "c.db";
+    ASSERT_EQ(::mkfifo(QtRocket::pathToUtf8(curve).c_str(), S_IRUSR | S_IWUSR), 0);
+    ASSERT_EQ(::mkfifo(QtRocket::pathToUtf8(database).c_str(), S_IRUSR | S_IWUSR), 0);
+    MotorDatabaseLoader loader;
+    loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{tempDir.resolve("user")});
+    EXPECT_EQ(motorProblemLines(loader),
+              (std::vector<std::string>{"UNSUPPORTED_FORMAT: " + QtRocket::pathToUtf8(curve) +
+                                            " is not a regular file; it was not read",
+                                        "UNSUPPORTED_FORMAT: " + QtRocket::pathToUtf8(database) +
+                                            " is not a regular file; it was not read"}));
+    EXPECT_EQ(loader.getMotorCount(), 1);
+}
+#else
+TEST(MotorDatabaseLoader, DoesNotOpenAWalkedFifo)
+{
+    GTEST_SKIP() << "Windows has no FIFO in its file system";
+}
+#endif
 
 TEST(MotorDatabaseLoader, ReadsPathsThatAreNotAscii)
 {

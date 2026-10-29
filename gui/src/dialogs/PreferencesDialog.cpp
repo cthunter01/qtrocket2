@@ -46,11 +46,14 @@ QString context()
 }  // namespace
 
 PreferencesDialog::PreferencesDialog(Preferences& preferences, UserPrompts& prompts,
-                                     RocketPanels rocketPanels, Tab selectedTab, QWidget* parent)
+                                     RocketPanels                         rocketPanels,
+                                     GeneralPreferencesPanel::Environment general, Tab selectedTab,
+                                     QWidget* parent)
   : QDialog(parent),
     m_preferences(&preferences),
     m_prompts(&prompts),
     m_rocketPanels(std::move(rocketPanels)),
+    m_general(std::move(general)),
     // Java keeps a rollback point before it makes the pages.
     m_snapshot(PreferencesStore::snapshot(preferences)),
     m_tabs(makeChild<QTabWidget>(this))
@@ -100,11 +103,12 @@ PreferencesDialog::~PreferencesDialog() = default;
 
 PreferencesDialog& PreferencesDialog::showPreferences(Preferences& preferences,
                                                       UserPrompts& prompts,
-                                                      RocketPanels rocketPanels, QWidget& parent,
-                                                      Tab selectedTab)
+                                                      RocketPanels rocketPanels,
+                                                      GeneralPreferencesPanel::Environment general,
+                                                      QWidget& parent, Tab selectedTab)
 {
-    auto* dialog = makeChild<PreferencesDialog>(&parent, preferences, prompts,
-                                                std::move(rocketPanels), selectedTab);
+    auto* dialog = makeChild<PreferencesDialog>(
+        &parent, preferences, prompts, std::move(rocketPanels), std::move(general), selectedTab);
     connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
     dialog->show();
     return *dialog;
@@ -219,12 +223,13 @@ void PreferencesDialog::buildPages(Tab selectedTab)
 {
     m_scope = std::make_unique<BindingScope>(*this, nullptr);
 
-    m_general = makeChild<GeneralPreferencesPanel>(m_tabs, *m_preferences, *m_prompts);
+    m_generalPage =
+        makeChild<GeneralPreferencesPanel>(m_tabs, *m_preferences, *m_prompts, m_general);
     //: pref.dlg.tab.General
-    m_tabs->addTab(m_general, tr("General"));
+    m_tabs->addTab(m_generalPage, tr("General"));
     //: pref.dlg.tab.General.ttip
-    m_tabs->setTabToolTip(m_tabs->indexOf(m_general), tr("Miscellaneous options"));
-    connect(m_general, &GeneralPreferencesPanel::preferencesCleared, this,
+    m_tabs->setTabToolTip(m_tabs->indexOf(m_generalPage), tr("Miscellaneous options"));
+    connect(m_generalPage, &GeneralPreferencesPanel::preferencesCleared, this,
             guarded([this] { reopen(); }, context()));
 
     m_design = makeChild<DesignPreferencesPanel>(m_tabs, *m_preferences, *m_scope);

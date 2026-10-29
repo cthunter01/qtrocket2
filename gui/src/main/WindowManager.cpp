@@ -246,8 +246,15 @@ PreferencesDialog& WindowManager::showPreferences(MainWindow& window)
     {
         open->accept();
     }
-    PreferencesDialog& dialog = PreferencesDialog::showPreferences(
-        m_services.preferences(), m_services.prompts(), [this] { return rocketPanels(); }, window);
+    // The General page's default directories of the user's files are the start's; its "Reset
+    // all preferences" pins the configuration names of every window's design first.
+    const GuiServices::StartupData& startup = m_services.startupData();
+    PreferencesDialog&              dialog  = PreferencesDialog::showPreferences(
+        m_services.preferences(), m_services.prompts(), [this] { return rocketPanels(); },
+        {.defaultUserThrustCurveDirectory = startup.defaultUserThrustCurveDirectory,
+         .defaultUserComponentDirectory   = startup.defaultUserComponentDirectory,
+         .openDocuments                   = [this] { return documents(); }},
+        window);
     m_preferencesDialog = &dialog;
     return dialog;
 }

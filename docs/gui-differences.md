@@ -7,6 +7,8 @@ source where it is made; the header named in parentheses says more (under `gui/i
 
 ## OpenRocket bugs that QtRocket fixes
 
+### The Design tab, files and preferences
+
 1. **Dragging several components in the tree.** OpenRocket moves them one at a time and can stop half way,
    move nothing or change their order. QtRocket checks the whole drop first, then moves them together in tree
    order (`tree/ComponentDrop.h`).
@@ -81,6 +83,124 @@ More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
 - **A paste that fits nowhere.** OpenRocket adds an empty undo step, whose name then labels the next change.
   QtRocket adds none (`main/ComponentEditing.h`).
 
+### Motors, flight configurations and component presets
+
+These have the numbers the source's comments give them ("bug 6"). Bugs 20 and 21, and the second halves of 3
+and 4, are the user's later decisions.
+
+The "Motors & Configuration" tab:
+
+1. **Cells that use the default.** OpenRocket compares configurations by identity, so it never shows a recovery
+   device's or a stage's cell in the dim italics of a default value, and its deployment and separation dialogs
+   always start on "Override for the ... flight configuration only". QtRocket dims every such cell that has no
+   value of its own, and starts these dialogs on "Change all configurations ..." for it
+   (`flightconfig/FlightConfigurationCellText.h`, `FlightConfigurationEditing.h`).
+2. **Where the ignition dialog starts.** OpenRocket's starts on "Change all configurations ..." exactly when the
+   cell has no motor. QtRocket's starts there when the cell has no ignition of its own, and then shows the
+   default ignition the cell shows, so that OK without a change keeps the default
+   (`flightconfig/FlightConfigurationEditing.h`).
+3. **Cancel in the ignition, separation and deployment dialogs.** OpenRocket's ignition Cancel still marks the
+   ignition as overridden (on a cell without a motor, the mount's default ignition), its close button keeps the
+   edits, and its separation dialog keeps its edits on Cancel. With several cells selected, the other cells
+   then take the first cell's values, also after a Cancel of the deployment dialog. In QtRocket, Cancel and the
+   close button change nothing, in any of the three (`flightconfig/FlightConfigurationEditing.h`).
+4. **The ignition of a cell without a motor.** OpenRocket's "Override for the ... flight configuration only"
+   writes the values into the mount's default ignition, which every configuration without an ignition of its
+   own uses, and its "Reset ignition" resets that default. QtRocket gives the cell an ignition of its own, and
+   its "Reset ignition" leaves such a cell alone (`flightconfig/FlightConfigurationEditing.h`).
+5. **New Configuration, Duplicate Configuration and the motor mount check box.** OpenRocket adds no undo step for
+   them, so Undo takes them back together with the change before. QtRocket gives each an undo step of its own:
+   "New Configuration", "Duplicate Configuration", "Modify motor mount"
+   (`flightconfig/FlightConfigurationEditing.h`).
+6. **A motor mount's default ignition.** OpenRocket loses it on undo, redo, copy and paste, duplicate and when a
+   cluster is split: it comes back as "Automatic" with no delay. QtRocket keeps it
+   (`rocket/MotorConfigurationSet.h` in the core).
+
+The motor chooser and its plot:
+
+7. **The close button after an earlier OK.** OpenRocket's chooser remembers the OK of its last use, so closing
+   its window takes the motor as chosen. QtRocket's close button cancels, as Cancel and Escape do
+   (`dialogs/motor/MotorChooserDialog.h`).
+8. **A delay that is not one of the motor's standard delays.** Opened for such a motor, OpenRocket's chooser
+   shows the closest standard delay instead, and OK writes it: a C6 set to 6 s comes back with 7 s. QtRocket
+   keeps the delay that was set (`motor/chooser/ThrustCurveMotorSelection.h` in the core).
+9. **"Hide motors already used in the mount".** OpenRocket's box also hides the motors of every mount the
+   chooser was opened for before. QtRocket's hides those of the current mount only
+   (`motor/chooser/MotorRowFilter.h` in the core).
+10. **Switching the motor name column.** With the table sorted by its Name column, OpenRocket selects another
+    motor when the column switches between common names and designations: the one that comes into the same
+    row. QtRocket keeps the selected motor and scrolls to it (`dialogs/motor/ThrustCurveMotorSelectionPanel.h`).
+11. **"NaN" as a delay.** OpenRocket takes it, shows it and writes it into the design. QtRocket keeps the delay as
+    it was (`motor/chooser/ThrustCurveMotorSelection.h` in the core).
+12. **The units of the thrust curve plot.** OpenRocket's "Motor thrust curves" dialog labels its axes in the
+    default units, such as lbf, but plots seconds and newtons. QtRocket plots in the units the axes name
+    (`plot/ThrustCurvePlot.h`).
+
+Two more in the chooser, found later:
+
+20. **The chosen thrust curve.** With "Hide very similar thrust curves" on, OpenRocket's curve list can end on
+    another curve when it fills again, for seven curves of six motors (the AeroTech E15W's among them): when the
+    chooser opens for that curve, when it is the motor's preferred curve, and when the box is ticked while it is
+    chosen. QtRocket keeps the chosen curve (`dialogs/motor/ThrustCurveMotorSelectionPanel.h`).
+21. **The configured motor when the mount's limits hide it.** After the chooser was used for another mount,
+    OpenRocket keeps that motor selected when "Limit motor length to mount length" or "Limit motor diameter to
+    mount diameter" hides the configured one, and OK then writes the other motor (in "Airstart timing", the
+    K550W of its 54 mm mount becomes the I211W of its 38 mm mount). QtRocket starts from the configured motor
+    (`dialogs/motor/ThrustCurveMotorSelectionPanel.h`).
+
+The parts library:
+
+13. **Sort in the column header's menu.** With the Legacy column hidden, OpenRocket's "Sort Ascending" and "Sort
+    Descending" sort by another column: Manufacturer sorts by Legacy. QtRocket sorts by the column clicked
+    (`dialogs/preset/ComponentPresetTable.h`).
+14. **Showing or hiding the Legacy column.** OpenRocket's header menu ticks or unticks "Show Legacy Database"
+    but leaves the legacy parts as they were, and hiding whatever column is second unticks the box and hides the
+    legacy parts. In QtRocket the column, the box and the legacy parts always agree
+    (`dialogs/preset/ComponentPresetTable.h`).
+15. **Cancel after a preset for a new component.** The question says that the new component will be removed,
+    but OpenRocket's Cancel takes back the preset and leaves the component. QtRocket removes it
+    (`configdialog/ComponentConfigDialog.h`).
+16. **"Match fore diameter" for a flipped nose cone.** OpenRocket compares with the previous component's fore
+    diameter, which is right only behind a tube. QtRocket compares with its aft diameter, where the cone meets
+    it (`binding/PresetDiameterFilters.h`).
+17. **"Filter by text" and the check box columns.** OpenRocket's filter also searches the "true" and "false" of
+    the Favorite, Legacy and Filled columns, so "e" matches every part and "true" every legacy or filled one.
+    QtRocket searches the text columns only (`dialogs/preset/ComponentPresetFilterModel.h`).
+
+The component preset files:
+
+18. **A broken component preset file.** A user's preset file with certain errors (a required element missing,
+    an unknown shape or unit) ends OpenRocket's whole preset load with an internal error, so the files after it,
+    the user's included, are left out. QtRocket leaves out that file alone and names it in the message after
+    start-up (`file/preset/ComponentPresetDatabaseLoader.h` in the core).
+19. **A number that is not finite** (NaN, INF, 1e999) in a preset file. OpenRocket gives it to the part.
+    QtRocket leaves the part out (`file/preset/OpenRocketComponentLoader.h` in the core).
+
+More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
+
+- **Changes the tab does not record.** Some answers of OpenRocket's ignition, deployment and separation dialogs
+  change the design unseen: "Change all configurations ..." for a deployment on a cell with its own deployment,
+  a separation whose altitude alone changes, and a few more. Its tables and its undo history miss them. QtRocket
+  records every change (`flightconfig/FlightConfigurationEditing.h`).
+- **Tab and the arrow keys in the parts library's table.** OpenRocket moves the selection without scrolling, so
+  the selected part can leave the visible rows; and in a table that the filter emptied, Tab and then Close fail
+  with an internal error. QtRocket scrolls to the new row and does nothing in an empty table
+  (`widgets/TableRowTraversal.h`).
+- **A stored column order below zero.** OpenRocket's parts library fails with an internal error. QtRocket
+  ignores it (`settings/TableUiPreferences.h`).
+- **`<` or `&` in a motor's cases or a file's name.** OpenRocket's "Compatible Cases" and its warnings about
+  files it cannot import read them as HTML. QtRocket shows them as they are
+  (`dialogs/motor/MotorInformationPanel.h`, `main/WidgetUserPrompts.h`).
+- **Presets that cannot work.** A parachute without a line count, or a recovery device whose material is of the
+  wrong kind, loads in OpenRocket and fails with an internal error when it is chosen, and a part without a part
+  number stops OpenRocket's load as in bug 18. QtRocket leaves out the part, or the file without a part number
+  (`file/preset/OpenRocketComponentLoader.h` in the core).
+- **A special file among the preset or thrust-curve files.** A named pipe in a directory of preset or
+  thrust-curve files makes OpenRocket's load wait forever, and a link to a device such as `/dev/zero` makes it
+  read without an end. QtRocket reads regular files only, so its start, which reads these files before the first
+  window, cannot hang on them (`file/preset/ComponentPresetDatabaseLoader.h` and
+  `file/motor/MotorDatabaseLoader.h` in the core).
+
 ## Editing several components at once
 
 In OpenRocket, a dialog for several selected components forwards each edit to the other components. Values
@@ -98,6 +218,8 @@ component's wall, mass or sweep. Also:
   component.
 - A component keeps its preset unless its own value changed.
 - Switching the CD override on gives each component its own calculated CD.
+- Choosing the preset the main component already has still gives it to the others, in the undo step "Use
+  Preset ...". OpenRocket gives it to them outside the undo history (`binding/PresetBinding.h`).
 
 ## Windows, menus and keys
 
@@ -173,7 +295,7 @@ component's wall, mass or sweep. Also:
 - The material combo box's search lists every material that matches, including two whose names differ only in
   case. The check mark goes to the material equal to the component's.
 - Texts in which OpenRocket names itself (a tube fin set's and a mass component's notes, "Reload QtRocket"
-  after resetting the preferences) name QtRocket.
+  after resetting the preferences, the preferences' note on thrust curve files) name QtRocket.
 
 ## Freeform fin editor
 
@@ -196,22 +318,129 @@ component's wall, mass or sweep. Also:
   selection.
 - The information overlay's text sizes follow the platform's font.
 
+## The "Motors & Configuration" tab
+
+- The items of the tables' popup menus are disabled whenever their buttons are (the user's decision U-M3-6d).
+  OpenRocket's items always act.
+- A sub-tab that is disabled while it is shown gives way to Motors (U-M3-6f). OpenRocket stays on Recovery or
+  Stages when they are disabled because no motor mount is active.
+- In the ignition, deployment and separation dialogs, Escape (which answers OK there, as in OpenRocket) takes
+  the number still being typed. OpenRocket's loses it (`dialogs/FlightConfigurationValueDialog.h`).
+- When "Change all configurations using the default separation event" also changes other selected cells that
+  use a default (of another stage, say), each gets a copy of the new default as its own separation. In
+  OpenRocket each gets the default itself, so a later change of the default still reaches it
+  (`flightconfig/FlightConfigurationEditing.h`).
+- A column resized by hand takes its width from the last column. OpenRocket's takes it from all the columns after
+  it.
+- Cut, Copy and Paste in a table also answer the platform's other keys for them, such as Ctrl+Insert on Linux
+  and Windows, as the Edit menu does (`flightconfig/TableTransferKeys.h`).
+- After "Save as default" with an empty name, the configurations made since follow the next default name that
+  is saved. OpenRocket's keep the empty name (`document/OpenRocketDocument.h` in the core).
+
+## The motor chooser
+
+- OK and Cancel are in the platform's order. The chooser opens at the size its contents ask for, but at most two
+  thirds of the screen; OpenRocket's ignores the screen's size.
+- The range sliders are the platform's sliders with two thumbs. A thumb dragged onto the other takes exactly its
+  value, where OpenRocket's can stop one step short or pass it (`widgets/RangeSlider.h`).
+- The length fields refuse an infinite value, as every number field does.
+- Opening the delay list commits the delay being typed. OpenRocket keeps the edit until an item is chosen.
+- The search ignores case by Unicode's rules, and the text columns of the motor table and the parts library sort
+  in English order, whatever the system's language. OpenRocket follows the language (in Turkish, `I` is not the
+  upper case of `i`) (`motor/chooser/MotorRowFilter.h`, `util/JavaCollator.h` in the core).
+- "Motor DB version" is always the version of the motor database QtRocket ships, which it does not update
+  (`app/MotorDatabaseMetadataIO.h`).
+
+## Plots
+
+The thrust curve preview of the motor chooser and its "Motor thrust curves" dialog are drawn by
+[rocketplot](https://github.com/cthunter01/rocketplot), not JFreeChart (the user's decisions U-M3-6a and b):
+
+- They follow the platform's light or dark scheme, with rocketplot's fonts and grid lines. OpenRocket's dialog
+  plot is always white (`plot/ThrustCurvePlot.h`).
+- The mouse: a left drag zooms to the box dragged out, Shift and a left drag pans, a double click resets the
+  view, the wheel zooms about the pointer (over an axis that axis only; Ctrl and the wheel the time only, Shift
+  and the wheel the thrust only), a trackpad scrolls and, with Ctrl, zooms, a pinch zooms, and the back and
+  forward mouse buttons go through the views. JFreeChart restores the view after a drag up and to the left and
+  zooms with the wheel only over the data (`plot/PlotInputBindings.h`).
+- The right button opens rocketplot's menu (Back, Forward, Reset view, the crosshair, Copy image, Export...) in
+  place of JFreeChart's. Export... writes PNG, JPEG, SVG, PDF or CSV files, adds the suffix of the chosen kind
+  when the name has none of them, asks before replacing a file and says when the file cannot be written
+  (`plot/PlotExport.h`).
+- A legend entry of the dialog has a menu (the line width and markers, Visible, Show only this, Show all,
+  Remove, Theme color), which OpenRocket's legends do not have. A curve recoloured there keeps its colour when
+  the scheme changes.
+- In the dialog, the selected curve is drawn under the others, where OpenRocket draws it on top. This will
+  change with a later rocketplot.
+
+## The parts library
+
+- "Filter by text" takes a Qt regular expression, ignoring case by Unicode's rules (the user's decision
+  U-M3-6e). A pattern that is not valid matches nothing, where OpenRocket shows every part
+  (`dialogs/preset/ComponentPresetFilterModel.h`).
+- The columns keep their widths, and the table scrolls sideways when they do not fit. OpenRocket's table fits
+  them to its width. The Favorite check boxes sit where the platform's style puts them.
+- Choosing a unit in a column header's menu keeps the selected part. OpenRocket clears the selection.
+- A part whose manufacturer and part number together are longer than about 80 characters can be a favourite.
+  OpenRocket refuses to store it, with an error (`rocket/preset/ComponentPresetFavorites.h` in the core).
+- The keypad's Left and Right arrows move to the previous or next part, as the other Left and Right arrows do.
+  In OpenRocket they move between the columns (`widgets/TableRowTraversal.h`).
+- In the open list of a configuration dialog's preset box, the arrow keys only move the highlight; Enter or a
+  click chooses. OpenRocket's list chooses at every arrow key, each choice a preset in an undo step of its own
+  (`widgets/PresetComboBox.h`).
+
+## Component preset files
+
+- QtRocket refuses a preset file over 64 MiB or with more than 1,000,000 XML elements or 10,000 materials, reads
+  the first 100,000 parts of a larger file, takes at most 10,000 files and 100 levels of a directory, and at
+  most 1,000,000 presets in all. OpenRocket reads any amount (`file/preset/OpenRocketComponentLoader.h`,
+  `ComponentPresetDatabaseLoader.h` in the core).
+- A file whose document type declares anything (an XML entity) is refused, as design files are.
+- A directory's files are read in the order of their names. OpenRocket's order is the system's.
+
+<!-- RUN 3 MERGE: the deliberate differences that groups X and Y (the tab's exit suite, the open-designs exit and
+the parts library per component) report go into the sections above, or here. Remove this comment then. -->
+
 ## Preferences
 
 - The preferences are kept in an INI file of QtRocket's own (`~/.config/QtRocket/QtRocket.ini` on Linux and
   macOS, `%APPDATA%\QtRocket\QtRocket.ini` on Windows), with window positions and maximized states in its own
   form. OpenRocket's preferences are not read or imported.
-- The dialog has the General, Design and Units pages. General has "Open last design file on startup", the
-  confirmation for discarding preferences and "Reset all preferences". Design has no simulation options
-  (Milestone 4). Left out: the language selector, the update checks, the import and export of preferences, and
-  the options of later milestones (the thrust-curve and preset paths, the parts library, the RockSim warning).
+- The dialog has the General, Design and Units pages. General has the user's thrust curves and component
+  presets, "Open last design file on startup", the confirmation for discarding preferences, "Automatically open
+  the Parts Library dialog" and "Reset all preferences". Design has no simulation options (Milestone 4). Left
+  out: the language selector, the update checks, the import and export of preferences, and the RASAero and
+  RockSim warnings (RockSim with Milestone 8).
+- "Add" beside the user's thrust curves or component presets first asks in a menu, "File..." or "Directory...",
+  then shows the platform's dialog for a file or for a directory (the user's decision U-M3-6c). OpenRocket's
+  dialog shows files and directories at once. The filters are OpenRocket's, followed by their patterns where
+  OpenRocket's text holds more than patterns (`dialogs/GeneralPreferencesPanel.h`).
+- While a list is unset it shows QtRocket's own directory (see Start-up), which "Reset" puts back. The page
+  makes no directory: the start does. A change takes effect at the next start, as the page says.
+- A list of the user's files longer than 8192 characters is stored. OpenRocket refuses it with an error.
 - Apply, OK and Cancel refresh every design window. OpenRocket refreshes only the window the dialog came from.
 - "Reset all preferences" keeps the dialog open with new pages.
 
 ## Start-up and errors
 
 - There is no splash screen, welcome dialog or update check.
-- The motor database loads at start. If it cannot be read, a warning says so after the first window opens.
+- The motor database, the component presets and the user's thrust curves and presets are read before the first
+  window opens, in a fraction of a second. OpenRocket reads them in the background and shows "Loading motors"
+  when a motor is wanted before they are read (`app/ApplicationContext.h`).
+- The user's own files are in QtRocket's data directory: `~/.local/share/QtRocket` on Linux,
+  `~/Library/Application Support/QtRocket` on macOS, `%LOCALAPPDATA%\QtRocket` on Windows (the user's decision
+  U-M3-3), with the folders `ThrustCurves` and `Components`, made at start while their lists are unset.
+  OpenRocket's are in `~/.openrocket`, `~/Library/Application Support/OpenRocket` or `%APPDATA%\OpenRocket`
+  (`app/DataPaths.h`).
+- The user's files that cannot be imported are listed together in one message after the first window opens,
+  with OpenRocket's texts: "Error upon thrust curve import", "Error upon component preset import", or both
+  titles; the message scrolls when the files are many. OpenRocket shows a warning for each file, always on top,
+  while its window opens. Both name only the files that were refused. For a preset file, QtRocket's message
+  adds the reason after OpenRocket's `Unable to parse component preset file: <name>`. The other problems (a
+  listed file that is missing, say) OpenRocket writes to its log, which QtRocket does not have
+  (`main/WidgetUserPrompts.h`).
+- If the motor database QtRocket ships cannot be read, a warning says so after the first window opens, and the
+  user's thrust curves are not read either. OpenRocket stops the same way, with an internal error.
 - The internal error dialog has QtRocket's texts and the buttons Continue, Copy details and Quit QtRocket.
   OpenRocket offers a bug report.
 - On macOS, a new design opens whenever the application becomes active without a window, also through
@@ -229,9 +458,9 @@ component's wall, mass or sweep. Also:
 
 These come with later milestones of QtRocket:
 
-- Milestone 3: motors and the "Motors & Configuration" tab, the motor chooser, component presets and the parts
-  library, the flight configuration dialogs.
-- Milestone 4: simulations, plots and CSV export in the GUI; the flight block of the design view's overlay.
+- Milestone 4: the Simulations tab (the simulations that New and Duplicate Configuration add are kept in the
+  saved design), the simulations' plots and CSV export in the GUI; the flight block of the design view's
+  overlay.
 - Milestone 5: the Appearance tab and decal editing, the scale dialog, the material editor ("Add custom
   material", "Edit materials"), "Components of same color", "Scale Fin", "Save decal images", calipers, view
   capture, the preview image in saved files, the theme selector, Help > About and License.
@@ -241,4 +470,5 @@ These come with later milestones of QtRocket:
 - Milestone 9: packaged releases of the GUI, the splash screen, Help > Bug report.
 
 Not planned for QtRocket: RASAero export, Wavefront OBJ export, Photo Studio, guided tours, translations
-(the language selector), the debug log, update checks and the "banana for scale".
+(the language selector), the debug log, update checks, the motor search, download and database update of
+thrustcurve.org, the component preset editor, and the "banana for scale".

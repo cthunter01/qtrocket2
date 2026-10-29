@@ -260,7 +260,8 @@ ThrustCurveMotorSelectionPanel::ThrustCurveMotorSelectionPanel(const GuiServices
     m_motorFilterPanel(makeChild<MotorFilterPanel>(this, *m_selection, services.preferences())),
     m_motorInformationPanel(makeChild<MotorInformationPanel>(this, services)),
     m_nozzleExitDiameterModel(
-        std::make_shared<DoubleBinding>(0.0, unitGroup(UnitGroupId::LENGTH), 0.0))
+        std::make_shared<DoubleBinding>(0.0, unitGroup(UnitGroupId::LENGTH), 0.0)),
+    m_motorDatabaseVersion(services.startupData().motorDatabaseVersion)
 {
     setObjectName(QStringLiteral("selectionPanel"));
     m_selection->setDelayTexts(

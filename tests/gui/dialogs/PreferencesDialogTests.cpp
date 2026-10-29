@@ -1,6 +1,7 @@
 #include "QtRocket/gui/dialogs/PreferencesDialog.h"
 
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QEvent>
+#include <QLineEdit>
 #include <QPointer>
 #include <QPushButton>
 #include <QSignalSpy>
@@ -37,14 +39,18 @@
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/figure/ScaleScrollArea.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "dialogs/PreferencesPagePins.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "widgets/WidgetTestSupport.h"
@@ -55,8 +61,9 @@ namespace QtRocket::Gui
 namespace
 {
 
-using Kind = Gui::Test::ScriptedUserPrompts::Kind;
-using Tab  = PreferencesDialog::Tab;
+using Kind      = Gui::Test::ScriptedUserPrompts::Kind;
+using Tab       = PreferencesDialog::Tab;
+using UserFiles = GeneralPreferencesPanel::UserFiles;
 
 /// Delivers the posted events until the layouts and the figure are done.
 void settle()
@@ -84,6 +91,12 @@ void settle()
 [[nodiscard]] std::string defaultUnit(UnitGroupId group)
 {
     return unitGroup(group).getDefaultUnit().getUnit();
+}
+
+/// The open documents of a General page: @p document.
+[[nodiscard]] GeneralPreferencesPanel::OpenDocuments onlyDocument(OpenRocketDocument& document)
+{
+    return [&document] { return std::vector<OpenRocketDocument*>{&document}; };
 }
 
 /// The test's services (a store in memory, scripted questions), a design view of a new design
@@ -116,7 +129,8 @@ protected:
         return *m_panel;
     }
 
-    /// The dialog over the test's services and design view (if any), on @p tab, not shown.
+    /// The dialog over the test's services and design view (if any), its General pages in
+    /// m_general, on @p tab, not shown.
     PreferencesDialog& makeDialog(Tab tab = Tab::GENERAL)
     {
         m_dialog = std::make_unique<PreferencesDialog>(
@@ -125,14 +139,15 @@ protected:
                 return m_panel == nullptr ? std::vector<RocketPanel*>{}
                                           : std::vector<RocketPanel*>{m_panel.get()};
             },
-            tab, nullptr);
+            m_general, tab, nullptr);
         return *m_dialog;
     }
 
-    Gui::Test::TestGuiServices          m_services;
-    std::unique_ptr<OpenRocketDocument> m_document;
-    std::unique_ptr<RocketPanel>        m_panel;
-    std::unique_ptr<PreferencesDialog>  m_dialog;
+    Gui::Test::TestGuiServices           m_services;
+    GeneralPreferencesPanel::Environment m_general;
+    std::unique_ptr<OpenRocketDocument>  m_document;
+    std::unique_ptr<RocketPanel>         m_panel;
+    std::unique_ptr<PreferencesDialog>   m_dialog;
 };
 
 // ==================================================================== PreferencesDialogTest
@@ -407,6 +422,32 @@ TEST_F(PreferencesDialogTest, ResetAllPreferencesShowsThePreferencesAnew)
     EXPECT_TRUE(oldGeneral.isNull());
 }
 
+TEST_F(PreferencesDialogTest, EveryGeneralPageIsMadeInTheDialogsEnvironment)
+{
+    // The default directories of the user's files and the open documents reach the General page,
+    // and the page that a reset makes anew.
+    const QtRocket::Test::TempDir home;
+    const std::filesystem::path   thrustCurves = home.path() / "QtRocket" / "ThrustCurves";
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    m_general = {.defaultUserThrustCurveDirectory = thrustCurves,
+                 .defaultUserComponentDirectory   = std::nullopt,
+                 .openDocuments                   = onlyDocument(*document)};
+    preferences().setDefaultFlightConfigName("Flight {motors}");
+    const PreferencesDialog& dialog = makeDialog();
+    EXPECT_EQ(dialog.generalPage()->userFilesField(UserFiles::THRUST_CURVES)->text(),
+              QtStrings::fromPath(thrustCurves));
+    EXPECT_EQ(dialog.generalPage()->userFilesField(UserFiles::COMPONENT_PRESETS)->text(),
+              QString());
+
+    prompts().answerYesNo(true);
+    EXPECT_TRUE(dialog.generalPage()->resetAllPreferences());
+    EXPECT_EQ(dialog.generalPage()->userFilesField(UserFiles::THRUST_CURVES)->text(),
+              QtStrings::fromPath(thrustCurves));
+    EXPECT_EQ(document->getRocket().getSelectedConfiguration().getStoredName(),
+              std::optional<std::string>("Flight {motors}"));
+}
+
 TEST_F(PreferencesDialogTest, APendingEditIsCommittedByOkAndDroppedByCancel)
 {
     {
@@ -447,7 +488,7 @@ TEST_F(PreferencesDialogTest, ShowPreferencesShowsItModalAndDeletesItOnceClosed)
     QWidget parent;
     parent.show();
     PreferencesDialog& dialog =
-        PreferencesDialog::showPreferences(preferences(), prompts(), {}, parent, Tab::DESIGN);
+        PreferencesDialog::showPreferences(preferences(), prompts(), {}, {}, parent, Tab::DESIGN);
     const QPointer<PreferencesDialog> shown(&dialog);
     EXPECT_EQ(dialog.parentWidget(), &parent);
     EXPECT_TRUE(dialog.isVisible());

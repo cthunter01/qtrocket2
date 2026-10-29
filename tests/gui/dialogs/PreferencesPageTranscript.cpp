@@ -10,9 +10,11 @@
 #include <QAbstractSpinBox>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFrame>
 #include <QLabel>
 #include <QLayout>
 #include <QLayoutItem>
+#include <QLineEdit>
 #include <QObject>
 #include <QPushButton>
 #include <QString>
@@ -20,7 +22,10 @@
 #include <QWidget>
 #include <QtContainerFwd>
 
+#include <gtest/gtest.h>
+
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/widgets/DescriptionArea.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -74,6 +79,21 @@ namespace
     {
         return QStringLiteral("SPINNER ") + spinner->text() + QStringLiteral(" value=") +
                spinner->text() + stateOf(widget);
+    }
+    if (const auto* const field = qobject_cast<const QLineEdit*>(&widget))
+    {
+        return QStringLiteral("FIELD ") + field->text() + stateOf(widget);
+    }
+    // Java's JTextComponent: its text, without its state.
+    if (const auto* const area = qobject_cast<const DescriptionArea*>(&widget))
+    {
+        return QStringLiteral("TEXT ") + area->description();
+    }
+    // After the label and the description, which are frames too.
+    if (const auto* const frame = qobject_cast<const QFrame*>(&widget);
+        frame != nullptr && frame->frameShape() == QFrame::HLine)
+    {
+        return QStringLiteral("SEPARATOR");
     }
     return std::nullopt;
 }
@@ -154,6 +174,23 @@ std::vector<std::string> transcriptKeeping(std::span<const std::string_view> lin
         }
     }
     return kept;
+}
+
+std::vector<std::string> transcriptEdited(std::vector<std::string>        lines,
+                                          std::span<const TranscriptEdit> edits)
+{
+    for (const TranscriptEdit& edit : edits)
+    {
+        const auto found = std::ranges::count(lines, edit.openRocket);
+        if (found != 1)
+        {
+            ADD_FAILURE() << "the edited line is in the transcript " << found
+                          << " times, not once: " << edit.openRocket;
+            continue;
+        }
+        *std::ranges::find(lines, edit.openRocket) = edit.qtRocket;
+    }
+    return lines;
 }
 
 void chooseItem(QComboBox& comboBox, int index)

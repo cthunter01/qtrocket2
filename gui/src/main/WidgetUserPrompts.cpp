@@ -1,28 +1,37 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
 #include <vector>
 
+#include <QAction>
 #include <QChar>
 #include <QCheckBox>
+#include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QGridLayout>
+#include <QLatin1Char>
 #include <QLayout>
+#include <QMenu>
 #include <QMessageBox>
 #include <QObject>
+#include <QPoint>
 #include <QPointer>
 #include <QPushButton>
 #include <QString>
 #include <QStringList>
+#include <QStringView>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtTypes>
 
 #include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
 #include "QtRocket/gui/dialogs/DeploymentSelectionDialog.h"
@@ -61,6 +70,103 @@ constexpr int kDescriptionRows     = 5;
 constexpr int kDescriptionMinWidth = 100;
 /// The size of the small note of the insert position question (StyledLabel(text, -2)).
 constexpr double kNoteSize = -2.0;
+
+/// The texts of OpenRocket's warning about a file the start could not load into a database.
+struct DatabaseTexts
+{
+    /// MotorDbLoaderDlg.title, ComponentDbLoaderDlg.title.
+    QString title;
+    /// .message1, a MessageFormat pattern with the file as {0}.
+    QString ignored;
+    /// .message2.
+    QString advice;
+};
+
+/// The texts of OpenRocket's warning about a file of @p database.
+[[nodiscard]] DatabaseTexts databaseTexts(UserPrompts::DatabaseKind database)
+{
+    switch (database)
+    {
+        case UserPrompts::DatabaseKind::THRUST_CURVES:
+            return {//: MotorDbLoaderDlg.title
+                    .title = WidgetUserPrompts::tr("Error upon thrust curve import"),
+                    //: MotorDbLoaderDlg.message1
+                    .ignored = WidgetUserPrompts::tr(
+                        "Thrust curve '<b>'{0}'</b>' will be ignored during import."),
+                    //: MotorDbLoaderDlg.message2
+                    .advice =
+                        WidgetUserPrompts::tr("You can try replacing, deleting or manually editing "
+                                              "the thrust curve file to fix this issue.")};
+        case UserPrompts::DatabaseKind::COMPONENT_PRESETS:
+            return {//: ComponentDbLoaderDlg.title
+                    .title = WidgetUserPrompts::tr("Error upon component preset import"),
+                    //: ComponentDbLoaderDlg.message1
+                    .ignored = WidgetUserPrompts::tr(
+                        "Component preset '<b>'{0}'</b>' will be ignored during import."),
+                    //: ComponentDbLoaderDlg.message2
+                    .advice =
+                        WidgetUserPrompts::tr("You can try replacing, deleting or manually editing "
+                                              "the component preset file to fix this issue.")};
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+/// java.text.MessageFormat.format(@p pattern, @p argument) for a pattern whose only argument is
+/// {0}: the text between single quotes is taken as it is, two single quotes are one, and {0}
+/// outside quotes is @p argument.
+[[nodiscard]] QString formatMessage(const QString& pattern, const QString& argument)
+{
+    constexpr QStringView kArgument = u"{0}";
+    QString               text;
+    bool                  quoted = false;
+    for (qsizetype index = 0; index < pattern.size(); ++index)
+    {
+        const QChar character = pattern.at(index);
+        if (character == QLatin1Char('\''))
+        {
+            if (index + 1 < pattern.size() && pattern.at(index + 1) == QLatin1Char('\''))
+            {
+                text.append(character);
+                ++index;
+            }
+            else
+            {
+                quoted = !quoted;
+            }
+        }
+        else if (!quoted && QStringView(pattern).sliced(index).startsWith(kArgument))
+        {
+            text.append(argument);
+            index += kArgument.size() - 1;
+        }
+        else
+        {
+            text.append(character);
+        }
+    }
+    return text;
+}
+
+/// The width of a database problem's text (MotorDatabaseLoader.loadFile() and
+/// ComponentPresetDatabaseLoader.showLoadingErrorDialog(): "<p style='width: 400px;'>").
+constexpr int kDatabaseProblemWidth = 400;
+
+/// The loader's message of @p problem as rich text: escaped, so that a '<' or '&' it quotes from
+/// a file shows as it is, but for a thrust-curve file with the markup of OpenRocket's own RASP
+/// messages put back (RASPMotorLoader writes "<br>" and "&nbsp" for this warning): a line break
+/// and a space that does not break, with the ';' that Qt's rich text needs (Swing reads "&nbsp"
+/// without it).
+[[nodiscard]] QString databaseProblemMessage(const UserPrompts::DatabaseProblem& problem)
+{
+    QString message = problem.message.toHtmlEscaped();
+    if (problem.database == UserPrompts::DatabaseKind::THRUST_CURVES)
+    {
+        message.replace(QStringLiteral("&lt;br&gt;"), QStringLiteral("<br>"));
+        message.replace(QStringLiteral("&amp;nbsp;"), QStringLiteral("&nbsp;"));
+        message.replace(QStringLiteral("&amp;nbsp"), QStringLiteral("&nbsp;"));
+    }
+    return message;
+}
 
 /// Whether the question's parent was destroyed while a dialog of it was open: it had one and its
 /// pointer is null now.
@@ -155,6 +261,130 @@ void addDescription(QFileDialog& dialog, const QString& description)
         addDescription(chooser, request.description);
     }
     return chosenFiles(dialog);
+}
+
+/// A file chooser for a directory (JFileChooser.showOpenDialog() in DIRECTORIES_ONLY mode) for
+/// @p request: the platform's folder dialog, which shows directories only (the request's name
+/// filters are for files).
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseDirectoryToOpen(
+    QWidget* parent, const UserPrompts::OpenFileRequest& request)
+{
+    ModalDialog<QFileDialog> dialog(parent);
+    QFileDialog&             chooser = *dialog.get();
+    chooser.setObjectName(QStringLiteral("openDirectoryDialog"));
+    if (!request.title.isEmpty())
+    {
+        chooser.setWindowTitle(request.title);
+    }
+    chooser.setAcceptMode(QFileDialog::AcceptOpen);
+    chooser.setFileMode(QFileDialog::Directory);
+    chooser.setOption(QFileDialog::ShowDirsOnly, true);
+    chooser.setDirectory(startDirectory(request.directory));
+    if (!request.approveButtonText.isEmpty())
+    {
+        chooser.setLabelText(QFileDialog::Accept, request.approveButtonText);
+    }
+    if (!request.description.isEmpty())
+    {
+        addDescription(chooser, request.description);
+    }
+    return chosenFiles(dialog);
+}
+
+/// A popup menu made for one question and destroyed after it, which survives the destruction of
+/// its parent while it is open, as ModalDialog's dialogs do: the child of its parent (or, without
+/// one, owned here), held by a QPointer; one with a parent is deleted later.
+class QuestionMenu final
+{
+public:
+    explicit QuestionMenu(QWidget* parent)
+    {
+        if (parent != nullptr)
+        {
+            m_menu = makeChild<QMenu>(parent);
+        }
+        else
+        {
+            m_owned = std::make_unique<QMenu>();
+            m_menu  = m_owned.get();
+        }
+    }
+
+    ~QuestionMenu()
+    {
+        if (m_owned == nullptr)
+        {
+            if (QMenu* const menu = m_menu.data(); menu != nullptr)
+            {
+                menu->deleteLater();
+            }
+        }
+    }
+
+    QuestionMenu(const QuestionMenu&)            = delete;
+    QuestionMenu& operator=(const QuestionMenu&) = delete;
+    QuestionMenu(QuestionMenu&&)                 = delete;
+    QuestionMenu& operator=(QuestionMenu&&)      = delete;
+
+    /// The menu, or null once it was destroyed (with its parent).
+    [[nodiscard]] QMenu* get() const noexcept { return m_menu.data(); }
+
+    /// Opens the menu at @p position and returns when it is closed (QMenu::exec()): the action
+    /// chosen, or null when it was closed without a choice or destroyed.
+    [[nodiscard]] QAction* exec(const QPoint& position) const
+    {
+        QMenu* const menu = get();
+        return menu == nullptr ? nullptr : menu->exec(position);
+    }
+
+private:
+    std::unique_ptr<QMenu> m_owned;
+    QPointer<QMenu>        m_menu;
+};
+
+/// Where the menu of a question that @p parent asks opens: below it when it is a widget inside a
+/// window (the button that asks: as a button's menu opens), at the mouse pointer when a window
+/// asks (or none).
+[[nodiscard]] QPoint menuPosition(const QWidget* parent)
+{
+    if (parent != nullptr && !parent->isWindow())
+    {
+        return parent->mapToGlobal(QPoint(0, parent->height()));
+    }
+    return QCursor::pos();
+}
+
+/// A file chooser for a file or a directory (JFileChooser in FILES_AND_DIRECTORIES mode: the
+/// preferences' Add) for @p request. Qt's file dialogs choose one of the two, so a menu asks
+/// first which (the user's decision U-M3-6c): "File..." shows the file dialog of a FILES request
+/// (chooseFilesToOpen()), "Directory..." the folder dialog (chooseDirectoryToOpen()); the menu
+/// closed without a choice, or the parent destroyed meanwhile, answers no file and shows no
+/// dialog.
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseFileOrDirectoryToOpen(
+    QWidget* parent, const UserPrompts::OpenFileRequest& request)
+{
+    const QPointer<QWidget> guard(parent);
+    const QuestionMenu      menu(parent);
+    QMenu&                  choices = *menu.get();
+    choices.setObjectName(QStringLiteral("fileOrDirectoryMenu"));
+    //: Not in OpenRocket: the menu of the preferences' Add, which asks whether a file is added
+    //: (OpenRocket's file chooser shows files and directories at once)
+    QAction* const file = choices.addAction(WidgetUserPrompts::tr("File..."));
+    file->setObjectName(QStringLiteral("file"));
+    //: Not in OpenRocket: the menu of the preferences' Add, which asks whether a directory is
+    //: added
+    QAction* const directory = choices.addAction(WidgetUserPrompts::tr("Directory..."));
+    directory->setObjectName(QStringLiteral("directory"));
+    const QAction* const chosen = menu.exec(menuPosition(parent));
+    if (chosen == nullptr || parentGone(parent, guard))
+    {
+        return std::nullopt;
+    }
+    if (chosen == file)
+    {
+        return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
+    }
+    return chooseDirectoryToOpen(parent, request);
 }
 
 /// Whether the platform's own save dialog asks itself before it replaces a file, whatever the
@@ -478,9 +708,7 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
 {
     if (request.selection == OpenFileSelection::FILES_AND_DIRECTORIES)
     {
-        // Run 3 of Milestone 3 (the preferences' user files): the menu "File..." /
-        // "Directory..." and the platform's dialog for the choice. Until then: cancelled.
-        return std::nullopt;
+        return chooseFileOrDirectoryToOpen(parent, request);
     }
     return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
 }
@@ -616,11 +844,53 @@ void WidgetUserPrompts::showErrorsAndWarnings(QWidget*                        pa
                                               message.warnings);
 }
 
-void WidgetUserPrompts::showDatabaseProblems(QWidget* /*parent*/,
-                                             std::span<const DatabaseProblem> /*problems*/)
+QString WidgetUserPrompts::databaseProblemsTitle(std::span<const DatabaseProblem> problems)
 {
-    // Run 3 of Milestone 3 (the start-up): one message with OpenRocket's MotorDbLoaderDlg and
-    // ComponentDbLoaderDlg texts. Until then: nothing is shown.
+    QStringList titles;
+    for (const DatabaseKind database :
+         {DatabaseKind::THRUST_CURVES, DatabaseKind::COMPONENT_PRESETS})
+    {
+        if (std::ranges::any_of(problems, [database](const DatabaseProblem& problem) {
+                return problem.database == database;
+            }))
+        {
+            titles.append(databaseTexts(database).title);
+        }
+    }
+    return titles.join(QStringLiteral(" / "));
+}
+
+QStringList WidgetUserPrompts::databaseProblemLines(std::span<const DatabaseProblem> problems)
+{
+    QStringList lines;
+    for (const DatabaseProblem& problem : problems)
+    {
+        // MotorDatabaseLoader.loadFile() and ComponentPresetDatabaseLoader.
+        // showLoadingErrorDialog(): "<html><body><p style='width: 400px;'><i>" + message +
+        // "</i>.<br><br>" + MessageFormat.format(message1, path) + "<br>" + message2 +
+        // "</p></body></html>" (the width: showDatabaseProblems()).
+        const DatabaseTexts texts = databaseTexts(problem.database);
+        lines.append(
+            QStringLiteral("<html><body><p><i>") + databaseProblemMessage(problem) +
+            QStringLiteral("</i>.<br><br>") +
+            formatMessage(texts.ignored, QtStrings::fromPath(problem.file).toHtmlEscaped()) +
+            QStringLiteral("<br>") + texts.advice + QStringLiteral("</p></body></html>"));
+    }
+    return lines;
+}
+
+void WidgetUserPrompts::showDatabaseProblems(QWidget*                         parent,
+                                             std::span<const DatabaseProblem> problems)
+{
+    // JOptionPane(message, WARNING_MESSAGE).createDialog(null, title), one for all the files,
+    // each in a paragraph 400 pixels wide; the message scrolls when there are many.
+    ModalDialog<DetailDialog> dialog(parent, databaseProblemLines(problems), std::nullopt,
+                                     databaseProblemsTitle(problems), Severity::WARNING);
+    if (DetailDialog* const message = dialog.get(); message != nullptr)
+    {
+        message->wrapMessage(kDatabaseProblemWidth);
+    }
+    dialog.exec();
 }
 
 UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*              parent,

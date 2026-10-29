@@ -202,7 +202,9 @@ public:
 
     /// "Motor DB version:" shows @p version, the database_version of the motor database's
     /// metadata.json; "Unknown" for none or one not above 0 (getLocalMotorDatabaseVersionText()).
-    /// The panel starts with none (QtRocket ships metadata.json in Milestone 3, run 3).
+    /// The panel starts with the version of its services (GuiServices::StartupData's
+    /// motorDatabaseVersion, which the application reads at start from the bundled
+    /// metadata.json).
     void setMotorDatabaseVersion(std::optional<std::int64_t> version);
 
     /// The chooser's logic, which the panel shows (for the dialog and the tests).
