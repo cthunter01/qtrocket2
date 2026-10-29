@@ -18,6 +18,11 @@
     {"step": "selectCells", "cells": [{"row": 1, "column": ["Booster"]}]},
     {"step": "resetSeparation"},
     {"step": "newConfiguration", "answer": {"scope": "this", "event": "APOGEE", "delay": {"text": "2", "unit": "s"}, "button": "ok"}, "note": "New on the Stages sub-tab: the separation question for the new row"},
+    {"step": "undo", "note": "the new row's separation undone: Undo names the undo position of New"},
+    {"step": "redo"},
+    {"step": "configTab", "tab": "recovery", "note": "a recovery device of the upper stage: its deployment events include the lower stage's separation"},
+    {"step": "selectCells", "cells": [{"row": 2, "column": ["Sustainer", "Sustainer Aft Airframe", "Sustainer Drogue"]}]},
+    {"step": "selectDeployment", "answer": {"scope": "all", "event": "LOWER_STAGE_SEPARATION", "delay": {"text": "1", "unit": "s"}, "button": "ok"}, "note": "the default deployment, for all configurations: the overrides of the first two configurations stay (the default separation removes them)"},
 
     {"step": "configTab", "tab": "motors"},
     {"step": "selectCells", "cells": [{"row": 1, "column": ["Sustainer", "Sustainer Fin Section", "Inner Tube", "Sustainer Motor Mount"]}]},

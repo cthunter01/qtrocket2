@@ -24,7 +24,11 @@
 //   and reload changes (guiReloadChanges() of GoldenGuiReference.h);
 // - the expected differences of kGuiExpectedDifferences name recorded questions with OpenRocket's
 //   value, and OpenRocket's bug 1 holds in every record (its deployment and separation questions
-//   all start on "this configuration").
+//   all start on "this configuration", its Recovery and Stages tables shade no cell), so that
+//   guiExpectedRecord() makes every record QtRocket's without a problem; the overrides the
+//   Recovery and Stages cells record are those of the record's tree;
+// - the fixes of OpenRocket's bugs 5 and 6 that the tool makes in OpenRocket's run show in the
+//   records kGuiToolFixes lists, and in no other.
 // The parser of version 2 itself is checked on small scenarios (GuiScenarioReader), and the
 // comparison of another GUI's records with these, which the exit test makes (guiRecordDifferences()
 // and guiExpectedRecord() of GoldenGuiReference.h), on the records (GuiRecordComparison).
@@ -34,6 +38,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -699,6 +704,187 @@ struct GuiLoad
     return wrong;
 }
 
+/// The problems guiExpectedRecord() reports for the records of @p reference, the scenario
+/// @p scenario's (an expected difference that names no recorded value, a cell OpenRocket shaded).
+[[nodiscard]] std::string expectedRecordProblems(const GuiReference& reference,
+                                                 std::string_view    scenario)
+{
+    std::string problems;
+    for (const GuiStepRecord& record : reference.steps)
+    {
+        static_cast<void>(QtRocket::Test::guiExpectedRecord(scenario, record, problems));
+    }
+    return problems;
+}
+
+/// The number of times @p text holds @p part.
+[[nodiscard]] std::size_t occurrences(std::string_view text, std::string_view part)
+{
+    std::size_t count = 0;
+    for (std::size_t at = text.find(part); at != std::string_view::npos;
+         at             = text.find(part, at + part.size()))
+    {
+        ++count;
+    }
+    return count;
+}
+
+/// What is wrong with the overrides of the table @p table (named @p name: "recovery", whose
+/// tree lines hold " deploy=" and an entry " deploy[<id>]=" per override, or "stages", " sep=")
+/// in the record @p record: in each column, the cells with an override are as many as the
+/// overrides of the column's component in the record's tree (its line found by the column's
+/// header, the component's name).
+void addOverrideProblems(const GuiStepRecord& record, std::string_view name,
+                         const QtRocket::Test::GuiConfigurationTable& table,
+                         std::vector<std::string>&                    problems)
+{
+    const std::string_view          value    = name == "recovery" ? " deploy=" : " sep=";
+    const std::string_view          override = name == "recovery" ? " deploy[" : " sep[";
+    const std::vector<std::string>& tree     = record.tree.value_or(std::vector<std::string>{});
+    for (std::size_t column = 1; column < table.header.size(); ++column)
+    {
+        const std::string        component = " '" + table.header[column] + "' ";
+        std::vector<std::string> lines;
+        std::ranges::copy_if(tree, std::back_inserter(lines), [&](const std::string& line) {
+            return line.contains(component) && line.contains(value);
+        });
+        std::size_t cells = 0;
+        for (const QtRocket::Test::GuiTableRow& row : table.rows)
+        {
+            cells += column <= row.cells.size() && row.cells[column - 1].override ? 1U : 0U;
+        }
+        if (lines.size() != 1 || occurrences(lines.front(), override) != cells)
+        {
+            problems.push_back(
+                std::format("step {} {} column {}: {} overrides in the cells, {} tree "
+                            "lines",
+                            record.index, name, column, cells, lines.size()));
+        }
+    }
+}
+
+/// What is wrong with the overrides the Recovery and Stages cells of @p reference record, in the
+/// records that have their tree (addOverrideProblems()).
+[[nodiscard]] std::vector<std::string> overrideProblems(const GuiReference& reference)
+{
+    std::vector<std::string> problems;
+    for (const GuiStepRecord& record : reference.steps)
+    {
+        if (record.tree.has_value() && record.flightConfiguration.has_value())
+        {
+            addOverrideProblems(record, "recovery", record.flightConfiguration->recovery, problems);
+            addOverrideProblems(record, "stages", record.flightConfiguration->stages, problems);
+        }
+    }
+    return problems;
+}
+
+/// The start of the tree line @p line that names its component: its indentation, class and name
+/// ("      InnerTube 'Inner Tube' "), as GuiToolFix::line has it.
+[[nodiscard]] std::string_view componentOfLine(std::string_view line)
+{
+    const std::size_t axial = line.find(" axial=");
+    return axial == std::string_view::npos ? line : line.substr(0, axial + 1);
+}
+
+/// Whether the fix @p fix holds in @p record.
+[[nodiscard]] bool toolFixHolds(const QtRocket::Test::GuiToolFix& fix, const GuiStepRecord& record)
+{
+    if (fix.member == "undo" || fix.member == "redo")
+    {
+        return (fix.member == "undo" ? record.undo : record.redo).text == fix.value;
+    }
+    const std::vector<std::string>& tree = record.tree.value_or(std::vector<std::string>{});
+    return fix.member == "tree" && std::ranges::any_of(tree, [&fix](const std::string& line) {
+               return componentOfLine(line) == fix.line && line.contains(fix.value);
+           });
+}
+
+/// What is wrong with the fixes kGuiToolFixes lists for @p scenario in @p reference: each must
+/// hold in its record (toolFixHolds()), name its bug's value (an undo position of bug 5, a
+/// default ignition other than OpenRocket's new one for bug 6).
+[[nodiscard]] std::vector<std::string> toolFixProblems(const GuiReference& reference,
+                                                       std::string_view    scenario)
+{
+    std::vector<std::string> problems;
+    for (const QtRocket::Test::GuiToolFix& fix : QtRocket::Test::kGuiToolFixes)
+    {
+        if (fix.scenario != scenario)
+        {
+            continue;
+        }
+        const std::string what = std::format("step {} bug {} {} {}{}", fix.step, fix.bug,
+                                             fix.member, fix.line, fix.value);
+        const bool        names =
+            fix.bug == 5 ? std::ranges::any_of(QtRocket::Test::kGuiToolUndoPositions,
+                                               [&fix](std::string_view position) {
+                                                   return fix.value.contains(position);
+                                               })
+                         : fix.bug == 6 && fix.value != QtRocket::Test::kGuiFreshDefaultIgnition;
+        if (!names || fix.step >= reference.steps.size() ||
+            !toolFixHolds(fix, reference.steps[fix.step]))
+        {
+            problems.push_back(what);
+        }
+    }
+    return problems;
+}
+
+/// Whether kGuiToolFixes lists the fix of @p bug in the member @p member of step @p step of
+/// @p scenario, with @p line and @p value.
+[[nodiscard]] bool toolFixListed(std::string_view scenario, std::size_t step, int bug,
+                                 std::string_view member, std::string_view line,
+                                 std::string_view value)
+{
+    return std::ranges::any_of(
+        QtRocket::Test::kGuiToolFixes, [&](const QtRocket::Test::GuiToolFix& fix) {
+            return fix.scenario == scenario && fix.step == step && fix.bug == bug &&
+                   fix.member == member && fix.line == line && fix.value == value;
+        });
+}
+
+/// The fixes of bugs 5 and 6 that the records of @p reference show and kGuiToolFixes does not
+/// list: an Undo or Redo text naming one of QtRocket's undo positions, and after an undo or a
+/// redo a tree line whose default ignition is not OpenRocket's new one.
+[[nodiscard]] std::vector<std::string> unlistedToolFixes(const GuiReference& reference,
+                                                         std::string_view    scenario)
+{
+    std::vector<std::string> unlisted;
+    for (const GuiStepRecord& record : reference.steps)
+    {
+        for (const auto& [member, action] : {std::pair{std::string_view("undo"), &record.undo},
+                                             std::pair{std::string_view("redo"), &record.redo}})
+        {
+            const bool fix = std::ranges::any_of(
+                QtRocket::Test::kGuiToolUndoPositions,
+                [action](std::string_view position) { return action->text.contains(position); });
+            if (fix && !toolFixListed(scenario, record.index, 5, member, "", action->text))
+            {
+                unlisted.push_back(
+                    std::format("step {} {} '{}'", record.index, member, action->text));
+            }
+        }
+        if (record.kind != GuiStepKind::UNDO && record.kind != GuiStepKind::REDO)
+        {
+            continue;
+        }
+        for (const std::string& line : record.tree.value_or(std::vector<std::string>{}))
+        {
+            const std::size_t at  = line.find(" ign=");
+            const std::size_t end = at == std::string::npos ? at : line.find(' ', at + 1);
+            const std::string ignition =
+                at == std::string::npos ? std::string() : line.substr(at, end - at);
+            if (!ignition.empty() && ignition != QtRocket::Test::kGuiFreshDefaultIgnition &&
+                !toolFixListed(scenario, record.index, 6, "tree", componentOfLine(line), ignition))
+            {
+                unlisted.push_back(std::format("step {} tree {}{}", record.index,
+                                               componentOfLine(line), ignition));
+            }
+        }
+    }
+    return unlisted;
+}
+
 /// The preset database commit of the goldens' manifest ("openrocket.presetDatabaseCommit").
 [[nodiscard]] std::string manifestPresetCommit()
 {
@@ -981,8 +1167,34 @@ TEST_P(FlightConfigurationsReferenceGolden, TheExpectedDifferencesNameRecordedQu
     EXPECT_EQ(problems, std::vector<std::string>{});
     EXPECT_GT(differences, 0U);
     // Bug 1 as the records show it: OpenRocket's deployment and separation dialogs always start
-    // on "this configuration" (kGuiExpectedDifferences lists where QtRocket's start on "all").
+    // on "this configuration" (kGuiExpectedDifferences lists where QtRocket's start on "all"),
+    // and its Recovery and Stages tables shade no cell (guiExpectedRecord() shades those without
+    // an override of their own, as QtRocket's tables do).
     EXPECT_EQ(valueQuestionsNotOnThis(*reference), std::vector<std::string>{});
+    EXPECT_EQ(expectedRecordProblems(*reference, scenario()), "");
+}
+
+TEST_P(FlightConfigurationsReferenceGolden, TheValueCellsOverridesAreThoseOfTheTree)
+{
+    // The override a Recovery or Stages cell records (FlightConfigurableParameterSet.containsId(),
+    // which QtRocket's shading shows) is the rocket's: per column as many as the tree's line of the
+    // component has.
+    const Result<GuiReference> reference = loadReference(scenario());
+    ASSERT_TRUE(reference.has_value()) << reference.error().toString();
+    EXPECT_EQ(overrideProblems(*reference), std::vector<std::string>{});
+}
+
+TEST_P(FlightConfigurationsReferenceGolden, TheToolsFixesShowWhereTheListNamesThem)
+{
+    // The records are OpenRocket's with QtRocket's fixes of bugs 5 and 6 (the tool makes them):
+    // kGuiToolFixes names every record where they show.
+    const Result<GuiReference> reference = loadReference(scenario());
+    ASSERT_TRUE(reference.has_value()) << reference.error().toString();
+    EXPECT_EQ(toolFixProblems(*reference, scenario()), std::vector<std::string>{});
+    EXPECT_EQ(unlistedToolFixes(*reference, scenario()), std::vector<std::string>{});
+    EXPECT_GT(std::ranges::count(QtRocket::Test::kGuiToolFixes, scenario(),
+                                 &QtRocket::Test::GuiToolFix::scenario),
+              0);
 }
 
 // ================================================================================= the reader
@@ -1289,6 +1501,74 @@ TEST(GuiRecordComparison, DifferencesBeyondTheLimitAreCounted)
         static_cast<std::ptrdiff_t>(QtRocket::Test::kGuiRecordDifferenceLines));
 }
 
+/// @p record with every cell of its Recovery and Stages tables unshaded, as OpenRocket's records
+/// have them.
+[[nodiscard]] GuiStepRecord withValueCellsUnshaded(GuiStepRecord record)
+{
+    if (record.flightConfiguration.has_value())
+    {
+        for (QtRocket::Test::GuiConfigurationTable* const table :
+             {&record.flightConfiguration->recovery, &record.flightConfiguration->stages})
+        {
+            for (QtRocket::Test::GuiTableRow& row : table->rows)
+            {
+                for (QtRocket::Test::GuiValueCell& cell : row.cells)
+                {
+                    cell.shaded = false;
+                }
+            }
+        }
+    }
+    return record;
+}
+
+/// The shading of the Recovery table's cells of @p record, row by row ("s" shaded, "-" not).
+[[nodiscard]] std::vector<std::string> recoveryShading(const GuiStepRecord& record)
+{
+    std::vector<std::string> rows;
+    for (const QtRocket::Test::GuiTableRow& row : tabStateOf(record).recovery.rows)
+    {
+        std::string text;
+        for (const QtRocket::Test::GuiValueCell& cell : row.cells)
+        {
+            text += cell.shaded ? 's' : '-';
+        }
+        rows.push_back(text);
+    }
+    return rows;
+}
+
+TEST(GuiRecordComparison, TheValueCellsAreShadedAsQtRocketShadesThem)
+{
+    // Step 21 of flight-configurations: the undo of Reset deployment, the parachute's override of
+    // the first configuration back; OpenRocket's table shades no cell (bug 1).
+    const GuiStepRecord record = recordAt(referenceOf("flight-configurations"), 21);
+    EXPECT_EQ(recoveryShading(record), (std::vector<std::string>{"--", "--"}));
+    std::string         problems;
+    const GuiStepRecord shadedAsQtRocket =
+        QtRocket::Test::guiExpectedRecord("flight-configurations", record, problems);
+    EXPECT_EQ(problems, "");
+    // QtRocket's shades every cell without an override of its own.
+    EXPECT_EQ(recoveryShading(shadedAsQtRocket), (std::vector<std::string>{"-s", "ss"}));
+    const std::vector<std::string> differences =
+        QtRocket::Test::guiRecordDifferences(record, shadedAsQtRocket);
+    ASSERT_EQ(differences.size(), 2U);
+    EXPECT_TRUE(differences.front().starts_with("OpenRocket: recovery row 0: "))
+        << differences.front();
+    EXPECT_TRUE(differences.back().contains("Altitude 150 m (shaded)")) << differences.back();
+    // A cell that OpenRocket shaded is a problem, and keeps its shading.
+    GuiStepRecord                               shaded = record;
+    QtRocket::Test::GuiFlightConfigurationState state  = tabStateOf(shaded);
+    ASSERT_FALSE(state.recovery.rows.empty());
+    ASSERT_FALSE(state.recovery.rows.front().cells.empty());
+    state.recovery.rows.front().cells.front().shaded = true;
+    shaded.flightConfiguration                       = std::move(state);
+    const GuiStepRecord kept =
+        QtRocket::Test::guiExpectedRecord("flight-configurations", shaded, problems);
+    EXPECT_NE(problems, "");
+    EXPECT_EQ(recoveryShading(kept), (std::vector<std::string>{"ss", "ss"}));
+}
+
 TEST(GuiRecordComparison, TheExpectedDifferencesGiveQtRocketsValues)
 {
     // Step 16 of flight-configurations: the parachute's deployment, which OpenRocket's dialog
@@ -1303,18 +1583,22 @@ TEST(GuiRecordComparison, TheExpectedDifferencesGiveQtRocketsValues)
     EXPECT_EQ(problems, "");
     ASSERT_EQ(expected.questions.size(), 1U);
     EXPECT_EQ(expected.questions.front().scope, "all");
-    // Nothing else changes.
+    // Nothing else changes but the shading of the Recovery and Stages cells (the rule of bug 1,
+    // TheValueCellsAreShadedAsQtRocketShadesThem).
     GuiStepRecord back           = expected;
     back.questions.front().scope = "this";
-    EXPECT_EQ(QtRocket::Test::guiRecordDifferences(record, back), std::vector<std::string>{});
-    // A step without an expected difference, or another scenario's, stays as it is.
+    EXPECT_EQ(QtRocket::Test::guiRecordDifferences(record, withValueCellsUnshaded(back)),
+              std::vector<std::string>{});
+    // The questions of a step without an expected difference, or of another scenario, stay as
+    // they are.
     const GuiStepRecord other = recordAt(reference, 18);
-    EXPECT_EQ(
-        QtRocket::Test::guiRecordDifferences(
-            other, QtRocket::Test::guiExpectedRecord("flight-configurations", other, problems)),
-        std::vector<std::string>{});
     EXPECT_EQ(QtRocket::Test::guiRecordDifferences(
-                  record, QtRocket::Test::guiExpectedRecord("multi-stage", record, problems)),
+                  other, withValueCellsUnshaded(QtRocket::Test::guiExpectedRecord(
+                             "flight-configurations", other, problems))),
+              std::vector<std::string>{});
+    EXPECT_EQ(QtRocket::Test::guiRecordDifferences(
+                  record, withValueCellsUnshaded(
+                              QtRocket::Test::guiExpectedRecord("multi-stage", record, problems))),
               std::vector<std::string>{});
     EXPECT_EQ(problems, "");
     // A record that does not show OpenRocket's value any more is a problem, and stays.

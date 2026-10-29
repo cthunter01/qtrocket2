@@ -10,6 +10,12 @@
 # named). --check writes nothing into them: it runs each scenario as usual into the work directory and compares
 # the files with the committed ones, and its exit status is 1 when one differs (or is missing).
 #
+# Order: a scenario of version 2 whose open step names a file of another scenario's directory
+# (flight-configurations opens tests/data/goldens/gui/from-scratch/rocket.ork) runs after that scenario when both
+# run, and opens the file that run has just written (its output directory: the scenario's own, the one of
+# GUI_REFERENCE_OUT, or with --check the work directory's), so that one call regenerates both consistently (the
+# state.json of version 2 records the SHA-256 of the file it opened).
+#
 # Environment:
 #   OPENROCKET_DIR   the OpenRocket checkout (default: "openrocket" next to the main working tree of the QtRocket
 #                    repository); it should be at the commit state.json records, with its preset submodule
@@ -25,6 +31,8 @@
 #   GUI_REFERENCE_WORK keep the work files (per scenario the saved archives, the second run's output, the
 #                    preferences and home directories, the logs) in this directory instead of a temporary one that
 #                    is deleted at the end
+#   GUI_REFERENCE_TIMEOUT the most seconds one run of the tool may take (default 600; a run takes about twenty):
+#                    a run that takes longer is stopped and fails (a modal dialog the scenario does not answer)
 #
 # Every scenario runs twice, into its output directory and into a temporary one, and the script fails unless both
 # runs wrote the same files: the reference is deterministic.
@@ -71,6 +79,8 @@ if ((${#names[@]} == 0)); then
     exit 1
 fi
 declare -A versions=()
+# The design file the open step of a scenario of version 2 names (relative to the repository).
+declare -A opens=()
 any_v2=false
 for name in "${names[@]}"; do
     scenario="$scenarios_dir/$name/scenario.json"
@@ -81,7 +91,14 @@ for name in "${names[@]}"; do
     version="$(sed -n 's/^ *"schemaVersion": *\([0-9][0-9]*\).*/\1/p' "$scenario" | head -n 1)"
     case "$version" in
     1) ;;
-    2) any_v2=true ;;
+    2)
+        any_v2=true
+        opens["$name"]="$(grep -m 1 '"step": *"open"' "$scenario" | sed -n 's/.*"file": *"\([^"]*\)".*/\1/p' || true)"
+        if [[ -z "${opens[$name]}" ]]; then
+            echo "error: $scenario has no open step with a file" >&2
+            exit 1
+        fi
+        ;;
     *)
         echo "error: $scenario has no schemaVersion 1 or 2" >&2
         exit 1
@@ -89,6 +106,39 @@ for name in "${names[@]}"; do
     esac
     versions["$name"]="$version"
 done
+
+# The order of the runs: a scenario whose open step names a file of the directory of another scenario of this
+# call (tests/data/goldens/gui/<other>/...) runs after that one (see the head of the script).
+declare -A depends=()
+for name in "${names[@]}"; do
+    depends["$name"]=""
+    file="${opens[$name]:-}"
+    if [[ "$file" == tests/data/goldens/gui/*/* ]]; then
+        other="${file#tests/data/goldens/gui/}"
+        other="${other%%/*}"
+        if [[ "$other" != "$name" && -n "${versions[$other]:-}" ]]; then
+            depends["$name"]="$other"
+        fi
+    fi
+done
+ordered=()
+declare -A placed=()
+while ((${#ordered[@]} < ${#names[@]})); do
+    progress=false
+    for name in "${names[@]}"; do
+        dependency="${depends[$name]}"
+        if [[ -z "${placed[$name]:-}" && (-z "$dependency" || -n "${placed[$dependency]:-}") ]]; then
+            ordered+=("$name")
+            placed["$name"]=1
+            progress=true
+        fi
+    done
+    if [[ "$progress" == false ]]; then
+        echo "error: the scenarios open files of each other's directories in a cycle" >&2
+        exit 1
+    fi
+done
+names=("${ordered[@]}")
 if [[ "$any_v2" == true ]] && ! command -v xvfb-run > /dev/null; then
     echo "error: xvfb-run is not on PATH (the scenarios of version 2 run OpenRocket's panels on a virtual display)" >&2
     exit 1
@@ -159,6 +209,33 @@ else
     trap 'rm -rf "$work"' EXIT
 fi
 classpath="$(cat "$here/build/gui-reference-classpath.txt")"
+# The time limit of one run of the tool (coreutils' timeout, where there is one).
+limit=()
+if command -v timeout > /dev/null; then
+    limit=(timeout --kill-after=30 "${GUI_REFERENCE_TIMEOUT:-600}")
+fi
+# The output directory of each scenario of this call, once it has run (the input of a scenario that depends on it).
+declare -A outputs=()
+
+# The end of a run of the tool for the scenario $1 with the status $2 (its log $3, or none): unless the status is
+# 0, an error (a run stopped at the time limit says so) with the end of the log, and the script ends.
+check_run() {
+    local name="$1" status="$2" log="$3"
+    if ((status == 0)); then
+        return
+    fi
+    if ((${#limit[@]} > 0 && (status == 124 || status == 137))); then
+        echo "error: the tool ran longer than ${GUI_REFERENCE_TIMEOUT:-600} s on $name and was stopped (a modal" \
+            "dialog the scenario does not answer?)" >&2
+    else
+        echo "error: the tool failed on $name (status $status)" >&2
+    fi
+    if [[ -n "$log" ]]; then
+        echo "its log: $log" >&2
+        tail -n 30 "$log" >&2
+    fi
+    exit 1
+}
 
 # One run of the tool for the scenario $1 into $2, its work files in $work/$1/$3: a fresh java.util.prefs store
 # (OpenRocket's preferences at their defaults), a fixed locale, time zone and encoding. The userRoot and
@@ -172,36 +249,39 @@ classpath="$(cat "$here/build/gui-reference-classpath.txt")"
 #              directories: the bundled motors and presets alone) and temporary directory.
 run_tool() {
     local name="$1" target="$2" run="$3"
-    local scenario="$scenarios_dir/$name/scenario.json" base="$work/$name/$run"
+    local scenario="$scenarios_dir/$name/scenario.json" base="$work/$name/$run" status=0
     rm -rf "$base"
     mkdir -p "$base/prefs" "$target"
     if [[ "${versions[$name]}" == 1 ]]; then
-        env -u DISPLAY -u WAYLAND_DISPLAY "$java" -Xmx2g -Djava.awt.headless=true \
+        env -u DISPLAY -u WAYLAND_DISPLAY "${limit[@]}" "$java" -Xmx2g -Djava.awt.headless=true \
             -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
             -Djava.util.prefs.userRoot="$base/prefs" -Djava.util.prefs.systemRoot="$base/prefs" \
             -Dopenrocket.debug.prefs=true \
             -cp "$classpath" info.qtrocket.guireference.GuiReference \
             --scenario "$scenario" --out "$target" --work "$base/saves" \
-            --commit "$commit" --dirty "$dirty"
+            --commit "$commit" --dirty "$dirty" || status=$?
+        check_run "$name" "$status" ""
         return
+    fi
+    # The file of the open step, the output of a scenario of this call where it names that scenario's file.
+    local input=() dependency="${depends[$name]}"
+    if [[ -n "$dependency" ]]; then
+        input=(--input "${outputs[$dependency]}/${opens[$name]#tests/data/goldens/gui/$dependency/}")
     fi
     mkdir -p "$base/home" "$base/tmp"
     # xvfb-run sends the command's standard error to its standard output: the tool's goes to its log.
-    if ! env -u DISPLAY -u WAYLAND_DISPLAY xvfb-run -a -s "-screen 0 1280x1024x24" \
+    env -u DISPLAY -u WAYLAND_DISPLAY xvfb-run -a -s "-screen 0 1280x1024x24" \
         bash -c 'exec "$@" 2> "$0"' "$base/log.txt" \
-        "$java" -Xmx2g -Djava.awt.headless=false \
+        "${limit[@]}" "$java" -Xmx2g -Djava.awt.headless=false \
         -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
         -Duser.home="$base/home" -Djava.io.tmpdir="$base/tmp" -Dorg.sqlite.tmpdir="$base/tmp" \
         -Djava.util.prefs.userRoot="$base/prefs" -Djava.util.prefs.systemRoot="$base/prefs" \
         -Dopenrocket.debug.prefs=true \
         -cp "$classpath" info.qtrocket.guireference.GuiReference \
         --scenario "$scenario" --out "$target" --work "$base/saves" \
-        --commit "$commit" --dirty "$dirty" --repo "$repo" --preset-commit "$preset_commit" \
-        > "$base/stdout.txt"; then
-        echo "error: the tool failed on $name (its log: $base/log.txt)" >&2
-        tail -n 30 "$base/log.txt" >&2
-        exit 1
-    fi
+        --commit "$commit" --dirty "$dirty" --repo "$repo" --preset-commit "$preset_commit" "${input[@]}" \
+        > "$base/stdout.txt" || status=$?
+    check_run "$name" "$status" "$base/log.txt"
     grep -E '^Wrote ' "$base/log.txt" >&2 || true
 }
 
@@ -221,7 +301,11 @@ for name in "${names[@]}"; do
     if [[ -n "$recorded" && "$recorded" != "$commit" ]]; then
         echo "warning: the committed reference of $name comes from OpenRocket $recorded, the checkout is at $commit" >&2
     fi
-    echo "scenario $name (version ${versions[$name]})" >&2
+    if [[ -n "${depends[$name]}" ]]; then
+        echo "scenario $name (version ${versions[$name]}), opening the file of ${depends[$name]} this call wrote" >&2
+    else
+        echo "scenario $name (version ${versions[$name]})" >&2
+    fi
     run_tool "$name" "$out" first-run
     run_tool "$name" "$work/$name/second/out" second-run
     for file in rocket.ork state.json; do
@@ -232,6 +316,7 @@ for name in "${names[@]}"; do
         fi
     done
     echo "Two runs wrote the same rocket.ork and state.json for $name into $out" >&2
+    outputs["$name"]="$out"
     if [[ "$check" == true ]]; then
         for file in rocket.ork state.json; do
             if cmp -s "$out/$file" "$committed/$file"; then

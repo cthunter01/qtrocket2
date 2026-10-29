@@ -10,7 +10,8 @@
 // - the save writes the motors of a mount only for the rocket's configurations
 //   (RocketComponentSaver.motorMountParams(): none of the pasted mount's), but the deployment and
 //   separation overrides for every id of their sets (RecoveryDeviceSaver, AxialStageSaver), the
-//   source's included;
+//   source's included; the pasted component's element is the source's element in the source's
+//   save but for those motors and their ignitions (and its new component ids);
 // - the reload of that save has the target's configurations only (a <deploymentconfiguration> or
 //   <separationconfiguration> makes no configuration, only a <motor> does) and keeps the pasted
 //   stage's and chute's overrides of the source's ids, still unseen; its save is the save;
@@ -30,6 +31,7 @@
 // simulation data, as Save as writes them. The suite compares with values pinned by hand, not
 // with golden data: no "Golden" in its name.
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <format>
@@ -472,6 +474,130 @@ constexpr std::string_view kTargetArchive =
     return lines;
 }
 
+/// The probe's element(): the lines of the element of the component named @p name in @p text, a
+/// design document, from its opening tag (the line before its <name>) to its closing tag (the next
+/// line of the opening tag's indentation), stripped, the configuration ids by name, every
+/// component id (new in a pasted copy) as "<id>(component)</id>"; a test failure and none when
+/// the document has no such element or two.
+[[nodiscard]] std::vector<std::string> elementLines(const ConfigurationNames& names,
+                                                    std::string_view text, std::string_view name)
+{
+    std::vector<std::string_view> raw;
+    for (std::size_t start = 0; start <= text.size();)
+    {
+        std::size_t end = text.find('\n', start);
+        end             = end == std::string_view::npos ? text.size() : end;
+        raw.push_back(text.substr(start, end - start));
+        start = end + 1;
+    }
+    const std::string          nameLine = std::format("<name>{}</name>", name);
+    std::optional<std::size_t> opening;
+    for (std::size_t i = 1; i < raw.size(); ++i)
+    {
+        if (Strings::trim(raw[i]) == nameLine && !Strings::trim(raw[i - 1]).starts_with("</"))
+        {
+            if (opening.has_value())
+            {
+                ADD_FAILURE() << "two elements named " << name;
+                return {};
+            }
+            opening = i - 1;
+        }
+    }
+    if (!opening.has_value())
+    {
+        ADD_FAILURE() << "no element named " << name;
+        return {};
+    }
+    const std::string_view   first       = raw[*opening];
+    const std::string        indentation = std::string(first.substr(0, first.find('<'))) + "</";
+    std::vector<std::string> lines;
+    for (std::size_t i = *opening; i < raw.size(); ++i)
+    {
+        const std::string_view line = Strings::trim(raw[i]);
+        lines.push_back(line.starts_with("<id>") ? std::string("<id>(component)</id>")
+                                                 : withNamedIds(names, std::string(line)));
+        if (i > *opening && raw[i].starts_with(indentation))
+        {
+            return lines;
+        }
+    }
+    ADD_FAILURE() << "the element named " << name << " does not end";
+    return {};
+}
+
+/// The probe's difference(): the lines in which @p before and @p after differ, "- " a line of
+/// @p before only, "+ " one of @p after only, in their order, each ended: the complement of the
+/// longest common subsequence (a table of the common lengths of the suffixes; at a choice the line
+/// of @p before goes first), as the probe computes it.
+[[nodiscard]] std::string differenceLines(const std::vector<std::string>& before,
+                                          const std::vector<std::string>& after)
+{
+    const std::size_t                     rows    = before.size();
+    const std::size_t                     columns = after.size();
+    std::vector<std::vector<std::size_t>> common(rows + 1, std::vector<std::size_t>(columns + 1));
+    for (std::size_t i = rows; i-- > 0;)
+    {
+        for (std::size_t j = columns; j-- > 0;)
+        {
+            common[i][j] = before[i] == after[j] ? common[i + 1][j + 1] + 1
+                                                 : std::max(common[i + 1][j], common[i][j + 1]);
+        }
+    }
+    std::string lines;
+    std::size_t i = 0;
+    std::size_t j = 0;
+    while (i < rows || j < columns)
+    {
+        if (i < rows && j < columns && before[i] == after[j])
+        {
+            ++i;
+            ++j;
+        }
+        else if (j == columns || (i < rows && common[i + 1][j] >= common[i][j + 1]))
+        {
+            lines += "- " + before[i++] + "\n";
+        }
+        else
+        {
+            lines += "+ " + after[j++] + "\n";
+        }
+    }
+    return lines;
+}
+
+/// What the probe prints of the pasted mount's element, and of the pasted stage's (whose only
+/// motor mount it is): the source's save has the motors and ignitions of the source's
+/// configurations, the target's has none of them (RocketComponentSaver writes a mount's motors
+/// for the rocket's configurations only); every other line of the element is the source's.
+constexpr std::string_view kPastedElementDifference =
+    "- <motor configid=\"S1\">\n"
+    "- <type>reload</type>\n"
+    "- <manufacturer>AeroTech</manufacturer>\n"
+    "- <digest>a06234b6049c1079e394cb9ecd4607a9</digest>\n"
+    "- <designation>H148R</designation>\n"
+    "- <diameter>0.038</diameter>\n"
+    "- <length>0.152</length>\n"
+    "- <delay>0.0</delay>\n"
+    "- </motor>\n"
+    "- <ignitionconfiguration configid=\"S1\">\n"
+    "- <ignitionevent>automatic</ignitionevent>\n"
+    "- <ignitiondelay>0.0</ignitiondelay>\n"
+    "- </ignitionconfiguration>\n"
+    "- <motor configid=\"S2\">\n"
+    "- <type>reload</type>\n"
+    "- <manufacturer>AeroTech</manufacturer>\n"
+    "- <digest>1a3327383625336706131b2a9d198139</digest>\n"
+    "- <designation>I357T</designation>\n"
+    "- <diameter>0.038</diameter>\n"
+    "- <length>0.203</length>\n"
+    "- <delay>14.0</delay>\n"
+    "- </motor>\n"
+    "- <ignitionconfiguration configid=\"S2\">\n"
+    "- <ignitionevent>automatic</ignitionevent>\n"
+    "- <ignitiondelay>0.0</ignitiondelay>\n"
+    "- </ignitionconfiguration>\n";
+
 /// The windows of a window manager over test services and a component clipboard of the test's
 /// own, on the probe's designs.
 class PastedMotorMountTest : public Gui::Test::GuiTest
@@ -663,6 +789,11 @@ TEST_F(PastedMotorMountTest, AMountKeepsTheSourcesIdsWhichTheTargetsTablesAndSav
         "Simulation 4: <configid>T4</configid>\n"
         "Simulation 5: <configid>T5</configid>\n";
     EXPECT_EQ(saveLines(names, archive.document), expectedSave);
+    // The pasted mount's element is the source's but for the source's motors.
+    const ArchiveText sourceSave = archiveText(saveArchive(source.document(), savePreferences()));
+    EXPECT_EQ(differenceLines(elementLines(names, sourceSave.document, "Booster motor mount"),
+                              elementLines(names, archive.document, "Booster motor mount")),
+              kPastedElementDifference);
 
     // Its reload: the mount without a motor configuration, every ignition marked overridden by
     // the loader (the default's too), so that neither program shades a cell; the same save.
@@ -776,6 +907,12 @@ TEST_F(PastedMotorMountTest, AStageAndItsChuteSaveTheirOverridesOfTheSourcesIds)
         "Simulation 4: <configid>T4</configid>\n"
         "Simulation 5: <configid>T5</configid>\n";
     EXPECT_EQ(saveLines(names, archive.document), expectedSave);
+    // The pasted stage's element is the source's but for the motors of its mount: its separations
+    // and its chute's deployments of the source's ids are the source's.
+    const ArchiveText sourceSave = archiveText(saveArchive(source.document(), savePreferences()));
+    EXPECT_EQ(differenceLines(elementLines(names, sourceSave.document, "Booster"),
+                              elementLines(names, archive.document, "Booster")),
+              kPastedElementDifference);
 
     // The reload keeps them, still unseen, and makes no configuration of their ids.
     const MainWindow& reloaded = reopen(save);

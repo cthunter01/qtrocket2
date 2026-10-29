@@ -23,9 +23,11 @@ import com.google.gson.JsonObject;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.motor.MotorConfiguration;
+import info.openrocket.core.rocketcomponent.AxialStage;
 import info.openrocket.core.rocketcomponent.ComponentChangeListener;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
 import info.openrocket.core.rocketcomponent.MotorMount;
+import info.openrocket.core.rocketcomponent.RecoveryDevice;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.util.Pair;
@@ -508,7 +510,7 @@ final class FlightConfigurationTab {
 					cell.addProperty("ignitionDefault", font != null && font.isItalic());
 					cells.add(cell);
 				} else {
-					cells.add(label.getText());
+					cells.add(valueCell(table, r, c, label));
 				}
 			}
 			row.add("cells", cells);
@@ -518,6 +520,33 @@ final class FlightConfigurationTab {
 		object.add("selectedRows", ints(table.getSelectedRows()));
 		object.add("selectedColumns", ints(table.getSelectedColumns()));
 		return object;
+	}
+
+	/**
+	 * A cell of the Recovery or Stages table: its text and whether the renderer shades it (italic, as
+	 * FlightConfigurableCellRenderer.shaded() sets it: RecoveryTableCellRenderer and
+	 * SeparationTableCellRenderer shade a cell when isDefault(fcid), which compares by identity and is false
+	 * for every configuration, bug 1), and whether the configuration has an override of its own
+	 * (FlightConfigurableParameterSet.containsId(fcid), the state QtRocket's shading shows: QtRocket shades a
+	 * cell without one).
+	 */
+	private static JsonObject valueCell(JTable table, int row, int column, JLabel label) {
+		Pair<?, ?> value = (Pair<?, ?>) table.getValueAt(row, column);
+		FlightConfigurationId id = (FlightConfigurationId) value.getU();
+		boolean override;
+		if (value.getV() instanceof RecoveryDevice device) {
+			override = device.getDeploymentConfigurations().containsId(id);
+		} else if (value.getV() instanceof AxialStage stage) {
+			override = stage.getSeparationConfigurations().containsId(id);
+		} else {
+			throw new IllegalStateException("a cell of " + value.getV() + " in the Recovery or Stages table");
+		}
+		JsonObject cell = new JsonObject();
+		cell.addProperty("text", label.getText());
+		Font font = label.getFont();
+		cell.addProperty("shaded", font != null && font.isItalic());
+		cell.addProperty("override", override);
+		return cell;
 	}
 
 	/** A cell as the table's renderer draws it (not selected, without focus). */

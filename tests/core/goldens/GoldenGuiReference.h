@@ -335,13 +335,28 @@ struct GuiMotorCell
     friend bool operator==(const GuiMotorCell&, const GuiMotorCell&) = default;
 };
 
+/// A cell of the Recovery or Stages table: its text as the table's renderer draws it ("Apogee +
+/// 1 s", "Current stage motor burnout"), whether it is shaded (italic and dim), and whether the
+/// configuration has an override of its own of the deployment or the separation (the state
+/// behind the cell: FlightConfigurableParameterSet.containsId(fcid), QtRocket's
+/// containsId()). OpenRocket's renderer never shades such a cell (bug 1:
+/// FlightConfigurableParameterSet.isDefault(fcid) compares by identity), QtRocket's shades a cell
+/// without an override of its own: guiExpectedRecord() makes that difference.
+struct GuiValueCell
+{
+    std::string text;
+    bool        shaded{false};
+    bool        override{false};
+
+    friend bool operator==(const GuiValueCell&, const GuiValueCell&) = default;
+};
+
 /// A row of a table of the tab: column 0's text (the configuration's name) and the cells of the
-/// other columns: motorCells in the Motors table, cells (their texts) in the Recovery and Stages
-/// tables.
+/// other columns: motorCells in the Motors table, cells in the Recovery and Stages tables.
 struct GuiTableRow
 {
     std::string               configuration;
-    std::vector<std::string>  cells;
+    std::vector<GuiValueCell> cells;
     std::vector<GuiMotorCell> motorCells;
 };
 
@@ -563,7 +578,9 @@ struct GuiExpectedDifference
 /// deploymentRequest() and separationRequest()). The answers always name their scope, so that
 /// both GUIs end alike. The ignition questions of the scenarios all start on "this
 /// configuration" in both (the cells have motor configurations of their own whose ignitions are
-/// overridden): bug 2 shows in none of them.
+/// overridden): bug 2 shows in none of them. The other half of bug 1, the shading of the
+/// Recovery and Stages tables' cells, is a rule of guiExpectedRecord() for every cell, not an
+/// entry here.
 inline constexpr std::array kGuiExpectedDifferences{
     // The parachute of the first configuration, without an override.
     GuiExpectedDifference{.scenario   = "flight-configurations",
@@ -574,7 +591,7 @@ inline constexpr std::array kGuiExpectedDifferences{
                           .bug        = 1},
     // New on the Recovery sub-tab: the drogue of the new configuration.
     GuiExpectedDifference{.scenario   = "flight-configurations",
-                          .step       = 21,
+                          .step       = 23,
                           .member     = "scope",
                           .openRocket = "this",
                           .qtRocket   = "all",
@@ -593,6 +610,162 @@ inline constexpr std::array kGuiExpectedDifferences{
                           .openRocket = "this",
                           .qtRocket   = "all",
                           .bug        = 1},
+    // The sustainer's drogue in the new configuration, which has no override of its own.
+    GuiExpectedDifference{.scenario   = "multi-stage",
+                          .step       = 18,
+                          .member     = "scope",
+                          .openRocket = "this",
+                          .qtRocket   = "all",
+                          .bug        = 1},
+};
+
+/// A place where a record of version 2 is not OpenRocket's own behaviour but OpenRocket's with
+/// one of QtRocket's fixes, which the tool makes in OpenRocket's run
+/// (tools/openrocket-gui-reference/README.md, "QtRocket's fixes of OpenRocket's bugs"), so that
+/// the exit test compares QtRocket's GUI with the records as they are:
+/// - bug 5: OpenRocket's New, Duplicate and the motor mount check box add no undo position; the
+///   tool adds QtRocket's ("New Configuration", "Duplicate Configuration", "Modify motor mount",
+///   kGuiToolUndoPositions) before them, and the record's Undo or Redo text (@p member "undo" or
+///   "redo") is @p value where OpenRocket's would name the undo position before;
+/// - bug 6: an undo or a redo of OpenRocket loads a copy of the rocket, which gives every motor
+///   mount a new default ignition (kGuiFreshDefaultIgnition, MotorConfigurationSet.java:30-40);
+///   the tool gives the mounts back the default ignitions the state had when it was stored, as
+///   QtRocket keeps them, and the line of the record's tree (@p member "tree") that starts with
+///   @p line holds @p value where OpenRocket's would hold kGuiFreshDefaultIgnition. The later
+///   records and the save keep those defaults too (until a step sets them).
+/// flight_configurations_reference_golden_tests.cpp checks that each holds in the committed
+/// record and that no other record shows one of these fixes.
+struct GuiToolFix
+{
+    std::string_view scenario;
+    std::size_t      step{0};
+    int              bug{0};
+    /// "undo", "redo" or "tree".
+    std::string_view member;
+    /// "tree": the start of the line (its indentation, class and name); empty for the others.
+    std::string_view line;
+    std::string_view value;
+};
+
+/// The undo positions of QtRocket's fix of bug 5, which OpenRocket's operations do not add.
+inline constexpr std::array<std::string_view, 3> kGuiToolUndoPositions{
+    "New Configuration", "Duplicate Configuration", "Modify motor mount"};
+
+/// A motor mount's default ignition in OpenRocket's copy of a rocket (bug 6), as a tree line has
+/// it: AUTOMATIC without delay, not overridden.
+inline constexpr std::string_view kGuiFreshDefaultIgnition = " ign=AUTOMATIC:0.0:false";
+
+/// The fixes of bugs 5 and 6 in the records of the scenarios of version 2 (GuiToolFix).
+inline constexpr std::array kGuiToolFixes{
+    // flight-configurations: the motor mount check box of the body tube, on and off.
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 2,
+               .bug      = 5,
+               .member   = "undo",
+               .line     = "",
+               .value    = "Undo (Modify motor mount)"},
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 4,
+               .bug      = 5,
+               .member   = "undo",
+               .line     = "",
+               .value    = "Undo (Modify motor mount)"},
+    // The undo and the redo of Reset deployment: the inner tube's default ignition, Launch + 1 s
+    // since step 9.
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 21,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Inner Tube' ",
+               .value    = " ign=LAUNCH:1.0:true"},
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 22,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Inner Tube' ",
+               .value    = " ign=LAUNCH:1.0:true"},
+    // Duplicate, and the undo of the Delete after it.
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 31,
+               .bug      = 5,
+               .member   = "undo",
+               .line     = "",
+               .value    = "Undo (Duplicate Configuration)"},
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 33,
+               .bug      = 5,
+               .member   = "undo",
+               .line     = "",
+               .value    = "Undo (Duplicate Configuration)"},
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 33,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Inner Tube' ",
+               .value    = " ign=LAUNCH:1.0:true"},
+    GuiToolFix{.scenario = "flight-configurations",
+               .step     = 34,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Inner Tube' ",
+               .value    = " ign=LAUNCH:1.0:true"},
+    // multi-stage: the undo of the new configuration's separation, down to New's undo position,
+    // and its redo; the loaded mounts' default ignitions are overrides (the loader marks them).
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 14,
+               .bug      = 5,
+               .member   = "undo",
+               .line     = "",
+               .value    = "Undo (New Configuration)"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 14,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "        InnerTube 'Sustainer Motor Mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 14,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Booster motor mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 15,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "        InnerTube 'Sustainer Motor Mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 15,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Booster motor mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    // The undo and the redo of the cluster made in the design tab.
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 30,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "        InnerTube 'Sustainer Motor Mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 30,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Booster motor mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 31,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "        InnerTube 'Sustainer Motor Mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
+    GuiToolFix{.scenario = "multi-stage",
+               .step     = 31,
+               .bug      = 6,
+               .member   = "tree",
+               .line     = "      InnerTube 'Booster motor mount' ",
+               .value    = " ign=AUTOMATIC:0.0:true"},
 };
 
 /// The member @p member of @p question as its text ("scope", "event", "delay", "altitude",
@@ -602,8 +775,10 @@ inline constexpr std::array kGuiExpectedDifferences{
 
 /// What QtRocket's GUI is to show where OpenRocket's GUI recorded @p record, a record of the
 /// scenario @p scenario: @p record with the expected differences of its step
-/// (kGuiExpectedDifferences) made, each question's member set to QtRocket's value. A difference
-/// whose question or member does not hold OpenRocket's value is a line of @p problems, and is not
+/// (kGuiExpectedDifferences) made, each question's member set to QtRocket's value, and every cell
+/// of the Recovery and Stages tables shaded exactly when its configuration has no override of its
+/// own (bug 1: OpenRocket shades none; GuiValueCell). A difference whose question or member does
+/// not hold OpenRocket's value, and a cell OpenRocket shaded, is a line of @p problems, and is not
 /// made.
 [[nodiscard]] GuiStepRecord guiExpectedRecord(std::string_view scenario, GuiStepRecord record,
                                               std::string& problems);

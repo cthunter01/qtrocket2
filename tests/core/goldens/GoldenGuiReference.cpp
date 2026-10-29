@@ -942,8 +942,8 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
     return question;
 }
 
-/// A row of a table: {"configuration", "cells"}, a cell of the Motors table an object, of the
-/// others a text.
+/// A row of a table: {"configuration", "cells"}, a cell of the Motors table {"motor",
+/// "ignition", "ignitionDefault"}, of the others {"text", "shaded", "override"}.
 [[nodiscard]] GuiTableRow tableRow(JsonReader& reader, const json& object, bool motors,
                                    std::string_view context)
 {
@@ -958,13 +958,11 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
                  .ignition        = reader.string(cell, "ignition", context),
                  .ignitionDefault = reader.boolean(cell, "ignitionDefault", context)});
         }
-        else if (cell.is_string())
-        {
-            row.cells.push_back(cell.get<std::string>());
-        }
         else
         {
-            reader.failure(context, "a cell of the Recovery or Stages table is not a text");
+            row.cells.push_back({.text     = reader.string(cell, "text", context),
+                                 .shaded   = reader.boolean(cell, "shaded", context),
+                                 .override = reader.boolean(cell, "override", context)});
         }
     }
     return row;
@@ -1503,9 +1501,10 @@ void addTableLines(std::string_view name, const GuiConfigurationTable& table, bo
     {
         const GuiTableRow& cells = table.rows[row];
         std::string        text  = cells.configuration;
-        for (const std::string& cell : cells.cells)
+        for (const GuiValueCell& cell : cells.cells)
         {
-            text += " | " + cell;
+            text += std::format(" | {}{}{}", cell.text, cell.shaded ? " (shaded)" : "",
+                                cell.override ? " [override]" : "");
         }
         for (const GuiMotorCell& cell : cells.motorCells)
         {
@@ -1612,9 +1611,46 @@ std::optional<std::string> guiQuestionMember(const GuiQuestion& question, std::s
     return found == nullptr ? std::nullopt : std::optional<std::string>{question.*found};
 }
 
+namespace
+{
+
+/// The rule of bug 1 for the cells of @p table, the table @p name of the record of step @p step:
+/// a cell is shaded exactly when its configuration has no override of its own, as QtRocket's
+/// table shades it; a cell OpenRocket shaded (which its renderer never does) is a line of
+/// @p problems and stays.
+void shadeValueCellsAsQtRocket(std::size_t step, std::string_view name,
+                               GuiConfigurationTable& table, std::string& problems)
+{
+    for (std::size_t row = 0; row < table.rows.size(); ++row)
+    {
+        for (std::size_t column = 0; column < table.rows[row].cells.size(); ++column)
+        {
+            GuiValueCell& cell = table.rows[row].cells[column];
+            if (cell.shaded)
+            {
+                problems += std::format(
+                    "step {}: OpenRocket shaded the {} cell of row {}, column {} (bug 1: its "
+                    "renderer shades none)\n",
+                    step, name, row, column + 1);
+                continue;
+            }
+            cell.shaded = !cell.override;
+        }
+    }
+}
+
+}  // namespace
+
 GuiStepRecord guiExpectedRecord(std::string_view scenario, GuiStepRecord record,
                                 std::string& problems)
 {
+    if (record.flightConfiguration.has_value())
+    {
+        shadeValueCellsAsQtRocket(record.index, "recovery", record.flightConfiguration->recovery,
+                                  problems);
+        shadeValueCellsAsQtRocket(record.index, "stages", record.flightConfiguration->stages,
+                                  problems);
+    }
     for (const GuiExpectedDifference& difference : kGuiExpectedDifferences)
     {
         if (difference.scenario != scenario || difference.step != record.index)

@@ -15,7 +15,10 @@ reference of QtRocket's GUI exit test of Milestone 3 (`FlightConfigurationsExitG
   (Launch + 1 s), an override for the first one (Automatic), a cancelled ignition question, Reset
   ignition on both rows (Ctrl); on the Recovery sub-tab a deployment override (altitude 200 m), a
   cancelled deployment question, Reset deployment; Rename with "Save as default" of
-  `Flight {motors}` (its message answered, the rename cancelled); New on the Recovery sub-tab with
+  `Flight {motors}` (its message answered, the rename cancelled); Undo of Reset deployment, back
+  to a state stored before "Save as default", whose configurations keep the old default name
+  `[{motors}]` (QtRocket's names are pinned in the undo history too, O-M3-7), and Redo; New on the
+  Recovery sub-tab with
   its deployment question for the drogue (Apogee + 1 s), the new configuration taking the new
   default name; renames `{motors} flight` and `{manufacturers | motors}`, a Plugged delay chosen in
   the chooser, Reset to default; Duplicate, Delete of the copy, Undo and Redo; Save as with a
@@ -42,13 +45,21 @@ checks the SHA-256 of the input that `state.json` records).
 Where QtRocket fixes an OpenRocket bug the scenario reaches (plan section 10.3), the record is
 OpenRocket's with the fix made by the tool or OpenRocket's own, as the tool's README lists:
 
-- Bug 5: New and the motor mount check box add their undo positions ("New Configuration", "Modify
-  motor mount"; Duplicate "Duplicate Configuration"), which the tool adds in OpenRocket's run.
-- Bug 6: the inner tube's default ignition (Launch + 1 s since step 9) survives the Undo and the
-  Redo of the end, as QtRocket keeps it; the tool gives it back after OpenRocket's undo and redo.
-- Bug 1: OpenRocket's deployment questions start on "this configuration" (steps 16 and 21, cells
+- Bug 5: New, Duplicate and the motor mount check box add their undo positions ("New
+  Configuration", "Duplicate Configuration", "Modify motor mount"), which the tool adds in
+  OpenRocket's run. The records show "Modify motor mount" (steps 2 and 4) and "Duplicate
+  Configuration" (steps 31 and 33); New's is always covered by the undo position of the question
+  that follows it ("Select motor", "Select deployment"), and shows in the multi-stage reference.
+- Bug 6: the inner tube's default ignition (Launch + 1 s since step 9) survives both pairs of Undo
+  and Redo (steps 21 and 22, 33 and 34), as QtRocket keeps it; the tool gives it back after
+  OpenRocket's undo and redo.
+- `kGuiToolFixes` of `GoldenGuiReference.h` lists the records where these two fixes show.
+- Bug 1: OpenRocket's deployment questions start on "this configuration" (steps 16 and 23, cells
   without an override), QtRocket's on "all configurations": `kGuiExpectedDifferences` of
   `GoldenGuiReference.h` lists them. The answers always name their scope, so the designs end alike.
+  OpenRocket's Recovery table shades no cell; the records hold each cell's shading and whether its
+  configuration has an override of its own, and the exit test expects QtRocket's shading of every
+  cell without one (`guiExpectedRecord()`).
 - Bugs 2, 3, 4, 8, 20 and 21 are avoided: the ignition questions are asked on cells whose ignitions
   are overridden, the cancelled questions change nothing in OpenRocket either, Reset ignition acts
   on cells with motor configurations of their own, and the chooser is reopened only for cells

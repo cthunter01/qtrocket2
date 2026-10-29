@@ -72,9 +72,11 @@
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
 #include "QtRocket/motor/chooser/MotorHolder.h"
 #include "QtRocket/motor/chooser/ThrustCurveMotorSelection.h"
+#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
@@ -159,10 +161,33 @@ constexpr std::string_view kFlightConfigurationTabName = "flightConfiguration";
     return states;
 }
 
+/// Whether the configuration of @p row of @p model has an override of its own of the deployment
+/// or the separation of the component of @p column (the state behind a Recovery or Stages cell,
+/// read from the rocket as the tool reads OpenRocket's: containsId()).
+[[nodiscard]] bool hasOverride(const FlightConfigurableTableModel& model, int row, int column)
+{
+    const std::optional<FlightConfigurationId> id        = model.configurationId(row);
+    const RocketComponent* const               component = model.component(column);
+    if (!id.has_value() || component == nullptr)
+    {
+        return false;
+    }
+    if (const auto* const device = dynamic_cast<const RecoveryDevice*>(component))
+    {
+        return device->getDeploymentConfigurations().containsId(*id);
+    }
+    if (const auto* const stage = dynamic_cast<const AxialStage*>(component))
+    {
+        return stage->getSeparationConfigurations().containsId(*id);
+    }
+    return false;
+}
+
 /// The row @p row of @p model as the records have it: column 0's text and the other cells, as
 /// motor cells (their motor's text, their ignition's and whether the ignition is shaded:
 /// MotorCellDelegate draws it italic and dim for FlightConfigurableTableModel::kDefaultRole) or
-/// as texts.
+/// as value cells (their text, whether they are shaded, the italic and dim text of
+/// kDefaultRole, and whether their configuration has an override of its own).
 [[nodiscard]] GuiTableRow tableRow(const FlightConfigurableTableModel& model, int row)
 {
     GuiTableRow tableRow;
@@ -171,18 +196,19 @@ constexpr std::string_view kFlightConfigurationTabName = "flightConfiguration";
     {
         const QModelIndex cell = model.index(row, column);
         const std::string text = QtStrings::toUtf8(model.data(cell).toString());
+        const bool shaded = model.data(cell, FlightConfigurableTableModel::kDefaultRole).toBool();
         if (model.kind() == FlightConfigurableTableModel::Kind::MOTOR_MOUNTS)
         {
             tableRow.motorCells.push_back(
                 {.motor    = text,
                  .ignition = QtStrings::toUtf8(
                      model.data(cell, FlightConfigurableTableModel::kIgnitionTextRole).toString()),
-                 .ignitionDefault =
-                     model.data(cell, FlightConfigurableTableModel::kDefaultRole).toBool()});
+                 .ignitionDefault = shaded});
         }
         else
         {
-            tableRow.cells.push_back(text);
+            tableRow.cells.push_back(
+                {.text = text, .shaded = shaded, .override = hasOverride(model, row, column)});
         }
     }
     return tableRow;

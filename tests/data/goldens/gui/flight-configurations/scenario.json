@@ -27,6 +27,8 @@
     {"step": "selectDeployment", "answer": {"button": "cancel"}},
     {"step": "resetDeployment"},
     {"step": "renameConfiguration", "answer": {"name": "Flight {motors}", "saveAsDefault": true, "button": "cancel"}, "note": "Save as default stores the default name for new configurations; the rename itself is cancelled"},
+    {"step": "undo", "note": "back to a state stored before Save as default (Reset deployment undone): its configurations keep the old default name"},
+    {"step": "redo"},
     {"step": "newConfiguration", "answer": {"scope": "this", "event": "APOGEE", "delay": {"text": "1", "unit": "s"}, "button": "ok"}, "note": "New on the Recovery sub-tab: the deployment question for the new row in the last column (the drogue); the new configuration takes the new default name"},
 
     {"step": "configTab", "tab": "motors"},

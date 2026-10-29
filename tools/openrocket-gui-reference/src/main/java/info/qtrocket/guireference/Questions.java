@@ -1,11 +1,17 @@
 package info.qtrocket.guireference;
 
+import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.AWTEventListener;
+import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -56,7 +62,9 @@ import info.openrocket.swing.gui.dialogs.motor.thrustcurve.ThrustCurveMotorSelec
  * open, so the answer runs inside the dialog's modal loop, with the dialog shown, and closes it; the
  * operation then goes on with what the dialog left. When the operation asks nothing, the queued answer
  * runs after it and finds no dialog. An answer that fails closes its dialog (so the operation goes on) and
- * the failure is rethrown when the operation is over.
+ * the failure is rethrown when the operation is over. A modal dialog that no answer was queued for (a
+ * second question of the operation, a message OpenRocket shows) fails the step and is closed as it opens,
+ * so that the tool fails with the step's name instead of waiting in that dialog's modal loop for good.
  * <p>
  * Each question is recorded as it opened ({@code question()}: the dialog's title and fields) with what the
  * dialog left when it was answered, for state.json (README.md, "The questions").
@@ -70,6 +78,8 @@ final class Questions {
 	/** What the cell an operation acts on first holds, for the motor chooser's checks (null for none). */
 	private MotorConfiguration chooserCell;
 	private Throwable failure;
+	/** The dialogs the answers of the current operation took (the question and a nested message). */
+	private final Set<Window> answeredDialogs = Collections.newSetFromMap(new IdentityHashMap<>());
 
 	List<JsonObject> asked() {
 		return asked;
@@ -90,6 +100,7 @@ final class Questions {
 		}
 		failure = null;
 		chooserCell = cell;
+		answeredDialogs.clear();
 		Set<Window> before = new HashSet<>(Arrays.asList(Window.getWindows()));
 		boolean[] answered = new boolean[1];
 		SwingUtilities.invokeLater(() -> {
@@ -98,11 +109,18 @@ final class Questions {
 				return;
 			}
 			answered[0] = true;
+			answeredDialogs.add(dialog);
 			answerSafely(dialog, answer);
 		});
-		operation.run();
-		// The queued answer has run inside the dialog's loop; or, when nothing was asked, it is still queued.
-		flushQueue();
+		AWTEventListener unanswered = this::closeUnanswered;
+		Toolkit.getDefaultToolkit().addAWTEventListener(unanswered, AWTEvent.COMPONENT_EVENT_MASK);
+		try {
+			operation.run();
+			// The queued answer has run inside the dialog's loop; or, when nothing was asked, it is still queued.
+			flushQueue();
+		} finally {
+			Toolkit.getDefaultToolkit().removeAWTEventListener(unanswered);
+		}
 		if (failure != null) {
 			Throwable f = failure;
 			failure = null;
@@ -113,6 +131,34 @@ final class Questions {
 		}
 		if (!answered[0] && answer != null) {
 			throw new IllegalStateException("the step has an answer, but the operation asked no question");
+		}
+	}
+
+	/**
+	 * A modal dialog shown while an operation runs that no answer took: a second question of the operation (or
+	 * a message OpenRocket shows) for which nothing was queued, whose modal loop would block the event dispatch
+	 * thread, and the tool with it, for good. It fails the step and is closed. A dialog shows (Component.show(),
+	 * COMPONENT_SHOWN, posted every time, also for the motor chooser, which is shown again and again) after the
+	 * answer queued for it, which takes it first: the answers are queued before the dialogs they answer open.
+	 */
+	private void closeUnanswered(AWTEvent event) {
+		if (event.getID() != ComponentEvent.COMPONENT_SHOWN || !(event.getSource() instanceof JDialog dialog)
+				|| !dialog.isModal() || answeredDialogs.contains(dialog)) {
+			return;
+		}
+		fail(new IllegalStateException("the operation asked a question no answer was queued for (a second"
+				+ " question): " + dialog.getTitle()));
+		if (dialog.isVisible()) {
+			dialog.setVisible(false);
+		}
+	}
+
+	/** Keeps the first failure of the operation, the later ones as suppressed exceptions of it. */
+	private void fail(Throwable t) {
+		if (failure == null) {
+			failure = t;
+		} else if (failure != t) {
+			failure.addSuppressed(t);
 		}
 	}
 
@@ -143,9 +189,7 @@ final class Questions {
 			}
 			answer(dialog, answer);
 		} catch (Throwable t) {
-			if (failure == null) {
-				failure = t;
-			}
+			fail(t);
 		} finally {
 			if (dialog.isVisible()) {
 				// A failed answer leaves its dialog: closed, so that the operation goes on.
@@ -359,6 +403,9 @@ final class Questions {
 			Set<Window> before = new HashSet<>(Arrays.asList(Window.getWindows()));
 			SwingUtilities.invokeLater(() -> {
 				JDialog message = shownDialog(before);
+				if (message != null) {
+					answeredDialogs.add(message);
+				}
 				try {
 					if (message == null) {
 						throw new IllegalStateException("Save as default showed no message");
@@ -371,9 +418,7 @@ final class Questions {
 					asked.add(shown);
 					click(message, javax.swing.UIManager.getString("OptionPane.okButtonText"));
 				} catch (Throwable t) {
-					if (failure == null) {
-						failure = t;
-					}
+					fail(t);
 					if (message != null && message.isVisible()) {
 						message.setVisible(false);
 					}
@@ -445,7 +490,7 @@ final class Questions {
 		}
 		if (answer.has("search")) {
 			JTextField search = (JTextField) Reflection.get(ThrustCurveMotorSelectionPanel.class, panel, "searchField");
-			search.setText(string(answer, "search"));
+			typeOver(search, string(answer, "search"));
 		}
 		if (answer.has("motor")) {
 			clickMotorRow(panel, answer.getAsJsonObject("motor"));
@@ -468,6 +513,28 @@ final class Questions {
 			default -> throw new IllegalArgumentException("the chooser's buttons are ok and cancel");
 		};
 		click(chooser, button);
+	}
+
+	/**
+	 * @p text typed over the text of @p field as a user types it (and as QtRocket's exit test types it): the
+	 * field's text selected, then one character after the other, the first replacing the selection, a
+	 * document event each, so that the chooser's filter goes through the states a user's typing gives it;
+	 * the text deleted for an empty @p text. Nothing is typed when the field shows @p text already.
+	 */
+	private static void typeOver(JTextField field, String text) {
+		if (field.getText().equals(text)) {
+			return;
+		}
+		field.selectAll();
+		if (text.isEmpty()) {
+			field.replaceSelection("");
+			return;
+		}
+		text.codePoints().forEach(c -> field.replaceSelection(new String(Character.toChars(c))));
+		if (!field.getText().equals(text)) {
+			throw new IllegalStateException("the search field shows '" + field.getText() + "' after '" + text
+					+ "' was typed");
+		}
 	}
 
 	/** What the chooser shows: the search text, the number of rows, the motor, its delay and nozzle diameter. */

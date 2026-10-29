@@ -54,6 +54,33 @@ save:
   Simulation 3 - too short delay: <configid>T3</configid>
   Simulation 4: <configid>T4</configid>
   Simulation 5: <configid>T5</configid>
+element Booster motor mount (- the source's save, + the target's):
+  - <motor configid="S1">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+  - <designation>H148R</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.152</length>
+  - <delay>0.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S1">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+  - <motor configid="S2">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>1a3327383625336706131b2a9d198139</digest>
+  - <designation>I357T</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.203</length>
+  - <delay>14.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S2">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
 reload: warnings 0, ids [T1, T2, T3, T4, T5]
   motors Sustainer/Body tube/Booster motor mount: default AUTOMATIC+0.0, []
   motors: Configuration | Inner Tube | Booster motor mount
@@ -140,6 +167,33 @@ save:
   Simulation 3 - too short delay: <configid>T3</configid>
   Simulation 4: <configid>T4</configid>
   Simulation 5: <configid>T5</configid>
+element Booster (- the source's save, + the target's):
+  - <motor configid="S1">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+  - <designation>H148R</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.152</length>
+  - <delay>0.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S1">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
+  - <motor configid="S2">
+  - <type>reload</type>
+  - <manufacturer>AeroTech</manufacturer>
+  - <digest>1a3327383625336706131b2a9d198139</digest>
+  - <designation>I357T</designation>
+  - <diameter>0.038</diameter>
+  - <length>0.203</length>
+  - <delay>14.0</delay>
+  - </motor>
+  - <ignitionconfiguration configid="S2">
+  - <ignitionevent>automatic</ignitionevent>
+  - <ignitiondelay>0.0</ignitiondelay>
+  - </ignitionconfiguration>
 reload: warnings 0, ids [T1, T2, T3, T4, T5]
   separations Booster (stage 1): default EJECTION/200.0/0.0, [S1 BURNOUT/200.0/0.0, S2 UPPER_IGNITION/200.0/0.0]
   deployments Booster/Booster airframe/Booster Chute: default EJECTION/200.0/0.0, [S1 APOGEE/200.0/0.0, S2 APOGEE/200.0/0.0]

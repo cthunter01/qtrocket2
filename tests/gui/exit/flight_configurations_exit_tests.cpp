@@ -16,14 +16,17 @@
 //   questions the step asked (as each dialog opened: its title, its radio buttons, events and
 //   values; the motor chooser's search, rows, curve, delay and nozzle, also as the answer left
 //   it) and what the tab showed (its sub-tabs, buttons, tables cell by cell with the shading of
-//   the motor cells' ignitions, the selected rows and columns, the motor mount table, the rocket's
-//   selected configuration, the simulations' configurations). The one normalisation is
-//   OpenRocket's bug 1, which QtRocket fixes (the user's U-M3-5): where OpenRocket's deployment
-//   and separation dialogs start on "this configuration" for a cell without an override of its
-//   own, QtRocket's start on "all configurations" (kGuiExpectedDifferences, applied to the
-//   records by guiExpectedRecord()). The other fixes of plan 10.3 the tool makes in OpenRocket's
-//   run (bugs 5 and 6) or the scenarios avoid (bugs 2, 3, 4, 8, 20, 21): the records are
-//   QtRocket's behaviour there. Every failure names its step;
+//   the motor cells' ignitions and of the Recovery and Stages cells, and the overrides behind
+//   these, the selected rows and columns, the motor mount table, the rocket's selected
+//   configuration, the simulations' configurations). The one normalisation is OpenRocket's bug
+//   1, which QtRocket fixes (the user's U-M3-5), made on the records by guiExpectedRecord():
+//   where OpenRocket's deployment and separation dialogs start on "this configuration" for a
+//   cell without an override of its own, QtRocket's start on "all configurations"
+//   (kGuiExpectedDifferences), and where OpenRocket's Recovery and Stages tables shade no cell,
+//   QtRocket's shade every cell without an override of its own. The other fixes of plan 10.3 the
+//   tool makes in OpenRocket's run (bugs 5 and 6, kGuiToolFixes lists the records where they
+//   show) or the scenarios avoid (bugs 2, 3, 4, 8, 20, 21): the records are QtRocket's behaviour
+//   there. Every failure names its step;
 // - (a) the save, closed (File > Close design) and opened again (File > Open), is the design that
 //   was saved: its tree (with the ids of the saved design) and its document preferences. The
 //   application's preferences keep the default configuration name that the flight-configurations

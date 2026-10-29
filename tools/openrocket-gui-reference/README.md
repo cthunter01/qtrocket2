@@ -54,7 +54,9 @@ without warnings into exactly OpenRocket's state.
 and moreover that each state.json is the record of its input file, that the start-up loaded QtRocket's
 bundled databases, that the questions belong to their steps, that QtRocket loads the input into the
 tree of the open step, that the archive held the thrust curves of the design's motors, and that the
-expected differences (`kGuiExpectedDifferences`) name recorded questions.
+expected differences (`kGuiExpectedDifferences`) name recorded questions, that OpenRocket's
+Recovery and Stages tables shade no cell (bug 1) and their cells' overrides are those of the tree,
+and that the records where the tool's fixes of bugs 5 and 6 show are those `kGuiToolFixes` lists.
 
 The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from_scratch_exit_tests.cpp`
 (`FromScratchExitGolden`, the driver `FromScratchScenario`) and
@@ -101,18 +103,33 @@ OpenRocket (the first build takes a minute or two), one of a scenario of version
 directory and compares the files with the committed ones (`<scenario>/<file>: same` or `DIFFERS`); the
 exit status is 1 when one differs or is missing.
 
+The order of the runs: a scenario of version 2 whose `open` step names a file of another scenario's
+directory runs after that scenario when both run in one call, and opens the file that run has just
+written (the tool's `--input`: the output directory of the other scenario, which is its own
+directory, the one of `GUI_REFERENCE_OUT`, or with `--check` the work directory's). So
+`flight-configurations`, which opens the from-scratch reference's `rocket.ork`, runs after
+`from-scratch`, and one call regenerates both consistently (state.json records the SHA-256 of the
+file it opened, see below). A scenario named alone opens the committed file.
+
+Every run of the tool has a time limit (`GUI_REFERENCE_TIMEOUT`, in seconds, default 600; coreutils'
+`timeout`): a run that takes longer is stopped and the script fails, so that a modal dialog nobody
+answers cannot keep it waiting (the tool also closes such a dialog itself and fails the step: see
+[The checks](#the-checks)).
+
 Environment: `GUI_REFERENCE_SCENARIOS=<directory>` reads the scenario directories from there instead
 of `tests/data/goldens/gui` (to try a scenario before it is committed; its `open` step still names a
-file of the repository); `GUI_REFERENCE_OUT=<directory>` writes `<directory>/<scenario>/` instead of
-the scenario's directory; `GUI_REFERENCE_WORK=<directory>` keeps the work files there (per scenario:
-the archives every run saved, the second run's output, and for version 2 the runs' preferences, home
-directories and logs).
+file of the repository, or of a scenario directory of the same call, see the order above);
+`GUI_REFERENCE_OUT=<directory>` writes `<directory>/<scenario>/` instead of the scenario's
+directory; `GUI_REFERENCE_WORK=<directory>` keeps the work files there (per scenario: the archives
+every run saved, the second run's output, and for version 2 the runs' preferences, home
+directories and logs); `GUI_REFERENCE_TIMEOUT=<seconds>` is the time limit of a run.
 
 Edit a `scenario.json` by hand and regenerate: `FromScratchReferenceGolden` fails while the
 from-scratch state.json records another scenario (the SHA-256 of its bytes); a state.json of version 2
 records its scenario and its input file the same way, which `FlightConfigurationsReferenceGolden`
 checks (`flight-configurations` opens the from-scratch reference's `rocket.ork`, `multi-stage` a
-re-save of `tools/openrocket-goldens`: regenerate them after a change of those).
+re-save of `tools/openrocket-goldens`: regenerate them after a change of those; a call without
+scenario names regenerates `from-scratch` before `flight-configurations`).
 
 ## How OpenRocket is run
 
@@ -220,10 +237,15 @@ Everything runs on the event dispatch thread of a JVM with a (virtual) display.
   the event dispatch thread, which the dialog's `setVisible(true)` pumps while it is open; the answer
   sets the dialog's widgets as a user does (radio buttons and buttons `doClick`, combo boxes
   `setSelectedItem` of their own items, a spinner's text committed through its model's
-  `setValue(String)` after the unit chosen in its unit selector, a text field `setText`) and closes it
-  with its button, and the operation goes on with what the dialog left. A value equal to what a field
-  shows is left alone, as a user who leaves the field as it is. A step whose operation asks no question
-  must have no answer, one that asks must have one.
+  `setValue(String)` after the unit chosen in its unit selector, a text field `setText`, the motor
+  chooser's search field typed over one character after the other with `replaceSelection`, a
+  document event each, as a user types and as QtRocket's exit test types it) and closes it with its
+  button, and the operation goes on with what the dialog left. A value equal to what a field shows
+  is left alone, as a user who leaves the field as it is. A step whose operation asks no question
+  must have no answer, one that asks must have one; a modal dialog that opens while an operation
+  runs and that no queued answer takes (a second question, a message OpenRocket shows) fails the
+  step and is closed as it shows (an AWT listener of `COMPONENT_SHOWN`), so that the tool fails
+  with the step's name instead of waiting in that dialog's modal loop.
 - **Three runs** in one JVM as in version 1, each after `DeterministicUuids.reseed("gui/<scenario>")`
   and with OpenRocket's preferences as the start-up left them (a run stores some: the motor chooser's
   preferred thrust curves and filters, the default configuration name of "Save as default", window
@@ -239,12 +261,12 @@ the bug:
 
 | Bug | What the tool does |
 |---|---|
-| 1: the deployment and separation dialogs always start on "this configuration"; the Recovery and Stages tables never shade a cell | Recorded as OpenRocket shows them: the questions' `scope` (where QtRocket's start on the cell's state) and the recovery and stage cells (text only, no shading: QtRocket shades a cell without an override of its own). An answer always names its scope. |
+| 1: the deployment and separation dialogs always start on "this configuration"; the Recovery and Stages tables never shade a cell | Recorded as OpenRocket shows them: the questions' `scope` (where QtRocket's start on the cell's state: `kGuiExpectedDifferences` names each) and the recovery and stage cells' shading (none), with whether each cell's configuration has an override of its own (`containsId`, the state QtRocket's shading shows: `guiExpectedRecord()` expects QtRocket's table to shade every cell without one). An answer always names its scope. |
 | 2: the ignition dialog starting on "all configurations" shows the cell's own values | Recorded as OpenRocket shows them (the question's `event` and `delay`); an OK answer gives every value, so that both end alike. |
 | 3: Cancel changes the design (the ignition's start values set back through the setters, the separation's live edits, the panels' loops after Cancel) | The tool fails on a cancelled question that changed the component tree ("OpenRocket's Cancel changed the design"). A Cancel answer sets no field. |
 | 4: an ignition "for this configuration only", and Reset ignition, on a cell without a motor configuration of its own edit the mount's default | The tool fails on such a cell before it clicks. |
-| 5: New, Duplicate and the motor mount check box add no undo position | The fix is made: the tool adds QtRocket's undo positions ("New Configuration", "Duplicate Configuration", "Modify motor mount") right before them, as the flight-config pins do. |
-| 6: a copy of the rocket (every state of the undo history) loses the mounts' default ignitions | The fix is made (`DefaultIgnitions`): the tool keeps beside each state of the undo history the default ignitions the rocket had when the state was stored, and gives them back to the mounts after an undo or a redo. Copy and Paste, whose copies lose them too, are not steps of version 2. |
+| 5: New, Duplicate and the motor mount check box add no undo position | The fix is made: the tool adds QtRocket's undo positions ("New Configuration", "Duplicate Configuration", "Modify motor mount") right before them, as the flight-config pins do. `kGuiToolFixes` of `GoldenGuiReference.h` lists the records whose Undo or Redo text shows one. |
+| 6: a copy of the rocket (every state of the undo history) loses the mounts' default ignitions | The fix is made (`DefaultIgnitions`): the tool keeps beside each state of the undo history the default ignitions the rocket had when the state was stored, and gives them back to the mounts after an undo or a redo. Copy and Paste, whose copies lose them too, are not steps of version 2. `kGuiToolFixes` lists the tree lines of the undo and redo records where a default ignition other than OpenRocket's new one (`AUTOMATIC:0.0:false`) shows; the later records and the save keep it too. |
 | 7: the chooser's close button keeps an earlier OK | The window's close button is never a step. |
 | 8: the chooser reopened for a cell with a delay that is no standard delay of the motor shows the closest standard one | The tool fails when the chooser opens for a cell with a motor and shows another delay (a NaN delay excepted, which QtRocket opens alike). |
 | 11: "NaN" (or an infinity) is taken as a delay | The tool refuses such a delay text. |
@@ -267,6 +289,8 @@ a dialog disables), the recorded run checks every step:
   component tree, but for a question cancelled (`"button": "cancel"`, New excepted, whose new
   configuration is a change), which must leave it as it was; an operation that changes it fires a
   change event of the rocket;
+- an operation asks no question that its answer does not take (`Questions`: a second modal dialog
+  is closed and fails the step);
 - the steps of the tab need the window's tab `flightConfiguration`, a `select` the design tab; the
   steps of a sub-panel (`selectMotor`, `deleteMotor`, `selectIgnition`, `resetIgnition`, `mountCheck`;
   `selectDeployment`, `resetDeployment`; `selectSeparation`, `resetSeparation`) its sub-tab;
@@ -433,23 +457,29 @@ Traps of OpenRocket's tab that the tool reports, and how to write around them:
 
 The committed scenarios of version 2 (each directory's README.md tells them step by step):
 
-- `flight-configurations`, 37 steps, on the from-scratch design: the body tube made a second motor
+- `flight-configurations`, 39 steps, on the from-scratch design: the body tube made a second motor
   mount and back, New with the chooser twice (Estes D12-5, C11-7), the nozzle exit diameter, a
   cancelled chooser, the ignition for all configurations and an override, a cancelled ignition
   question, Reset ignition on two rows, a deployment override, a cancelled deployment question,
-  Reset deployment, Save as default of the rename dialog (cancelled), New on the Recovery sub-tab
-  with its deployment question, the renames `{motors} flight` and `{manufacturers | motors}`, a
-  Plugged delay, Reset to default, Duplicate, Delete, Undo, Redo and Save as.
-- `multi-stage`, 30 steps, on OpenRocket's re-save of the example "Two stage high power rocket": the
+  Reset deployment, Save as default of the rename dialog (cancelled), Undo and Redo of Reset
+  deployment (a state stored before Save as default: the old default name), New on the Recovery
+  sub-tab with its deployment question, the renames `{motors} flight` and
+  `{manufacturers | motors}`, a Plugged delay, Reset to default, Duplicate, Delete, Undo, Redo and
+  Save as.
+- `multi-stage`, 35 steps, on OpenRocket's re-save of the example "Two stage high power rocket": the
   booster's separation per configuration (one at an altitude in feet) and for all configurations
   over two rows, Never, Reset separation, New on the Stages sub-tab with its separation question,
-  the upper stage's ignition, the booster's motor of a configuration deleted, the sustainer's mount
-  made a cluster of four in its configuration dialog, Undo, Redo and Save as.
+  Undo (down to New's undo position) and Redo, the deployment of an upper stage's recovery device
+  for all configurations (lower stage separation, which keeps the overrides), the upper stage's
+  ignition, the booster's motor of a configuration deleted, the sustainer's mount made a cluster of
+  four in its configuration dialog, Undo, Redo and Save as.
 
 Where QtRocket's fixes of OpenRocket's bugs show in them, the record is OpenRocket's with the tool's
-fix (bugs 5 and 6), the scenario avoids the step (bugs 2, 3, 4, 8, 20 and 21), or
-`kGuiExpectedDifferences` of `GoldenGuiReference.h` names the recorded member that QtRocket's GUI
-shows otherwise (bug 1: the scope a deployment or separation question starts on, four questions).
+fix (bugs 5 and 6, the records `kGuiToolFixes` of `GoldenGuiReference.h` lists), the scenario avoids
+the step (bugs 2, 3, 4, 8, 20 and 21), or `guiExpectedRecord()` makes the difference that QtRocket's
+GUI shows (bug 1: the scope a deployment or separation question starts on, five questions that
+`kGuiExpectedDifferences` names, and the shading of every Recovery and Stages cell without an
+override of its own).
 
 ## state.json
 
@@ -552,7 +582,9 @@ questions never stay open across steps), and:
     and, as Java names it, `resetDeploymentButton`), `header` (the column headers), `rows` (per row
     `{"configuration": <column 0's text>, "cells": [...]}`, a cell as the table's renderer draws it:
     a motor cell `{"motor": <the motor's text, "4× H148R-0">, "ignition": <its text, "Default (Automatic)">,
-    "ignitionDefault": <the ignition label shaded (italic)>}`, a recovery or stage cell its text),
+    "ignitionDefault": <the ignition label shaded (italic)>}`, a recovery or stage cell `{"text":
+    <its text, "Apogee + 1 s">, "shaded": <shaded (italic): never, bug 1>, "override": <the
+    configuration has an override of its own, FlightConfigurableParameterSet.containsId>}`),
     `selectedRows`, `selectedColumns`; the Motors sub-panel also `showsHelp` (its card shows the help
     text instead of the table) and `mounts` (the motor mount table: `[{"component", "text",
     "motorMount"}]`);

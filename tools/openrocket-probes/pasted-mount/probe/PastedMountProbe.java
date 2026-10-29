@@ -90,8 +90,10 @@ import javax.swing.table.TableCellRenderer;
  * the three tables of the Motors &amp; Configuration tab (OpenRocket's own table models and cell renderers, as
  * tools/openrocket-gui-pins/flight-config/probe/FlightConfigurationTablesProbe.java renders them), the entries of
  * the save (GeneralRocketSaver's .ork archive, as Save as writes it, without simulation data) and the lines of its
- * document that name a configuration, and the same after a reload of that save, with whether the reload's save is
- * the save; for the last, the parameter sets and the source's tables.
+ * document that name a configuration, the difference between the pasted component's element in that document and
+ * the copied component's element in the source's save (what the save of the pasted copy writes otherwise), and the
+ * same after a reload of that save, with whether the reload's save is the save; for the last, the parameter sets
+ * and the source's tables.
  * <p>
  * Configuration ids are printed by name (S1, S2, T1 to T5 by their rows; "default" for the default id), components
  * by path from their stage. tests/gui/exit/pasted_motor_mount_tests.cpp pins what this prints by hand (expected.txt;
@@ -110,6 +112,8 @@ public class PastedMountProbe {
 
 	static Path examples;
 	static RocketDescriptor descriptor;
+	/** The source's save as it was loaded (the elements the pasted copies are compared with). */
+	static File sourceSave;
 
 	public static void main(String[] args) throws Exception {
 		bootstrap();
@@ -138,6 +142,7 @@ public class PastedMountProbe {
 
 		OpenRocketDocument source = load(SOURCE);
 		name(source.getRocket(), "S");
+		sourceSave = saveArchive(source);
 		OpenRocketDocument target = load(TARGET);
 		name(target.getRocket(), "T");
 		System.out.println("source " + SOURCE + ": " + ids(source.getRocket().getIds()));
@@ -175,6 +180,10 @@ public class PastedMountProbe {
 		List<String> save = lines(file);
 		System.out.println("save:");
 		for (String line : save) {
+			System.out.println("  " + line);
+		}
+		System.out.println("element " + pasted.getName() + " (- the source's save, + the target's):");
+		for (String line : difference(element(sourceSave, pasted.getName()), element(file, pasted.getName()))) {
 			System.out.println("  " + line);
 		}
 		GeneralRocketLoader loader = new GeneralRocketLoader(file);
@@ -541,6 +550,68 @@ public class PastedMountProbe {
 			}
 			if (namesConfiguration || line.startsWith("<stage number=")) {
 				lines.add(context + ": " + named(line));
+			}
+		}
+		return lines;
+	}
+
+	/**
+	 * The lines of the element of the component named @p name in the design document of the archive @p file: from
+	 * the line before its &lt;name&gt; (its opening tag) to its closing tag (the next line of the opening tag's
+	 * indentation), stripped, the configuration ids by name, every component id (&lt;id&gt;, new in a pasted copy:
+	 * RocketComponent.copy()) as "&lt;id&gt;(component)&lt;/id&gt;". The name must be the component's alone in
+	 * the document.
+	 */
+	static List<String> element(File file, String name) throws Exception {
+		String[] raw = new String(entries(file).get("rocket.ork"), StandardCharsets.UTF_8).split("\n", -1);
+		int start = -1;
+		for (int i = 1; i < raw.length; i++) {
+			if (raw[i].strip().equals("<name>" + name + "</name>") && !raw[i - 1].strip().startsWith("</")) {
+				if (start >= 0) {
+					throw new IllegalStateException("two elements named " + name);
+				}
+				start = i - 1;
+			}
+		}
+		if (start < 0) {
+			throw new IllegalStateException("no element named " + name);
+		}
+		String indentation = raw[start].substring(0, raw[start].length() - raw[start].stripLeading().length());
+		List<String> lines = new ArrayList<>();
+		for (int i = start; i < raw.length; i++) {
+			String line = raw[i].strip();
+			lines.add(line.startsWith("<id>") ? "<id>(component)</id>" : named(line));
+			if (i > start && raw[i].startsWith(indentation + "</")) {
+				return lines;
+			}
+		}
+		throw new IllegalStateException("the element named " + name + " does not end");
+	}
+
+	/**
+	 * The lines in which @p before and @p after differ, "- " a line of @p before only, "+ " one of @p after only,
+	 * in their order: the longest common subsequence's complement (a table of the common lengths of the suffixes;
+	 * at a choice the line of @p before goes first), as tests/gui/exit/pasted_motor_mount_tests.cpp computes it.
+	 */
+	static List<String> difference(List<String> before, List<String> after) {
+		int[][] common = new int[before.size() + 1][after.size() + 1];
+		for (int i = before.size() - 1; i >= 0; i--) {
+			for (int j = after.size() - 1; j >= 0; j--) {
+				common[i][j] = before.get(i).equals(after.get(j)) ? common[i + 1][j + 1] + 1
+						: Math.max(common[i + 1][j], common[i][j + 1]);
+			}
+		}
+		List<String> lines = new ArrayList<>();
+		int i = 0;
+		int j = 0;
+		while (i < before.size() || j < after.size()) {
+			if (i < before.size() && j < after.size() && before.get(i).equals(after.get(j))) {
+				i++;
+				j++;
+			} else if (j == after.size() || (i < before.size() && common[i + 1][j] >= common[i][j + 1])) {
+				lines.add("- " + before.get(i++));
+			} else {
+				lines.add("+ " + after.get(j++));
 			}
 		}
 		return lines;

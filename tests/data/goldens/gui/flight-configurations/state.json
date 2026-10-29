@@ -16,9 +16,9 @@
   },
   "scenario": {
     "file": "scenario.json",
-    "sha256": "95152583c9cfd59f0035136f7c58e8b0835539b73f65d61b1d27fe136fd559d3",
+    "sha256": "6486443177977113ed9e8cd9c1d1d750d42ec69891480d8fd46d2700f605e60b",
     "title": "Flight configurations of the from-scratch design in the Motors & Configuration tab",
-    "steps": 37
+    "steps": 39
   },
   "input": {
     "file": "tests/data/goldens/gui/from-scratch/rocket.ork",
@@ -545,8 +545,16 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -714,8 +722,16 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -911,8 +927,16 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -1108,8 +1132,16 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -1319,15 +1351,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -1514,15 +1562,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -1700,15 +1764,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -1906,15 +1986,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -2112,15 +2208,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -2308,15 +2420,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -2483,15 +2611,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -2680,15 +2824,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -2857,15 +3017,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3054,15 +3230,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 200 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 200 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3251,15 +3443,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 200 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 200 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3448,15 +3656,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 200 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 200 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3645,15 +3869,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3854,15 +4094,31 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             }
           ],
@@ -3923,6 +4179,432 @@
     },
     {
       "index": 21,
+      "step": "undo",
+      "undo": {
+        "text": "Undo (Select deployment)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo (Reset deployment)",
+        "enabled": true
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "tab": "flightConfiguration",
+      "flightConfiguration": {
+        "configTab": "recovery",
+        "configTabs": [
+          {
+            "tab": "motors",
+            "title": "Motors",
+            "enabled": true
+          },
+          {
+            "tab": "recovery",
+            "title": "Recovery",
+            "enabled": true
+          },
+          {
+            "tab": "stages",
+            "title": "Stages",
+            "enabled": false
+          }
+        ],
+        "buttons": {
+          "duplicateConfButton": true,
+          "newConfButton": true,
+          "removeConfButton": true,
+          "renameConfButton": true
+        },
+        "selectedConfiguration": 0,
+        "simulations": [
+          {
+            "name": "Simulation 1",
+            "configuration": 0
+          },
+          {
+            "name": "Simulation 2",
+            "configuration": 1
+          }
+        ],
+        "motors": {
+          "buttons": {
+            "deleteMotorButton": true,
+            "resetIgnitionButton": true,
+            "selectIgnitionButton": true,
+            "selectMotorButton": true
+          },
+          "showsHelp": false,
+          "mounts": [
+            {
+              "component": [
+                "Sustainer",
+                "Body Tube"
+              ],
+              "text": "Body Tube",
+              "motorMount": false
+            },
+            {
+              "component": [
+                "Sustainer",
+                "Body Tube",
+                "Inner Tube"
+              ],
+              "text": "Inner Tube",
+              "motorMount": true
+            }
+          ],
+          "header": [
+            "Configuration",
+            "Inner Tube"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": [
+                {
+                  "motor": "D12-5",
+                  "ignition": "Automatic",
+                  "ignitionDefault": false
+                }
+              ]
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": [
+                {
+                  "motor": "C11-7",
+                  "ignition": "Automatic",
+                  "ignitionDefault": false
+                }
+              ]
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            1
+          ]
+        },
+        "recovery": {
+          "buttons": {
+            "resetDeploymentButton": true,
+            "selectDeploymentButton": true
+          },
+          "header": [
+            "Configuration",
+            "Parachute",
+            "Drogue"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": [
+                {
+                  "text": "Altitude 200 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
+              ]
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": [
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
+              ]
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            2
+          ]
+        },
+        "stages": {
+          "buttons": {
+            "resetDeploymentButton": false,
+            "selectSeparationButton": false
+          },
+          "header": [
+            "Configuration"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": []
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": []
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            0
+          ]
+        }
+      },
+      "treeSha256": "cae492b971be5d89629a390996aaee95d2e410699784c853fd2c1a6a8e2aff04",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 designer='QtRocket exit scenario' ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.0025 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=LAUNCH:1.0:true motor[random]=D12:5.0:0.005:AUTOMATIC:0.0:true motor[random]=C11:7.0:0.0:AUTOMATIC:0.0:true",
+        "      CenteringRing 'Fore centering ring' axial=TOP:0.237 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=MIDDLE:0.1435 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 deploy[random]=ALTITUDE:0.0:200.0 diameter=0.35000000000000003 lines=8:0.525:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:2.356194490192345 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Drogue' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=random",
+        "config default name='[{motors}]' preload=null active=[true] motors=0",
+        "config random name='[{motors}]' preload=null active=[true] motors=1 all=[#5:D12:AUTOMATIC:0.0:true] flying=[#5:D12:AUTOMATIC:0.0:true]",
+        "config random name='[{motors}]' preload=null active=[true] motors=1 all=[#5:C11:AUTOMATIC:0.0:true] flying=[#5:C11:AUTOMATIC:0.0:true]"
+      ]
+    },
+    {
+      "index": 22,
+      "step": "redo",
+      "undo": {
+        "text": "Undo (Reset deployment)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "tab": "flightConfiguration",
+      "flightConfiguration": {
+        "configTab": "recovery",
+        "configTabs": [
+          {
+            "tab": "motors",
+            "title": "Motors",
+            "enabled": true
+          },
+          {
+            "tab": "recovery",
+            "title": "Recovery",
+            "enabled": true
+          },
+          {
+            "tab": "stages",
+            "title": "Stages",
+            "enabled": false
+          }
+        ],
+        "buttons": {
+          "duplicateConfButton": true,
+          "newConfButton": true,
+          "removeConfButton": true,
+          "renameConfButton": true
+        },
+        "selectedConfiguration": 0,
+        "simulations": [
+          {
+            "name": "Simulation 1",
+            "configuration": 0
+          },
+          {
+            "name": "Simulation 2",
+            "configuration": 1
+          }
+        ],
+        "motors": {
+          "buttons": {
+            "deleteMotorButton": true,
+            "resetIgnitionButton": true,
+            "selectIgnitionButton": true,
+            "selectMotorButton": true
+          },
+          "showsHelp": false,
+          "mounts": [
+            {
+              "component": [
+                "Sustainer",
+                "Body Tube"
+              ],
+              "text": "Body Tube",
+              "motorMount": false
+            },
+            {
+              "component": [
+                "Sustainer",
+                "Body Tube",
+                "Inner Tube"
+              ],
+              "text": "Inner Tube",
+              "motorMount": true
+            }
+          ],
+          "header": [
+            "Configuration",
+            "Inner Tube"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": [
+                {
+                  "motor": "D12-5",
+                  "ignition": "Automatic",
+                  "ignitionDefault": false
+                }
+              ]
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": [
+                {
+                  "motor": "C11-7",
+                  "ignition": "Automatic",
+                  "ignitionDefault": false
+                }
+              ]
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            1
+          ]
+        },
+        "recovery": {
+          "buttons": {
+            "resetDeploymentButton": true,
+            "selectDeploymentButton": true
+          },
+          "header": [
+            "Configuration",
+            "Parachute",
+            "Drogue"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": [
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
+              ]
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": [
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
+              ]
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            2
+          ]
+        },
+        "stages": {
+          "buttons": {
+            "resetDeploymentButton": false,
+            "selectSeparationButton": false
+          },
+          "header": [
+            "Configuration"
+          ],
+          "rows": [
+            {
+              "configuration": "[D12-5]",
+              "cells": []
+            },
+            {
+              "configuration": "[C11-7]",
+              "cells": []
+            }
+          ],
+          "selectedRows": [
+            0
+          ],
+          "selectedColumns": [
+            0
+          ]
+        }
+      },
+      "treeSha256": "f4f747b9eca49b858e976ff6c806b8821810014b75db3dcb4dfd32d94c010198",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 designer='QtRocket exit scenario' ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.0025 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=LAUNCH:1.0:true motor[random]=D12:5.0:0.005:AUTOMATIC:0.0:true motor[random]=C11:7.0:0.0:AUTOMATIC:0.0:true",
+        "      CenteringRing 'Fore centering ring' axial=TOP:0.237 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=MIDDLE:0.1435 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.35000000000000003 lines=8:0.525:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:2.356194490192345 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Drogue' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=random",
+        "config default name='[{motors}]' preload=null active=[true] motors=0",
+        "config random name='[{motors}]' preload=null active=[true] motors=1 all=[#5:D12:AUTOMATIC:0.0:true] flying=[#5:D12:AUTOMATIC:0.0:true]",
+        "config random name='[{motors}]' preload=null active=[true] motors=1 all=[#5:C11:AUTOMATIC:0.0:true] flying=[#5:C11:AUTOMATIC:0.0:true]"
+      ]
+    },
+    {
+      "index": 23,
       "step": "newConfiguration",
       "undo": {
         "text": "Undo (Select deployment)",
@@ -4085,22 +4767,46 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -4165,7 +4871,7 @@
       ]
     },
     {
-      "index": 22,
+      "index": 24,
       "step": "configTab",
       "undo": {
         "text": "Undo (Select deployment)",
@@ -4308,22 +5014,46 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -4367,7 +5097,7 @@
       "treeSha256": "9b8d35b8a7187499a8b88be79203c6f4a6cd4f105b1c8c56172a0d7086534c1c"
     },
     {
-      "index": 23,
+      "index": 25,
       "step": "selectCells",
       "undo": {
         "text": "Undo (Select deployment)",
@@ -4510,22 +5240,46 @@
             {
               "configuration": "[D12-5]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -4569,7 +5323,7 @@
       "treeSha256": "9b8d35b8a7187499a8b88be79203c6f4a6cd4f105b1c8c56172a0d7086534c1c"
     },
     {
-      "index": 24,
+      "index": 26,
       "step": "renameConfiguration",
       "undo": {
         "text": "Undo (Rename configuration(s))",
@@ -4719,22 +5473,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -4799,7 +5577,7 @@
       ]
     },
     {
-      "index": 25,
+      "index": 27,
       "step": "selectCells",
       "undo": {
         "text": "Undo (Rename configuration(s))",
@@ -4942,22 +5720,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-7]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -5001,7 +5803,7 @@
       "treeSha256": "faa1a56c1351821ff75d010c9066bca180dd648043db14b2eca762cf3e92929c"
     },
     {
-      "index": 26,
+      "index": 28,
       "step": "selectMotor",
       "undo": {
         "text": "Undo (Select motor)",
@@ -5172,22 +5974,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "[C11-P]",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -5252,7 +6078,7 @@
       ]
     },
     {
-      "index": 27,
+      "index": 29,
       "step": "renameConfiguration",
       "undo": {
         "text": "Undo (Rename configuration(s))",
@@ -5402,22 +6228,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Estes | C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -5482,7 +6332,7 @@
       ]
     },
     {
-      "index": 28,
+      "index": 30,
       "step": "renameConfiguration",
       "undo": {
         "text": "Undo (Rename configuration(s))",
@@ -5632,22 +6482,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -5712,7 +6586,7 @@
       ]
     },
     {
-      "index": 29,
+      "index": 31,
       "step": "duplicateConfiguration",
       "undo": {
         "text": "Undo (Duplicate Configuration)",
@@ -5869,29 +6743,61 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -5961,7 +6867,7 @@
       ]
     },
     {
-      "index": 30,
+      "index": 32,
       "step": "deleteConfiguration",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -6100,22 +7006,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -6172,7 +7102,7 @@
       ]
     },
     {
-      "index": 31,
+      "index": 33,
       "step": "undo",
       "undo": {
         "text": "Undo (Duplicate Configuration)",
@@ -6329,29 +7259,61 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": true
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -6421,7 +7383,7 @@
       ]
     },
     {
-      "index": 32,
+      "index": 34,
       "step": "redo",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -6560,22 +7522,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -6632,7 +7618,7 @@
       ]
     },
     {
-      "index": 33,
+      "index": 35,
       "step": "saveAs",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -6771,22 +7757,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -6822,7 +7832,7 @@
       "treeSha256": "99e384466947c2f376097583289f5c48ede0adc864c02c00b3efa07b025c98d1"
     },
     {
-      "index": 34,
+      "index": 36,
       "step": "type",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -6961,22 +7971,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -7012,7 +8046,7 @@
       "treeSha256": "cd91c8444ad68dabc7951c993c91acbe91e51219b91c2b2af368f1e17cdb9776"
     },
     {
-      "index": 35,
+      "index": 37,
       "step": "ok",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -7150,22 +8184,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],
@@ -7222,7 +8280,7 @@
       ]
     },
     {
-      "index": 36,
+      "index": 38,
       "step": "chooseFile",
       "undo": {
         "text": "Undo (Remove configuration(s))",
@@ -7357,22 +8415,46 @@
             {
               "configuration": "D12-5 flight",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight C11-P",
               "cells": [
-                "Altitude 150 m",
-                "Altitude 150 m"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                }
               ]
             },
             {
               "configuration": "Flight No motors",
               "cells": [
-                "Altitude 150 m",
-                "Apogee + 1 s"
+                {
+                  "text": "Altitude 150 m",
+                  "shaded": false,
+                  "override": false
+                },
+                {
+                  "text": "Apogee + 1 s",
+                  "shaded": false,
+                  "override": true
+                }
               ]
             }
           ],

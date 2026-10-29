@@ -63,8 +63,14 @@ import info.openrocket.swing.startup.GuiModule;
  * <pre>
  *   GuiReference --scenario &lt;scenario.json&gt; --out &lt;directory&gt; --work &lt;directory&gt;
  *                --commit &lt;OpenRocket commit&gt; --dirty &lt;true|false&gt;
- *                [--repo &lt;QtRocket repository&gt; --preset-commit &lt;openrocket-database commit&gt;]  (version 2)
+ *                [--repo &lt;QtRocket repository&gt; --preset-commit &lt;openrocket-database commit&gt;
+ *                 [--input &lt;design file&gt;]]  (version 2)
  * </pre>
+ * <p>
+ * A scenario of version 2 opens the file its open step names, relative to the repository; {@code --input}
+ * opens another file in its place (generate.sh: the file a run of another scenario has just written,
+ * where the open step names that scenario's reference). state.json records the open step's name and the
+ * SHA-256 of the bytes opened.
  */
 public final class GuiReference {
 
@@ -469,7 +475,8 @@ public final class GuiReference {
 			}
 		}
 		Path repo = Paths.get(options.get("--repo"));
-		Path input = repo.resolve(scenario.steps().get(0).file());
+		Path input = options.containsKey("--input") ? Paths.get(options.get("--input"))
+				: repo.resolve(scenario.steps().get(0).file());
 		// An exception of the event dispatch thread outside the tool's own tasks (a listener, a renderer)
 		// fails the run: OpenRocket's GUI would show its error dialog.
 		Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
