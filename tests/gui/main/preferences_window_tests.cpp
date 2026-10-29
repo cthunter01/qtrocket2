@@ -3,6 +3,8 @@
 // (WindowManager::showPreferences()).
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -10,6 +12,7 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QLineEdit>
 #include <QPointer>
 #include <QPushButton>
 #include <QSize>
@@ -20,8 +23,10 @@
 
 #include "GuiTestSupport.h"
 // The complete type of the combo boxes the tests choose in.
+#include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/dialogs/DefaultUnitSelector.h"  // IWYU pragma: keep
 #include "QtRocket/gui/dialogs/DesignPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/GeneralPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/PreferencesDialog.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
@@ -31,11 +36,15 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "dialogs/PreferencesPageTranscript.h"
 
 namespace QtRocket::Gui
@@ -45,6 +54,7 @@ namespace
 {
 
 using LastWindowBehaviour = WindowManager::LastWindowBehaviour;
+using UserFiles           = GeneralPreferencesPanel::UserFiles;
 
 /// Delivers the posted events until the windows and their figures are done.
 void settle()
@@ -153,6 +163,31 @@ TEST_F(PreferencesWindowTest, OkRefreshesTheConfigurationNamesOfEveryWindow)
         EXPECT_EQ(window->componentRocketPanel()->configurationSelector().itemText(0),
                   QStringLiteral("Flight No motors"));
     }
+}
+
+TEST_F(PreferencesWindowTest, TheGeneralPageHasTheStartsDirectoriesAndPinsEveryWindowsNames)
+{
+    // The default directories of the user's files are the start's (GuiServices::StartupData);
+    // "Reset all preferences" pins the configuration names of every window's design first.
+    const QtRocket::Test::TempDir home;
+    m_services.startupData().defaultUserThrustCurveDirectory = home.path() / "ThrustCurves";
+    m_services.startupData().defaultUserComponentDirectory   = home.path() / "Components";
+    m_services.preferences().setDefaultFlightConfigName("Flight {motors}");
+    const PreferencesDialog* const shown = openPreferences(*m_second);
+    ASSERT_NE(shown, nullptr);
+    const PreferencesDialog& dialog = *shown;
+    EXPECT_EQ(dialog.generalPage()->userFilesField(UserFiles::THRUST_CURVES)->text(),
+              QtStrings::fromPath(home.path() / "ThrustCurves"));
+    EXPECT_EQ(dialog.generalPage()->userFilesField(UserFiles::COMPONENT_PRESETS)->text(),
+              QtStrings::fromPath(home.path() / "Components"));
+
+    m_services.prompts().answerYesNo(true);
+    EXPECT_TRUE(dialog.generalPage()->resetAllPreferences());
+    EXPECT_EQ(m_first->document().getRocket().getSelectedConfiguration().getStoredName(),
+              std::optional<std::string>("Flight {motors}"));
+    EXPECT_EQ(m_second->document().getRocket().getSelectedConfiguration().getStoredName(),
+              std::optional<std::string>("Flight {motors}"));
+    dialog.okButton()->click();
 }
 
 TEST_F(PreferencesWindowTest, TheMarkersBoxBringsEveryFigureUpToDate)

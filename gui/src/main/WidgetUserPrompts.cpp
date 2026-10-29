@@ -2,13 +2,16 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
 #include <vector>
 
+#include <QAction>
 #include <QChar>
 #include <QCheckBox>
+#include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -16,8 +19,10 @@
 #include <QGridLayout>
 #include <QLatin1Char>
 #include <QLayout>
+#include <QMenu>
 #include <QMessageBox>
 #include <QObject>
+#include <QPoint>
 #include <QPointer>
 #include <QPushButton>
 #include <QString>
@@ -235,6 +240,130 @@ void addDescription(QFileDialog& dialog, const QString& description)
         addDescription(chooser, request.description);
     }
     return chosenFiles(dialog);
+}
+
+/// A file chooser for a directory (JFileChooser.showOpenDialog() in DIRECTORIES_ONLY mode) for
+/// @p request: the platform's folder dialog, which shows directories only (the request's name
+/// filters are for files).
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseDirectoryToOpen(
+    QWidget* parent, const UserPrompts::OpenFileRequest& request)
+{
+    ModalDialog<QFileDialog> dialog(parent);
+    QFileDialog&             chooser = *dialog.get();
+    chooser.setObjectName(QStringLiteral("openDirectoryDialog"));
+    if (!request.title.isEmpty())
+    {
+        chooser.setWindowTitle(request.title);
+    }
+    chooser.setAcceptMode(QFileDialog::AcceptOpen);
+    chooser.setFileMode(QFileDialog::Directory);
+    chooser.setOption(QFileDialog::ShowDirsOnly, true);
+    chooser.setDirectory(startDirectory(request.directory));
+    if (!request.approveButtonText.isEmpty())
+    {
+        chooser.setLabelText(QFileDialog::Accept, request.approveButtonText);
+    }
+    if (!request.description.isEmpty())
+    {
+        addDescription(chooser, request.description);
+    }
+    return chosenFiles(dialog);
+}
+
+/// A popup menu made for one question and destroyed after it, which survives the destruction of
+/// its parent while it is open, as ModalDialog's dialogs do: the child of its parent (or, without
+/// one, owned here), held by a QPointer; one with a parent is deleted later.
+class QuestionMenu final
+{
+public:
+    explicit QuestionMenu(QWidget* parent)
+    {
+        if (parent != nullptr)
+        {
+            m_menu = makeChild<QMenu>(parent);
+        }
+        else
+        {
+            m_owned = std::make_unique<QMenu>();
+            m_menu  = m_owned.get();
+        }
+    }
+
+    ~QuestionMenu()
+    {
+        if (m_owned == nullptr)
+        {
+            if (QMenu* const menu = m_menu.data(); menu != nullptr)
+            {
+                menu->deleteLater();
+            }
+        }
+    }
+
+    QuestionMenu(const QuestionMenu&)            = delete;
+    QuestionMenu& operator=(const QuestionMenu&) = delete;
+    QuestionMenu(QuestionMenu&&)                 = delete;
+    QuestionMenu& operator=(QuestionMenu&&)      = delete;
+
+    /// The menu, or null once it was destroyed (with its parent).
+    [[nodiscard]] QMenu* get() const noexcept { return m_menu.data(); }
+
+    /// Opens the menu at @p position and returns when it is closed (QMenu::exec()): the action
+    /// chosen, or null when it was closed without a choice or destroyed.
+    [[nodiscard]] QAction* exec(const QPoint& position) const
+    {
+        QMenu* const menu = get();
+        return menu == nullptr ? nullptr : menu->exec(position);
+    }
+
+private:
+    std::unique_ptr<QMenu> m_owned;
+    QPointer<QMenu>        m_menu;
+};
+
+/// Where the menu of a question that @p parent asks opens: below it when it is a widget inside a
+/// window (the button that asks: as a button's menu opens), at the mouse pointer when a window
+/// asks (or none).
+[[nodiscard]] QPoint menuPosition(const QWidget* parent)
+{
+    if (parent != nullptr && !parent->isWindow())
+    {
+        return parent->mapToGlobal(QPoint(0, parent->height()));
+    }
+    return QCursor::pos();
+}
+
+/// A file chooser for a file or a directory (JFileChooser in FILES_AND_DIRECTORIES mode: the
+/// preferences' Add) for @p request. Qt's file dialogs choose one of the two, so a menu asks
+/// first which (the user's decision U-M3-6c): "File..." shows the file dialog of a FILES request
+/// (chooseFilesToOpen()), "Directory..." the folder dialog (chooseDirectoryToOpen()); the menu
+/// closed without a choice, or the parent destroyed meanwhile, answers no file and shows no
+/// dialog.
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseFileOrDirectoryToOpen(
+    QWidget* parent, const UserPrompts::OpenFileRequest& request)
+{
+    const QPointer<QWidget> guard(parent);
+    const QuestionMenu      menu(parent);
+    QMenu&                  choices = *menu.get();
+    choices.setObjectName(QStringLiteral("fileOrDirectoryMenu"));
+    //: Not in OpenRocket: the menu of the preferences' Add, which asks whether a file is added
+    //: (OpenRocket's file chooser shows files and directories at once)
+    QAction* const file = choices.addAction(WidgetUserPrompts::tr("File..."));
+    file->setObjectName(QStringLiteral("file"));
+    //: Not in OpenRocket: the menu of the preferences' Add, which asks whether a directory is
+    //: added
+    QAction* const directory = choices.addAction(WidgetUserPrompts::tr("Directory..."));
+    directory->setObjectName(QStringLiteral("directory"));
+    const QAction* const chosen = menu.exec(menuPosition(parent));
+    if (chosen == nullptr || parentGone(parent, guard))
+    {
+        return std::nullopt;
+    }
+    if (chosen == file)
+    {
+        return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
+    }
+    return chooseDirectoryToOpen(parent, request);
 }
 
 /// Whether the platform's own save dialog asks itself before it replaces a file, whatever the
@@ -558,9 +687,7 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
 {
     if (request.selection == OpenFileSelection::FILES_AND_DIRECTORIES)
     {
-        // Run 3 of Milestone 3 (the preferences' user files): the menu "File..." /
-        // "Directory..." and the platform's dialog for the choice. Until then: cancelled.
-        return std::nullopt;
+        return chooseFileOrDirectoryToOpen(parent, request);
     }
     return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
 }

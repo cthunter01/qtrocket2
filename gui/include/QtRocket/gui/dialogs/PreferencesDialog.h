@@ -8,6 +8,8 @@
 #include <QDialog>
 #include <QObject>
 
+#include "QtRocket/gui/dialogs/GeneralPreferencesPanel.h"
+
 class QPushButton;
 class QTabWidget;
 class QWidget;
@@ -23,7 +25,6 @@ namespace QtRocket::Gui
 
 class BindingScope;
 class DesignPreferencesPanel;
-class GeneralPreferencesPanel;
 class RocketPanel;
 class UnitsPreferencesPanel;
 class UserPrompts;
@@ -56,7 +57,9 @@ class UserPrompts;
 /// "Reset all preferences" on the General page empties the store and resets the default units;
 /// then the dialog does what Java's PreferencesDialog.showPreferences() does to the open dialog
 /// (reopen()): it is closed as by OK and shown anew on the General tab, with new pages and a new
-/// snapshot.
+/// snapshot. Each General page is made in the dialog's General environment (the default
+/// directories of the user's files and the open documents: GeneralPreferencesPanel::
+/// Environment).
 ///
 /// The design views are those of rocketPanels(), asked whenever they are refreshed (the
 /// WindowManager gives every window's; none in a test). A design view's refresh is
@@ -103,11 +106,12 @@ public:
     using RocketPanels = std::function<std::vector<RocketPanel*>()>;
 
     /// The dialog over @p preferences (the application's store: a SettingsPreferences, or a
-    /// test's InMemoryPreferences), asking through @p prompts, both of which must outlive it, on
-    /// the tab @p selectedTab. Not shown yet.
+    /// test's InMemoryPreferences), asking through @p prompts, both of which must outlive it, with
+    /// the General page in @p general, on the tab @p selectedTab. Not shown yet.
     /// @throws BugError for a store of another kind (PreferencesStore)
     PreferencesDialog(Preferences& preferences, UserPrompts& prompts, RocketPanels rocketPanels,
-                      Tab selectedTab, QWidget* parent);
+                      GeneralPreferencesPanel::Environment general, Tab selectedTab,
+                      QWidget* parent);
     ~PreferencesDialog() override;
     PreferencesDialog(const PreferencesDialog&)            = delete;
     PreferencesDialog& operator=(const PreferencesDialog&) = delete;
@@ -118,8 +122,9 @@ public:
     /// application and returns at once (Java's setVisible() returns when it is closed); the
     /// dialog is deleted once it is closed.
     static PreferencesDialog& showPreferences(Preferences& preferences, UserPrompts& prompts,
-                                              RocketPanels rocketPanels, QWidget& parent,
-                                              Tab selectedTab = Tab::GENERAL);
+                                              RocketPanels                         rocketPanels,
+                                              GeneralPreferencesPanel::Environment general,
+                                              QWidget& parent, Tab selectedTab = Tab::GENERAL);
 
     /// Java's storeAndApplyPreferences(): stores the default units (Preferences::
     /// storeDefaultUnits()) and refreshes @p rocketPanels (refreshRocketPanels()).
@@ -132,7 +137,7 @@ public:
     static void refreshRocketPanels(std::span<RocketPanel* const> rocketPanels);
 
     [[nodiscard]] QTabWidget*              tabs() const noexcept { return m_tabs; }
-    [[nodiscard]] GeneralPreferencesPanel* generalPage() const noexcept { return m_general; }
+    [[nodiscard]] GeneralPreferencesPanel* generalPage() const noexcept { return m_generalPage; }
     [[nodiscard]] DesignPreferencesPanel*  designPage() const noexcept { return m_design; }
     [[nodiscard]] UnitsPreferencesPanel*   unitsPage() const noexcept { return m_units; }
     [[nodiscard]] QPushButton*             cancelButton() const noexcept { return m_cancel; }
@@ -173,10 +178,11 @@ private:
     Preferences*                         m_preferences;
     UserPrompts*                         m_prompts;
     RocketPanels                         m_rocketPanels;
+    GeneralPreferencesPanel::Environment m_general;
     std::unique_ptr<InMemoryPreferences> m_snapshot;
     std::unique_ptr<BindingScope>        m_scope;
     QTabWidget*                          m_tabs{nullptr};
-    GeneralPreferencesPanel*             m_general{nullptr};
+    GeneralPreferencesPanel*             m_generalPage{nullptr};
     DesignPreferencesPanel*              m_design{nullptr};
     UnitsPreferencesPanel*               m_units{nullptr};
     QPushButton*                         m_cancel{nullptr};
