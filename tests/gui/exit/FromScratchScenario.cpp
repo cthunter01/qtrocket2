@@ -39,7 +39,6 @@
 #include <QWidget>
 #include <Qt>
 #include <QtTypes>
-#include <QtWidgets/qtestsupport_widgets.h>
 
 #include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
@@ -50,6 +49,8 @@
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/binding/EnumBinding.h"
 #include "QtRocket/gui/binding/MaterialBinding.h"
+#include "QtRocket/gui/configdialog/ClusterButton.h"
+#include "QtRocket/gui/configdialog/ClusterSelectionPanel.h"
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/configdialog/FinPointTableModel.h"
 #include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
@@ -75,6 +76,7 @@
 #include "QtRocket/gui/widgets/MaterialComboBox.h"
 #include "QtRocket/gui/widgets/UnitSelector.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
@@ -91,10 +93,10 @@
 #include "ScriptedUserPrompts.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "exit/FromScratchPrompts.h"
+#include "exit/ScenarioInput.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "file/openrocket/DesignFileState.h"
 #include "goldens/GoldenGuiReference.h"
-#include "main/FileMenusTestSupport.h"
 #include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui::Test
@@ -112,44 +114,13 @@ using QtRocket::Test::GuiStepRecord;
 /// The name of the preferences file in the scenario's directory.
 constexpr std::string_view kPreferencesFile = "QtRocket.ini";
 
-/// Delivers the posted events until the windows, the dialogs and their layouts are done.
-void settle()
-{
-    constexpr int kPasses = 4;
-    for (int pass = 0; pass < kPasses; ++pass)
-    {
-        QApplication::processEvents();
-    }
-}
-
-/// settle(), then deletes what was given to deleteLater(), which processEvents() leaves: a
-/// window or a dialog that was closed.
-void settleAndDelete()
-{
-    settle();
-    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-}
-
-/// The class name of @p object without its namespace ("NoseConeConfig").
-[[nodiscard]] std::string shortClassName(const QObject& object)
-{
-    const std::string_view name = object.metaObject()->className();
-    const std::size_t      at   = name.rfind("::");
-    return std::string(at == std::string_view::npos ? name : name.substr(at + 2));
-}
-
-/// Makes the window of @p widget the active one, which the keyboard focus needs (offscreen as
-/// well); whether it is.
-[[nodiscard]] bool activateWindowOf(const QWidget& widget)
-{
-    QWidget* const window = widget.window();
-    if (!window->isActiveWindow())
-    {
-        window->activateWindow();
-        return QTest::qWaitForWindowActive(window);
-    }
-    return true;
-}
+using ScenarioInput::activateWindowOf;
+using ScenarioInput::focusOn;
+using ScenarioInput::settle;
+using ScenarioInput::settleAndDelete;
+using ScenarioInput::shortClassName;
+using ScenarioInput::triggerAction;
+using ScenarioInput::typeNumber;
 
 /// Chooses, by a click on its tab, every tab page that holds @p widget and is not the current
 /// one, from the outermost in: what a user does to reach a field of another tab.
@@ -220,19 +191,6 @@ template <class W>
     return widget;
 }
 
-/// Gives @p widget the keyboard focus, as a click does; what went wrong, or "".
-[[nodiscard]] std::string focusOn(QWidget& widget, const std::string& field)
-{
-    if (!activateWindowOf(widget))
-    {
-        return std::format("the window of the field {} does not become active", field);
-    }
-    widget.setFocus(Qt::MouseFocusReason);
-    settle();
-    return widget.hasFocus() ? std::string()
-                             : std::format("the field {} does not take the focus", field);
-}
-
 /// Chooses @p unit in the unit selector of the number field @p field below @p root, through its
 /// menu when it shows another unit; what went wrong, or "".
 [[nodiscard]] std::string chooseUnit(const QWidget& root, const std::string& field,
@@ -243,46 +201,7 @@ template <class W>
     {
         return std::format("the field {} has {} unit selectors", field, selectors.size());
     }
-    UnitSelector& selector = *selectors.front();
-    const QString wanted   = QtStrings::fromUtf8(unit);
-    if (selector.text() == wanted)
-    {
-        return {};
-    }
-    const OffscreenPopupWarnings popup;
-    QTest::mouseClick(&selector, Qt::LeftButton);
-    QMenu* const menu = selector.unitMenu();
-    if (menu == nullptr || !menu->isVisible())
-    {
-        return std::format("the unit selector of {} opens no menu", field);
-    }
-    QAction* const item = menuItem(*menu, wanted);
-    if (item == nullptr)
-    {
-        menu->hide();
-        return std::format("the unit selector of {} offers no {}", field, unit);
-    }
-    QTest::mouseClick(menu, Qt::LeftButton, Qt::NoModifier, menu->actionGeometry(item).center());
-    if (selector.text() != wanted)
-    {
-        return std::format("the unit selector of {} shows {} after {} was chosen", field,
-                           QtStrings::toUtf8(selector.text()), unit);
-    }
-    return {};
-}
-
-/// Types @p text over the number field @p spinBox and commits it with Enter.
-[[nodiscard]] std::string typeNumber(QAbstractSpinBox& spinBox, const std::string& field,
-                                     const std::string& text)
-{
-    if (!activateWindowOf(spinBox))
-    {
-        return std::format("the window of the field {} does not become active", field);
-    }
-    typeInto(spinBox, QtStrings::fromUtf8(text));
-    QTest::keyClick(&spinBox, Qt::Key_Return);
-    settle();
-    return {};
+    return ScenarioInput::chooseUnit(*selectors.front(), field, unit);
 }
 
 /// Types @p text over the text field @p line and commits it with Enter.
@@ -377,6 +296,44 @@ template <class E>
     return std::nullopt;
 }
 
+/// choose of the inner tube's cluster layouts (ClusterSelectionPanel, named after the Java
+/// property "ClusterConfiguration"): a click on the button of the layout whose XML name is the
+/// step's item ("4-ring"), as OpenRocket's ClusterButton.mouseClicked() takes it; what went wrong,
+/// or "".
+[[nodiscard]] std::string chooseCluster(const QWidget& dialog, const GuiScenarioStep& step)
+{
+    std::string       problem;
+    const auto* const panel =
+        fieldOf<ClusterSelectionPanel>(dialog, step.field, "cluster panel", problem);
+    if (panel == nullptr)
+    {
+        return problem;
+    }
+    ClusterButton* found = nullptr;
+    for (int index = 0; index < panel->buttonCount(); ++index)
+    {
+        if (ClusterButton& button = panel->button(index);
+            button.configuration().getXmlName() == step.item)
+        {
+            found = &button;
+        }
+    }
+    if (found == nullptr)
+    {
+        return std::format("the cluster panel {} offers no {}", step.field, step.item);
+    }
+    if (!activateWindowOf(*found))
+    {
+        return "the dialog does not become active";
+    }
+    QTest::mouseClick(found, Qt::LeftButton);
+    settle();
+    return panel->selectedConfiguration() == &found->configuration()
+               ? std::string()
+               : std::format("the cluster panel {} does not show {} after its click", step.field,
+                             step.item);
+}
+
 /// The column of the fin point table that @p name names ("X", "Y"); -1 for another name.
 [[nodiscard]] int pointColumn(std::string_view name)
 {
@@ -385,19 +342,6 @@ template <class E>
         return FinPointTableModel::kXColumn;
     }
     return name == "Y" ? FinPointTableModel::kYColumn : -1;
-}
-
-/// Triggers @p action, the item named @p name, as its menu item or its keys do; what went wrong
-/// (it is disabled), or "".
-[[nodiscard]] std::string triggerAction(QAction* action, std::string_view name)
-{
-    if (action == nullptr || !action->isEnabled())
-    {
-        return std::format("{} is not enabled", name);
-    }
-    action->trigger();
-    settle();
-    return {};
 }
 
 /// The panel of the visible configuration dialog when it is a freeform fin set's; null otherwise.
@@ -532,9 +476,18 @@ template <class E>
 }  // namespace
 
 FromScratchScenario::FromScratchScenario(std::filesystem::path directory)
+  : FromScratchScenario(std::move(directory), [](UserPrompts& scripted) {
+        return std::make_unique<FromScratchPrompts>(scripted);
+    })
+{
+}
+
+FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
+                                         const PromptsFactory& makePrompts)
   : m_directory(std::move(directory))
 {
-    auto prompts = std::make_unique<FromScratchPrompts>(m_scripted);
+    std::unique_ptr<FromScratchPrompts> prompts = makePrompts(m_scripted);
+    QTROCKET_ASSERT(prompts != nullptr);
     m_prompts    = prompts.get();
     auto context = std::make_unique<ApplicationContext>(
         std::make_unique<SettingsPreferences>(
@@ -784,6 +737,10 @@ std::string FromScratchScenario::choose(const GuiScenarioStep& step)
     if (dialog == nullptr)
     {
         return "no dialog is open";
+    }
+    if (!namedChildren<ClusterSelectionPanel>(*dialog, step.field).empty())
+    {
+        return chooseCluster(*dialog, step);
     }
     std::string problem;
     auto* const combo = fieldOf<QComboBox>(*dialog, step.field, "combo box", problem);
@@ -1086,11 +1043,24 @@ std::string FromScratchScenario::stepText(const GuiScenarioStep& step)
         text += std::format(" row {}", step.row);
         text += step.column.empty() ? std::string() : " " + step.column;
     }
+    // The steps of version 2: the tab, the mount, the cells.
+    text += step.tab.empty() ? std::string() : " " + step.tab;
+    if (step.kind == GuiStepKind::MOUNT_CHECK)
+    {
+        text += " " + QtRocket::Test::guiComponentPathText(step.mount);
+    }
+    for (const QtRocket::Test::GuiCell& cell : step.cells)
+    {
+        text +=
+            std::format(" {}{}:{}", cell.with.empty() ? "" : cell.with + "+", cell.row,
+                        cell.column.has_value() ? QtRocket::Test::guiComponentPathText(*cell.column)
+                                                : std::string("Configuration"));
+    }
     if (step.unit.has_value())
     {
         text += " " + *step.unit;
     }
-    if (step.kind == GuiStepKind::CHECK)
+    if (step.kind == GuiStepKind::CHECK || step.kind == GuiStepKind::MOUNT_CHECK)
     {
         text += step.checked ? " checked" : " unchecked";
     }

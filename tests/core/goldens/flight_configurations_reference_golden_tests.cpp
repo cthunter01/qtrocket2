@@ -25,7 +25,9 @@
 // - the expected differences of kGuiExpectedDifferences name recorded questions with OpenRocket's
 //   value, and OpenRocket's bug 1 holds in every record (its deployment and separation questions
 //   all start on "this configuration").
-// The parser of version 2 itself is checked on small scenarios (GuiScenarioReader).
+// The parser of version 2 itself is checked on small scenarios (GuiScenarioReader), and the
+// comparison of another GUI's records with these, which the exit test makes (guiRecordDifferences()
+// and guiExpectedRecord() of GoldenGuiReference.h), on the records (GuiRecordComparison).
 
 #include <algorithm>
 #include <array>
@@ -1131,6 +1133,196 @@ TEST(GuiScenarioReader, RepositoryPathsAreComposedNameByName)
         EXPECT_FALSE(refused.has_value()) << bad;
         EXPECT_EQ(refused ? ErrorCode::UNKNOWN : refused.error().code, ErrorCode::PARSE) << bad;
     }
+}
+
+// =================================================================== comparing a GUI's records
+
+/// The reference of @p scenario; a test failure and none when it cannot be read.
+[[nodiscard]] GuiReference referenceOf(std::string_view scenario)
+{
+    Result<GuiReference> reference = loadReference(scenario);
+    if (!reference)
+    {
+        ADD_FAILURE() << reference.error().toString();
+        return {};
+    }
+    return std::move(*reference);
+}
+
+/// The record of step @p step of @p reference; a test failure and an empty record when it has
+/// none.
+[[nodiscard]] GuiStepRecord recordAt(const GuiReference& reference, std::size_t step)
+{
+    if (step >= reference.steps.size())
+    {
+        ADD_FAILURE() << "the reference has no step " << step;
+        return {};
+    }
+    return reference.steps[step];
+}
+
+/// The steps of @p reference whose record differs from itself (guiRecordDifferences()).
+[[nodiscard]] std::vector<std::size_t> recordsDifferingFromThemselves(const GuiReference& reference)
+{
+    std::vector<std::size_t> differing;
+    for (const GuiStepRecord& record : reference.steps)
+    {
+        if (!QtRocket::Test::guiRecordDifferences(record, record).empty())
+        {
+            differing.push_back(record.index);
+        }
+    }
+    return differing;
+}
+
+TEST(GuiRecordComparison, ARecordAgreesWithItself)
+{
+    for (const std::string_view scenario : QtRocket::Test::kGuiTabScenarios)
+    {
+        const GuiReference reference = referenceOf(scenario);
+        EXPECT_FALSE(reference.steps.empty()) << scenario;
+        EXPECT_EQ(recordsDifferingFromThemselves(reference), std::vector<std::size_t>{})
+            << scenario;
+    }
+}
+
+/// The tab's state of @p record; a test failure and an empty state when it has none.
+[[nodiscard]] QtRocket::Test::GuiFlightConfigurationState tabStateOf(const GuiStepRecord& record)
+{
+    if (!record.flightConfiguration.has_value())
+    {
+        ADD_FAILURE() << "the record of step " << record.index << " has no tab";
+        return {};
+    }
+    return *record.flightConfiguration;
+}
+
+/// @p record with its tab's state changed by @p change.
+[[nodiscard]] GuiStepRecord withTabChanged(
+    GuiStepRecord record, void (*change)(QtRocket::Test::GuiFlightConfigurationState&))
+{
+    QtRocket::Test::GuiFlightConfigurationState state = tabStateOf(record);
+    change(state);
+    record.flightConfiguration = std::move(state);
+    return record;
+}
+
+// Changes of a tab's state.
+void unshadeTheFirstMotorCell(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    if (!state.motors.rows.empty() && !state.motors.rows.front().motorCells.empty())
+    {
+        state.motors.rows.front().motorCells.front().ignitionDefault = false;
+    }
+}
+void selectTheFirstRecoveryColumn(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    state.recovery.selectedColumns = {1};
+}
+void enableSelectSeparation(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    state.stages.buttons["selectSeparationButton"] = true;
+}
+void dropTheSimulations(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    state.simulations.clear();
+}
+void dropTheMotorRows(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    state.motors.rows.clear();
+}
+void addThirtyMotorRows(QtRocket::Test::GuiFlightConfigurationState& state)
+{
+    constexpr int kRows = 30;
+    for (int row = 0; row < kRows; ++row)
+    {
+        state.motors.rows.push_back(
+            {.configuration = std::format("row {}", row), .cells = {}, .motorCells = {}});
+    }
+}
+
+TEST(GuiRecordComparison, EveryMemberOfVersionTwoIsCompared)
+{
+    // Step 3 of flight-configurations: New with the motor chooser.
+    const GuiStepRecord record = recordAt(referenceOf("flight-configurations"), 3);
+    ASSERT_EQ(record.questions.size(), 1U);
+    const QtRocket::Test::GuiFlightConfigurationState state = tabStateOf(record);
+    ASSERT_FALSE(state.motors.rows.empty());
+    ASSERT_FALSE(state.motors.rows.front().motorCells.empty());
+    ASSERT_TRUE(state.motors.rows.front().motorCells.front().ignitionDefault);
+
+    GuiStepRecord tab      = record;
+    tab.tab                = "design";
+    GuiStepRecord question = record;
+    question.questions.front().answered.rows += 1;
+    for (const GuiStepRecord& changed :
+         {tab, question, withTabChanged(record, unshadeTheFirstMotorCell),
+          withTabChanged(record, selectTheFirstRecoveryColumn),
+          withTabChanged(record, enableSelectSeparation),
+          withTabChanged(record, dropTheSimulations)})
+    {
+        const std::vector<std::string> differences =
+            QtRocket::Test::guiRecordDifferences(record, changed);
+        EXPECT_EQ(differences.size(), 1U);
+        EXPECT_TRUE(!differences.empty() && differences.front().starts_with("OpenRocket: "));
+    }
+    // A question that is not asked, and a row that is not shown, are differences too.
+    GuiStepRecord asked = record;
+    asked.questions.clear();
+    EXPECT_FALSE(QtRocket::Test::guiRecordDifferences(record, asked).empty());
+    EXPECT_FALSE(
+        QtRocket::Test::guiRecordDifferences(record, withTabChanged(record, dropTheMotorRows))
+            .empty());
+}
+
+TEST(GuiRecordComparison, DifferencesBeyondTheLimitAreCounted)
+{
+    // A Motors table of 30 more rows: every line from its rows on differs.
+    const GuiStepRecord            record = recordAt(referenceOf("flight-configurations"), 3);
+    const std::vector<std::string> differences =
+        QtRocket::Test::guiRecordDifferences(record, withTabChanged(record, addThirtyMotorRows));
+    ASSERT_FALSE(differences.empty());
+    EXPECT_TRUE(differences.back().starts_with("... and ")) << differences.back();
+    EXPECT_EQ(
+        std::ranges::count_if(
+            differences, [](const std::string& line) { return line.starts_with("OpenRocket: "); }),
+        static_cast<std::ptrdiff_t>(QtRocket::Test::kGuiRecordDifferenceLines));
+}
+
+TEST(GuiRecordComparison, TheExpectedDifferencesGiveQtRocketsValues)
+{
+    // Step 16 of flight-configurations: the parachute's deployment, which OpenRocket's dialog
+    // starts on "this configuration" (bug 1).
+    const GuiReference  reference = referenceOf("flight-configurations");
+    const GuiStepRecord record    = recordAt(reference, 16);
+    ASSERT_EQ(record.questions.size(), 1U);
+    EXPECT_EQ(record.questions.front().scope, "this");
+    std::string         problems;
+    const GuiStepRecord expected =
+        QtRocket::Test::guiExpectedRecord("flight-configurations", record, problems);
+    EXPECT_EQ(problems, "");
+    ASSERT_EQ(expected.questions.size(), 1U);
+    EXPECT_EQ(expected.questions.front().scope, "all");
+    // Nothing else changes.
+    GuiStepRecord back           = expected;
+    back.questions.front().scope = "this";
+    EXPECT_EQ(QtRocket::Test::guiRecordDifferences(record, back), std::vector<std::string>{});
+    // A step without an expected difference, or another scenario's, stays as it is.
+    const GuiStepRecord other = recordAt(reference, 18);
+    EXPECT_EQ(
+        QtRocket::Test::guiRecordDifferences(
+            other, QtRocket::Test::guiExpectedRecord("flight-configurations", other, problems)),
+        std::vector<std::string>{});
+    EXPECT_EQ(QtRocket::Test::guiRecordDifferences(
+                  record, QtRocket::Test::guiExpectedRecord("multi-stage", record, problems)),
+              std::vector<std::string>{});
+    EXPECT_EQ(problems, "");
+    // A record that does not show OpenRocket's value any more is a problem, and stays.
+    std::string         stale;
+    const GuiStepRecord again =
+        QtRocket::Test::guiExpectedRecord("flight-configurations", expected, stale);
+    EXPECT_NE(stale, "");
+    EXPECT_EQ(again.questions.front().scope, "all");
 }
 
 }  // namespace

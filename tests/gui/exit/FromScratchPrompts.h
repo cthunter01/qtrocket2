@@ -37,7 +37,9 @@ namespace QtRocket::Gui::Test
 ///   (PresetOutcome::CLOSED), as the scenario's golden assumes (OpenRocket's tool,
 ///   tools/openrocket-gui-reference, takes it as closed: QtRocket had no parts library when the
 ///   scenario was recorded); its requests are kept (presetRequests()).
-class FromScratchPrompts final : public ForwardingUserPrompts
+/// The base of FlightConfigurationPrompts, the questions of the scenarios of version 2, which
+/// keep these three as they are.
+class FromScratchPrompts : public ForwardingUserPrompts
 {
 public:
     /// What answers the file chooser of a save (UserPrompts::askSaveFile()).
@@ -65,6 +67,10 @@ public:
     {
         return m_presetRequests;
     }
+
+protected:
+    /// The application's dialogs of the questions.
+    [[nodiscard]] WidgetUserPrompts& widgets() noexcept { return m_widgets; }
 
 private:
     WidgetUserPrompts          m_widgets;

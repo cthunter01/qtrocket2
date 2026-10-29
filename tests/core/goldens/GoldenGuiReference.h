@@ -600,4 +600,29 @@ inline constexpr std::array kGuiExpectedDifferences{
 [[nodiscard]] std::optional<std::string> guiQuestionMember(const GuiQuestion& question,
                                                            std::string_view   member);
 
+/// What QtRocket's GUI is to show where OpenRocket's GUI recorded @p record, a record of the
+/// scenario @p scenario: @p record with the expected differences of its step
+/// (kGuiExpectedDifferences) made, each question's member set to QtRocket's value. A difference
+/// whose question or member does not hold OpenRocket's value is a line of @p problems, and is not
+/// made.
+[[nodiscard]] GuiStepRecord guiExpectedRecord(std::string_view scenario, GuiStepRecord record,
+                                              std::string& problems);
+
+/// The members of version 2 of @p record as lines, one per member and per table row ("tab: ...",
+/// "question 0: motor 'Select a rocket motor'", "motors row 0: [D12-5] | D12-5 / Automatic", ...):
+/// the window's tab, the questions, what the tab showed. None for a record of version 1.
+[[nodiscard]] std::vector<std::string> guiRecordLines(const GuiStepRecord& record);
+
+/// What differs between @p expected, OpenRocket's record of a step, and @p found, what another
+/// GUI showed after the same step, one line each ("undo: OpenRocket ..., QtRocket ..."): the
+/// texts and states of Undo and Redo, whether the design is saved, the selection, the open window
+/// and the component tree (its digest; where they differ, the first line that differs when
+/// @p expected has the lines, else @p found's tree), then the lines of guiRecordLines() that
+/// differ (at most kGuiRecordDifferenceLines of them). Empty when they agree.
+[[nodiscard]] std::vector<std::string> guiRecordDifferences(const GuiStepRecord& expected,
+                                                            const GuiStepRecord& found);
+
+/// The most lines of guiRecordLines() guiRecordDifferences() names; the others are counted.
+inline constexpr std::size_t kGuiRecordDifferenceLines = 20;
+
 }  // namespace QtRocket::Test

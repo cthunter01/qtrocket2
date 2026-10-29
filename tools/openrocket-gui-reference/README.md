@@ -56,6 +56,15 @@ bundled databases, that the questions belong to their steps, that QtRocket loads
 tree of the open step, that the archive held the thrust curves of the design's motors, and that the
 expected differences (`kGuiExpectedDifferences`) name recorded questions.
 
+The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from_scratch_exit_tests.cpp`
+(`FromScratchExitGolden`, the driver `FromScratchScenario`) and
+`tests/gui/exit/flight_configurations_exit_tests.cpp` (`FlightConfigurationsExitGolden`, the driver
+`FlightConfigurationScenario`, which answers each question of the tab in QtRocket's own dialog, inside
+its modal loop, as `Questions` answers OpenRocket's). After every step they compare what QtRocket's GUI
+shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record of version 2
+after `guiExpectedRecord()`, which makes the expected differences), and then compare the save with
+`rocket.ork` and the `loaded` state.
+
 ## Regenerating
 
 Requirements as for `tools/openrocket-goldens`: JDK 17 (`java` on the path, or `JAVA=...`; the

@@ -75,7 +75,6 @@ namespace
 {
 
 using Gui::Test::FromScratchScenario;
-using QtRocket::Test::GuiComponentPath;
 using QtRocket::Test::GuiReference;
 using QtRocket::Test::GuiScenario;
 using QtRocket::Test::GuiScenarioStep;
@@ -117,79 +116,6 @@ using PromptKind = Gui::Test::ScriptedUserPrompts::Kind;
         kinds.push_back(Gui::Test::ScriptedUserPrompts::kindName(prompt.kind));
     }
     return kinds;
-}
-
-// =============================================================================== the records
-
-/// @p paths as text, "[Sustainer/Body Tube, (rocket)]".
-[[nodiscard]] std::string pathsText(const std::vector<GuiComponentPath>& paths)
-{
-    std::string text = "[";
-    for (const GuiComponentPath& path : paths)
-    {
-        text += (text.size() > 1 ? ", " : "") + QtRocket::Test::guiComponentPathText(path);
-    }
-    return text + "]";
-}
-
-/// The open window of @p record as text: "<window> <component>", or "none".
-[[nodiscard]] std::string windowText(const GuiStepRecord& record)
-{
-    if (!record.window.has_value())
-    {
-        return "none";
-    }
-    return *record.window +
-           (record.windowComponent.has_value()
-                ? " " + QtRocket::Test::guiComponentPathText(*record.windowComponent)
-                : std::string());
-}
-
-/// An action's state as text: "'Undo (Add Nose Cone)' enabled".
-[[nodiscard]] std::string actionText(const QtRocket::Test::GuiActionState& action)
-{
-    return std::format("'{}' {}", action.text, action.enabled ? "enabled" : "disabled");
-}
-
-/// What differs between the record @p found of QtRocket's GUI and OpenRocket's @p expected, one
-/// line each ("undo: OpenRocket ..., QtRocket ..."); empty when they agree.
-[[nodiscard]] std::vector<std::string> recordDifferences(const GuiStepRecord& expected,
-                                                         const GuiStepRecord& found)
-{
-    std::vector<std::string> differences;
-    const auto compare = [&differences](std::string_view what, const std::string& wanted,
-                                        const std::string& got) {
-        if (wanted != got)
-        {
-            differences.push_back(std::format("{}: OpenRocket {}, QtRocket {}", what, wanted, got));
-        }
-    };
-    compare("undo", actionText(expected.undo), actionText(found.undo));
-    compare("redo", actionText(expected.redo), actionText(found.redo));
-    compare("saved", expected.saved ? "true" : "false", found.saved ? "true" : "false");
-    compare("selection", pathsText(expected.selection), pathsText(found.selection));
-    compare("window", windowText(expected), windowText(found));
-    if (expected.treeSha256 != found.treeSha256)
-    {
-        // The record's lines where it has them, else the tree QtRocket shows.
-        const std::vector<std::string>& lines = found.tree.value_or(std::vector<std::string>{});
-        if (expected.tree.has_value())
-        {
-            const std::vector<std::string_view> wanted(expected.tree->begin(),
-                                                       expected.tree->end());
-            differences.push_back("tree: " + QtRocket::Test::firstDifference(wanted, lines));
-        }
-        else
-        {
-            std::string tree = "tree (digest differs; QtRocket's):";
-            for (const std::string& line : lines)
-            {
-                tree += "\n  " + line;
-            }
-            differences.push_back(tree);
-        }
-    }
-    return differences;
 }
 
 // ============================================================================ the comparisons
@@ -286,7 +212,7 @@ TEST_F(FromScratchExitGolden, EveryStepLeavesWhatOpenRocketsGuiShowed)
     const std::string        failure = runScenario(
         [&reference, &observed](const GuiScenarioStep& step, const GuiStepRecord& record) {
             observed.push_back(step.index);
-            EXPECT_EQ(recordDifferences(reference->steps.at(step.index), record),
+            EXPECT_EQ(QtRocket::Test::guiRecordDifferences(reference->steps.at(step.index), record),
                       std::vector<std::string>{})
                 << FromScratchScenario::stepText(step);
         });

@@ -25,6 +25,7 @@
 #include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
+#include "file/openrocket/DesignFileState.h"
 #include "goldens/GoldenData.h"
 
 namespace QtRocket::Test
@@ -1381,7 +1382,11 @@ std::vector<std::string> guiReloadedTree(std::vector<std::string> tree, std::str
     return guiReloadedTree(std::move(tree), kGuiSaveAndReloadChanges, problems);
 }
 
-std::optional<std::string> guiQuestionMember(const GuiQuestion& question, std::string_view member)
+namespace
+{
+
+/// The text member of GuiQuestion named @p member (guiQuestionMember()); null for another name.
+[[nodiscard]] std::string GuiQuestion::* questionMemberNamed(std::string_view member) noexcept
 {
     struct Member
     {
@@ -1401,8 +1406,301 @@ std::optional<std::string> guiQuestionMember(const GuiQuestion& question, std::s
     };
     const std::span<const Member> members(kMembers);
     const auto                    found = std::ranges::find(members, member, &Member::name);
-    return found == members.end() ? std::nullopt
-                                  : std::optional<std::string>{question.*found->member};
+    return found == members.end() ? nullptr : found->member;
+}
+
+/// @p values joined by @p separator.
+[[nodiscard]] std::string joinedTexts(std::span<const std::string> values,
+                                      std::string_view             separator)
+{
+    std::string text;
+    for (const std::string& value : values)
+    {
+        text += (text.empty() ? "" : std::string(separator)) + value;
+    }
+    return text;
+}
+
+/// @p values as "[1, 2]".
+[[nodiscard]] std::string integersText(std::span<const int> values)
+{
+    std::string text;
+    for (const int value : values)
+    {
+        text += (text.empty() ? "" : ", ") + std::to_string(value);
+    }
+    return "[" + text + "]";
+}
+
+/// @p buttons as "a=true b=false" (in the map's order).
+[[nodiscard]] std::string buttonsText(const std::map<std::string, bool, std::less<>>& buttons)
+{
+    std::string text;
+    for (const auto& [name, enabled] : buttons)
+    {
+        text += std::format("{}{}={}", text.empty() ? "" : " ", name, enabled);
+    }
+    return text;
+}
+
+/// What a motor chooser showed, in one line.
+[[nodiscard]] std::string chooserText(const GuiChooserState& state)
+{
+    return std::format(
+        "search='{}' rows={} motor={} delayText={} delay={} nozzleExitDiameter={}", state.search,
+        state.rows,
+        state.motor.has_value() ? std::format("{} {} {}", state.motor->manufacturer,
+                                              state.motor->designation, state.motor->digest)
+                                : std::string("none"),
+        state.delayText.has_value() ? "'" + *state.delayText + "'" : std::string("none"),
+        state.delay, state.nozzleExitDiameter);
+}
+
+/// The lines of the question @p question, the step's question @p at.
+void addQuestionLines(std::size_t at, const GuiQuestion& question, std::vector<std::string>& lines)
+{
+    const std::string prefix = std::format("question {}", at);
+    lines.push_back(
+        std::format("{}: {} '{}'", prefix, guiQuestionName(question.kind), question.title));
+    switch (question.kind)
+    {
+        case GuiQuestionKind::MOTOR:
+            lines.push_back(prefix + " shown: " + chooserText(question.shown));
+            lines.push_back(prefix + " answered: " + chooserText(question.answered));
+            return;
+        case GuiQuestionKind::IGNITION:
+        case GuiQuestionKind::DEPLOYMENT:
+        case GuiQuestionKind::SEPARATION:
+            lines.push_back(std::format("{} scope: {}", prefix, question.scope));
+            lines.push_back(std::format("{} default: {}", prefix, question.defaultText));
+            lines.push_back(std::format("{} override: {}", prefix, question.overrideText));
+            lines.push_back(
+                std::format("{} event: {} delay: {}", prefix, question.event, question.delay));
+            if (question.kind != GuiQuestionKind::IGNITION)
+            {
+                lines.push_back(std::format("{} altitude: {} enabled: {}", prefix,
+                                            question.altitude, question.altitudeEnabled));
+                lines.push_back(
+                    std::format("{} events: {}", prefix, joinedTexts(question.events, " ")));
+            }
+            return;
+        case GuiQuestionKind::RENAME:
+            lines.push_back(std::format("{} name: {}", prefix, question.name));
+            return;
+        case GuiQuestionKind::MESSAGE:
+            lines.push_back(std::format("{} text: {}", prefix, question.text));
+            return;
+    }
+}
+
+/// The lines of the table @p table named @p name ("motors").
+void addTableLines(std::string_view name, const GuiConfigurationTable& table, bool motors,
+                   std::vector<std::string>& lines)
+{
+    lines.push_back(std::format("{} buttons: {}", name, buttonsText(table.buttons)));
+    lines.push_back(std::format("{} header: {}", name, joinedTexts(table.header, " | ")));
+    for (std::size_t row = 0; row < table.rows.size(); ++row)
+    {
+        const GuiTableRow& cells = table.rows[row];
+        std::string        text  = cells.configuration;
+        for (const std::string& cell : cells.cells)
+        {
+            text += " | " + cell;
+        }
+        for (const GuiMotorCell& cell : cells.motorCells)
+        {
+            text += std::format(" | {} / {}{}", cell.motor, cell.ignition,
+                                cell.ignitionDefault ? " (shaded)" : "");
+        }
+        lines.push_back(std::format("{} row {}: {}", name, row, text));
+    }
+    lines.push_back(std::format("{} selection: rows {} columns {}", name,
+                                integersText(table.selectedRows),
+                                integersText(table.selectedColumns)));
+    if (motors)
+    {
+        lines.push_back(std::format("{} help: {}", name, table.showsHelp));
+        std::vector<std::string> mounts;
+        mounts.reserve(table.mounts.size());
+        for (const GuiMountRow& mount : table.mounts)
+        {
+            mounts.push_back(std::format("{} '{}' {}", guiComponentPathText(mount.component),
+                                         mount.text, mount.motorMount ? "[x]" : "[ ]"));
+        }
+        lines.push_back(std::format("{} mounts: {}", name, joinedTexts(mounts, ", ")));
+    }
+}
+
+/// The lines of what the tab showed.
+void addTabLines(const GuiFlightConfigurationState& state, std::vector<std::string>& lines)
+{
+    lines.push_back("configTab: " + state.configTab);
+    std::vector<std::string> tabs;
+    tabs.reserve(state.configTabs.size());
+    for (const GuiConfigTabState& tab : state.configTabs)
+    {
+        tabs.push_back(
+            std::format("{} '{}' {}", tab.tab, tab.title, tab.enabled ? "enabled" : "disabled"));
+    }
+    lines.push_back("configTabs: " + joinedTexts(tabs, ", "));
+    lines.push_back("buttons: " + buttonsText(state.buttons));
+    lines.push_back(std::format("selectedConfiguration: {}", state.selectedConfiguration));
+    std::vector<std::string> simulations;
+    simulations.reserve(state.simulations.size());
+    for (const GuiSimulationRow& simulation : state.simulations)
+    {
+        simulations.push_back(std::format("'{}'={}", simulation.name, simulation.configuration));
+    }
+    lines.push_back("simulations: " + joinedTexts(simulations, ", "));
+    addTableLines("motors", state.motors, true, lines);
+    addTableLines("recovery", state.recovery, false, lines);
+    addTableLines("stages", state.stages, false, lines);
+}
+
+/// @p paths as text, "[Sustainer/Body Tube, (rocket)]".
+[[nodiscard]] std::string pathsText(const std::vector<GuiComponentPath>& paths)
+{
+    std::string text = "[";
+    for (const GuiComponentPath& path : paths)
+    {
+        text += (text.size() > 1 ? ", " : "") + guiComponentPathText(path);
+    }
+    return text + "]";
+}
+
+/// The open window of @p record as text: "<window> <component>", or "none".
+[[nodiscard]] std::string windowText(const GuiStepRecord& record)
+{
+    if (!record.window.has_value())
+    {
+        return "none";
+    }
+    return *record.window + (record.windowComponent.has_value()
+                                 ? " " + guiComponentPathText(*record.windowComponent)
+                                 : std::string());
+}
+
+/// An action's state as text: "'Undo (Add Nose Cone)' enabled".
+[[nodiscard]] std::string actionText(const GuiActionState& action)
+{
+    return std::format("'{}' {}", action.text, action.enabled ? "enabled" : "disabled");
+}
+
+/// The tree's difference between @p expected and @p found, whose digests differ: the first line
+/// that differs where @p expected has the lines, else @p found's tree.
+[[nodiscard]] std::string treeDifference(const GuiStepRecord& expected, const GuiStepRecord& found)
+{
+    const std::vector<std::string>& lines = found.tree.value_or(std::vector<std::string>{});
+    if (expected.tree.has_value())
+    {
+        const std::vector<std::string_view> wanted(expected.tree->begin(), expected.tree->end());
+        return "tree: " + firstDifference(wanted, lines);
+    }
+    std::string tree = "tree (digest differs; QtRocket's):";
+    for (const std::string& line : lines)
+    {
+        tree += "\n  " + line;
+    }
+    return tree;
+}
+
+}  // namespace
+
+std::optional<std::string> guiQuestionMember(const GuiQuestion& question, std::string_view member)
+{
+    std::string GuiQuestion::* const found = questionMemberNamed(member);
+    return found == nullptr ? std::nullopt : std::optional<std::string>{question.*found};
+}
+
+GuiStepRecord guiExpectedRecord(std::string_view scenario, GuiStepRecord record,
+                                std::string& problems)
+{
+    for (const GuiExpectedDifference& difference : kGuiExpectedDifferences)
+    {
+        if (difference.scenario != scenario || difference.step != record.index)
+        {
+            continue;
+        }
+        std::string GuiQuestion::* const member = questionMemberNamed(difference.member);
+        if (difference.question >= record.questions.size() || member == nullptr ||
+            record.questions[difference.question].*member != difference.openRocket)
+        {
+            problems += std::format(
+                "the expected difference of step {} (bug {}) names no question {} with {} {}\n",
+                difference.step, difference.bug, difference.question, difference.member,
+                difference.openRocket);
+            continue;
+        }
+        record.questions[difference.question].*member = std::string(difference.qtRocket);
+    }
+    return record;
+}
+
+std::vector<std::string> guiRecordLines(const GuiStepRecord& record)
+{
+    std::vector<std::string> lines;
+    if (!record.tab.empty())
+    {
+        lines.push_back("tab: " + record.tab);
+    }
+    for (std::size_t at = 0; at < record.questions.size(); ++at)
+    {
+        addQuestionLines(at, record.questions[at], lines);
+    }
+    if (record.flightConfiguration.has_value())
+    {
+        addTabLines(*record.flightConfiguration, lines);
+    }
+    return lines;
+}
+
+std::vector<std::string> guiRecordDifferences(const GuiStepRecord& expected,
+                                              const GuiStepRecord& found)
+{
+    std::vector<std::string> differences;
+    const auto compare = [&differences](std::string_view what, const std::string& wanted,
+                                        const std::string& got) {
+        if (wanted != got)
+        {
+            differences.push_back(std::format("{}: OpenRocket {}, QtRocket {}", what, wanted, got));
+        }
+    };
+    compare("undo", actionText(expected.undo), actionText(found.undo));
+    compare("redo", actionText(expected.redo), actionText(found.redo));
+    compare("saved", expected.saved ? "true" : "false", found.saved ? "true" : "false");
+    compare("selection", pathsText(expected.selection), pathsText(found.selection));
+    compare("window", windowText(expected), windowText(found));
+    if (expected.treeSha256 != found.treeSha256)
+    {
+        differences.push_back(treeDifference(expected, found));
+    }
+    // The members of version 2, line for line.
+    const std::vector<std::string> wanted = guiRecordLines(expected);
+    const std::vector<std::string> got    = guiRecordLines(found);
+    std::size_t                    named  = 0;
+    std::size_t                    more   = 0;
+    for (std::size_t at = 0; at < std::max(wanted.size(), got.size()); ++at)
+    {
+        const std::string  none  = "(no line)";
+        const std::string& left  = at < wanted.size() ? wanted[at] : none;
+        const std::string& right = at < got.size() ? got[at] : none;
+        if (left == right)
+        {
+            continue;
+        }
+        if (named == kGuiRecordDifferenceLines)
+        {
+            ++more;
+            continue;
+        }
+        ++named;
+        differences.push_back(std::format("OpenRocket: {}\n    QtRocket: {}", left, right));
+    }
+    if (more > 0)
+    {
+        differences.push_back(std::format("... and {} more lines that differ", more));
+    }
+    return differences;
 }
 
 }  // namespace QtRocket::Test
