@@ -245,7 +245,10 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   generator stops if it did: it never does). The panel makes a `MotorChooserDialog`, a `JDialog`, which a
   headless AWT refuses, so the probe runs under `xvfb-run` with `-Djava.awt.headless=false`; no window is shown.
   The header reuses the cell types of `FlightConfigurationTablePins.h` and its generator the `flight-config`
-  generator's helpers; the test applies QtRocket's fix of bug 1 (plan 10.3: a recovery or stage cell without a
+  generator's helpers, its rows of those types too (`configuration_row()`, `motor_cell_row()`,
+  `value_cell_row()`, `motor_mount_row()` of `gen_flight_configuration_table_pins.py`, the one place that knows
+  the order of their fields, which both headers write positionally): a change of those structs regenerates both
+  families (`generate.sh flight-config open-designs`); the test applies QtRocket's fix of bug 1 (plan 10.3: a recovery or stage cell without a
   value of its own is shaded, which OpenRocket never shades in a loaded design) as
   `flight_configuration_tables_golden_tests.cpp` does.
   Its second probe, `OpenDesignsPartsLibraryProbe`, opens OpenRocket's parts library
@@ -478,7 +481,9 @@ loaded designs in their environments, seeded, with the panel of a `BasicFrame` a
 probe makes it, the design's selection after the tab took the spotlight, and the tables printed as
 `FlightConfigurationTablesProbe` prints them). Part Y2 added its second probe, `OpenDesignsPartsLibraryProbe` (the
 M3 tests-exit scout's E4: the parts library of each component of the examples, `PresetChooserProbe`'s dialog
-made for the loaded and settled designs over the bundled presets).
+made for the loaded and settled designs over the bundled presets). Its review moved the rows of the structs both
+`flight-config` and `open-designs` write into the `flight-config` generator's row functions (both headers stayed
+byte for byte the same).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

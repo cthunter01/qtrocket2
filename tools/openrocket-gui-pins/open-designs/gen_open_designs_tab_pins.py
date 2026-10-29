@@ -5,8 +5,11 @@ usage: gen_open_designs_tab_pins.py PROBE_OUTPUT HEADER COMMIT
 
 PROBE_OUTPUT is the probe's standard output (generate.sh sends OpenRocket's log to standard error): one line
 each, its fields separated by tabs (see the probe's class comment). The header reuses the cell types of the
-flight-config family's FlightConfigurationTablePins.h, and this generator that family's helpers: a style the
-QtRocket tables do not know stops it, as there, and so does a tab whose opening changed the design.
+flight-config family's FlightConfigurationTablePins.h, and this generator that family's helpers: its rows of
+those types come from that generator's row functions (configuration_row(), motor_cell_row(), value_cell_row(),
+motor_mount_row(): the one place that knows their fields' order, so a change there is regenerated into both
+headers by generate.sh flight-config open-designs), a style the QtRocket tables do not know stops it, as there,
+and so does a tab whose opening changed the design.
 """
 import os
 import pathlib
@@ -132,11 +135,10 @@ def parse(lines):
             current["selected"] = int(fields[1])
             current["stages"] = int(fields[2])
         elif tag == "C":
-            expect_fields(fields, 6, line)
+            row = tables.configuration(fields, line)
             if int(fields[1]) != len(current["configurations"]):
                 raise SystemExit("rows out of order: " + line)
-            current["configurations"].append({"key": fields[2], "drawn": boolean(fields[3]), "raw": fields[4],
-                                              "overridden": boolean(fields[5])})
+            current["configurations"].append(row)
         elif tag == "TAB":
             expect_fields(fields, 4, line)
             if int(fields[1]) != len(current["tabs"]):
@@ -163,25 +165,17 @@ def parse(lines):
             style(fields[3], line, regular_only=True)
             current["configurations"][int(fields[1])]["name"] = fields[2]
         elif tag == "M":
-            expect_fields(fields, 9, line)
-            style(fields[4], line, regular_only=True)
-            current["motorCells"].append("    {%d, %d, %s, %s, %s, %s, %s}," % (
-                int(fields[1]), int(fields[2]), cpp_string(fields[3]), cpp_string(fields[5]),
-                style(fields[6], line), boolean(fields[7]), boolean(fields[8])))
+            current["motorCells"].append(tables.motor_cell_row(fields, line))
         elif tag in ("R", "T"):
-            expect_fields(fields, 7, line)
-            cells = current["recoveryCells" if tag == "R" else "stageCells"]
-            cells.append("    {%d, %d, %s, %s, %s, %s}," % (
-                int(fields[1]), int(fields[2]), cpp_string(fields[3]), style(fields[4], line),
-                boolean(fields[5]), boolean(fields[6])))
+            current["recoveryCells" if tag == "R" else "stageCells"].append(tables.value_cell_row(fields, line))
         elif tag in ("MS", "RS", "TS"):
             current[{"MS": "motorSelection", "RS": "recoverySelection", "TS": "stageSelection"}[tag]] = \
                 selection(fields, line)
         elif tag == "P":
-            expect_fields(fields, 4, line)
+            row = tables.motor_mount_row(fields, line)
             if int(fields[1]) != len(current["mounts"]):
                 raise SystemExit("mount rows out of order: " + line)
-            current["mounts"].append("    {%s, %s}," % (boolean(fields[2]), cpp_string(fields[3])))
+            current["mounts"].append(row)
         elif tag == "DS":
             expect_fields(fields, 2, line)
             current["designSelection"] = fields[1]
@@ -209,12 +203,7 @@ def main():
     table = []
     for design in designs:
         name = tables.ident(design["design"])
-        rows = []
-        for row in design["configurations"]:
-            if "name" not in row:
-                raise SystemExit("no column 0 for a row of " + design["design"])
-            rows.append("    {%s, %s, %s, %s, %s}," % (cpp_string(row["key"]), row["drawn"], cpp_string(row["raw"]),
-                                                     row["overridden"], cpp_string(row["name"])))
+        rows = [tables.configuration_row(row, design["design"]) for row in design["configurations"]]
         names = {}
         for part, element, key in (("Configurations", "ConfigurationRowPin", None),
                                    ("Tabs", "EnabledPin", "tabs"),

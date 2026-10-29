@@ -36,8 +36,10 @@
 //   the rows and their configurations, the three sub-tabs, every button, the help text of a
 //   design without a motor mount, the three tables cell by cell through the panels' models (the
 //   texts, the shading, the selection the tables make), the motor mount table, and the design's
-//   selection that the Motors table sets; opening it changes nothing, and a click on a row
-//   chooses its configuration, in the design view's configuration selector too;
+//   selection that the Motors table sets; opening it changes nothing, and a click on a row of the
+//   Motors table, when the panel shows its table, chooses its configuration, in the design view's
+//   configuration selector too (a design without an acting motor mount shows the help text and
+//   no table to click, as OpenRocket's);
 // - for the sixteen examples (OpenDesignsExitGoldenPartsLibrary, Milestone 3, the tests-exit
 //   scout's E4), the parts library of every component that takes presets, as its configuration
 //   dialog's "Parts Library" button opens it (the application's modal dialog, over the bundled
@@ -49,7 +51,8 @@
 //   tolerances, "Always open this dialog", the table's rows (their number and the MD5 of
 //   their presets in view order) and its first five rows cell by cell, and its rows with the
 //   diameter boxes unticked; the dialog's preset combo box shows the component's preset, and
-//   opening the parts libraries changes nothing.
+//   opening the parts libraries changes nothing; the design loads with the bundled presets as
+//   with the six (the same questions, no warning).
 //
 // The environment of the windows is that of the core's golden tests (DesignFileEnvironment with
 // the six component presets of the example designs, Presets::EXAMPLES: the bundled motor
@@ -2190,71 +2193,123 @@ void expectSubTabsAsJava(const FlightConfigurationPanel& tab, const OpenDesignTa
 }
 
 /// A button of the tab, by the name of the Java field that holds it ("<panel>.<field>":
-/// OpenDesignsTabPins.h).
+/// OpenDesignsTabPins.h), with the sub-tab whose page holds it (FlightConfigurationPanel's
+/// k...TabIndex; kNoSubTab for the tab's own four buttons).
 struct TabButton
 {
     std::string_view name;
+    int              subTab;
     const QPushButton* (*button)(const FlightConfigurationPanel& tab);
 };
 
+/// TabButton::subTab of a button on no sub-tab.
+constexpr int kNoSubTab = -1;
+
 const std::array<TabButton, 12> kTabButtons{{
     {.name   = "tab.newConfButton",
+     .subTab = kNoSubTab,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.newConfigurationButton();
      }},
     {.name   = "tab.renameConfButton",
+     .subTab = kNoSubTab,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.renameConfigurationButton();
      }},
     {.name   = "tab.removeConfButton",
+     .subTab = kNoSubTab,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.deleteConfigurationButton();
      }},
     {.name   = "tab.duplicateConfButton",
+     .subTab = kNoSubTab,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.duplicateConfigurationButton();
      }},
     {.name   = "motors.selectMotorButton",
+     .subTab = FlightConfigurationPanel::kMotorTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.motorConfigurationPanel().selectMotorButton();
      }},
     {.name   = "motors.deleteMotorButton",
+     .subTab = FlightConfigurationPanel::kMotorTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.motorConfigurationPanel().deleteMotorButton();
      }},
     {.name   = "motors.selectIgnitionButton",
+     .subTab = FlightConfigurationPanel::kMotorTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.motorConfigurationPanel().selectIgnitionButton();
      }},
     {.name   = "motors.resetIgnitionButton",
+     .subTab = FlightConfigurationPanel::kMotorTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.motorConfigurationPanel().resetIgnitionButton();
      }},
     {.name   = "recovery.selectDeploymentButton",
+     .subTab = FlightConfigurationPanel::kRecoveryTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.recoveryConfigurationPanel().selectDeploymentButton();
      }},
     {.name   = "recovery.resetDeploymentButton",
+     .subTab = FlightConfigurationPanel::kRecoveryTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.recoveryConfigurationPanel().resetDeploymentButton();
      }},
     {.name   = "stages.selectSeparationButton",
+     .subTab = FlightConfigurationPanel::kSeparationTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.separationConfigurationPanel().selectSeparationButton();
      }},
     // Java's field of the Stages panel's Reset button is named resetDeploymentButton.
     {.name   = "stages.resetDeploymentButton",
+     .subTab = FlightConfigurationPanel::kSeparationTabIndex,
      .button = [](const FlightConfigurationPanel& tab) -> const QPushButton* {
          return tab.separationConfigurationPanel().resetSeparationButton();
      }},
 }};
 
-/// Whether @p button itself is enabled, as Java's isEnabled() tells: a disabled sub-tab disables
-/// its page and so every widget on it (QTabWidget::setTabEnabled()), which a JTabbedPane does
-/// not.
-[[nodiscard]] bool isEnabledItself(const QPushButton& button)
+/// Whether @p button, the button @p entry of @p tab, is enabled as Java's isEnabled() tells,
+/// which is what the user sees (a JPanel's setEnabled() never disables the components on it):
+/// isEnabled(), but for a button on the page of a disabled sub-tab, which
+/// QTabWidget::setTabEnabled() disables with the page and so every widget on it (a JTabbedPane
+/// disables only the tab: setEnabledAt()). There it is whether neither the button nor a widget
+/// between it and the page is disabled (isEnabledTo()) and the page's parent is enabled: nothing
+/// but the page's own flag is ignored.
+[[nodiscard]] bool isEnabledAsJava(const FlightConfigurationPanel& tab, const TabButton& entry,
+                                   const QPushButton& button)
 {
-    return !button.testAttribute(Qt::WA_ForceDisabled);
+    if (entry.subTab == kNoSubTab || tab.tabs()->isTabEnabled(entry.subTab))
+    {
+        return button.isEnabled();
+    }
+    const QWidget* const page = tab.tabs()->widget(entry.subTab);
+    QTROCKET_ASSERT(page != nullptr && page->parentWidget() != nullptr);
+    return button.isEnabledTo(page) && page->parentWidget()->isEnabled();
+}
+
+/// Whether @p button, the button @p entry of @p tab, is where @p entry has it: on the page of its
+/// sub-tab, or on the tab outside the sub-tabs.
+[[nodiscard]] bool isOnItsPage(const FlightConfigurationPanel& tab, const TabButton& entry,
+                               const QPushButton& button)
+{
+    if (entry.subTab == kNoSubTab)
+    {
+        return tab.isAncestorOf(&button) && !tab.tabs()->isAncestorOf(&button);
+    }
+    const QWidget* const page = tab.tabs()->widget(entry.subTab);
+    return page != nullptr && page->isAncestorOf(&button);
+}
+
+/// The button @p entry of @p tab as Java's @p pin.
+void expectButtonAsJava(const FlightConfigurationPanel& tab, const TabButton& entry,
+                        const EnabledPin& pin)
+{
+    EXPECT_EQ(entry.name, pin.name);
+    const QPushButton* const button = entry.button(tab);
+    ASSERT_NE(button, nullptr) << pin.name;
+    EXPECT_TRUE(isOnItsPage(tab, entry, *button)) << pin.name;
+    EXPECT_EQ(isEnabledAsJava(tab, entry, *button), pin.enabled) << pin.name;
 }
 
 /// The buttons of @p tab as Java's @p buttons (kTabButtons' order, the probe's).
@@ -2263,10 +2318,7 @@ void expectButtonsAsJava(const FlightConfigurationPanel& tab, std::span<const En
     ASSERT_EQ(buttons.size(), kTabButtons.size());
     for (std::size_t i = 0; i < buttons.size(); ++i)
     {
-        EXPECT_EQ(kTabButtons.at(i).name, buttons[i].name);
-        const QPushButton* const button = kTabButtons.at(i).button(tab);
-        ASSERT_NE(button, nullptr) << buttons[i].name;
-        EXPECT_EQ(isEnabledItself(*button), buttons[i].enabled) << buttons[i].name;
+        expectButtonAsJava(tab, kTabButtons.at(i), buttons[i]);
     }
 }
 
@@ -2311,13 +2363,37 @@ void expectMotorsAsJava(const FlightConfigurationPanel& tab, const OpenDesignTab
     expectMotorMountsAsJava(motors.motorMountConfigurationPanel().model(), pin.motorMounts);
 }
 
+/// Whether @p tab offers the user its Motors table to choose a configuration in. A design without
+/// an acting motor mount offers none: the Motors panel shows its help text in place of the table
+/// and its buttons (OpenRocket's showEmptyText(): its CardLayout shows HELP_LABEL), and the
+/// Recovery and Stages sub-tabs, which need a motor mount, are disabled
+/// (FlightConfigurationPanel.updateButtonState(); the pins' tabs), so the design keeps the
+/// configuration it opened with.
+[[nodiscard]] bool offersItsMotorsTable(const FlightConfigurationPanel& tab)
+{
+    const MotorConfigurationPanel& motors = tab.motorConfigurationPanel();
+    if (!motors.isShowingHelp())
+    {
+        EXPECT_TRUE(motors.table().isVisibleTo(&motors));
+        return motors.table().isVisibleTo(&motors);
+    }
+    EXPECT_FALSE(motors.table().isVisibleTo(&motors));
+    EXPECT_FALSE(tab.tabs()->isTabEnabled(FlightConfigurationPanel::kRecoveryTabIndex));
+    EXPECT_FALSE(tab.tabs()->isTabEnabled(FlightConfigurationPanel::kSeparationTabIndex));
+    return false;
+}
+
 /// Clicks each row of the Motors table of @p tab, a tab of @p window, in its last column, as the
 /// user chooses a configuration there, and expects the rocket's selected configuration to follow,
 /// and with it the configuration selector of the design view (OpenRocket's table listener sets
 /// Rocket.setSelectedConfiguration(), which the ribbon's ConfigurationComboBox shows: its item 0 is
-/// the default configuration).
+/// the default configuration); nothing when the tab offers no table (offersItsMotorsTable()).
 void expectRowsChooseTheConfiguration(const MainWindow& window, const FlightConfigurationPanel& tab)
 {
+    if (!offersItsMotorsTable(tab))
+    {
+        return;
+    }
     const MotorConfigurationPanel&      motors   = tab.motorConfigurationPanel();
     const FlightConfigurableTableModel& model    = motors.tableModel();
     const Rocket&                       rocket   = window.document().getRocket();
@@ -2392,7 +2468,8 @@ TEST_P(OpenDesignsExitGolden, TheConfigurationTabShowsOpenRocketsTables)
     EXPECT_EQ(rocket.getSelectedConfiguration().getId(), selected);
     EXPECT_EQ(prompts().prompts().size(), questionsOfTheOpening(GetParam()));
 
-    // Each row, clicked, chooses its configuration, in the design view too.
+    // Each row, clicked, chooses its configuration, in the design view too (when the Motors panel
+    // shows its table: a design without an acting motor mount has none to click).
     expectRowsChooseTheConfiguration(*window, *tab);
 }
 
@@ -2855,6 +2932,13 @@ TEST_P(OpenDesignsExitGoldenPartsLibrary, OpensOpenRocketsPartsLibraryForEachCom
     ASSERT_FALSE(pins.empty()) << "no pins of OpenRocket's parts libraries";
     const MainWindow* const window = open(PartsLibrary::APPLICATIONS);
     ASSERT_NE(window, nullptr);
+    // The load with the bundled presets asked and warned as with the six of the examples
+    // (OpensWithItsTitleTreeAndLoadWarnings): the file question, and no warning ("No matching
+    // ComponentPreset" or a wrong digest among them).
+    const std::vector<Gui::Test::ScriptedUserPrompts::Prompt>& asked = prompts().prompts();
+    EXPECT_EQ(asked.size(), questionsOfTheOpening(GetParam()));
+    EXPECT_EQ(shownLoadWarnings(asked, QtStrings::fromPath(GetParam().file.filename())),
+              expectedLoadWarnings(GetParam()));
     // The bundled presets, the probe's.
     EXPECT_EQ(services().presets().size(),
               static_cast<std::size_t>(Gui::Test::kOpenDesignsPartsLibraryPresetsKept));
