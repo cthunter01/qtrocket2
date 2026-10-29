@@ -93,7 +93,9 @@ The "Motors & Configuration" tab:
 1. **Cells that use the default.** OpenRocket compares configurations by identity, so it never shows a recovery
    device's or a stage's cell in the dim italics of a default value, and its deployment and separation dialogs
    always start on "Override for the ... flight configuration only". QtRocket dims every such cell that has no
-   value of its own, and starts these dialogs on "Change all configurations ..." for it
+   value of its own, and starts these dialogs on "Change all configurations ..." for it: in the 66 designs the
+   exit suite opens (the examples, the re-saves and the GUI reference), 271 of the 294 recovery and stage cells are
+   dimmed, where OpenRocket dims none
    (`flightconfig/FlightConfigurationCellText.h`, `FlightConfigurationEditing.h`).
 2. **Where the ignition dialog starts.** OpenRocket's starts on "Change all configurations ..." exactly when the
    cell has no motor. QtRocket's starts there when the cell has no ignition of its own, and then shows the
@@ -114,7 +116,10 @@ The "Motors & Configuration" tab:
    (`flightconfig/FlightConfigurationEditing.h`).
 6. **A motor mount's default ignition.** OpenRocket loses it on undo, redo, copy and paste, duplicate and when a
    cluster is split: it comes back as "Automatic" with no delay. QtRocket keeps it
-   (`rocket/MotorConfigurationSet.h` in the core).
+   (`rocket/MotorConfigurationSet.h` in the core). So a motor mount pasted into another design shows its kept
+   default in the configurations it has no motor for: "None" / "Automatic", not dimmed. OpenRocket's copy starts
+   from a fresh default and shows "Default (Automatic)", dimmed. After saving and reopening, both show the cell
+   alike (`tests/gui/exit/pasted_motor_mount_tests.cpp`).
 
 The motor chooser and its plot:
 
@@ -397,9 +402,6 @@ The thrust curve preview of the motor chooser and its "Motor thrust curves" dial
   `ComponentPresetDatabaseLoader.h` in the core).
 - A file whose document type declares anything (an XML entity) is refused, as design files are.
 - A directory's files are read in the order of their names. OpenRocket's order is the system's.
-
-<!-- RUN 3 MERGE: the deliberate differences that groups X and Y (the tab's exit suite, the open-designs exit and
-the parts library per component) report go into the sections above, or here. Remove this comment then. -->
 
 ## Preferences
 
