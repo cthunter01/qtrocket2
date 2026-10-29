@@ -13,5 +13,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     FromScratchScenario.cpp
     FromScratchScenarioTests.cpp
     open_designs_exit_tests.cpp
+    pasted_motor_mount_tests.cpp
     ScenarioInput.cpp
 )

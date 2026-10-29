@@ -71,7 +71,8 @@ import info.openrocket.core.util.TestRockets;
 /**
  * Section 7's interop check (README.md, "Interop check"): OpenRocket reads the design files QtRocket
  * saved (the DISABLED_ test of tests/core/goldens/ork_interop_saves_tests.cpp writes them, and the
- * GUI's save the DISABLED_ FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp, named
+ * GUI's saves the DISABLED_ FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp and
+ * FlightConfigurationsInteropSave of tests/gui/exit/flight_configurations_exit_tests.cpp, named
  * {@code <input>.<form>.ork}, the form being {@code zip-data}, {@code zip-nodata}, {@code plain-data}
  * or {@code plain-nodata}) and gets from each the design it gets from its own save of the same input.
  * <p>
@@ -79,15 +80,21 @@ import info.openrocket.core.util.TestRockets;
  * document's default storage options, and plain XML without simulation data), the thirteen test
  * rockets (loaded from their re-saves; an archive), the eighteen legacy files of tests/data/ork (an
  * archive with simulation data, or plain XML with it where OpenRocket's archive fails: v1.6-apocd) and
- * the two saver-coverage documents (loaded from their re-saves; an archive); and the GUI's from-scratch
+ * the two saver-coverage documents (loaded from their re-saves; an archive); the GUI's from-scratch
  * design ({@value #GUI_INPUT}: the design QtRocket's GUI made from the scenario of
  * tests/data/goldens/gui/from-scratch and saved with Save as, an archive with the document's default
- * storage options; the input is OpenRocket's own save of the same scenario, rocket.ork there). Each
- * input is loaded in the environment of its goldens: the harness's (the examples and the coverage
- * documents), the legacy files' ({@link GoldenDumper#legacyInjector}), the seven motors of TestRockets
- * with no component preset (the test rockets, whose motors are synthetic) or that of OpenRocket's GUI
- * after its start-up ({@link #guiInjector}: the GUI's design, as tools/openrocket-gui-reference loads
- * it).
+ * storage options; the input is OpenRocket's own save of the same scenario, rocket.ork there); and the
+ * designs of the two scenarios of the Motors &amp; Configuration tab ({@link #GUI_TAB_SCENARIOS}, the
+ * inputs {@code gui-<scenario>}: the design file the scenario of tests/data/goldens/gui/&lt;scenario&gt;
+ * opens, changed in QtRocket's tab as the scenario says and saved with Save as, an archive with the
+ * document's default storage options; the input is OpenRocket's own save of the same scenario, rocket.ork
+ * there). Each input is loaded in the environment of its goldens: the harness's (the examples and the
+ * coverage documents), the legacy files' ({@link GoldenDumper#legacyInjector}), the seven motors of
+ * TestRockets with no component preset (the test rockets, whose motors are synthetic) or that of
+ * OpenRocket's GUI after its start-up, in which tools/openrocket-gui-reference loads the saved design:
+ * without a motor and a preset for the from-scratch design (the reference's version 1 bypasses both,
+ * {@link #guiInjector}), with the bundled ones for the tab's scenarios (version 2's start-up,
+ * {@link #guiTabInjector}).
  * <p>
  * Per file, with Q OpenRocket's load of QtRocket's save, O its load of the input and OO its load of its
  * own save of O in the same form (the first save of a fresh load, as QtRocket's is):
@@ -100,17 +107,20 @@ import info.openrocket.core.util.TestRockets;
  * where QtRocket's did;</li>
  * <li>OpenRocket's re-save of Q (OpenRocketSaver, with the simulation data) is its re-save of OO, byte
  * for byte, but for the lines of {@link #ALLOWED_RESAVE_CHANGES} (decided deviations), the ids that the
- * input does not name numbered on both sides (every id for the GUI's design, whose component ids
- * QtRocket's GUI drew). Not the committed re-save: OpenRocket's own round trip changes a design (its
- * saver writes the warning type RecoveryHighSpeedDeployment, which its loader reads as Other);</li>
+ * input does not name numbered on both sides (every id for the GUI's from-scratch design, whose
+ * component ids QtRocket's GUI drew; for a scenario of the tab, the ids that the design file it opens
+ * does not name: the configurations New and Duplicate made). Not the committed re-save: OpenRocket's own
+ * round trip changes a design (its saver writes the warning type RecoveryHighSpeedDeployment, which its
+ * loader reads as Other);</li>
  * <li>the geometry, mass and aerodynamics documents of Q, written by the harness's dumpers after the
  * re-save and the settling of the automatic dimensions as GoldenDumper writes them, are the goldens,
  * byte for byte, for an example; those of OO for a test rocket (the goldens of a test rocket describe
  * the maker's rocket, which OpenRocket's reload of its re-save changes in fourteen values: README.md,
  * "resave/rocket.ork"), and for a coverage document or a legacy file whose components have the same
  * ids in Q and OO (a loader draws the component ids of the formats 1.0 to 1.8, which store none, and
- * OpenRocket's sums follow them in the last bit; the GUI's design has other ids than OpenRocket's save
- * of the scenario too; the report lists a comparison it leaves out under "not compared");</li>
+ * OpenRocket's sums follow them in the last bit; the GUI's from-scratch design has other ids than
+ * OpenRocket's save of the scenario too; the report lists a comparison it leaves out under "not
+ * compared"), and for a scenario of the tab, whose components keep the ids of the file it opens;</li>
  * <li>the options of every simulation of Q are those of O (or of OO, where OpenRocket's own save
  * changes them); for an example or a test rocket also, made reproducible as the harness makes them,
  * the options and extensions of the golden simulation documents (and the harness's record of what it
@@ -138,9 +148,12 @@ public final class InteropCheck {
 	private InteropCheck() {
 	}
 
-	/** The kinds of the inputs, by the prefixes of their names. */
+	/**
+	 * The kinds of the inputs, by the prefixes of their names: GUI is the GUI's from-scratch design, GUI_TAB a
+	 * design of a scenario of the Motors &amp; Configuration tab.
+	 */
 	private enum Kind {
-		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE, GUI
+		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE, GUI, GUI_TAB
 	}
 
 	/**
@@ -153,12 +166,23 @@ public final class InteropCheck {
 	private static final String GUI_REFERENCE = "gui/from-scratch/rocket.ork";
 
 	/**
-	 * An input of the manifest, or the GUI's from-scratch design: what OpenRocket loads as the input
-	 * ({@code source}), the golden simulation documents of an example or a test rocket ({@code simulations},
-	 * relative to the goldens), and the failure of OpenRocket's archive of a legacy file ({@code archiveError},
-	 * or null).
+	 * The scenarios of the Motors &amp; Configuration tab (tools/openrocket-gui-reference's version 2, the C++
+	 * tests' kGuiTabScenarios), whose designs no manifest lists either: the input {@code gui-<scenario>} is
+	 * QtRocket's save of the scenario (FlightConfigurationsInteropSave of
+	 * tests/gui/exit/flight_configurations_exit_tests.cpp) against OpenRocket's,
+	 * {@code gui/<scenario>/rocket.ork} in the goldens. The design file the scenario opens is the one its
+	 * reference names ({@code input.file} of {@code gui/<scenario>/state.json}, with its SHA-256).
 	 */
-	private record Input(String name, Kind kind, Path source, List<String> simulations, String archiveError) {
+	private static final List<String> GUI_TAB_SCENARIOS = List.of("flight-configurations", "multi-stage");
+
+	/**
+	 * An input of the manifest, or a design of the GUI: what OpenRocket loads as the input ({@code source}),
+	 * the golden simulation documents of an example or a test rocket ({@code simulations}, relative to the
+	 * goldens), the failure of OpenRocket's archive of a legacy file ({@code archiveError}, or null), and for a
+	 * scenario of the tab the design file it opens ({@code opened}, whose ids the saves keep; null otherwise).
+	 */
+	private record Input(String name, Kind kind, Path source, List<String> simulations, String archiveError,
+			Path opened) {
 	}
 
 	/** How QtRocket saved a file: as an .ork archive or as plain XML, with the simulation data or without. */
@@ -275,14 +299,16 @@ public final class InteropCheck {
 		}
 	}
 
-	/** The injectors of the four environments. */
-	private record Injectors(Injector harness, Injector legacy, Injector testRockets, Injector gui) {
+	/** The injectors of the five environments. */
+	private record Injectors(Injector harness, Injector legacy, Injector testRockets, Injector gui,
+			Injector guiTab) {
 		Injector of(Kind kind) {
 			return switch (kind) {
 				case EXAMPLE, COVERAGE -> harness;
 				case LEGACY -> legacy;
 				case TEST_ROCKET -> testRockets;
 				case GUI -> gui;
+				case GUI_TAB -> guiTab;
 			};
 		}
 	}
@@ -307,12 +333,19 @@ public final class InteropCheck {
 		GoldenDumper.Environment environment = GoldenDumper.bootstrap(a.openrocket.resolve("core"),
 				processDirectory);
 		Injectors injectors = new Injectors(Application.getInjector(), GoldenDumper.legacyInjector(environment),
-				testRocketInjector(), guiInjector());
+				testRocketInjector(), guiInjector(), guiTabInjector(environment));
 		Application.setInjector(injectors.harness());
 
 		JsonObject manifest = JsonParser.parseString(Files.readString(a.goldens.resolve("manifest.json")))
 				.getAsJsonObject();
-		List<Input> inputs = inputs(a, manifest);
+		List<Input> inputs;
+		try {
+			inputs = inputs(a, manifest);
+		} catch (IllegalStateException e) {
+			System.err.println("error: " + e.getMessage());
+			System.exit(1);
+			return;
+		}
 		Map<String, Path> saves = savedFiles(a.saves);
 		System.out.println("InteropCheck: OpenRocket " + BuildProperties.getVersion() + " reads QtRocket's saves in "
 				+ a.saves);
@@ -329,7 +362,8 @@ public final class InteropCheck {
 			if (!expected.contains(file)) {
 				Report report = new Report(file);
 				report.failures.add("not checked: the file name (<input>.<form>.ork) names no input of the manifest "
-						+ "(or " + GUI_INPUT + ") with that form, or a second save of one kind");
+						+ "(or " + GUI_INPUT + ", or gui-<scenario> of " + GUI_TAB_SCENARIOS + ") with that form, or a "
+						+ "second save of one kind");
 				reports.add(report);
 			}
 		}
@@ -412,10 +446,46 @@ public final class InteropCheck {
 		};
 		Injector injector = Guice.createInjector(Modules.override(new ServicesForTesting()).with(overrides),
 				new PluginModule());
+		setStartupComponentMaterials(preferences);
+		return injector;
+	}
+
+	/**
+	 * The injector of the designs of the tab's scenarios: OpenRocket's GUI after the start-up of
+	 * tools/openrocket-gui-reference's version 2 (its README, "Version 2"), in which it loads the design its
+	 * scenario saved (the reload behind "loaded") and the C++ tests load a save of that scenario
+	 * (GuiReferenceEnvironment(Databases::BUNDLED) of tests/core/goldens/GuiReferenceEnvironment.h): the
+	 * bundled motors and component presets (the harness's databases: initial_motors.db, 1458 motor sets of 1588
+	 * motors, and the 5228 presets of the .orc files, as the start-up's state.json records them) and the
+	 * default component materials of {@link #guiInjector}, the test preferences otherwise.
+	 */
+	private static Injector guiTabInjector(GoldenDumper.Environment environment) {
+		GuiStartupPreferences preferences = new GuiStartupPreferences();
+		ComponentPresetDatabase presets = environment.presets();
+		ThrustCurveMotorSetDatabase motors = environment.motors();
+		Module overrides = new AbstractModule() {
+			@Override
+			protected void configure() {
+				bind(ApplicationPreferences.class).toInstance(preferences);
+				bind(ComponentPresetDao.class).toInstance(presets);
+				bind(ThrustCurveMotorSetDatabase.class).toInstance(motors);
+				bind(MotorDatabase.class).to(ThrustCurveMotorSetDatabase.class);
+			}
+		};
+		Injector injector = Guice.createInjector(Modules.override(new ServicesForTesting()).with(overrides),
+				new PluginModule());
+		setStartupComponentMaterials(preferences);
+		return injector;
+	}
+
+	/**
+	 * The default component materials the GUI's start-up stores (SwingPreferences.loadDefaultComponentMaterials,
+	 * :911-914: Balsa for fin sets, Polystyrene for nose cones), with which a new component of the loader starts.
+	 */
+	private static void setStartupComponentMaterials(GuiStartupPreferences preferences) {
 		preferences.setDefaultComponentMaterial(FinSet.class, Databases.findMaterial(Material.Type.BULK, "Balsa"));
 		preferences.setDefaultComponentMaterial(NoseCone.class,
 				Databases.findMaterial(Material.Type.BULK, "Polystyrene"));
-		return injector;
 	}
 
 	/**
@@ -453,9 +523,10 @@ public final class InteropCheck {
 
 	/**
 	 * The inputs of the manifest: "inputs" (examples and test rockets), then "resaves.inputs"; and last the
-	 * GUI's from-scratch design, which the manifest does not list.
+	 * GUI's from-scratch design and the designs of the tab's scenarios, which the manifest does not list.
+	 * Throws IllegalStateException when the design file a scenario opens is not the one of its reference.
 	 */
-	private static List<Input> inputs(Arguments a, JsonObject manifest) {
+	private static List<Input> inputs(Arguments a, JsonObject manifest) throws IOException {
 		List<Input> inputs = new ArrayList<>();
 		for (JsonElement element : manifest.getAsJsonArray("inputs")) {
 			JsonObject o = element.getAsJsonObject();
@@ -467,7 +538,7 @@ public final class InteropCheck {
 			}
 			Path source = example ? a.examples.resolve(fileName(o.get("source").getAsString()))
 					: a.goldens.resolve(o.get("resave").getAsString());
-			inputs.add(new Input(name, example ? Kind.EXAMPLE : Kind.TEST_ROCKET, source, simulations, null));
+			inputs.add(new Input(name, example ? Kind.EXAMPLE : Kind.TEST_ROCKET, source, simulations, null, null));
 		}
 		for (JsonElement element : manifest.getAsJsonObject("resaves").getAsJsonArray("inputs")) {
 			JsonObject o = element.getAsJsonObject();
@@ -477,10 +548,41 @@ public final class InteropCheck {
 					: a.goldens.resolve(o.get("resave").getAsString());
 			String archiveError = legacy && !o.get("archiveError").isJsonNull() ? o.get("archiveError").getAsString()
 					: null;
-			inputs.add(new Input(name, legacy ? Kind.LEGACY : Kind.COVERAGE, source, List.of(), archiveError));
+			inputs.add(new Input(name, legacy ? Kind.LEGACY : Kind.COVERAGE, source, List.of(), archiveError, null));
 		}
-		inputs.add(new Input(GUI_INPUT, Kind.GUI, a.goldens.resolve(GUI_REFERENCE), List.of(), null));
+		inputs.add(new Input(GUI_INPUT, Kind.GUI, a.goldens.resolve(GUI_REFERENCE), List.of(), null, null));
+		for (String scenario : GUI_TAB_SCENARIOS) {
+			Path directory = a.goldens.resolve("gui").resolve(scenario);
+			inputs.add(new Input("gui-" + scenario, Kind.GUI_TAB, directory.resolve("rocket.ork"), List.of(), null,
+					openedFile(a, directory)));
+		}
 		return inputs;
+	}
+
+	/**
+	 * The design file the scenario of {@code directory} opens: {@code input.file} of its reference
+	 * (state.json), a path relative to the repository (the directory three above the goldens:
+	 * tests/data/goldens), whose SHA-256 has to be {@code input.sha256} there.
+	 */
+	private static Path openedFile(Arguments a, Path directory) throws IOException {
+		JsonObject input = JsonParser.parseString(Files.readString(directory.resolve("state.json")))
+				.getAsJsonObject().getAsJsonObject("input");
+		String name = input.get("file").getAsString();
+		Path file = a.goldens.getParent().getParent().getParent();
+		for (String part : name.split("/", -1)) {
+			if (part.isEmpty() || part.equals(".") || part.equals("..")) {
+				throw new IllegalStateException(directory + "/state.json: the input file " + name
+						+ " is no path in the repository");
+			}
+			file = file.resolve(part);
+		}
+		String sha256 = HexFormat.of().formatHex(sha256().digest(Files.readAllBytes(file)));
+		if (!sha256.equals(input.get("sha256").getAsString())) {
+			throw new IllegalStateException(file + " has the SHA-256 " + sha256 + ", the reference "
+					+ directory.resolve("state.json") + " was made from " + input.get("sha256").getAsString()
+					+ ": regenerate the reference (tools/openrocket-gui-reference/generate.sh)");
+		}
+		return file;
 	}
 
 	/** The last part of a path of the manifest ("data/examples/A simple model rocket.ork"). */
@@ -582,12 +684,17 @@ public final class InteropCheck {
 			if (form.archive()) {
 				checkArchive(input, saved, own, report);
 			}
-			// The ids of the input that a save keeps; none for the GUI's design, whose ids QtRocket's GUI drew
-			// where the reference's DeterministicUuids drew those of OpenRocket's save.
-			Set<String> inputIds = input.kind() == Kind.GUI ? Set.of() : idsOf(documentText(originalFile));
+			// The ids of the input that a save keeps; none for the GUI's from-scratch design, whose ids QtRocket's
+			// GUI drew where the reference's DeterministicUuids drew those of OpenRocket's save; for a scenario of
+			// the tab those of the design file it opens (the configurations its steps made have ids drawn so).
+			Set<String> inputIds = switch (input.kind()) {
+				case GUI -> Set.of();
+				case GUI_TAB -> idsOf(documentText(input.opened()));
+				default -> idsOf(documentText(originalFile));
+			};
 			checkResaves(input, inputIds, qtRocket.document(), ownLoad.document(), report);
 			checkGoldenSimulations(a, input, qtRocket.document(), report);
-			checkDumps(a, input, qtRocket, ownLoad, q, oo, report);
+			checkDumps(a, input, inputIds, qtRocket, ownLoad, q, oo, report);
 		} catch (Exception e) {
 			report.failures.add("the check stopped: " + e);
 		} finally {
@@ -804,7 +911,7 @@ public final class InteropCheck {
 
 	private static void checkDefaultOptions(Input input, Form form, OpenRocketDocument original, Report report) {
 		// The archives of the examples, the test rockets and the coverage documents are saved with the
-		// document's default storage options, and so is the GUI's design (Save as).
+		// document's default storage options, and so are the GUI's designs (Save as).
 		if (!form.archive() || input.kind() == Kind.LEGACY) {
 			return;
 		}
@@ -1111,8 +1218,15 @@ public final class InteropCheck {
 
 	private static final List<String> DUMP_FILES = List.of("geometry.json", "mass.json", "aero.json");
 
-	private static void checkDumps(Arguments a, Input input, Loaded qtRocket, Loaded ownLoad, Described q,
-			Described oo, Report report) throws IOException {
+	/**
+	 * The dumps of Q against the goldens (an example) or those of OO (when the components have the same ids in
+	 * both). For a scenario of the tab, whose dumps name the configurations by their ids, the ids that
+	 * {@code inputIds} does not hold (those the configurations New and Duplicate made: drawn by QtRocket's GUI
+	 * at random, by DeterministicUuids in OpenRocket's run) are numbered on both sides first, as in the
+	 * re-saves.
+	 */
+	private static void checkDumps(Arguments a, Input input, Set<String> inputIds, Loaded qtRocket,
+			Loaded ownLoad, Described q, Described oo, Report report) throws IOException {
 		List<byte[]> expected;
 		String reference;
 		if (input.kind() == Kind.EXAMPLE) {
@@ -1126,23 +1240,36 @@ public final class InteropCheck {
 			expected = dumps(input.name(), ownLoad.document(), new WarningSet());
 			reference = "those of OpenRocket's own save";
 		} else {
-			String drawn = input.kind() == Kind.GUI ? "drawn by QtRocket's GUI, and by DeterministicUuids for "
-					+ "OpenRocket's save of the scenario" : "drawn by the loaders";
+			String drawn = input.kind() == Kind.GUI || input.kind() == Kind.GUI_TAB
+					? "drawn by QtRocket's GUI, and by DeterministicUuids for OpenRocket's save of the scenario"
+					: "drawn by the loaders";
 			report.notCompared.add("geometry.json, mass.json and aero.json: the components have other ids than in "
 					+ "OpenRocket's own save (" + drawn + "), and OpenRocket's sums follow the ids in the last bit");
 			return;
 		}
 		WarningSet warnings = input.kind() == Kind.EXAMPLE ? qtRocket.warnings() : new WarningSet();
 		List<byte[]> ours = dumps(input.name(), qtRocket.document(), warnings);
+		boolean numbered = input.kind() == Kind.GUI_TAB;
 		int failures = report.failures.size();
 		for (int i = 0; i < DUMP_FILES.size(); i++) {
-			if (!Arrays.equals(ours.get(i), expected.get(i))) {
+			String mine = text(ours.get(i));
+			String theirs = text(expected.get(i));
+			boolean same;
+			if (numbered) {
+				mine = withDrawnIdsNumbered(mine, inputIds);
+				theirs = withDrawnIdsNumbered(theirs, inputIds);
+				same = mine.equals(theirs);
+			} else {
+				same = Arrays.equals(ours.get(i), expected.get(i));
+			}
+			if (!same) {
 				report.failures.add(DUMP_FILES.get(i) + " differs from " + reference + ": "
-						+ firstDifference(lines(text(ours.get(i))), lines(text(expected.get(i)))));
+						+ firstDifference(lines(mine), lines(theirs)));
 			}
 		}
 		if (report.failures.size() == failures) {
-			report.checked.add("geometry.json, mass.json and aero.json after settling as " + reference);
+			report.checked.add("geometry.json, mass.json and aero.json after settling as " + reference
+					+ (numbered ? ", the ids of the configurations the scenario made numbered" : ""));
 		}
 	}
 
