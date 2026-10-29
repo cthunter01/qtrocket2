@@ -6,14 +6,16 @@ QtRocket is a model rocket design and flight simulation program: a C++23 re-impl
 extended Barrowman aerodynamics, the mass and inertia calculations, the event-driven six-degree-of-freedom flight
 simulation (Runge-Kutta steppers, staging, recovery, tumbling, ground hit), the ISA atmosphere, wind and gravity
 models, the thrust-curve motor database and motor files (`.eng`, `.rse`), the `.ork` design files (it loads file
-format versions 1.0 to 1.11 and writes 1.11, OpenRocket's current format) and the CSV export of flight data.
+format versions 1.0 to 1.11 and writes 1.11, OpenRocket's current format), the component presets (`.orc` files)
+and the CSV export of flight data.
 
 Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_core`), and the command-line tool
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
 OpenRocket's unit tests. Milestone 2 adds the graphical program `QtRocket` (Qt 6 Widgets), which designs rockets
-as OpenRocket's Design tab does, without motors, component presets, simulations, appearance and the 3D views yet
-([The GUI](#the-gui)).
+as OpenRocket's Design tab does, and Milestone 3 its "Motors & Configuration" tab, the motor chooser with its
+thrust curve plots, and the component presets with the parts library; simulations, appearance and the 3D views
+come later ([The GUI](#the-gui)).
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -82,8 +84,9 @@ API docs: `cmake --build --preset clang-debug --target docs`, then open `build/c
 
 ## The GUI
 `QtRocket` is the graphical program. It follows OpenRocket's GUI: its windows, dialogs, texts and rules.
-Milestone 2 gives it what OpenRocket's Design tab offers but motors, component presets, simulations, appearance and
-the 3D views ([docs/gui-differences.md](docs/gui-differences.md) lists what comes later):
+Milestones 2 and 3 give it what OpenRocket's "Rocket design" and "Motors & Configuration" tabs offer but
+simulations, appearance and the 3D views ([docs/gui-differences.md](docs/gui-differences.md) lists what comes
+later):
 
 - A window per design: the component tree beside the buttons that add components, and below them the design view,
   the rocket from the side, the top or the back, with zoom, rotation, rulers, the CG and CP, the stage and flight
@@ -92,18 +95,34 @@ the 3D views ([docs/gui-differences.md](docs/gui-differences.md) lists what come
   placement, materials, the motor mount tab, the stage's separation and recovery tabs, the Override (mass, CG,
   CD) and Comment tabs, and the freeform fin editor (point table, dragging points, its own undo, CSV export,
   import from an image).
+- Component presets: the preset box and "Parts Library" of every component that takes one, with OpenRocket's
+  5228 bundled parts and the user's own `.orc` files: a table to filter by text and by the neighbours'
+  diameters, to sort, and to mark favourites, which the preset box lists.
+- The "Motors & Configuration" tab: the flight configurations (new, rename with `{motors}` and the like,
+  delete, duplicate) and their tables of motors, recovery and stages, with the ignition, deployment and
+  separation dialogs and the motor mounts.
+- The motor chooser: OpenRocket's motor database and the user's own thrust curve files, searched by text and
+  filtered by manufacturer, impulse class, diameter and length (also the mount's), the thrust curve, delay and
+  details of each motor, and the plot of its thrust curves (zoom, pan, export to PNG, JPEG, SVG, PDF or CSV).
 - Edit: undo and redo, cut, copy, paste, duplicate, delete, move up and down, dragging components in the tree
   (also from one window to another), hiding and showing components, and disabling and enabling stages.
 - File: New, Open (the `.ork` files `QtRocket_cli` reads), Open recent, Open example (OpenRocket's 16 example
   designs), Save, Save as (with the design information), Properties, Close design and Quit.
-- Preferences: the units, the design options and "Open last design file on startup".
+- Preferences: the units, the design options, the user's thrust curve and component preset files, "Open last
+  design file on startup" and the automatic Parts Library.
 
 `QtRocket [file...]` opens the design files it is given, each in a window of its own; without one it opens the most
 recent design when the preference "Open last design file on startup" is set, and a New design otherwise. On macOS,
 the files the Finder asks it to open open too. `QtRocket --version` prints its version and `QtRocket --help` its
 options, also without a display; on Windows the program has no console of its own, so their text shows only when it
-goes to a file or a pipe (`QtRocket.exe --version | more`). The program finds the motor database and the example
-designs in `<directory of the program>/../share/QtRocket`, as `QtRocket_cli` does; the build tree has them there.
+goes to a file or a pipe (`QtRocket.exe --version | more`). The program finds the motor database, the component
+presets and the example designs in `<directory of the program>/../share/QtRocket`, as `QtRocket_cli` does; the
+build tree has them there. It reads the user's own thrust curves (`.eng`, `.rse`, `.zip`, `.db`) and component
+presets (`.orc`) from the files and directories listed under Preferences > General, by default the folders
+`ThrustCurves` and `Components` of its data directory, which it makes at start while the lists are unset:
+`~/.local/share/QtRocket` on Linux (under `$XDG_DATA_HOME` when that is set), `~/Library/Application
+Support/QtRocket` on macOS, `%LOCALAPPDATA%\QtRocket` on Windows. A change of the lists takes effect at the next
+start; the files it cannot read are listed in a message after the first window opens.
 
 It needs a desktop and, at run time, the Qt it was built with (Qt 6.8 or newer, the modules of
 [Requirements](#requirements); on Windows, Qt's `bin` on `PATH`). It uses the platform's widget style and follows
@@ -117,7 +136,9 @@ notice: the OpenRocket bugs QtRocket fixes, editing several components at once, 
 each window, with what comes in later milestones.
 
 ## The command-line tool
-`QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:
+`QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors. The
+designs find the component presets they name among the bundled ones (`info` and `simulate` read them; the
+user's own preset and thrust curve files are the GUI's only):
 
 ```sh
 QtRocket_cli info "data/examples/A simple model rocket.ork"
@@ -168,7 +189,9 @@ Commands:
 
 --db FILE reads the motors from the motor database FILE instead of
 motors/initial_motors.db in the data directory (share/QtRocket beside the
-directory of the program).
+directory of the program). 'info' and 'simulate' read the component presets
+of components/ in the data directory, where a design finds the presets it
+names.
 
 Every value is printed in SI units. The warnings of a load go to the standard
 error.
@@ -194,14 +217,20 @@ file; lines always end with `\n`, on Windows too.
 
 ## Data files and the installed layout
 `data/` holds what QtRocket ships, copied unchanged from OpenRocket:
-- `data/motors/initial_motors.db`: the thrust-curve motor database (SQLite).
+- `data/motors/initial_motors.db`: the thrust-curve motor database (SQLite), and `data/motors/metadata.json`,
+  whose version the motor chooser shows ("Motor DB version").
+- `data/components/`: the component presets (31 `.orc` files, 5231 parts, of which the database keeps 5228):
+  `database/`, the 16 files of the [openrocket-database](https://github.com/openrocket/openrocket-database)
+  (Apache License 2.0, with its `LICENSE` and `README.md`), and `internal/`, OpenRocket's 15 legacy files.
 - `data/examples/*.ork`: OpenRocket's 16 example designs.
 
 An installation (and every release archive) has this layout:
 
 ```text
 bin/QtRocket_cli
-share/QtRocket/motors/initial_motors.db
+share/QtRocket/motors/initial_motors.db, metadata.json
+share/QtRocket/components/database/*.orc, LICENSE, README.md
+share/QtRocket/components/internal/*.orc
 share/QtRocket/examples/*.ork
 share/doc/QtRocket/LICENSE, NOTICE, README.md
 ```
@@ -220,7 +249,10 @@ so no window appears. Two exit suites check the GUI as a whole against OpenRocke
 undo, copy and paste, Save as), then compares every step and the saved file with what OpenRocket's own GUI code did
 with the same steps (`tools/openrocket-gui-reference/`); `OpenDesignsExitGolden` opens OpenRocket's 16 examples,
 the 49 re-saves of its golden harness and that reference design in QtRocket's windows and compares the tree, the
-dialogs' fields, the figure and the information overlay with OpenRocket's golden data. The lint tests
+dialogs' fields, the figure and the information overlay with OpenRocket's golden data.
+<!-- RUN 3 MERGE: name group X's FlightConfigurationsExitGolden here, and what group Y adds to
+OpenDesignsExitGolden (the tab's tables, the presets); then remove this comment. -->
+The lint tests
 (`tests/lint/`) check rules of the source tree that the compiler cannot, such as the include order of the layers.
 Test data lives in `tests/data/`. ctest labels select parts of the suite:
 
@@ -255,11 +287,16 @@ ctest --preset clang-debug -L golden
 [tools/openrocket-goldens/README.md](tools/openrocket-goldens/README.md) describes the harness, the file formats,
 the tolerances of the comparisons and the other fixtures it can write.
 
+The preset golden `presets/presets.json` holds every component preset OpenRocket reads from the bundled `.orc`
+files, with every property, and the order of its preset database (`generate.sh --presets` writes it alone).
+
 The GUI's references come from OpenRocket's Swing classes the same way. `tools/openrocket-gui-reference/` runs
 OpenRocket's GUI code on a scenario of GUI steps and writes `tests/data/goldens/gui/from-scratch/` (the scenario,
 the steps' states and OpenRocket's save). The tables the GUI's tests compare with (the `*Pins.h` headers, which
 name their generator, and a few tables in test files) are written by Java probes in `tools/openrocket-gui-pins/`
-and `tools/openrocket-panel-pins/`. Each tool's README says how to run it.
+and `tools/openrocket-panel-pins/`; the core's tables of the motor chooser come from
+`tools/openrocket-motor-chooser/`, and those of JDK 17's text collation, which OpenRocket's tables sort with, from
+`tools/openrocket-collation/`. Each tool's README says how to run it.
 
 ## Releases
 The Release workflow (`.github/workflows/release.yml`) runs only when started by hand, never on a push:

@@ -44,7 +44,8 @@ class Binding;
 /// once the binding's selection is invalid the combo box keeps the last value and is disabled.
 ///
 /// Deviations from OpenRocket: the keys are the platform's (Qt's QComboBox: Up and Down choose
-/// the previous or the next value without opening the popup; Java's Down opens it); the wheel
+/// the previous or the next value without opening the popup, as OpenRocket's FlatLaf look does
+/// with its selectNext2 and selectPrevious2: the M3 run 2 probe ComboKeysProbe); the wheel
 /// chooses only while the combo box has the focus, which the wheel does not give it (Java's combo
 /// boxes take no wheel; UnitSpinBox follows the same rule).
 class EnumComboBox : public QComboBox

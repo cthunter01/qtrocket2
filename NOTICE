@@ -8,8 +8,9 @@ option) any later version. See LICENSE for the full text.
 QtRocket is a C++ re-implementation of OpenRocket (https://openrocket.info), Copyright (C) 2007-2025 Sampo
 Niskanen and others, licensed under the GNU General Public License version 3 or later. The component model,
 aerodynamic and mass calculations, simulation engine and the .ork file format follow OpenRocket's design and
-algorithms. The bundled motor database (data/motors/initial_motors.db), example designs (data/examples/) and
-legacy component presets (data/components/internal/) are taken from OpenRocket unchanged. The designs of older
+algorithms. The bundled motor database (data/motors/initial_motors.db, with its version in
+data/motors/metadata.json), example designs (data/examples/) and legacy component presets
+(data/components/internal/) are taken from OpenRocket unchanged. The designs of older
 file format versions that the tests read (tests/data/ork/) are example and test designs of OpenRocket's releases
 0.9.3 to 23.09, copied unchanged from its repository; tests/data/ork/README.md lists the release and the path of
 each. The reference data the tests compare with (tests/data/goldens/, tests/data/component-factory/,

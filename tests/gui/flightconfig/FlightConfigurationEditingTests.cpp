@@ -1111,8 +1111,8 @@ TEST_F(FlightConfigurationEditingTest, AMultiCellDeploymentCancelChangesNothing)
     EXPECT_FALSE(design.editing().selectDeployment(
         std::vector<FlightConfigurationId>{design.id(0), design.id(1), design.id(2)},
         std::vector<Uuid>{design.chute()}));
-    // Bug 3, taken to the deployment (to be confirmed by the user): OpenRocket's panel runs its
-    // loop after a Cancel too, so that the second and third configurations get overrides of
+    // Bug 3, taken to the deployment (the user's decision of 2026-10-27): OpenRocket's panel runs
+    // its loop after a Cancel too, so that the second and third configurations get overrides of
     // Altitude 200 m (the M3 run 2 verifier's probe, "A simple model rocket.ork").
     EXPECT_EQ(design.deployments().size(), 1U);
     EXPECT_FALSE(design.deployments().containsId(design.id(1)));

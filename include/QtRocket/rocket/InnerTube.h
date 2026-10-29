@@ -201,7 +201,9 @@ public:
     /// makeIndividualClusterComponent(), the GUI's "split cluster", called once per tube): a
     /// copy of @p innerTube and its children with new ids (copyWithNewIds()), made a single tube
     /// without rotation and scale 1, shifted radially to the y and z of @p coord (the tube's
-    /// location), and named @p splitName.
+    /// location), and named @p splitName. The copy keeps the cluster's default ignition, which
+    /// Java's split tubes lose: the copy's MotorConfigurationSet keeps its source's default (M3's
+    /// bug 6; see MotorConfigurationSet's deviations).
     [[nodiscard]] static std::unique_ptr<InnerTube> makeIndividualClusterComponent(
         const Coordinate& coord, std::string_view splitName, const InnerTube& innerTube);
 

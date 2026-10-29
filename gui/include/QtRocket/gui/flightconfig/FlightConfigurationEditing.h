@@ -167,8 +167,8 @@ namespace QtRocket::Gui
 ///   cell without a configuration, the mount's default's), its close button keeps the live
 ///   edits, its separation dialog edits an existing override in place (Cancel and close keep the
 ///   edits), and its panels' loops copy the first cell's values into the other cells after a
-///   Cancel too. The deployment question's Cancel is taken as bug 3 as well (the user's U-M3-5
-///   names the ignition and separation Cancel; to be confirmed): Java's
+///   Cancel too. The deployment question's Cancel is taken as bug 3 as well (U-M3-5 names the
+///   ignition and separation Cancel; the user's decision of 2026-10-27 adds it): Java's
 ///   RecoveryConfigurationPanel.selectDeployment() runs its loop after a Cancel, so that every
 ///   other selected cell whose deployment differs from the first cell's takes the first cell's
 ///   values, as an override of its own when the question started on "this configuration".
