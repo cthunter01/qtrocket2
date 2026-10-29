@@ -22,7 +22,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `flight-config` | `tests/gui/flightconfig/FlightConfigurationTablePins.h`, `tests/gui/flightconfig/FlightConfigurationOperationPins.h` | `FlightConfigurationTablesProbe`, `FlightConfigurationOperationsProbe` | `gen_flight_configuration_table_pins.py`, `gen_flight_configuration_operation_pins.py` | `flight_configuration_tables_golden_tests.cpp`, `flight_configuration_operations_golden_tests.cpp` |
 | `motor-chooser` | `tests/gui/dialogs/motor/MotorChooserPins.h` | `MotorChooserMountsProbe` | `gen_motor_chooser_mount_pins.py` | `motor_chooser_mounts_golden_tests.cpp` |
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
-| `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h` | `OpenDesignsTabProbe` | `designs.py`, `gen_open_designs_tab_pins.py` | `open_designs_exit_tests.cpp` |
+| `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -35,7 +35,8 @@ Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those
 (`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
 `flight-config`, `motor-chooser`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
 and apply FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts
-and back); `open-designs` binds `SwingPreferences` with one value changed and FlatLaf Light (below);
+and back); `open-designs` binds `SwingPreferences` with one value changed (its parts-library probe: at their
+defaults) and FlatLaf Light (below);
 `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
 `ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component,
 `preferences` and `open-designs` probes load OpenRocket's motor database and no component presets. `figure-paint`, `rocket-info`,
@@ -247,6 +248,26 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   generator's helpers; the test applies QtRocket's fix of bug 1 (plan 10.3: a recovery or stage cell without a
   value of its own is shaded, which OpenRocket never shades in a loaded design) as
   `flight_configuration_tables_golden_tests.cpp` does.
+  Its second probe, `OpenDesignsPartsLibraryProbe`, opens OpenRocket's parts library
+  (`ComponentPresetChooserDialog`) for each component of the 16 examples that takes presets (222 components), as
+  the "Parts Library" button of the component's configuration dialog opens it (`RocketComponentConfig.selectPreset()`:
+  its owner a configuration dialog of a main window), never shown, over the bundled presets (`data/components`
+  walked as `preset-chooser` walks it, bound as the application's `ComponentPresetDao`, so that the examples' six
+  presets are found among them), with `SwingPreferences` at their defaults (the default filters), put back before
+  each dialog; it records what the dialog would apply through its `PresetModel`, as `PresetChooserProbe` does (it
+  never applies anything). It settles each design as the golden harness settles it (`AutomaticDimensions`, as
+  `motor-chooser` does): right after a load a body tube's automatic radius can still be the stored one ("Dual
+  parachute deployment": 0.025 m where the settled design has 0.028321 m), and OpenRocket's window paints the
+  design and its overlay, which refreshes it, before any dialog can be opened (a scratch probe gave the settled
+  value after a `RocketFigure` painted and the overlay's physics). It prints, per component, its place in the
+  rocket's iteration order, its name, type and the preset its combo box shows, the "Show Legacy Database" box and
+  the text of "Filter by text" (the other default filters), the "Match fore diameter" and
+  "Match aft diameter" boxes the dialog shows with their filters' diameters and tolerances (QtRocket's fixed filter
+  for a flipped nose cone behind a component of other radii, bug 16, as `PresetChooserProbe` does: none of the
+  examples has one), "Always open this dialog", the table's view as it opens (its rows and the MD5 of their keys,
+  `ComponentPresetTableProbe.viewKey()`) with its first five rows' shown cells, and the view with the ticked
+  diameter boxes unticked. The generator shares the first rows of dialogs whose first rows are equal (140 rows
+  for the 222 dialogs). `OpenDesignsExitGoldenPartsLibrary` opens each of them from QtRocket's dialog.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -391,7 +412,9 @@ same transcript.
 `motor-chooser` loads its designs (their UUIDs come from the files) and reseeds before each one all the same.
 `open-designs` reseeds from the design's name before each design, and loads each a first time from the key
 `"<name>#drawn"`, to tell a configuration id the loader draws from one the file stores (no row of the 66 designs
-is drawn: every id is the file's); two runs gave the same transcript.
+is drawn: every id is the file's); two runs gave the same transcript. Its parts-library probe reseeds from the
+design's name before each example, as `PresetChooserProbe` reseeds before each scenario (what it prints depends on
+no UUID); three runs gave the same transcript.
 
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
@@ -453,7 +476,9 @@ Run 3's part Y1 added `open-designs` (from the M3 tests-exit scout's `ConfigTabl
 real panel without a frame over the examples and the test rockets' makers: generalised to the exit suite's 66
 loaded designs in their environments, seeded, with the panel of a `BasicFrame` as the `flight-config` operations
 probe makes it, the design's selection after the tab took the spotlight, and the tables printed as
-`FlightConfigurationTablesProbe` prints them).
+`FlightConfigurationTablesProbe` prints them). Part Y2 added its second probe, `OpenDesignsPartsLibraryProbe` (the
+M3 tests-exit scout's E4: the parts library of each component of the examples, `PresetChooserProbe`'s dialog
+made for the loaded and settled designs over the bundled presets).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

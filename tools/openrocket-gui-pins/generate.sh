@@ -31,7 +31,8 @@
 #                      RocketComponentConfigTests.cpp pin by hand (checked only, see README.md; two of their
 #                      probes run under xvfb-run, one of them shows the parts library and presses its keys)
 #   open-designs       tests/gui/exit/OpenDesignsTabPins.h (the Motors & Configuration tab of each design of
-#                      OpenDesignsExitGolden; the probe runs under xvfb-run)
+#                      OpenDesignsExitGolden) and OpenDesignsPartsLibraryPins.h (the parts library of each
+#                      component of its examples that takes presets; both probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -468,9 +469,16 @@ for family in "${families[@]}"; do
         # presets of the example designs come from the bundled presets' directory.
         python3 -I "${here}/${family}/designs.py" "${repo}" > "${work}/open-designs.txt"
         run_probe "${family}" OpenDesignsTabProbe xvfb "${work}/open-designs.txt" "${repo}/data/components"
-        file=tests/gui/exit/OpenDesignsTabPins.h
+        tab=tests/gui/exit/OpenDesignsTabPins.h
         python3 -I "${here}/${family}/gen_open_designs_tab_pins.py" "${work}/OpenDesignsTabProbe.txt" \
-            "$(generated "${file}")" "${commit}"
+            "$(generated "${tab}")" "${commit}"
+        finish "${tab}"
+        # The parts library of each component of the examples that takes presets, over the bundled presets:
+        # OpenRocket's ComponentPresetChooserDialog, a JDialog (never shown).
+        run_probe "${family}" OpenDesignsPartsLibraryProbe xvfb "${work}/open-designs.txt" "${repo}/data/components"
+        file=tests/gui/exit/OpenDesignsPartsLibraryPins.h
+        python3 -I "${here}/${family}/gen_open_designs_parts_library_pins.py" \
+            "${work}/OpenDesignsPartsLibraryProbe.txt" "$(generated "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"
