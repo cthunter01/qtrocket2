@@ -15,6 +15,9 @@
 #include <QApplication>
 #include <QDir>
 #include <QString>
+#include <QStringList>
+#include <QTextDocument>
+#include <QtContainerFwd>
 
 #include <gtest/gtest.h>
 
@@ -23,6 +26,7 @@
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -425,6 +429,62 @@ TEST_F(ApplicationContextTest, TheUsersFilesThatCannotBeLoadedAreDatabaseProblem
     EXPECT_EQ(problems[1].file, brokenPreset);
     EXPECT_TRUE(problems[1].message.startsWith(
         QStringLiteral("Unable to parse component preset file: broken.orc")));
+}
+
+/// The text that the rich text @p html shows.
+[[nodiscard]] QString shownText(const QString& html)
+{
+    QTextDocument document;
+    document.setHtml(html);
+    return document.toPlainText();
+}
+
+TEST_F(ApplicationContextTest, ARaspFilesWarningShowsOpenRocketsLineBreak)
+{
+    // RASPMotorLoader's message for a header line without its 7 fields holds "<br>" and "&nbsp",
+    // which MotorDatabaseLoader.loadFile() puts into its HTML as they are: a line break and a
+    // space, not text.
+    static_cast<void>(
+        directory().write(std::filesystem::path("user") / "ThrustCurves" / "broken.eng", "junk\n"));
+    const ApplicationContext& context = makeContext(withUserData("user"));
+    const QStringList lines = WidgetUserPrompts::databaseProblemLines(context.databaseProblems());
+    ASSERT_EQ(lines.size(), 1);
+    EXPECT_TRUE(lines.front().contains(QStringLiteral(
+        "<i>Illegal file format. Motor header line must contain 7 fields:<br>&nbsp; designation "
+        "diameter length delays propellantWeight totalWeight manufacturer</i>.")))
+        << lines.front().toStdString();
+    const QString shown = shownText(lines.front());
+    EXPECT_FALSE(shown.contains(QStringLiteral("<br>"))) << shown.toStdString();
+    EXPECT_FALSE(shown.contains(QStringLiteral("&nbsp"))) << shown.toStdString();
+    EXPECT_TRUE(shown.contains(QStringLiteral("must contain 7 fields:\n"))) << shown.toStdString();
+    EXPECT_TRUE(shown.contains(QStringLiteral(" designation diameter length")))
+        << shown.toStdString();
+}
+
+TEST_F(ApplicationContextTest, ABrokenPresetFileIsLeftOutAloneAndShown)
+{
+    // Bug 18: OpenRocket's NullPointerException for a body tube without its <Length> ends the
+    // whole preset load with an internal error. Here that file alone is left out, the one after
+    // it loads, and the start's message names it, its '<' and '>' as text.
+    const std::filesystem::path broken =
+        directory().copy(QtRocket::Test::testDataDir() / "presets" / "broken.orc",
+                         std::filesystem::path("user") / "Components" / "broken.orc");
+    static_cast<void>(directory().copy(QtRocket::Test::testDataDir() / "presets" / "legacy.orc",
+                                       std::filesystem::path("user") / "Components" / "later.orc"));
+    const ApplicationContext& context = makeContext(withUserData("user"));
+    // later.orc: a streamer and a bulkhead.
+    EXPECT_EQ(context.presets().size(), 2U);
+    const std::vector<UserPrompts::DatabaseProblem>& problems = context.databaseProblems();
+    ASSERT_EQ(problems.size(), 1U);
+    EXPECT_EQ(problems.front().database, UserPrompts::DatabaseKind::COMPONENT_PRESETS);
+    EXPECT_EQ(problems.front().file, broken);
+    EXPECT_EQ(problems.front().message,
+              QStringLiteral("Unable to parse component preset file: broken.orc: the BodyTube "
+                             "'BT-50' (component 2) has no <Length>"));
+    const QStringList lines = WidgetUserPrompts::databaseProblemLines(problems);
+    ASSERT_EQ(lines.size(), 1);
+    EXPECT_TRUE(shownText(lines.front()).contains(QStringLiteral("has no <Length>.")))
+        << lines.front().toStdString();
 }
 
 TEST_F(ApplicationContextTest, ReadsTheMotorDatabasesVersion)

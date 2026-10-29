@@ -87,7 +87,9 @@ the workflow or create a tag only when the user asks.
     `dialogs/preset/PresetTableTestSupport.h`
   - and the `*Support.h`, `*Pins.h` and `*Transcript.h` headers beside each subsystem's or area's tests
   - the bundled motor and preset databases are read once per test process (the presets take a second and a
-    half, several under ASan): never per test; models, choosers and `QAbstractItemModelTester` take the small ones
+    half, several under ASan), never per test; only the tests that start the application as `main()` does
+    (`app/`, `exit/`) read them for each `ApplicationContext` (the presets only when a test asks for them);
+    models, choosers and `QAbstractItemModelTester` take the small ones
 - `tests/data/`: test fixtures (`ork/`, `motors/`, `csv/`, `cli/`, `fin-images/`, ...) and `goldens/`, OpenRocket's
   results for the 16 examples and the 13 test rockets (generated; never edited by hand), with the GUI reference
   `goldens/gui/from-scratch/` (`scenario.json`, its input, is written by hand)
@@ -147,8 +149,10 @@ subsystem or area is added there too.
 - Port OpenRocket faithfully: read the Java source line by line, never work from memory. A ported JUnit test keeps
   its expectations and tolerances and names its Java original in a comment (`Port of ...`); never loosen or drop an
   assertion to make a test pass. A deliberate difference from OpenRocket is documented where it is made; one of the
-  GUI that a user can notice also goes into `docs/gui-differences.md`. An OpenRocket bug is fixed only by the
-  user's decision, under its number there ("bug 6": the source's comments give the number)
+  GUI that a user can notice also goes into `docs/gui-differences.md`. An OpenRocket bug the user decided to fix
+  keeps its number there ("bug 6": the source's comments give the number); one found while porting that crashes,
+  hangs or loses a change may be fixed too, documented where it is made and listed there under "More OpenRocket
+  bugs, found while porting"
 - Golden tests: a GoogleTest suite whose name contains `Golden` gets the ctest label `golden`, whatever its file
   and in both test executables (the comparisons are mostly in `*_golden_tests.cpp`; the CLI's milestone run
   `cli.milestone` carries it too). Re-run `ctest --preset clang-debug -L golden` after any change to `aero/`,
@@ -203,7 +207,7 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `app/ApplicationSession` makes it, with the error hook, the windows, the file operations and the recent files (a
   `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`,
   `QTROCKET_TEST_USER_DATA_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`,
-  `gui.start`, labels `gui` and `lint`: nothing may reach the standard error)
+  `gui.start`, on Linux `gui.start-data-home`, labels `gui` and `lint`: nothing may reach the standard error)
 - Text: every user-visible string is `tr("<the English text of OpenRocket's messages.properties>")` with a
   `//: <key>` translator comment above it (OpenRocket's typos verbatim; "OpenRocket" becomes "QtRocket" in
   QtRocket's own texts); core enums through `util/EnumText`, menu texts through `util/MenuText` (mnemonics, `&`);

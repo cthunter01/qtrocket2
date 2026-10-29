@@ -11,8 +11,10 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 
 class QDialogButtonBox;
+class QGridLayout;
 class QLabel;
 class QPlainTextEdit;
+class QScrollArea;
 class QWidget;
 
 namespace QtRocket::Gui
@@ -55,8 +57,20 @@ public:
                                           const std::optional<QString>& details,
                                           const QString& title, UserPrompts::Severity severity);
 
+    /// Wraps each message line at @p width pixels (Swing's HTML paragraph of a fixed width,
+    /// "<p style='width: 400px;'>") and puts the message into an area that scrolls when it is
+    /// taller than kMaximumScreenShare of the screen's available height (the start-up's
+    /// database problems, one line for each file, of which there may be many). Called once,
+    /// before the dialog is shown.
+    void wrapMessage(int width);
+
+    /// The share of the screen's available height that a wrapped message takes at most.
+    static constexpr double kMaximumScreenShare = 2.0 / 3.0;
+
     /// The labels of the message lines, in order.
     [[nodiscard]] const QList<QLabel*>& messageLabels() const noexcept { return m_messageLabels; }
+    /// The area of the wrapped message, or null until wrapMessage().
+    [[nodiscard]] QScrollArea* messageArea() const noexcept { return m_messageArea; }
     /// The texts of the message lines.
     [[nodiscard]] QStringList messageLines() const;
     /// The label with the severity's icon.
@@ -67,6 +81,9 @@ public:
     [[nodiscard]] QDialogButtonBox* buttonBox() const noexcept { return m_buttons; }
 
 private:
+    QGridLayout*      m_layout{nullptr};
+    QWidget*          m_message{nullptr};
+    QScrollArea*      m_messageArea{nullptr};
     QList<QLabel*>    m_messageLabels;
     QLabel*           m_icon{nullptr};
     QPlainTextEdit*   m_details{nullptr};

@@ -170,9 +170,9 @@ The parts library:
 The component preset files:
 
 18. **A broken component preset file.** A user's preset file with certain errors (a required element missing,
-    an unknown shape or unit) ends OpenRocket's whole preset load without a warning, so the files after it are
-    left out. QtRocket leaves out that file alone and names it in the message after start-up
-    (`file/preset/ComponentPresetDatabaseLoader.h` in the core).
+    an unknown shape or unit) ends OpenRocket's whole preset load with an internal error, so the files after it,
+    the user's included, are left out. QtRocket leaves out that file alone and names it in the message after
+    start-up (`file/preset/ComponentPresetDatabaseLoader.h` in the core).
 19. **A number that is not finite** (NaN, INF, 1e999) in a preset file. OpenRocket gives it to the part.
     QtRocket leaves the part out (`file/preset/OpenRocketComponentLoader.h` in the core).
 
@@ -195,9 +195,11 @@ More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
   wrong kind, loads in OpenRocket and fails with an internal error when it is chosen, and a part without a part
   number stops OpenRocket's load as in bug 18. QtRocket leaves out the part, or the file without a part number
   (`file/preset/OpenRocketComponentLoader.h` in the core).
-- **A special file among the preset files.** A named pipe in a directory of preset files makes OpenRocket's
-  preset load wait forever. QtRocket reads regular files only
-  (`file/preset/ComponentPresetDatabaseLoader.h` in the core).
+- **A special file among the preset or thrust-curve files.** A named pipe in a directory of preset or
+  thrust-curve files makes OpenRocket's load wait forever, and a link to a device such as `/dev/zero` makes it
+  read without an end. QtRocket reads regular files only, so its start, which reads these files before the first
+  window, cannot hang on them (`file/preset/ComponentPresetDatabaseLoader.h` and
+  `file/motor/MotorDatabaseLoader.h` in the core).
 
 ## Editing several components at once
 
@@ -432,9 +434,11 @@ the parts library per component) report go into the sections above, or here. Rem
   (`app/DataPaths.h`).
 - The user's files that cannot be imported are listed together in one message after the first window opens,
   with OpenRocket's texts: "Error upon thrust curve import", "Error upon component preset import", or both
-  titles. OpenRocket shows a warning for each file, always on top, while its window opens. Both name only the
-  files that were refused. The other problems (a listed file that is missing, say) OpenRocket writes to its
-  log, which QtRocket does not have (`main/WidgetUserPrompts.h`).
+  titles; the message scrolls when the files are many. OpenRocket shows a warning for each file, always on top,
+  while its window opens. Both name only the files that were refused. For a preset file, QtRocket's message
+  adds the reason after OpenRocket's `Unable to parse component preset file: <name>`. The other problems (a
+  listed file that is missing, say) OpenRocket writes to its log, which QtRocket does not have
+  (`main/WidgetUserPrompts.h`).
 - If the motor database QtRocket ships cannot be read, a warning says so after the first window opens, and the
   user's thrust curves are not read either. OpenRocket stops the same way, with an internal error.
 - The internal error dialog has QtRocket's texts and the buttons Continue, Copy details and Quit QtRocket.

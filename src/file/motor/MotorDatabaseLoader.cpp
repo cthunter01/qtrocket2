@@ -223,6 +223,19 @@ void MotorDatabaseLoader::loadDirectory(const std::filesystem::path& directory)
 {
     for (const std::filesystem::path& file : collectFiles(directory, isUserMotorFile, m_problems))
     {
+        // A FIFO would block the open, and a device would be read without an end (OpenRocket
+        // opens them all, on its loader's thread): only a regular file is opened. A broken link
+        // is no file at all, which the open finds.
+        std::error_code                    error;
+        const std::filesystem::file_status status = std::filesystem::status(file, error);
+        if (std::filesystem::exists(status) && !std::filesystem::is_regular_file(status))
+        {
+            addProblem(
+                file, Error{.code    = ErrorCode::UNSUPPORTED_FORMAT,
+                            .message = pathToUtf8(file) + " is not a regular file; it was not read",
+                            .where   = std::source_location::current()});
+            continue;
+        }
         loadFile(file);
     }
 }

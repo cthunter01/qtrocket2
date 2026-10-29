@@ -28,7 +28,13 @@ class GeneralMotorLoader;
 /// (getProblems(); Problem::refusedFile tells those OpenRocket shows from those it logs). It has
 /// no remote updater and no serialized (.ser) fallback. The files of a directory are read in
 /// name order (Java's File.listFiles() order is unspecified), and a directory reached twice
-/// through links is read once.
+/// through links is read once. A file a directory's search finds that is not a regular file (a
+/// FIFO, a socket, a device, or a link to one, with a motor file's extension) is not opened: a
+/// problem (ErrorCode::UNSUPPORTED_FORMAT, "<path> is not a regular file; it was not read"),
+/// which OpenRocket would log. OpenRocket opens it, which blocks for a FIFO and reads a device
+/// without an end; on its loader's thread only the motor chooser waits, but the GUI's start
+/// reads the user's files before its first window (ComponentPresetDatabaseLoader skips such
+/// files too).
 class MotorDatabaseLoader
 {
 public:
@@ -82,9 +88,10 @@ public:
     /// Loads the user's motor files (loadUserDefinedMotors(), with the files OpenRocket's
     /// preferences list): a file with one of kUserMotorExtensions (ignoring ASCII case) is read
     /// with a GeneralMotorLoader, or as a database for "db"; a directory is searched recursively
-    /// for such files, skipping names that start with '.'. A file that cannot be read, has another
-    /// extension, is rejected by its loader or holds a motor ThrustCurveMotor rejects is recorded
-    /// as a problem; the motors of a file before a rejected one stay loaded, as in OpenRocket.
+    /// for such files, skipping names that start with '.' and not opening one that is no regular
+    /// file. A file that cannot be read, has another extension, is rejected by its loader or
+    /// holds a motor ThrustCurveMotor rejects is recorded as a problem; the motors of a file
+    /// before a rejected one stay loaded, as in OpenRocket.
     void loadUserDefinedMotors(std::span<const std::filesystem::path> userFiles);
 
     /// The database loaded so far (getDatabase()).

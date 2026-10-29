@@ -147,6 +147,27 @@ struct DatabaseTexts
     return text;
 }
 
+/// The width of a database problem's text (MotorDatabaseLoader.loadFile() and
+/// ComponentPresetDatabaseLoader.showLoadingErrorDialog(): "<p style='width: 400px;'>").
+constexpr int kDatabaseProblemWidth = 400;
+
+/// The loader's message of @p problem as rich text: escaped, so that a '<' or '&' it quotes from
+/// a file shows as it is, but for a thrust-curve file with the markup of OpenRocket's own RASP
+/// messages put back (RASPMotorLoader writes "<br>" and "&nbsp" for this warning): a line break
+/// and a space that does not break, with the ';' that Qt's rich text needs (Swing reads "&nbsp"
+/// without it).
+[[nodiscard]] QString databaseProblemMessage(const UserPrompts::DatabaseProblem& problem)
+{
+    QString message = problem.message.toHtmlEscaped();
+    if (problem.database == UserPrompts::DatabaseKind::THRUST_CURVES)
+    {
+        message.replace(QStringLiteral("&lt;br&gt;"), QStringLiteral("<br>"));
+        message.replace(QStringLiteral("&amp;nbsp;"), QStringLiteral("&nbsp;"));
+        message.replace(QStringLiteral("&amp;nbsp"), QStringLiteral("&nbsp;"));
+    }
+    return message;
+}
+
 /// Whether the question's parent was destroyed while a dialog of it was open: it had one and its
 /// pointer is null now.
 [[nodiscard]] bool parentGone(const QWidget* parent, const QPointer<QWidget>& guard) noexcept
@@ -847,10 +868,10 @@ QStringList WidgetUserPrompts::databaseProblemLines(std::span<const DatabaseProb
         // MotorDatabaseLoader.loadFile() and ComponentPresetDatabaseLoader.
         // showLoadingErrorDialog(): "<html><body><p style='width: 400px;'><i>" + message +
         // "</i>.<br><br>" + MessageFormat.format(message1, path) + "<br>" + message2 +
-        // "</p></body></html>".
+        // "</p></body></html>" (the width: showDatabaseProblems()).
         const DatabaseTexts texts = databaseTexts(problem.database);
         lines.append(
-            QStringLiteral("<html><body><p><i>") + problem.message.toHtmlEscaped() +
+            QStringLiteral("<html><body><p><i>") + databaseProblemMessage(problem) +
             QStringLiteral("</i>.<br><br>") +
             formatMessage(texts.ignored, QtStrings::fromPath(problem.file).toHtmlEscaped()) +
             QStringLiteral("<br>") + texts.advice + QStringLiteral("</p></body></html>"));
@@ -861,9 +882,15 @@ QStringList WidgetUserPrompts::databaseProblemLines(std::span<const DatabaseProb
 void WidgetUserPrompts::showDatabaseProblems(QWidget*                         parent,
                                              std::span<const DatabaseProblem> problems)
 {
-    // JOptionPane(message, WARNING_MESSAGE).createDialog(null, title), one for all the files.
-    DetailDialog::showDetailedMessageDialog(parent, databaseProblemLines(problems), std::nullopt,
-                                            databaseProblemsTitle(problems), Severity::WARNING);
+    // JOptionPane(message, WARNING_MESSAGE).createDialog(null, title), one for all the files,
+    // each in a paragraph 400 pixels wide; the message scrolls when there are many.
+    ModalDialog<DetailDialog> dialog(parent, databaseProblemLines(problems), std::nullopt,
+                                     databaseProblemsTitle(problems), Severity::WARNING);
+    if (DetailDialog* const message = dialog.get(); message != nullptr)
+    {
+        message->wrapMessage(kDatabaseProblemWidth);
+    }
+    dialog.exec();
 }
 
 UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*              parent,

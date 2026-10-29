@@ -1,6 +1,8 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -28,6 +30,8 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRect>
+#include <QScreen>
+#include <QScrollArea>
 #include <QSettings>
 #include <QString>
 #include <QStringList>
@@ -1814,6 +1818,76 @@ TEST_F(WidgetUserPromptsTest, TheDatabaseProblemsShowTheFileAndTheMessageAsTheyA
     EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(problems),
               QStringList{componentPresetWarning(QStringLiteral("Expected '&lt;' &amp; more"),
                                                  QStringLiteral("a&lt;b&gt;&amp;c.orc"))});
+}
+
+TEST_F(WidgetUserPromptsTest, AThrustCurveMessageKeepsTheLineBreaksOfOpenRocketsMessages)
+{
+    // RASPMotorLoader's messages hold "<br>" and "&nbsp" for this warning: they stay markup
+    // ("&nbsp" with the ';' Qt needs). Any other '<' or '&', the file's name, and a preset
+    // file's message, are text.
+    const std::vector<UserPrompts::DatabaseProblem> problems{
+        {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+         .file     = "a<br>&nbsp.eng",
+         .message  = QStringLiteral("Illegal file format.<br>&nbsp x &nbsp; y < z & more")},
+        {.database = UserPrompts::DatabaseKind::COMPONENT_PRESETS,
+         .file     = "b.orc",
+         .message  = QStringLiteral("a<br>&nbsp b")}};
+    EXPECT_EQ(WidgetUserPrompts::databaseProblemLines(problems),
+              (QStringList{
+                  thrustCurveWarning(
+                      QStringLiteral("Illegal file format.<br>&nbsp; x &nbsp; y &lt; z &amp; more"),
+                      QStringLiteral("a&lt;br&gt;&amp;nbsp.eng")),
+                  componentPresetWarning(QStringLiteral("a&lt;br&gt;&amp;nbsp b"),
+                                         QStringLiteral("b.orc"))}));
+}
+
+/// Records whether the message of the database problems wraps its lines at 400 pixels (as
+/// OpenRocket's paragraphs), scrolls them in an area that holds every line or that is no
+/// taller than two thirds of the screen, and fits the screen, and closes it.
+struct CheckWrappedProblems
+{
+    /// OpenRocket's "<p style='width: 400px;'>".
+    static constexpr int kWidth = 400;
+
+    bool* wrapped;
+    bool* fits;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<DetailDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        ASSERT_NE(dialog->messageArea(), nullptr);
+        *wrapped = std::ranges::all_of(dialog->messageLabels(), [](const QLabel* label) {
+            return label->wordWrap() && label->minimumWidth() == kWidth &&
+                   label->maximumWidth() == kWidth;
+        });
+        ASSERT_NE(dialog->screen(), nullptr);
+        const int screenHeight = dialog->screen()->availableGeometry().height();
+        *fits = dialog->messageArea()->height() <=
+                    static_cast<int>(screenHeight * DetailDialog::kMaximumScreenShare) &&
+                dialog->height() < screenHeight;
+        dialog->buttonBox()->button(QDialogButtonBox::Ok)->click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, TheMessageOfManyDatabaseProblemsScrolls)
+{
+    // One line for each of 60 files would be some 6000 pixels tall.
+    constexpr std::size_t                           kFiles = 60;
+    const std::vector<UserPrompts::DatabaseProblem> problems(
+        kFiles, {.database = UserPrompts::DatabaseKind::THRUST_CURVES,
+                 .file     = std::filesystem::path("motors") / "broken.eng",
+                 .message  = QStringLiteral("Illegal file format. Could not convert value to a "
+                                            "number.<br>Verify that each number is correctly "
+                                            "formatted.")});
+    WidgetUserPrompts                prompts;
+    bool                             wrapped = false;
+    bool                             fits    = false;
+    const Gui::Test::NextModalDialog check(
+        CheckWrappedProblems{.wrapped = &wrapped, .fits = &fits});
+    prompts.showDatabaseProblems(nullptr, problems);
+    EXPECT_TRUE(wrapped);
+    EXPECT_TRUE(fits);
 }
 }  // namespace
 

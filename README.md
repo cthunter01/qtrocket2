@@ -122,7 +122,9 @@ presets (`.orc`) from the files and directories listed under Preferences > Gener
 `ThrustCurves` and `Components` of its data directory, which it makes at start while the lists are unset:
 `~/.local/share/QtRocket` on Linux (under `$XDG_DATA_HOME` when that is set), `~/Library/Application
 Support/QtRocket` on macOS, `%LOCALAPPDATA%\QtRocket` on Windows. A change of the lists takes effect at the next
-start; the files it cannot read are listed in a message after the first window opens.
+start. The thrust-curve and preset files whose contents it cannot import are listed in a message after the first
+window opens; other problems (a listed file that is missing or cannot be opened) are not shown, as OpenRocket only
+writes them to its log, and special files such as named pipes are skipped.
 
 It needs a desktop and, at run time, the Qt it was built with (Qt 6.8 or newer, the modules of
 [Requirements](#requirements); on Windows, Qt's `bin` on `PATH`). It uses the platform's widget style and follows

@@ -77,8 +77,8 @@ class GuiServices;
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
 /// - showDatabaseProblems(): the warnings of OpenRocket's MotorDatabaseLoader and
 ///   ComponentPresetDatabaseLoader ("Error upon thrust curve import", "Error upon component
-///   preset import") in one message box (DetailDialog without details): databaseProblemsTitle()
-///   and databaseProblemLines();
+///   preset import") in one message box (DetailDialog without details, its lines wrapped):
+///   databaseProblemsTitle() and databaseProblemLines();
 /// - showInternalError(): the internal error dialog (InternalErrorDialog).
 ///
 /// Milestone 3's value dialogs, motor chooser (MotorChooserDialog, one per window) and parts
@@ -102,8 +102,10 @@ class GuiServices;
 /// once; the menu's texts are QtRocket's. The start-up's database problems are one modal message
 /// for every file (O-M3-21), where OpenRocket's loaders show a modeless warning, always on top,
 /// for each; its lines put the file and the loader's message in as they are (escaped), where
-/// OpenRocket's HTML reads a '<' or '&' in them as markup, and are not wrapped at 400 pixels
-/// (Qt's rich text has no paragraph width).
+/// OpenRocket's HTML reads a '<' or '&' in them as markup, except for the "<br>" and "&nbsp" of
+/// OpenRocket's own RASP messages (written for this warning), which show as a line break and a
+/// space; the lines are 400 pixels wide, as OpenRocket's paragraphs, and the message scrolls
+/// when it is taller than two thirds of the screen (DetailDialog::wrapMessage()).
 ///
 /// Its own state is none: one object serves every window (app/ApplicationContext owns it).
 class WidgetUserPrompts final : public UserPrompts
@@ -135,7 +137,8 @@ public:
     /// "Thrust curve <b><file></b> will be ignored during import." (MotorDbLoaderDlg.message1
     /// as MessageFormat reads it) and "You can try replacing, deleting or manually editing the
     /// thrust curve file to fix this issue." (.message2); ComponentDbLoaderDlg's for a component
-    /// preset file).
+    /// preset file). The message and the file are escaped, but for the "<br>" and "&nbsp" of a
+    /// thrust-curve file's message, which stay markup ("&nbsp;").
     [[nodiscard]] static QStringList databaseProblemLines(
         std::span<const DatabaseProblem> problems);
 

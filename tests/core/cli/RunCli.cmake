@@ -5,8 +5,8 @@
 #   cmake -DCLI=<QtRocket_cli> -DWORK_DIR=<directory> -DEXPECT_EXIT=<code> [-DARGS=<a|b|c>]
 #         [-DSTDOUT_TO=<file>] [-DEXPECT_STDOUT=<patterns>] [-DEXPECT_STDERR=<patterns>]
 #         [-DEXPECT_EMPTY_STDERR=ON] [-DEXPECT_FILE=<name> [-DEXPECT_FILE_CONTENT=<patterns>]
-#         [-DEXPECT_FILE_LF_ONLY=ON]] [-DEXPECT_NO_FILE=<name>] [-DEXPECT_LF_ONLY=ON]
-#         -P RunCli.cmake
+#         [-DEXPECT_FILE_LF_ONLY=ON]] [-DEXPECT_NO_FILE=<name>] [-DEXPECT_DIRECTORIES=<a|b>]
+#         [-DEXPECT_LF_ONLY=ON] -P RunCli.cmake
 #
 # CLI          the executable.
 # WORK_DIR     emptied and made the working directory of the run, so that a relative output path
@@ -29,6 +29,7 @@
 # EXPECT_FILE  a file (relative to WORK_DIR) the run must have written.
 # EXPECT_FILE_LF_ONLY  that file holds no '\r' byte.
 # EXPECT_NO_FILE  a path (relative to WORK_DIR) that must not exist after the run.
+# EXPECT_DIRECTORIES  directories (relative to WORK_DIR, separated by '|') the run must have made.
 # EXPECT_LF_ONLY  the standard output and error hold no '\r' byte: every line ends with '\n'
 #              alone, on every platform (QtRocket_cli puts both into binary mode on Windows).
 
@@ -126,6 +127,14 @@ if(NOT "${EXPECT_FILE}" STREQUAL "")
 endif()
 if(NOT "${EXPECT_NO_FILE}" STREQUAL "" AND EXISTS "${WORK_DIR}/${EXPECT_NO_FILE}")
     string(APPEND failures "  ${EXPECT_NO_FILE} exists\n")
+endif()
+if(NOT "${EXPECT_DIRECTORIES}" STREQUAL "")
+    string(REPLACE "|" ";" expected_directories "${EXPECT_DIRECTORIES}")
+    foreach(directory IN LISTS expected_directories)
+        if(NOT IS_DIRECTORY "${WORK_DIR}/${directory}")
+            string(APPEND failures "  no directory ${directory} was made\n")
+        endif()
+    endforeach()
 endif()
 
 if(NOT "${failures}" STREQUAL "")
