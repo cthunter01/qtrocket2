@@ -375,8 +375,6 @@ The thrust curve preview of the motor chooser and its "Motor thrust curves" dial
 - A legend entry of the dialog has a menu (the line width and markers, Visible, Show only this, Show all,
   Remove, Theme color), which OpenRocket's legends do not have. A curve recoloured there keeps its colour when
   the scheme changes.
-- In the dialog, the selected curve is drawn under the others, where OpenRocket draws it on top. This will
-  change with a later rocketplot.
 
 ## The parts library
 

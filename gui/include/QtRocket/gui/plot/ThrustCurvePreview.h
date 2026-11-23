@@ -28,12 +28,13 @@ class ThrustCurvePlot;
 /// that). No other button, gesture, wheel or context menu does anything (OpenRocket's ChartPanel
 /// has no zoom, wheel or popup; the wheel goes on to the parent, as Swing passes it on).
 ///
-/// rocketplot v0.6.0 emits PlotWidget::clicked() only over the plot area and sets its own cursor
-/// (the upstream gap N6), so the chart and the icon are transparent for the mouse
-/// (Qt::WA_TransparentForMouseEvents): every press reaches this frame, whose cursor shows
-/// everywhere. The frame draws no border: OpenRocket's layered pane has a 1-pixel LineBorder in
-/// OR.colors.cg, but the ChartPanel's bounds cover it, so it never shows (painting the panel gives
-/// the chart's background on the border's pixels).
+/// The chart and the icon are transparent for the mouse (Qt::WA_TransparentForMouseEvents):
+/// every press reaches this frame, whose cursor shows everywhere, so that one handler takes the
+/// clicks on the chart and on the icon over it alike (rocketplot 0.7.0's
+/// PlotWidget::widgetClicked() would report those on the chart alone). The frame draws no border:
+/// OpenRocket's layered pane has a 1-pixel LineBorder in OR.colors.cg, but the ChartPanel's bounds
+/// cover it, so it never shows (painting the panel gives the chart's background on the border's
+/// pixels).
 class ThrustCurvePreview : public QFrame
 {
     Q_OBJECT

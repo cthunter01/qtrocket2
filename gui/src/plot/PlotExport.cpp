@@ -6,7 +6,6 @@
 
 #include <QAction>
 #include <QChar>
-#include <QCoreApplication>
 #include <QList>
 #include <QMenu>
 #include <QObject>
@@ -34,23 +33,15 @@ namespace QtRocket::Gui
 namespace
 {
 
-/// The translation context of rocketplot's own texts (PlotWidget's tr()).
-constexpr const char* kRocketplotContext = "rocketplot::PlotWidget";
-
-/// A text of rocketplot's menus as the plot shows it: @p source (rocketplot's English text) or
-/// its translation, when one is installed.
-[[nodiscard]] QString rocketplotText(const char* source)
-{
-    return QCoreApplication::translate(kRocketplotContext, source);
-}
-
-/// The first action of @p menu whose text is @p text, or null.
-[[nodiscard]] QAction* actionWithText(const QMenu& menu, const QString& text)
+/// The action of @p menu whose objectName is @p name, or null. rocketplot names its menus'
+/// entries, the same in every language: "rocketplot.export" (the context menu's Export...),
+/// "rocketplot.color" (a legend entry's Color...), ...
+[[nodiscard]] QAction* actionNamed(const QMenu& menu, const QString& name)
 {
     const QList<QAction*> actions = menu.actions();
     for (QAction* const action : actions)
     {
-        if (action->text() == text)
+        if (action->objectName() == name)
         {
             return action;
         }
@@ -185,7 +176,7 @@ void PlotExport::install(rocketplot::PlotWidget& plot, const GuiServices& servic
 void PlotExport::replaceExportAction(QMenu& menu, rocketplot::PlotWidget& plot,
                                      const GuiServices& services)
 {
-    QAction* const own = actionWithText(menu, rocketplotText("Export\u2026"));
+    QAction* const own = actionNamed(menu, QStringLiteral("rocketplot.export"));
     //: rocketplot's text (its context menu's Export...), not in OpenRocket
     const QString fallback = tr("Export\u2026");
     auto* const   action   = makeChild<QAction>(&menu, own != nullptr ? own->text() : fallback);
@@ -206,14 +197,9 @@ void PlotExport::replaceExportAction(QMenu& menu, rocketplot::PlotWidget& plot,
 
 void PlotExport::removeColorActions(QMenu& menu)
 {
-    const QString         color   = rocketplotText("Color\u2026");
-    const QList<QAction*> actions = menu.actions();
-    for (QAction* const action : actions)
+    while (QAction* const color = actionNamed(menu, QStringLiteral("rocketplot.color")))
     {
-        if (action->text() == color)
-        {
-            menu.removeAction(action);
-        }
+        menu.removeAction(color);
     }
 }
 

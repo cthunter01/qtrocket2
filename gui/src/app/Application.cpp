@@ -15,6 +15,7 @@
 #include <QObject>
 #include <QString>
 
+#include "QtRocket/gui/plot/PlotTheme.h"
 #include "QtRocket/gui/util/BuildInfo.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/Icons.h"
@@ -63,6 +64,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
     QApplication::setWindowIcon(Icons::windowIcon());
     // The WindowManager decides what the last closed window does.
     QGuiApplication::setQuitOnLastWindowClosed(false);
+    // Every plot light or dark by ThemeColors' rule, as its curves' colours are.
+    PlotTheme::installRule();
 }
 
 Application::~Application() = default;

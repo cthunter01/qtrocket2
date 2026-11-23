@@ -49,7 +49,7 @@
 // OpenRocket has no JUnit test of its plot exports. What is expected is OpenRocket's way of
 // exporting a plot (PlotDialog.doPNGExport(), LandingDispersionResultsDialog.exportPlot():
 // SaveFileChooser, FileHelper.forceExtension(), FileHelper.confirmWrite()) over rocketplot's kinds
-// of file, and rocketplot v0.6.0's menus (PlotWidget::showContextMenu(), showEntryMenu(),
+// of file, and rocketplot's menus (PlotWidget::showContextMenu(), showEntryMenu(),
 // showAnnotationEntryMenu()) without their dialogs.
 
 namespace QtRocket::Gui
@@ -78,8 +78,16 @@ void addThrustCurve(rocketplot::PlotWidget& plot)
     plot.resize(kPlotWidth, kPlotHeight);
 }
 
-/// The texts of @p menu's actions in order, without its separators (a submenu by its title).
-[[nodiscard]] QStringList actionTexts(const QMenu& menu)
+/// What to read of a menu's actions: their texts or their objectNames.
+enum class Read
+{
+    TEXTS,
+    NAMES,
+};
+
+/// The texts (or objectNames) of @p menu's actions in order, without its separators (a submenu by
+/// its title).
+[[nodiscard]] QStringList actionTexts(const QMenu& menu, Read what = Read::TEXTS)
 {
     QStringList           texts;
     const QList<QAction*> actions = menu.actions();
@@ -87,7 +95,7 @@ void addThrustCurve(rocketplot::PlotWidget& plot)
     {
         if (!action->isSeparator())
         {
-            texts.append(action->text());
+            texts.append(what == Read::TEXTS ? action->text() : action->objectName());
         }
     }
     return texts;
@@ -115,9 +123,9 @@ void addThrustCurve(rocketplot::PlotWidget& plot)
     return rect.center().toPoint();
 }
 
-/// The texts of the context menu that a right click in the middle of @p plot's plot area opens,
-/// which is closed again.
-[[nodiscard]] QStringList contextMenuTexts(rocketplot::PlotWidget& plot)
+/// The texts (or objectNames) of the context menu that a right click in the middle of @p plot's
+/// plot area opens, which is closed again.
+[[nodiscard]] QStringList contextMenuTexts(rocketplot::PlotWidget& plot, Read what = Read::TEXTS)
 {
     const Gui::Test::OffscreenPopupWarnings warnings;
     QMenu* const                            menu = openContextMenu(plot, middleOf(plot.plotArea()));
@@ -126,14 +134,15 @@ void addThrustCurve(rocketplot::PlotWidget& plot)
         ADD_FAILURE() << "no context menu";
         return {};
     }
-    const QStringList texts = actionTexts(*menu);
+    const QStringList texts = actionTexts(*menu, what);
     menu->close();
     return texts;
 }
 
-/// The texts of the menu that a right click on @p plot's only legend entry opens, which is closed
-/// again. The plot is painted first: the legend's entries are where it was last drawn.
-[[nodiscard]] QStringList legendMenuTexts(rocketplot::PlotWidget& plot)
+/// The texts (or objectNames) of the menu that a right click on @p plot's only legend entry opens,
+/// which is closed again. The plot is painted first: the legend's entries are where it was last
+/// drawn.
+[[nodiscard]] QStringList legendMenuTexts(rocketplot::PlotWidget& plot, Read what = Read::TEXTS)
 {
     static_cast<void>(plot.grab());
     if (plot.legendArea().isEmpty())
@@ -148,7 +157,7 @@ void addThrustCurve(rocketplot::PlotWidget& plot)
         ADD_FAILURE() << "no legend menu";
         return {};
     }
-    const QStringList texts = actionTexts(*menu);
+    const QStringList texts = actionTexts(*menu, what);
     menu->close();
     return texts;
 }
@@ -218,13 +227,18 @@ TEST_F(PlotExportTest, AsksAsOpenRocketsPlotExportsAskInTheDefaultDirectory)
 
 TEST_F(PlotExportTest, RocketplotsOwnMenusHaveItsExportAndColorDialogs)
 {
-    // What install() replaces, as rocketplot v0.6.0 has it: its Export... and its legend's
-    // Color... (found by these texts).
+    // What install() replaces, as rocketplot has it: its Export... and its legend's Color...,
+    // found by their objectNames (the same in every language).
     rocketplot::PlotWidget plot;
     addThrustCurve(plot);
     EXPECT_EQ(contextMenuTexts(plot), rocketplotMenu());
+    EXPECT_EQ(contextMenuTexts(plot, Read::NAMES).constLast(), QStringLiteral("rocketplot.export"));
     plot.legend()->setVisible(true);
-    EXPECT_TRUE(legendMenuTexts(plot).contains(QStringLiteral("Color\u2026")));
+    const QStringList texts = legendMenuTexts(plot);
+    const QStringList names = legendMenuTexts(plot, Read::NAMES);
+    EXPECT_TRUE(names.contains(QStringLiteral("rocketplot.color")));
+    EXPECT_EQ(names.indexOf(QStringLiteral("rocketplot.color")),
+              texts.indexOf(QStringLiteral("Color\u2026")));
 }
 
 TEST_F(PlotExportTest, TheContextMenuHasQtRocketsExportInPlaceOfRocketplots)
@@ -454,11 +468,14 @@ TEST_F(PlotExportTest, AMenuWithoutRocketplotsExportGetsQtRocketsAtTheEnd)
 
 TEST_F(PlotExportTest, EveryColorChoiceIsRemoved)
 {
+    // Found by rocketplot's objectName, whatever the text (a translation's).
     QMenu menu;
     menu.addAction(QStringLiteral("Visible"));
-    menu.addAction(QStringLiteral("Color\u2026"));
+    menu.addAction(QStringLiteral("Color\u2026"))
+        ->setObjectName(QStringLiteral("rocketplot.color"));
     menu.addAction(QStringLiteral("Remove"));
-    menu.addAction(QStringLiteral("Color\u2026"));
+    menu.addAction(QStringLiteral("Farbe\u2026"))
+        ->setObjectName(QStringLiteral("rocketplot.color"));
     PlotExport::removeColorActions(menu);
     EXPECT_EQ(actionTexts(menu),
               (QStringList{QStringLiteral("Visible"), QStringLiteral("Remove")}));

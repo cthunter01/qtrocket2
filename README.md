@@ -40,7 +40,7 @@ come later ([The GUI](#the-gui)).
 
 The libraries are taken from the system when installed, otherwise downloaded at configure time and built with the
 project (`cmake/Dependencies.cmake`): pugixml (XML), minizip-ng with zlib (zip and gzip), SQLite (the motor
-database) and fast_float (number parsing); GoogleTest and nlohmann_json for the tests only, rocketplot 0.6.0 (the
+database) and fast_float (number parsing); GoogleTest and nlohmann_json for the tests only, rocketplot 0.7.0 (the
 plots) for the GUI only. The release archives always build them from source.
 
 ## Build

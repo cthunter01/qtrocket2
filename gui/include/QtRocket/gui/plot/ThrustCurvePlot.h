@@ -44,17 +44,18 @@ class GuiServices;
 /// span from that time in JFreeChart and from 0 here: the upper bounds differ in their last bits.
 /// With no curves (clear(), or setCurves() of none), JFreeChart's default range with its margins,
 /// [0, 1.05] on both axes. The grid is on; the plot's light or dark theme follows the rule of the
-/// curves' colours (PlotTheme: ThemeColors::theme() of this widget's palette, again on each
-/// palette change), so that the two agree.
+/// curves' colours (rocketplot's ThemeMode::SYSTEM with PlotTheme's rule: ThemeColors::theme() of
+/// the plot's palette, again on each palette change), so that the two agree. Both draw the first
+/// curve of plotWidget()'s series() on top and the last at the bottom, as JFreeChart's
+/// SeriesRenderingOrder.REVERSE does (rocketplot's SeriesDrawOrder::REVERSE), while a legend lists
+/// them from the first.
 ///
 /// PREVIEW: titled "Thrust curve:" (TCMotorSelPan.title.Thrustcurve), no axis labels, no
 /// legend, no interaction (PlotInputBindings::setNoInteraction(): OpenRocket's ChartPanel without
 /// zoom, wheel or popup; this widget prevents a context menu too). Curve i is "Thrust (i)"
 /// (TCMotorSelPan.title.Thrust), 3 pixels wide for the selected curve and 1 for the others, in
-/// newtons and seconds as OpenRocket plots it (its preview has no axis label to name a unit).
-/// JFreeChart draws series 0 on top (SeriesRenderingOrder.REVERSE) and rocketplot the last one
-/// added (upstream request N10), so the curves are added from the last: plotWidget()'s series()
-/// are "Thrust (n-1)" ... "Thrust (0)".
+/// newtons and seconds as OpenRocket plots it (its preview has no axis label to name a unit):
+/// plotWidget()'s series() are "Thrust (0)" ... "Thrust (n-1)".
 ///
 /// DIALOG: titled "Motor thrust curves", the axes labelled "Time / <unit>" and "Thrust / <unit>"
 /// in the default units of short time and force, the legend under the plot area (OUTSIDE_BOTTOM,
@@ -66,8 +67,8 @@ class GuiServices;
 /// kRocketplotSquareScale of its size; no ring around the markers, rocketplot v0.6.0's N1); then
 /// the others in the list's order, named "<manufacturer> <designation> (n)" with n from 1, without
 /// markers; all 1.5 pixels wide, each in the colour of its place in the list (the selected one
-/// too). rocketplot draws them in that order, so the selected curve lies under the others, where
-/// OpenRocket draws it on top (N10: the legend's order is kept instead, the decision O-M3-19).
+/// too). So the selected curve lies on top of the others, as in OpenRocket, and comes first in the
+/// legend.
 ///
 /// Deliberate differences: the DIALOG chart plots the thrust and the time in the units its axes
 /// name; OpenRocket labels the thrust axis in the default force unit but plots newtons
@@ -103,9 +104,10 @@ public:
     /// The side of the selected curve's markers in OpenRocket's dialog: DefaultDrawingSupplier's
     /// first shape, Rectangle2D.Double(-3, -3, 6, 6).
     static constexpr double kDialogMarkerSide = 6.0;
-    /// rocketplot v0.6.0 draws a SQUARE marker of size s as a square of side s times this
-    /// (MarkerPainter's kSquareScale, so that it looks as big as a circle of diameter s), the
-    /// sprite, the SVG export and the legend's icon alike.
+    /// rocketplot draws a SQUARE marker of size s as a square of side s times this, so that it
+    /// looks as big as a circle of diameter s: the sprite, the SVG export and the legend's icon
+    /// alike (Series::markerSize(), a documented rule since rocketplot 0.7.0, which also draws a
+    /// square whose side is a whole number of pixels with sharp edges).
     static constexpr double kRocketplotSquareScale = 0.85;
     /// The rocketplot marker size (Series::setMarkerSize()) of the selected curve's markers: the
     /// size whose square is kDialogMarkerSide wide (half-side exactly 3 in IEEE doubles).
@@ -148,9 +150,8 @@ public:
     [[nodiscard]] rocketplot::PlotWidget& plotWidget() const noexcept { return *m_plot; }
 
 protected:
-    /// Gives the plot the theme of the new palette (PlotTheme::apply()) and re-colours the curves
-    /// when the palette changes (a curve the user gave another colour through the legend's menu
-    /// keeps it).
+    /// Re-colours the curves when the palette changes (a curve the user gave another colour
+    /// through the legend's menu keeps it); the plot's theme follows by itself (PlotTheme).
     void changeEvent(QEvent* event) override;
 
 private:

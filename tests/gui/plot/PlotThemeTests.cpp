@@ -14,9 +14,9 @@
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "ScopedApplicationPalette.h"
 
-// OpenRocket has no JUnit test of its chart colours: the expectations are rocketplot v0.6.0's
-// built-in themes and its SYSTEM look (the plot on the palette's Base, the legend on Base with
-// the theme's translucency), chosen by ThemeColors' rule.
+// OpenRocket has no JUnit test of its chart colours: the expectations are rocketplot's built-in
+// themes and its SYSTEM look (the plot on the palette's Base, the legend on Base with the theme's
+// translucency), chosen by ThemeColors' rule.
 
 namespace QtRocket::Gui
 {
@@ -83,18 +83,34 @@ TEST_F(PlotThemeTest, ABaseThatTheThemeCannotBeReadOnKeepsTheThemesOwnBackground
     EXPECT_TRUE(PlotTheme::forPalette(darkWindow) == rocketplot::Theme::dark());
 }
 
-TEST_F(PlotThemeTest, ApplyGivesThePlotTheThemeForGood)
+TEST_F(PlotThemeTest, IsDarkIsThemeColorsRule)
+{
+    EXPECT_FALSE(PlotTheme::isDark(Palette::light()));
+    EXPECT_TRUE(PlotTheme::isDark(Palette::dark()));
+    // Where rocketplot's default rule (Base darker than mid-grey) says the opposite.
+    EXPECT_FALSE(PlotTheme::isDark(withBase(Palette::light(), kDarkBase)));
+    EXPECT_TRUE(PlotTheme::isDark(withBase(Palette::dark(), kLightBase)));
+}
+
+TEST_F(PlotThemeTest, TheApplicationMakesItTheRuleOfEveryPlot)
+{
+    // Application's constructor installed it (PlotTheme::installRule()), for the tests too.
+    EXPECT_FALSE(rocketplot::PlotWidget::isDarkPalette(withBase(Palette::light(), kDarkBase)));
+    EXPECT_TRUE(rocketplot::PlotWidget::isDarkPalette(withBase(Palette::dark(), kLightBase)));
+}
+
+TEST_F(PlotThemeTest, APlotFollowsItsPaletteByTheRule)
 {
     rocketplot::PlotWidget plot;
-    const QPalette         dark = Palette::dark();
-    PlotTheme::apply(plot, dark);
-    EXPECT_EQ(plot.themeMode(), rocketplot::ThemeMode::CUSTOM);
+    EXPECT_EQ(plot.themeMode(), rocketplot::ThemeMode::SYSTEM);
+    const QPalette lightWindow = withBase(Palette::light(), kDarkBase);
+    plot.setPalette(lightWindow);
+    EXPECT_TRUE(plot.theme() == PlotTheme::forPalette(lightWindow));
+    EXPECT_TRUE(plot.theme() == rocketplot::Theme::light());
+    const QPalette dark = Palette::dark();
+    plot.setPalette(dark);
     EXPECT_TRUE(plot.theme() == PlotTheme::forPalette(dark));
-    // rocketplot no longer follows the plot's palette itself.
-    plot.setPalette(Palette::light());
-    EXPECT_TRUE(plot.theme() == PlotTheme::forPalette(dark));
-    PlotTheme::apply(plot, plot.palette());
-    EXPECT_TRUE(plot.theme() == PlotTheme::forPalette(Palette::light()));
+    EXPECT_EQ(plot.theme().background.rgba(), QColor(Qt::black).rgba());
 }
 
 }  // namespace

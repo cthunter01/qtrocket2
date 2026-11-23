@@ -116,7 +116,7 @@ TEST_F(ThrustCurvePreviewTest, LaysOutTheChartAndTheZoomIconAsOpenRocketsLayered
     const int iconSize = Icons::iconHeight(Icons::Id::ZOOM_IN, preview.font());
     EXPECT_EQ(preview.zoomIcon().pixmap().deviceIndependentSize().toSize(),
               QSize(iconSize, iconSize));
-    // The chart and the icon let every press through to the frame (rocketplot's N6).
+    // The chart and the icon let every press through to the frame, which takes them alike.
     EXPECT_TRUE(preview.chart().testAttribute(Qt::WA_TransparentForMouseEvents));
     EXPECT_TRUE(preview.zoomIcon().testAttribute(Qt::WA_TransparentForMouseEvents));
     EXPECT_EQ(preview.cursor().shape(), Qt::PointingHandCursor);

@@ -1,12 +1,13 @@
 #pragma once
 
 // Reading a rocketplot plot back in a test, without pixels or fonts (CLAUDE.md, section GUI): what
-// its series, axes and title are, from rocketplot's getters; and, since rocketplot v0.6.0 tells
-// neither its legend's entries nor its axes' ticks (the upstream request N11), the texts it
-// draws, from its SVG export (QXmlStreamReader over the <text> elements), and from the same export
-// the paths it draws (the size a marker comes out, say). Never pin a tick label or a position:
-// they follow the fonts. Compare a series' name with rocketplot::literalText(expected), as it was
-// given.
+// its series, axes and title are, from rocketplot's getters; the texts it draws, from its SVG
+// export (QXmlStreamReader over the <text> elements), and from the same export the paths it draws
+// (the size a marker comes out, say). rocketplot's Legend::entries() and Axis::ticks() (since
+// 0.7.0) give the legend's names as they were given and the ticks as laid out; the export gives
+// the texts as drawn, a name's characters as the user reads them. Never pin a tick label or a
+// position: they follow the fonts. Compare a series' name with rocketplot::literalText(expected),
+// as it was given.
 
 #include <optional>
 #include <ostream>
@@ -152,9 +153,9 @@ struct PlotTexts
 /// - the y tick labels: the unrotated texts that start left of plotArea() and below its top,
 ///   outside the legend, above the x tick labels' row (the title is above the plot area, and the
 ///   y axis' label is rotated).
-/// This relies on how rocketplot v0.6.0 lays a plot out (PlotRenderer::drawLabels(): the tick
-/// labels of x under the plot area, of y right-aligned left of it, the axis labels further out)
-/// and holds for plots with a title, axis labels, a legend inside or outside the plot area and
+/// This relies on how rocketplot (0.6.0 and 0.7.0) lays a plot out (PlotRenderer::drawLabels(): the
+/// tick labels of x under the plot area, of y right-aligned left of it, the axis labels further
+/// out) and holds for plots with a title, axis labels, a legend inside or outside the plot area and
 /// no secondary y axis, event flags or color key.
 [[nodiscard]] PlotTexts readPlotTexts(rocketplot::PlotWidget& plot);
 

@@ -160,7 +160,7 @@ subsystem or area is added there too.
   change only through their generators
 - Tests are deterministic and leave no process-wide state behind (default units, the flight data type registry,
   shared preferences, the current directory). An optional measurement or a tool run by hand is a `DISABLED_` test
-- Plots come from rocketplot by FetchContent at tag `v0.6.0` (only with the GUI), with `SYSTEM` and without
+- Plots come from rocketplot by FetchContent at tag `v0.7.0` (only with the GUI), with `SYSTEM` and without
   `EXCLUDE_FROM_ALL` (which would drop its licence files' install rules); `ROCKETPLOT_SANITIZERS` is set from
   `QTROCKET_SANITIZERS` before `FetchContent_MakeAvailable`, and the `asan`, `tsan` and `coverage` presets set
   `FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER` (an installed rocketplot has no sanitizer instrumentation)
@@ -178,9 +178,11 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text
   given to rocketplot goes through `rocketplot::literalText()`: a `$` starts math, of which rocketplot, built
-  without its math font, warns once per process (a test would fail or pass by test order). Every plot calls
-  `plot/PlotTheme::apply()` when it is made and at a `PaletteChange` of the widget that holds it; rocketplot's own
-  dialogs (Export..., Color...) are replaced through `plot/PlotExport`
+  without its math font, warns once per process (a test would fail or pass by test order). A plot stays in
+  rocketplot's `ThemeMode::SYSTEM`: `Application` installs `plot/PlotTheme`'s light/dark rule (ThemeColors', which
+  also picks the curve colours) for every plot. rocketplot's own dialogs (Export..., Color...) are replaced plot by
+  plot through `plot/PlotExport` (by their object names, `rocketplot.export`, ...); the GUI tests' `main` makes
+  rocketplot's process-wide dialogs (`rocketplot::setDialogs()`) fail a test that reaches one
 - Every Qt target calls `QtRocket_configure_qt_target()`: per-target AUTOMOC and `QT_NO_KEYWORDS` (also PUBLIC on
   `QtRocket_gui`: the core's `Signal::emit()`), `QT_ENABLE_STRICT_MODE_UP_TO=0x060800`,
   `QT_WARN_DEPRECATED_UP_TO=0x060800`, `QT_NO_CAST_FROM_ASCII`. So `Q_SIGNALS`/`Q_EMIT`, no `Q_SLOTS` (connect
@@ -202,8 +204,9 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `app/ApplicationContext`. Every modal question goes through `UserPrompts` (widgets:
   `main/WidgetUserPrompts`). The only process-wide state: `main/OpenRocketClipboard::instance()`, the configuration
   dialog (`ComponentConfigDialog`'s statics), `Guard`'s error hook and `UndoRedoActions`' undo-error flag
-  (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is a cache. A window's parts ask for the configuration
-  dialog by signal (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers;
+  (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is a cache, and rocketplot's light/dark rule (set by
+  `Application`) reads only the palette it is given. A window's parts ask for the configuration dialog by signal
+  (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers;
   `app/ApplicationSession` makes it, with the error hook, the windows, the file operations and the recent files (a
   `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`,
   `QTROCKET_TEST_USER_DATA_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`,

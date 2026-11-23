@@ -32,7 +32,10 @@ namespace QtRocket::Gui
 ///   when none is set (pendingFiles()); a QEvent::Quit (the macOS Dock's or the session's Quit,
 ///   QCoreApplication::quit(): OSXSetup's quit handler) asks the quit hook, which closes the
 ///   windows and tells whether the application may quit, instead of Qt's closing of every
-///   window.
+///   window;
+/// - the light or dark rule of every plot (PlotTheme::installRule(): ThemeColors' rule, which
+///   also picks the plots' curve colours), let go of by rocketplot when the application object is
+///   destroyed.
 ///
 /// The application and the GUI tests make one each (tests/gui/GuiTestMain.cpp), so that the tests
 /// run under the same backstop. The hooks belong to whoever set them: ApplicationSession sets

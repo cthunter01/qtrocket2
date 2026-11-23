@@ -268,8 +268,7 @@ struct SeriesLook
         .subspan(static_cast<std::size_t>(first), static_cast<std::size_t>(count));
 }
 
-/// OpenRocket's preview of @p curves for @p chart, in QtRocket's order: Java's series from the last
-/// (series i plots curve i).
+/// OpenRocket's preview of @p curves for @p chart: series i plots curve i.
 [[nodiscard]] std::vector<SeriesLook> expectedPreview(const ThrustCurveChartPin& chart,
                                                       const Curves&              curves)
 {
@@ -277,7 +276,7 @@ struct SeriesLook
         seriesPins(chart.firstPreview, chart.previewCount);
     std::vector<SeriesLook> looks;
     looks.reserve(pins.size());
-    for (std::size_t k = pins.size(); k-- > 0;)
+    for (std::size_t k = 0; k < pins.size(); ++k)
     {
         looks.push_back(expectedLook(pins[k], *curves[k]));
     }

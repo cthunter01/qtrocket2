@@ -1,6 +1,5 @@
 #include "QtRocket/gui/plot/PlotTheme.h"
 
-#include <QColor>
 #include <QPalette>
 
 #include <rocketplot/PlotWidget.h>
@@ -11,31 +10,19 @@
 namespace QtRocket::Gui
 {
 
-namespace
+bool PlotTheme::isDark(const QPalette& palette)
 {
-
-/// rocketplot's SYSTEM rule: a Base colour of lightness below this is a dark one.
-constexpr float kDarkLightness = 0.5F;
-
-}  // namespace
+    return ThemeColors::theme(palette) == ThemeColors::Theme::DARK;
+}
 
 rocketplot::Theme PlotTheme::forPalette(const QPalette& palette)
 {
-    const bool        dark  = ThemeColors::theme(palette) == ThemeColors::Theme::DARK;
-    rocketplot::Theme theme = dark ? rocketplot::Theme::dark() : rocketplot::Theme::light();
-    const QColor      base  = palette.color(QPalette::Active, QPalette::Base);
-    if ((base.lightnessF() < kDarkLightness) == dark)
-    {
-        theme.background = base;
-        theme.legendBackground =
-            QColor(base.red(), base.green(), base.blue(), theme.legendBackground.alpha());
-    }
-    return theme;
+    return rocketplot::Theme::forPalette(palette, isDark(palette));
 }
 
-void PlotTheme::apply(rocketplot::PlotWidget& plot, const QPalette& palette)
+void PlotTheme::installRule()
 {
-    plot.setTheme(forPalette(palette));
+    rocketplot::PlotWidget::setDarkPaletteRule(&PlotTheme::isDark);
 }
 
 }  // namespace QtRocket::Gui

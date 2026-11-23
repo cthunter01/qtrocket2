@@ -26,7 +26,6 @@
 #include "QtRocket/gui/plot/PlotColors.h"
 #include "QtRocket/gui/plot/PlotExport.h"
 #include "QtRocket/gui/plot/PlotInputBindings.h"
-#include "QtRocket/gui/plot/PlotTheme.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/motor/Manufacturer.h"
@@ -96,8 +95,9 @@ ThrustCurvePlot::ThrustCurvePlot(Style style, QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_plot);
 
-    // The look and the curves' colours by one rule (rocketplot's SYSTEM mode has its own).
-    PlotTheme::apply(*m_plot, palette());
+    // rocketplot's ThemeMode::SYSTEM by the curves' colours' rule (PlotTheme::installRule()).
+    // JFreeChart's SeriesRenderingOrder.REVERSE: the first curve on top, the legend in order.
+    m_plot->setSeriesDrawOrder(rocketplot::SeriesDrawOrder::REVERSE);
     fitLikeJFreeChart(*m_plot->xAxis());
     fitLikeJFreeChart(*m_plot->yAxis());
     if (m_style == Style::PREVIEW)
@@ -171,7 +171,6 @@ void ThrustCurvePlot::changeEvent(QEvent* event)
     if (event->type() == QEvent::PaletteChange)
     {
         // This widget's palette: the plot's own follows only after this event.
-        PlotTheme::apply(*m_plot, palette());
         recolor();
     }
 }
@@ -217,8 +216,7 @@ rocketplot::LineSeries& ThrustCurvePlot::addCurve(const ThrustCurveMotor& motor,
 void ThrustCurvePlot::addPreviewCurves(
     std::span<const std::shared_ptr<const ThrustCurveMotor>> motors, int selected)
 {
-    // From the last, so that the first is drawn on top (JFreeChart's REVERSE rendering order).
-    for (std::size_t k = motors.size(); k-- > 0;)
+    for (std::size_t k = 0; k < motors.size(); ++k)
     {
         const int index = static_cast<int>(k);
         //: TCMotorSelPan.title.Thrust

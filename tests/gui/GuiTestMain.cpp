@@ -29,11 +29,17 @@
 //   hook of the process fails the test, unless the test records the reports itself
 //   (RecordingGuardHook) or starts the application (ApplicationSession, whose hook asks the
 //   test's UserPrompts).
+// - So does a question of rocketplot's own dialogs (rocketplot::setDialogs(): Export...,
+//   Color...), which QtRocket's plots replace with questions through UserPrompts
+//   (plot/PlotExport.h): a test that reached one would otherwise wait in a modal dialog for a
+//   user who isn't there.
 
 #include <cstdio>
+#include <optional>
 #include <print>
 #include <string>
 
+#include <QColor>
 #include <QFontMetrics>
 #include <QGuiApplication>
 #include <QLocale>
@@ -44,6 +50,7 @@
 #include <QtEnvironmentVariables>
 
 #include <gtest/gtest.h>
+#include <rocketplot/Dialogs.h>
 
 #include "ExpectedQtMessage.h"
 #include "QtRocket/gui/app/Application.h"
@@ -102,12 +109,42 @@ void failOnReport(const QtRocket::Gui::Guard::Failure& failure)
     }
 }
 
+/// Fails the test that runs (or the test program, outside a test) for a question of rocketplot's
+/// own dialogs: @p what was asked, @p text the dialog's title or message.
+void failOnRocketplotQuestion(const char* what, const QString& text)
+{
+    ADD_FAILURE() << "rocketplot asked for " << what
+                  << " through its own dialog: " << QtRocket::Gui::QtStrings::toUtf8(text);
+}
+
+/// Makes every question of rocketplot's own dialogs fail (failOnRocketplotQuestion()) and answer
+/// as a user who cancels.
+void failOnRocketplotDialogs()
+{
+    static_cast<void>(rocketplot::setDialogs({
+        .saveFileName =
+            [](const rocketplot::SaveFileRequest& request) {
+                failOnRocketplotQuestion("a file name", request.title);
+                return QString();
+            },
+        .color = [](const rocketplot::ColorRequest& request) -> std::optional<QColor> {
+            failOnRocketplotQuestion("a colour", request.title);
+            return std::nullopt;
+        },
+        .warning =
+            [](const rocketplot::MessageRequest& request) {
+                failOnRocketplotQuestion("a warning", request.text);
+            },
+    }));
+}
+
 int runTests(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     QtRocket::Gui::Test::ExpectedQtMessage::installHandler();
     const QtRocket::Gui::Application application(argc, argv);
     static_cast<void>(QtRocket::Gui::Guard::setHook(&failOnReport));
+    failOnRocketplotDialogs();
     QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
     QStandardPaths::setTestModeEnabled(true);
     resolveTheApplicationFont();

@@ -25,6 +25,7 @@
 #include <QString>
 #include <QStringList>
 #include <Qt>
+#include <QtContainerFwd>
 
 #include <gtest/gtest.h>
 #include <rocketplot/Axis.h>
@@ -131,6 +132,19 @@ void PrintTo(const CurveLook& look, std::ostream* out)
                          .marker    = series.marker});
     }
     return looks;
+}
+
+/// The names of @p plot's series in the order they are drawn, the last on top
+/// (PlotWidget::seriesInDrawOrder()).
+[[nodiscard]] QStringList drawOrderOf(const ThrustCurvePlot& plot)
+{
+    QStringList                      names;
+    const QList<rocketplot::Series*> drawn = plot.plotWidget().seriesInDrawOrder();
+    for (const rocketplot::Series* const series : drawn)
+    {
+        names.append(series->name());
+    }
+    return names;
 }
 
 /// A curve's look as the test expects it: @p name through literalText().
@@ -315,13 +329,16 @@ TEST_F(ThrustCurvePlotTest, PreviewShowsTheEstesC6AsOpenRocket)
     EXPECT_EQ(read.title, rocketplot::literalText(QStringLiteral("Thrust curve:")));
     EXPECT_EQ(read.xAxis, fittedAxis(kEstesC6TimeMax));
     EXPECT_EQ(read.yAxis, fittedAxis(kEstesC6ThrustMax));
-    // Added from the last curve, so that "Thrust (0)" is drawn on top.
+    // In the list's order, drawn from the last, so that "Thrust (0)" lies on top (JFreeChart's
+    // SeriesRenderingOrder.REVERSE).
     EXPECT_EQ(looksOf(plot), (std::vector<CurveLook>{
-                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
                                  look(QStringLiteral("Thrust (0)"), kLight0, 3.0),
+                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
                              }));
+    EXPECT_EQ(drawOrderOf(plot),
+              (QStringList{QStringLiteral("Thrust (1)"), QStringLiteral("Thrust (0)")}));
     ASSERT_EQ(motors.size(), 2U);
-    EXPECT_EQ(dataOf(plot), (std::vector<CurveData>{dataOf(*motors[1]), dataOf(*motors[0])}));
+    EXPECT_EQ(dataOf(plot), (std::vector<CurveData>{dataOf(*motors[0]), dataOf(*motors[1])}));
     EXPECT_FALSE(plot.plotWidget().legend()->isVisible());
     EXPECT_EQ(plot.chartStyle(), ThrustCurvePlot::Style::PREVIEW);
     EXPECT_EQ(plot.curveCount(), 2);
@@ -337,10 +354,10 @@ TEST_F(ThrustCurvePlotTest, PreviewShowsTheSelectionOfTheAeroTechG80TsLastCurve)
     EXPECT_EQ(Gui::Test::readAxis(*plot.plotWidget().xAxis()), fittedAxis(kG80TTimeMax));
     EXPECT_EQ(Gui::Test::readAxis(*plot.plotWidget().yAxis()), fittedAxis(kG80TThrustMax));
     EXPECT_EQ(looksOf(plot), (std::vector<CurveLook>{
-                                 look(QStringLiteral("Thrust (3)"), kLight3, 3.0),
-                                 look(QStringLiteral("Thrust (2)"), kLight2, 1.0),
-                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
                                  look(QStringLiteral("Thrust (0)"), kLight0, 1.0),
+                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
+                                 look(QStringLiteral("Thrust (2)"), kLight2, 1.0),
+                                 look(QStringLiteral("Thrust (3)"), kLight3, 3.0),
                              }));
     EXPECT_EQ(plot.selectedCurve(), 3);
 }
@@ -364,6 +381,9 @@ TEST_F(ThrustCurvePlotTest, DialogShowsTheEstesC6AsOpenRocket)
                   look(QStringLiteral("Estes C6"), kLight0, 1.5, rocketplot::Marker::SQUARE),
                   look(QStringLiteral("Estes C6 (1)"), kLight1, 1.5),
               }));
+    // The selected curve drawn on top, as OpenRocket's (JFreeChart's REVERSE order).
+    EXPECT_EQ(drawOrderOf(plot),
+              (QStringList{QStringLiteral("Estes C6 (1)"), QStringLiteral("Estes C6")}));
     ASSERT_EQ(motors.size(), 2U);
     EXPECT_EQ(dataOf(plot), (std::vector<CurveData>{dataOf(*motors[0]), dataOf(*motors[1])}));
     const Gui::Test::SeriesReadback selected = Gui::Test::readSeries(*widget.series().front());
@@ -393,6 +413,9 @@ TEST_F(ThrustCurvePlotTest, DialogPutsTheAeroTechG80TsSelectedCurveFirstInItsOwn
                   look(QStringLiteral("AeroTech G80T (2)"), kLight1, 1.5),
                   look(QStringLiteral("AeroTech G80T (3)"), kLight2, 1.5),
               }));
+    EXPECT_EQ(drawOrderOf(plot),
+              (QStringList{QStringLiteral("AeroTech G80T (3)"), QStringLiteral("AeroTech G80T (2)"),
+                           QStringLiteral("AeroTech G80T (1)"), QStringLiteral("AeroTech G80T")}));
 
     // The first curve selected: the others in their order.
     plot.setCurves(motors, 0);
@@ -441,8 +464,8 @@ TEST_F(ThrustCurvePlotTest, ChartsInADarkPaletteShowOpenRocketsDarkColours)
     dialog.setCurves(motors, 0);
 
     EXPECT_EQ(looksOf(preview), (std::vector<CurveLook>{
-                                    look(QStringLiteral("Thrust (1)"), kDark1, 1.0),
                                     look(QStringLiteral("Thrust (0)"), kDark0, 3.0),
+                                    look(QStringLiteral("Thrust (1)"), kDark1, 1.0),
                                 }));
     EXPECT_EQ(looksOf(dialog),
               (std::vector<CurveLook>{
@@ -485,8 +508,8 @@ TEST_F(ThrustCurvePlotTest, ACurveTheUserRecolouredOrRemovedIsLeftAloneByAPalett
     ASSERT_EQ(series.size(), 2);
     // "Thrust (1)" recoloured, "Thrust (0)" removed, as the legend's menu does (Theme color,
     // Remove).
-    series.front()->setColor(QColor::fromRgba(kUserColor));
-    preview.plotWidget().removeSeries(series.back());
+    series.back()->setColor(QColor::fromRgba(kUserColor));
+    preview.plotWidget().removeSeries(series.front());
 
     const Palette dark(Palette::dark());
     QCoreApplication::sendPostedEvents();
@@ -520,7 +543,7 @@ TEST_F(ThrustCurvePlotTest, DialogPlotsTheThrustInTheUnitItsAxisNames)
     EXPECT_EQ(Gui::Test::readAxis(*dialog.plotWidget().xAxis()),
               fittedAxis(kEmptyRangeMax, QStringLiteral("Time / s")));
     // The preview has no axis label, and plots newtons as OpenRocket's.
-    EXPECT_EQ(dataOf(preview).back(), dataOf(*motors[0]));
+    EXPECT_EQ(dataOf(preview).front(), dataOf(*motors[0]));
 }
 
 TEST_F(ThrustCurvePlotTest, ChartsWithoutCurvesShowJFreeChartsDefaultRange)
@@ -564,8 +587,8 @@ TEST_F(ThrustCurvePlotTest, ANullMotorOrASelectionOutsideTheCurvesIsABug)
     // No selection: every curve as an unselected one, the dialog's numbered from 1 (Java's n).
     plot.setCurves(motors, -1);
     EXPECT_EQ(looksOf(plot), (std::vector<CurveLook>{
-                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
                                  look(QStringLiteral("Thrust (0)"), kLight0, 1.0),
+                                 look(QStringLiteral("Thrust (1)"), kLight1, 1.0),
                              }));
     const Gui::Test::TestGuiServices services;
     ThrustCurvePlot                  dialog(services.services());
@@ -588,8 +611,9 @@ TEST_F(ThrustCurvePlotTest, PreviewTakesNoGestureAndHasNoContextMenu)
     EXPECT_EQ(preview.contextMenuPolicy(), Qt::PreventContextMenu);
     EXPECT_EQ(preview.objectName(), QStringLiteral("chartPanel"));
     EXPECT_EQ(widget.objectName(), QStringLiteral("chart"));
-    // The theme of the curve colours' rule (PlotTheme), not rocketplot's SYSTEM rule.
-    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::CUSTOM);
+    // rocketplot's SYSTEM look by the curve colours' rule (PlotTheme's, installed by the
+    // application), not by rocketplot's own.
+    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::SYSTEM);
     EXPECT_TRUE(widget.theme() == PlotTheme::forPalette(preview.palette()));
 }
 
@@ -603,7 +627,7 @@ TEST_F(ThrustCurvePlotTest, DialogZoomsAsAChartPanelAndExportsThroughQtRocketsPr
     EXPECT_EQ(widget.inputBindings(), PlotInputBindings::chartPanel());
     EXPECT_FALSE(widget.isCrosshairEnabled());
     EXPECT_EQ(widget.crosshairMode(), rocketplot::CrosshairMode::SNAP);
-    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::CUSTOM);
+    EXPECT_EQ(widget.themeMode(), rocketplot::ThemeMode::SYSTEM);
     EXPECT_TRUE(widget.theme() == PlotTheme::forPalette(dialog.palette()));
     EXPECT_EQ(dialog.objectName(), QStringLiteral("chartPanel"));
 
@@ -706,7 +730,7 @@ TEST_F(ThrustCurvePlotTest, ThePlotsThemeFollowsTheRuleOfItsCurveColours)
         const Palette dark(Palette::dark());
         QCoreApplication::sendPostedEvents();
         const rocketplot::Theme& theme = dialog.plotWidget().theme();
-        EXPECT_EQ(dialog.plotWidget().themeMode(), rocketplot::ThemeMode::CUSTOM);
+        EXPECT_EQ(dialog.plotWidget().themeMode(), rocketplot::ThemeMode::SYSTEM);
         EXPECT_TRUE(theme.seriesColors == rocketplot::Theme::dark().seriesColors);
         EXPECT_EQ(theme.text.rgba(), rocketplot::Theme::dark().text.rgba());
         // On the dark palette's Base, as rocketplot's SYSTEM look.

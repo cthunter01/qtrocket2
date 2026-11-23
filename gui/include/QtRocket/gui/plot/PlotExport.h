@@ -36,10 +36,12 @@ class GuiServices;
 /// same steps as OpenRocket's buttons over rocketplot's kinds of file (exportPlot()). Milestone
 /// 4's "Export Image" asks with its own request (the PNG filter only) through exportPlot().
 ///
-/// rocketplot (v0.6.0) names none of its actions, so install() finds its "Export..." and its
-/// legend entries' "Color..." by their text (rocketplot's English text, or its translation in
-/// rocketplot's context when one is installed: QtRocket installs none), until rocketplot gives
-/// them names or hooks (the upstream request N12).
+/// install() finds rocketplot's "Export..." and its legend entries' "Color..." by the object
+/// names rocketplot gives them in every language ("rocketplot.export", "rocketplot.color"), plot
+/// by plot. rocketplot's own hook for its dialogs (rocketplot::setDialogs()) holds one set for
+/// the whole process, which cannot tell one window's or test's prompts from another's, so
+/// QtRocket's program leaves it alone; the GUI tests install dialogs there that fail a test,
+/// should rocketplot ever ask itself (tests/gui/GuiTestMain.cpp).
 class PlotExport
 {
     Q_DECLARE_TR_FUNCTIONS(PlotExport)
@@ -87,13 +89,14 @@ public:
 
     /// In @p menu, a context menu of @p plot as rocketplot builds it: puts an action of the same
     /// text (objectName exportActionName()) that runs exportPlot(@p plot, @p services) in place
-    /// of rocketplot's "Export..." (removed from the menu, which still owns it); without one in
-    /// the menu, adds it at the end, with the text tr("Export...").
+    /// of rocketplot's "Export..." (objectName "rocketplot.export"; removed from the menu, which
+    /// still owns it); without one in the menu, adds it at the end, with the text
+    /// tr("Export...").
     static void replaceExportAction(QMenu& menu, rocketplot::PlotWidget& plot,
                                     const GuiServices& services);
 
-    /// Removes rocketplot's "Color..." from @p menu (a legend entry's menu), which would open a
-    /// QColorDialog.
+    /// Removes rocketplot's "Color..." (objectName "rocketplot.color") from @p menu (a legend
+    /// entry's menu), which would ask for a colour through rocketplot's own dialog.
     static void removeColorActions(QMenu& menu);
 
     /// The objectName of QtRocket's Export... action ("exportPlot").
