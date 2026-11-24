@@ -123,7 +123,8 @@ public:
     [[nodiscard]] bool canCut() const;
     /// The first selected component copyable (CopyAction).
     [[nodiscard]] bool canCopy() const;
-    /// Something on the clipboard (PasteAction: getPastePositions() has an entry for each).
+    /// A component on the clipboard (PasteAction: getPastePositions() has an entry for each);
+    /// simulations on it are not this editing's.
     [[nodiscard]] bool canPaste() const;
     /// The first selected component copyable (DuplicateAction).
     [[nodiscard]] bool canDuplicate() const;

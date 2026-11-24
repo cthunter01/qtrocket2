@@ -216,7 +216,8 @@ bool ComponentEditing::canCopy() const
 
 bool ComponentEditing::canPaste() const
 {
-    return !m_clipboard->isEmpty();
+    // The components alone: simulations on the clipboard are the simulations table's.
+    return !m_clipboard->components().empty();
 }
 
 bool ComponentEditing::canDuplicate() const
