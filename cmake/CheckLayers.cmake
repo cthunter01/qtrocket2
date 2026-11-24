@@ -9,10 +9,12 @@
 #    command-line tool's commands) on top. A subsystem the order does not name is a violation too: a new one is
 #    added here and in CLAUDE.md. figure/ may be there or not.
 # 2. The GUI (gui/include/QtRocket/gui/<area>/, gui/src/<area>/): an area includes only itself and the areas before
-#    it, in the order of CLAUDE.md (plan sections 9.2 and 10.2): util, settings, binding, widgets, plot, tree, figure,
-#    configdialog, dialogs, flightconfig, main, app, with gui/main.cpp on top; any subsystem of the core, but never
-#    QtRocket/cli (the GUI does not link the command-line tool's library). rocketplot's headers (<rocketplot/...>)
-#    are included only in plot/: the areas after it use rocketplot through plot/'s classes.
+#    it, in the order of CLAUDE.md (plan sections 9.2, 10.2 and 11.2): util, settings, binding, widgets, plot, tree,
+#    figure, configdialog, dialogs, flightconfig, simulation, main, app, with gui/main.cpp on top; any subsystem of the
+#    core, but never QtRocket/cli (the GUI does not link the command-line tool's library). A subdirectory belongs to
+#    its area (dialogs/simulation/ is dialogs, before the area simulation), and the core's QtRocket/simulation/ is not
+#    the area QtRocket/gui/simulation/. rocketplot's headers (<rocketplot/...>) are included only in plot/: the areas
+#    after it use rocketplot through plot/'s classes.
 # 3. The core is Qt-free: no Qt header and no header of rocketplot (a Qt library) in include/ or src/.
 # 4. In gui/: no `new` outside gui/include/QtRocket/gui/util/MakeChild.h (makeChild() and makeQtOwned() hold the
 #    GUI's only `new`), no Q_SLOTS (function-pointer connect() needs none), no <windows.h> (its macros ABSOLUTE,
@@ -33,7 +35,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/LintSupport.cmake)
 
 set(core_order util unit logging preferences material motor rocket models mass aero simulation document file figure
     cli)
-set(gui_order util settings binding widgets plot tree figure configdialog dialogs flightconfig main app)
+set(gui_order util settings binding widgets plot tree figure configdialog dialogs flightconfig simulation main app)
 list(LENGTH gui_order gui_top)   # gui/main.cpp, above every area
 
 set(violations "")

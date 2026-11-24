@@ -73,7 +73,16 @@ lint_plant(clean-tree gui/src/plot/ThrustCurvePlot.cpp
 lint_plant(clean-tree gui/src/tree/ComponentTreeModel.cpp "#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
 lint_plant(clean-tree gui/src/flightconfig/MotorConfigurationPanel.cpp
     "#include \"QtRocket/gui/dialogs/IgnitionSelectionDialog.h\"\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
-lint_plant(clean-tree gui/src/main/MainWindow.cpp "#include \"QtRocket/gui/flightconfig/FlightConfigurationPanel.h\"")
+lint_plant(clean-tree gui/src/main/MainWindow.cpp
+    "#include \"QtRocket/gui/flightconfig/FlightConfigurationPanel.h\"\n#include \"QtRocket/gui/simulation/SimulationPanel.h\"")
+# The area simulation (between flightconfig and main), the subdirectories dialogs/simulation/ and dialogs/plot/ of the
+# area dialogs, and the core's simulation/, which any area may include.
+lint_plant(clean-tree gui/src/simulation/SimulationPanel.cpp
+    "#include \"QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h\"\n#include \"QtRocket/gui/flightconfig/FlightConfigurationPanel.h\"\n#include \"QtRocket/simulation/Simulation.h\"")
+lint_plant(clean-tree gui/include/QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h
+    "#include \"QtRocket/gui/dialogs/plot/PlotDialog.h\"\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/dialogs/plot/PlotDialog.cpp "#include \"QtRocket/gui/dialogs/ModalDialog.h\"")
+lint_plant(clean-tree gui/src/flightconfig/FlightConfigurationEditing.cpp "#include \"QtRocket/simulation/Simulation.h\"")
 lint_plant_test(clean-tree layers)
 lint_plant_test(clean-tree no-qttest-macros)
 
@@ -106,6 +115,18 @@ lint_plant(flightconfig-before-main gui/src/flightconfig/FlightConfigurationPane
     "#include \"QtRocket/gui/main/MainWindow.h\"")
 lint_plant_test(flightconfig-before-main layers
     "gui/src/flightconfig/FlightConfigurationPanel\\.cpp:1: flightconfig includes main")
+lint_plant(flightconfig-before-simulation gui/src/flightconfig/FlightConfigurationPanel.cpp
+    "#include \"QtRocket/gui/simulation/SimulationPanel.h\"")
+lint_plant_test(flightconfig-before-simulation layers
+    "gui/src/flightconfig/FlightConfigurationPanel\\.cpp:1: flightconfig includes simulation")
+lint_plant(dialogs-before-simulation gui/src/dialogs/simulation/SimulationConfigDialog.cpp
+    "#include \"QtRocket/gui/simulation/SimulationTableModel.h\"")
+lint_plant_test(dialogs-before-simulation layers
+    "gui/src/dialogs/simulation/SimulationConfigDialog\\.cpp:1: dialogs includes simulation")
+lint_plant(simulation-before-main gui/include/QtRocket/gui/simulation/SimulationPanel.h
+    "#include \"QtRocket/gui/main/MainWindow.h\"")
+lint_plant_test(simulation-before-main layers
+    "gui/include/QtRocket/gui/simulation/SimulationPanel\\.h:1: simulation includes main")
 lint_plant(rocketplot-outside-plot gui/src/dialogs/ThrustCurveMotorPlotDialog.cpp
     "#include <QDialog>\n#include <rocketplot/PlotWidget.h>")
 lint_plant_test(rocketplot-outside-plot layers

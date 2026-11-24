@@ -70,6 +70,12 @@ constexpr std::array kThemeValues{
     value(Key::WARNING, "#d99800", "#FFB066"),     // $OR.colors.orange
     value(Key::ERROR, "#ff0000", "#f68f8f"),       // $OR.colors.red
     value(Key::DARK_ERROR, "#c80000", "#e56767"),  // $OR.colors.darkRed
+    value(Key::ROW_LIGHTER, "#ffffff", "#414547"),
+    value(Key::ROW_DARKER, "#f5f5f5", "#3c3f41"),
+    value(Key::TABLE_FLASH, "#ffffcc", "#ffff6645"),
+    value(Key::TABLE_SELECTION, "#d9e9ff", "#495785"),
+    value(Key::FLIGHTDATA_TEXT_ACTIVE, "#00007f", "#91b7e7"),
+    value(Key::FLIGHTDATA_TEXT_INACTIVE, "#00007f7f", "#80a6e67f"),
     value(Key::MULTI_COMP_EDIT, "#aa0064", "#de92b0"),
     value(Key::MOTOR_BORDER, "#000000c8", "#00000064"),
     value(Key::MOTOR_FILL, "#00000064", "#00000032"),
@@ -87,11 +93,16 @@ constexpr std::array kThemeValues{
     value(Key::RULER, "#735a09", "#ffd64a"),          // dark: $OR.colors.yellow
     value(Key::ICONS_DEFAULT, "#000000", "#ffffff"),  // light: $OR.colors.text
     value(Key::ICONS_TINT_COLOR, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_PLAY, "#20C968", "#66DE93"),  // $OR.colors.green
     value(Key::ICONS_HELP, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_WARNING_LOW, "#2D7FF9", "#6EA8FE"),            // $OR.colors.info
+    value(Key::ICONS_WARNING_NORMAL, "#d99800", "#FFB066"),         // $OR.colors.warning
+    value(Key::ICONS_WARNING_HIGH, "#ff0000", "#f68f8f"),           // $OR.colors.error
     value(Key::ICONS_OVERRIDE, "#2D7FF9", "#6EA8FE"),               // $OR.colors.info
     value(Key::ICONS_OVERRIDE_SUBCOMPONENT, "#808080", "#b6b6b6"),  // $OR.colors.text.dim
     value(Key::ICONS_LOCKED, "#f1c066", "#f1c066"),
     value(Key::ICONS_DELETE, "#c80000", "#f68f8f"),  // $OR.colors.darkRed, $OR.colors.red
+    value(Key::ICONS_PLOT, "#006CB6", "#6EA8FE"),    // dark: $OR.colors.blue
     value(Key::ICONS_PLUS, "#20C968", "#66DE93"),
     value(Key::ICONS_DUPLICATE, "#2D7FF9", "#6EA8FE"),  // $OR.icons.tintColor
     value(Key::ICONS_PENCIL, "#a68002", "#ffd64a"),
@@ -99,6 +110,7 @@ constexpr std::array kThemeValues{
     value(Key::ICONS_ZOOM_OUT, "#c80000", "#e56767"),
     value(Key::ICONS_ZOOM_FIT, "#2D7FF9", "#6EA8FE"),
     value(Key::ICONS_IMPORT, "#c80000", "#e56767"),
+    value(Key::ICONS_EXPORT, "#20C968", "#66DE93"),  // $OR.colors.green
     value(Key::ICONS_MOVE_UP, "#2D7FF9", "#6EA8FE"),
     value(Key::ICONS_MOVE_DOWN, "#9F5CF5", "#C592FF"),
     value(Key::ICONS_UNDO, "#c80000", "#e56767"),
@@ -192,6 +204,29 @@ TEST_F(ThemeColorsTest, EveryKeyHasOpenRocketsName)
     {
         EXPECT_TRUE(ThemeColors::keyName(key).starts_with("OR.")) << ThemeColors::keyName(key);
     }
+}
+
+TEST_F(ThemeColorsTest, TheSimulationsColoursHaveOpenRocketsNamesAndValues)
+{
+    // UITheme.Keys and the icon keys of the theme files.
+    EXPECT_EQ(ThemeColors::keyName(Key::ROW_LIGHTER), "OR.colors.row.lighter");
+    EXPECT_EQ(ThemeColors::keyName(Key::TABLE_FLASH), "OR.colors.table.flash");
+    EXPECT_EQ(ThemeColors::keyName(Key::FLIGHTDATA_TEXT_ACTIVE), "OR.colors.flightData.textActive");
+    EXPECT_EQ(ThemeColors::keyName(Key::FLIGHTDATA_TEXT_INACTIVE),
+              "OR.colors.flightData.textInactive");
+    EXPECT_EQ(ThemeColors::keyName(Key::ICONS_PLAY), "OR.icons.play");
+    EXPECT_EQ(ThemeColors::keyName(Key::ICONS_PLOT), "OR.icons.plot");
+    EXPECT_EQ(ThemeColors::keyName(Key::ICONS_EXPORT), "OR.icons.export");
+    EXPECT_EQ(ThemeColors::keyName(Key::ICONS_WARNING_HIGH), "OR.icons.warning.high");
+    // #RRGGBBAA: the inactive flight data is half transparent (UITheme's fallback is
+    // new Color(0, 0, 127, 127)), and so is the dark theme's flash (new Color(255, 255, 102, 69)).
+    EXPECT_EQ(ThemeColors::themeColor(Key::FLIGHTDATA_TEXT_INACTIVE, Theme::LIGHT),
+              QColor(0, 0, 127, 127));
+    EXPECT_EQ(ThemeColors::themeColor(Key::TABLE_FLASH, Theme::DARK), QColor(255, 255, 102, 69));
+    EXPECT_EQ(ThemeColors::themeColor(Key::TABLE_FLASH, Theme::LIGHT), QColor(255, 255, 204));
+    // Through a palette, the theme's value.
+    EXPECT_EQ(ThemeColors::color(Key::ICONS_PLOT, Palette::light()), QColor(0x00, 0x6c, 0xb6));
+    EXPECT_EQ(ThemeColors::color(Key::ICONS_PLOT, Palette::dark()), QColor(0x6e, 0xa8, 0xfe));
 }
 
 TEST_F(ThemeColorsTest, ThePalettesColourIsTheIconsDefault)

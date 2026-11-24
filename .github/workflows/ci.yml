@@ -21,7 +21,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        preset: [ci-gcc, ci-clang, asan, tidy]
+        # clang-tidy runs in two jobs, the workflows tidy-core and tidy-gui of the tidy preset (CMakePresets.json):
+        # one job took 261 of GitHub's 360 minutes at Milestone 3's end. tidy-core builds QtRocket_core_tests and
+        # QtRocket_cli and runs every test without the label gui (the core, the command-line tool, the lints);
+        # tidy-gui builds QtRocket_gui_tests and QtRocket and runs the label gui. Both build the core's library and
+        # the tests' support library, which both test programs link.
+        preset: [ci-gcc, ci-clang, asan, tidy-core, tidy-gui]
     steps:
       - name: Install toolchain
         # llvm brings llvm-symbolizer, so sanitizer reports show functions and lines. qt6-base and qt6-svg: the GUI

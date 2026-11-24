@@ -175,6 +175,18 @@
     { "name": "tsan", "configurePreset": "tsan" },
     { "name": "coverage", "configurePreset": "coverage", "targets": ["coverage"] },
     { "name": "tidy", "configurePreset": "tidy", "nativeToolOptions": ["-k", "0"] },
+    {
+      "name": "tidy-core",
+      "configurePreset": "tidy",
+      "nativeToolOptions": ["-k", "0"],
+      "targets": ["QtRocket_core_tests", "QtRocket_cli"]
+    },
+    {
+      "name": "tidy-gui",
+      "configurePreset": "tidy",
+      "nativeToolOptions": ["-k", "0"],
+      "targets": ["QtRocket_gui_tests", "QtRocket"]
+    },
     { "name": "ci-gcc", "configurePreset": "ci-gcc", "nativeToolOptions": ["-k", "0"] },
     { "name": "ci-clang", "configurePreset": "ci-clang", "nativeToolOptions": ["-k", "0"] },
     { "name": "ci-msvc", "configurePreset": "ci-msvc", "nativeToolOptions": ["-k", "0"] },
@@ -211,6 +223,18 @@
       "environment": { "TSAN_OPTIONS": "halt_on_error=1" }
     },
     { "name": "tidy", "inherits": "test-base", "configurePreset": "tidy" },
+    {
+      "name": "tidy-core",
+      "inherits": "test-base",
+      "configurePreset": "tidy",
+      "filter": { "exclude": { "label": "gui" } }
+    },
+    {
+      "name": "tidy-gui",
+      "inherits": "test-base",
+      "configurePreset": "tidy",
+      "filter": { "include": { "label": "gui" } }
+    },
     { "name": "ci-gcc", "inherits": "test-base", "configurePreset": "ci-gcc" },
     { "name": "ci-clang", "inherits": "test-base", "configurePreset": "ci-clang" },
     { "name": "ci-msvc", "inherits": "test-base", "configurePreset": "ci-msvc" },
@@ -308,6 +332,24 @@
         { "type": "configure", "name": "tidy" },
         { "type": "build", "name": "tidy" },
         { "type": "test", "name": "tidy" }
+      ]
+    },
+    {
+      "name": "tidy-core",
+      "displayName": "The tidy preset's core half (CI): the core's and the command-line tool's targets and tests",
+      "steps": [
+        { "type": "configure", "name": "tidy" },
+        { "type": "build", "name": "tidy-core" },
+        { "type": "test", "name": "tidy-core" }
+      ]
+    },
+    {
+      "name": "tidy-gui",
+      "displayName": "The tidy preset's GUI half (CI): the GUI's targets and its tests (label gui)",
+      "steps": [
+        { "type": "configure", "name": "tidy" },
+        { "type": "build", "name": "tidy-gui" },
+        { "type": "test", "name": "tidy-gui" }
       ]
     },
     {

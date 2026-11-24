@@ -12,6 +12,8 @@ target_sources(QtRocket_gui PRIVATE
     ${gui_include_dir}/util/MakeChild.h
     MenuText.cpp ${gui_include_dir}/util/MenuText.h
     QtStrings.cpp ${gui_include_dir}/util/QtStrings.h
+    SimulationIcons.cpp ${gui_include_dir}/util/SimulationIcons.h
+    SimulationStatusColors.cpp ${gui_include_dir}/util/SimulationStatusColors.h
     SvgIconEngine.cpp ${gui_include_dir}/util/SvgIconEngine.h
     TableSortKeys.cpp ${gui_include_dir}/util/TableSortKeys.h
     ThemeColors.cpp ${gui_include_dir}/util/ThemeColors.h

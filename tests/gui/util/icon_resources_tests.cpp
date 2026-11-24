@@ -15,6 +15,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/util/ComponentIcons.h"
 #include "QtRocket/gui/util/Icons.h"
+#include "QtRocket/gui/util/SimulationIcons.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/MassComponent.h"
@@ -58,7 +59,7 @@ QStringList unreadableResources(const QStringList& files)
 }
 
 /// Every resource the code names: the icons, the component icons of both themes, the window
-/// icons.
+/// icons, the simulations' status and event icons.
 QStringList namedResources()
 {
     QStringList named;
@@ -84,18 +85,23 @@ QStringList namedResources()
         }
     }
     named.append(Icons::windowIconResources());
+    named.append(SimulationIcons::resourcePaths());
     named.sort();
     named.removeDuplicates();
     return named;
 }
 
-TEST_F(IconResources, HoldTheThirtyNineSvgsTheSeventyOneComponentIconsAndTheFourWindowIcons)
+TEST_F(IconResources, HoldTheSvgsTheComponentIconsTheWindowIconsAndTheSimulationsPngs)
 {
+    // The SVGs: 39 of Milestones 2 and 3, 9 of Milestone 4. The simulations' PNGs: the 3 status
+    // icons and the 3 warnings' images in status/, the 13 event images in events/.
     const QStringList files = iconResources();
-    EXPECT_EQ(files.size(), 39 + 71 + 4);
-    EXPECT_EQ(files.filter(QStringLiteral(":/icons/actions/")).size(), 39);
+    EXPECT_EQ(files.size(), 48 + 71 + 4 + 6 + 13);
+    EXPECT_EQ(files.filter(QStringLiteral(":/icons/actions/")).size(), 48);
     EXPECT_EQ(files.filter(QStringLiteral(":/icons/components/")).size(), 71);
     EXPECT_EQ(files.filter(QStringLiteral(":/icons/app/")).size(), 4);
+    EXPECT_EQ(files.filter(QStringLiteral(":/icons/status/")).size(), 6);
+    EXPECT_EQ(files.filter(QStringLiteral(":/icons/events/")).size(), 13);
 }
 
 TEST_F(IconResources, EveryResourceLoads)

@@ -119,6 +119,8 @@ struct IconColors
         tinted(Id::FILE_OPEN_EXAMPLE, 0x2D2DBD, Key::ICONS_TINT_COLOR),
         plain(Id::FILE_SAVE),
         tinted(Id::FILE_SAVE_AS, 0xFAC132, Key::ICONS_PENCIL),
+        tinted(Id::FILE_IMPORT, 0xC80000, Key::ICONS_IMPORT),
+        plain(Id::SIM_TABLE_EXPORT),
         tinted(Id::FILE_CLOSE, 0xC80000, Key::RED),
         single(Id::FILE_QUIT, Key::RED),
         single(Id::EDIT_UNDO, Key::ICONS_UNDO),
@@ -130,6 +132,8 @@ struct IconColors
         tinted(Id::EDIT_PASTE, 0xC80000, Key::ICONS_IMPORT),
         tinted(Id::EDIT_DUPLICATE, 0x2D2DBD, Key::ICONS_DUPLICATE),
         single(Id::EDIT_DELETE, Key::ICONS_DELETE),
+        single(Id::SIM_RUN, Key::ICONS_PLAY),
+        tinted(Id::SIM_PLOT, 0x006CB6, Key::ICONS_PLOT),
         single(Id::HELP_ABOUT, Key::ICONS_HELP),
         tinted(Id::ZOOM_IN, 0x499C54, Key::ICONS_ZOOM_IN),
         tinted(Id::ZOOM_OUT, 0xC80000, Key::ICONS_ZOOM_OUT),
@@ -143,7 +147,12 @@ struct IconColors
         plain(Id::HELP),
         single(Id::UP, Key::ICONS_MOVE_UP),
         single(Id::DOWN, Key::ICONS_MOVE_DOWN),
+        plain(Id::REFRESH),
         plain(Id::RESET),
+        tinted(Id::SET_AS_DEFAULT, 0x2D2DBD, Key::ICONS_TINT_COLOR),
+        single(Id::WARNING_LOW, Key::ICONS_WARNING_LOW),
+        single(Id::WARNING_NORMAL, Key::ICONS_WARNING_NORMAL),
+        single(Id::WARNING_HIGH, Key::ICONS_WARNING_HIGH),
         single(Id::MASS_OVERRIDE, Key::ICONS_OVERRIDE),
         single(Id::MASS_OVERRIDE_SUBCOMPONENT, Key::ICONS_OVERRIDE_SUBCOMPONENT),
         single(Id::CG_OVERRIDE, Key::ICONS_OVERRIDE),
@@ -307,6 +316,50 @@ TEST_F(IconsTest, ADarkPaletteTakesTheDarkThemesColours)
               (std::set<QRgb>{text, themeRgb(Key::GREEN, Theme::DARK)}));
 }
 
+TEST_F(IconsTest, TheSimulationsIconsTakeTheirThemeKeys)
+{
+    const Palette light(Palette::light());
+    const QRgb    text = rgbOf(Palette::light().color(QPalette::WindowText));
+    // play-filled.svg strokes in black and fills without a fill attribute: OR.icons.play.
+    EXPECT_EQ(opaqueColors(Id::SIM_RUN), std::set<QRgb>{themeRgb(Key::ICONS_PLAY, Theme::LIGHT)});
+    // chart-spline.svg: black and OpenRocket's #006cb6 (OR.icons.plot).
+    EXPECT_EQ(opaqueColors(Id::SIM_PLOT),
+              (std::set<QRgb>{text, themeRgb(Key::ICONS_PLOT, Theme::LIGHT)}));
+    // import.svg: black and #c80000 (OR.icons.import, as the Paste icon).
+    EXPECT_EQ(opaqueColors(Id::FILE_IMPORT),
+              (std::set<QRgb>{text, themeRgb(Key::ICONS_IMPORT, Theme::LIGHT)}));
+    // bookmark-check.svg: black and rgb(45,45,189) (OR.icons.tintColor).
+    EXPECT_EQ(opaqueColors(Id::SET_AS_DEFAULT),
+              (std::set<QRgb>{text, themeRgb(Key::ICONS_TINT_COLOR, Theme::LIGHT)}));
+    // sheet.svg and refresh-ccw.svg (Lucide's own): black only, the palette's text. The table
+    // export's icon has no OR.icons.export: that is FILE_EXPORT's.
+    EXPECT_EQ(opaqueColors(Id::SIM_TABLE_EXPORT), std::set<QRgb>{text});
+    EXPECT_EQ(opaqueColors(Id::REFRESH), std::set<QRgb>{text});
+}
+
+TEST_F(IconsTest, TheWarningLevelsAreDrawnInTheirKeysInBothThemes)
+{
+    // info-filled, triangle-alert-filled and circle-alert-filled.svg fill one shape without a
+    // fill attribute (SVG's initial black): OR.icons.warning.low, .normal and .high.
+    {
+        const Palette light(Palette::light());
+        EXPECT_EQ(opaqueColors(Id::WARNING_LOW),
+                  std::set<QRgb>{themeRgb(Key::ICONS_WARNING_LOW, Theme::LIGHT)});
+        EXPECT_EQ(opaqueColors(Id::WARNING_NORMAL),
+                  std::set<QRgb>{themeRgb(Key::ICONS_WARNING_NORMAL, Theme::LIGHT)});
+        EXPECT_EQ(opaqueColors(Id::WARNING_HIGH),
+                  std::set<QRgb>{themeRgb(Key::ICONS_WARNING_HIGH, Theme::LIGHT)});
+    }
+    const Palette dark(Palette::dark());
+    EXPECT_EQ(opaqueColors(Id::WARNING_LOW),
+              std::set<QRgb>{themeRgb(Key::ICONS_WARNING_LOW, Theme::DARK)});
+    EXPECT_EQ(opaqueColors(Id::WARNING_NORMAL),
+              std::set<QRgb>{themeRgb(Key::ICONS_WARNING_NORMAL, Theme::DARK)});
+    EXPECT_EQ(opaqueColors(Id::WARNING_HIGH),
+              std::set<QRgb>{themeRgb(Key::ICONS_WARNING_HIGH, Theme::DARK)});
+    EXPECT_EQ(opaqueColors(Id::SIM_RUN), std::set<QRgb>{themeRgb(Key::ICONS_PLAY, Theme::DARK)});
+}
+
 TEST_F(IconsTest, TheSubcomponentMarkersAreThreeQuartersTheSize)
 {
     EXPECT_DOUBLE_EQ(Icons::scaleMultiplier(Id::MASS_OVERRIDE), 1.0);
@@ -338,7 +391,10 @@ TEST_F(IconsTest, NamesEachIconAsIconsJava)
     EXPECT_EQ(Icons::name(Id::CD_OVERRIDE_SUBCOMPONENT),
               QStringLiteral("CD_OVERRIDE_SUBCOMPONENT"));
     EXPECT_EQ(Icons::name(Id::EDIT_RENAME), QStringLiteral("EDIT_RENAME"));
-    EXPECT_EQ(Icons::kAllIds.size(), 43U);
+    EXPECT_EQ(Icons::name(Id::SIM_TABLE_EXPORT), QStringLiteral("SIM_TABLE_EXPORT"));
+    EXPECT_EQ(Icons::name(Id::WARNING_HIGH), QStringLiteral("WARNING_HIGH"));
+    // Milestones 2 and 3: 43; Milestone 4: the simulations' 9.
+    EXPECT_EQ(Icons::kAllIds.size(), 52U);
 }
 
 }  // namespace

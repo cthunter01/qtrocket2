@@ -17,13 +17,17 @@ namespace QtRocket::Gui
 {
 
 /// OpenRocket's icons (Icons.java) that the GUI shows: the File and Edit actions (and the flight
-/// configuration tab's Rename), the component tree's markers, the figure's tools and the window
-/// icon. Each is one of OpenRocket's SVGs, in
+/// configuration tab's Rename), the component tree's markers, the figure's tools, the simulations'
+/// actions and warning levels (Milestone 4: SIM_RUN, SIM_PLOT, SIM_TABLE_EXPORT, FILE_IMPORT,
+/// REFRESH, SET_AS_DEFAULT, WARNING_LOW/NORMAL/HIGH) and the window icon. Each is one of
+/// OpenRocket's SVGs, in
 /// the resources at :/icons/actions/ (lower-case names: Icons.java asks for cd-override.svg, the
 /// file is CD-override.svg), drawn by an SvgIconEngine with the same colour mapping as
 /// Icons.java's loadIcon()/loadSvgIcon(): black is OR.icons.default unless the icon names another
 /// key for it, and the other placeholders are the keys Icons.java names. OpenRocket's raster
-/// fallbacks (pix/icons/*.png) are not needed: every SVG is there.
+/// fallbacks (pix/icons/*.png) are not needed: every SVG is there. Its raster-only icons of the
+/// simulations (the status icons, the flight events' and the SIM_WARN events' images) are
+/// util/SimulationIcons.
 ///
 /// Size: OpenRocket sizes an SVG icon to 1.25 times the font size (times 0.75 for the
 /// "subcomponent" override markers); a QIcon has no size of its own, so whoever draws one picks
@@ -40,6 +44,8 @@ public:
         FILE_OPEN_EXAMPLE,
         FILE_SAVE,
         FILE_SAVE_AS,
+        FILE_IMPORT,
+        SIM_TABLE_EXPORT,
         FILE_CLOSE,
         FILE_QUIT,
         EDIT_UNDO,
@@ -51,6 +57,8 @@ public:
         EDIT_PASTE,
         EDIT_DUPLICATE,
         EDIT_DELETE,
+        SIM_RUN,
+        SIM_PLOT,
         HELP_ABOUT,
         ZOOM_IN,
         ZOOM_OUT,
@@ -64,7 +72,12 @@ public:
         HELP,
         UP,
         DOWN,
+        REFRESH,
         RESET,
+        SET_AS_DEFAULT,
+        WARNING_LOW,
+        WARNING_NORMAL,
+        WARNING_HIGH,
         MASS_OVERRIDE,
         MASS_OVERRIDE_SUBCOMPONENT,
         CG_OVERRIDE,
@@ -87,6 +100,8 @@ public:
         Id::FILE_OPEN_EXAMPLE,
         Id::FILE_SAVE,
         Id::FILE_SAVE_AS,
+        Id::FILE_IMPORT,
+        Id::SIM_TABLE_EXPORT,
         Id::FILE_CLOSE,
         Id::FILE_QUIT,
         Id::EDIT_UNDO,
@@ -98,6 +113,8 @@ public:
         Id::EDIT_PASTE,
         Id::EDIT_DUPLICATE,
         Id::EDIT_DELETE,
+        Id::SIM_RUN,
+        Id::SIM_PLOT,
         Id::HELP_ABOUT,
         Id::ZOOM_IN,
         Id::ZOOM_OUT,
@@ -111,7 +128,12 @@ public:
         Id::HELP,
         Id::UP,
         Id::DOWN,
+        Id::REFRESH,
         Id::RESET,
+        Id::SET_AS_DEFAULT,
+        Id::WARNING_LOW,
+        Id::WARNING_NORMAL,
+        Id::WARNING_HIGH,
         Id::MASS_OVERRIDE,
         Id::MASS_OVERRIDE_SUBCOMPONENT,
         Id::CG_OVERRIDE,
