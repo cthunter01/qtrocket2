@@ -423,6 +423,26 @@ TEST(SimulationStatusEnum, TheNamesAndTextsAreOpenRockets)
     EXPECT_EQ(description(Status::ABORTED), "<i><b>Simulation Aborted</b></i>");
 }
 
+TEST(SimulationStatusEnum, TheKeysAreOpenRockets)
+{
+    // The keys of messages.properties whose English texts displayName() and description() are
+    // (Java: trans.get(key) in the constructors of the constants).
+    EXPECT_EQ(displayKey(Status::UPTODATE), "Simulation.Status.UPTODATE");
+    EXPECT_EQ(descriptionKey(Status::UPTODATE), "Simulation.Status.Description.UPTODATE");
+    EXPECT_EQ(displayKey(Status::LOADED), "Simulation.Status.LOADED");
+    EXPECT_EQ(descriptionKey(Status::LOADED), "Simulation.Status.Description.LOADED");
+    EXPECT_EQ(displayKey(Status::OUTDATED), "Simulation.Status.OUTDATED");
+    EXPECT_EQ(descriptionKey(Status::OUTDATED), "Simulation.Status.Description.OUTDATED");
+    EXPECT_EQ(displayKey(Status::EXTERNAL), "Simulation.Status.EXTERNAL");
+    EXPECT_EQ(descriptionKey(Status::EXTERNAL), "Simulation.Status.Description.EXTERNAL");
+    EXPECT_EQ(displayKey(Status::NOT_SIMULATED), "Simulation.Status.NOT_SIMULATED");
+    EXPECT_EQ(descriptionKey(Status::NOT_SIMULATED), "Simulation.Status.Description.NOT_SIMULATED");
+    EXPECT_EQ(displayKey(Status::CANT_RUN), "Simulation.Status.CANT_RUN");
+    EXPECT_EQ(descriptionKey(Status::CANT_RUN), "Simulation.Status.Description.CANT_RUN");
+    EXPECT_EQ(displayKey(Status::ABORTED), "Simulation.Status.ABORTED");
+    EXPECT_EQ(descriptionKey(Status::ABORTED), "Simulation.Status.Description.ABORTED");
+}
+
 TEST(SimulationStatusEnum, TheOrderIsJavas)
 {
     EXPECT_EQ(
@@ -1578,6 +1598,119 @@ TEST(SimulationSimulate, TheDescriptionIsTheNameOfTheSimulatedConfiguration)
               s.rocket().getFlightConfiguration(testFcid(0)).getName(defaults));
     EXPECT_TRUE(
         l->getSimulatedConfigurationDescription().value_or("").starts_with("Flight A8-0 of "));
+}
+
+// ===================================================================== a run of a duplicate
+//
+// Simulation::adoptRun(), an addition (Java runs the document's simulation itself). The runs
+// through SimulationRun, which calls it, are in SimulationRunTests.cpp.
+
+/// The Alpha III simulation that the adoption tests hand runs to: TEST_FCID_0, the ISA
+/// atmosphere, a time step of 0.03 s, the random seed 0, an extension.
+struct Adopter
+{
+    TestEstesAlphaIII    alpha;
+    Simulation           simulation{*alpha.rocket};
+    std::shared_ptr<Ext> ext = std::make_shared<Ext>();
+
+    Adopter()
+    {
+        simulation.setFlightConfigurationId(testFcid(0));
+        simulation.setName("Adopter");
+        simulation.getOptions().setIsaAtmosphere(true);
+        simulation.getOptions().setTimeStep(0.03);
+        simulation.getOptions().setRandomSeed(0);
+        simulation.getSimulationExtensions().push_back(ext);
+    }
+};
+
+TEST(SimulationAdoptRun, TheSimulationTakesTheRecordOfTheRun)
+{
+    Adopter     a;
+    const ModId atDuplication             = a.simulation.getActiveConfiguration().getModId();
+    const std::unique_ptr<Simulation> run = a.simulation.duplicateForIndependentSimulation();
+    simulateOrFail(*run);
+    // A change of the simulation's own options since: they stay, the record is the run's.
+    a.simulation.getOptions().setTimeStep(0.04);
+    const ChangeCounter events(a.simulation.changed());
+
+    a.simulation.adoptRun(*run, atDuplication);
+
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_EQ(a.simulation.getStoredStatus(), Status::UPTODATE);
+    ASSERT_NE(a.simulation.getSimulatedConditions(), nullptr);
+    EXPECT_NE(a.simulation.getSimulatedConditions(), run->getSimulatedConditions()) << "a copy";
+    EXPECT_EQ(a.simulation.getSimulatedConditions()->getTimeStep(), 0.03);
+    EXPECT_EQ(a.simulation.getSimulatedConfigurationDescription(), "[A8-0]");
+    EXPECT_EQ(a.simulation.getSimulatedConfigurationModId(), atDuplication);
+    EXPECT_EQ(a.simulation.getSimulatedData(), run->getSimulatedData()) << "shared";
+    // What is the simulation's stays.
+    EXPECT_EQ(a.simulation.getName(), "Adopter");
+    EXPECT_EQ(a.simulation.getOptions().getTimeStep(), 0.04);
+    ASSERT_EQ(a.simulation.getSimulationExtensions().size(), 1U);
+    EXPECT_EQ(a.simulation.getSimulationExtensions()[0], a.ext);
+    // The options changed since the run: the data is out of date.
+    EXPECT_EQ(a.simulation.getStatus(), Status::OUTDATED);
+}
+
+TEST(SimulationAdoptRun, ARunOfTheDesignAsItIsIsUpToDate)
+{
+    Adopter     a;
+    const ModId atDuplication             = a.simulation.getActiveConfiguration().getModId();
+    const std::unique_ptr<Simulation> run = a.simulation.duplicateForIndependentSimulation();
+    simulateOrFail(*run);
+
+    a.simulation.adoptRun(*run, atDuplication);
+
+    EXPECT_EQ(a.simulation.getStatus(), Status::UPTODATE);
+}
+
+TEST(SimulationAdoptRun, TheModificationIdIsTheOneGiven)
+{
+    // Not the configuration's at the end of the run, which Java records: one drawn since the
+    // duplicate was made says that the design changed.
+    Adopter                           a;
+    const std::unique_ptr<Simulation> run = a.simulation.duplicateForIndependentSimulation();
+    simulateOrFail(*run);
+    const ModId later{};
+
+    a.simulation.adoptRun(*run, later);
+
+    EXPECT_EQ(a.simulation.getSimulatedConfigurationModId(), later);
+    EXPECT_EQ(a.simulation.getStatus(), Status::OUTDATED);
+}
+
+TEST(SimulationAdoptRun, ARunOfAnotherConfigurationIsOutdatedWhateverTheId)
+{
+    Adopter                           a;
+    const std::unique_ptr<Simulation> run = a.simulation.duplicateForIndependentSimulation();
+    simulateOrFail(*run);
+    a.simulation.setFlightConfigurationId(testFcid(1));
+
+    // Even the id of the configuration the simulation has now does not make the run its own.
+    a.simulation.adoptRun(*run, a.simulation.getActiveConfiguration().getModId());
+
+    EXPECT_EQ(a.simulation.getSimulatedConfigurationModId(), ModId::invalid());
+    EXPECT_EQ(a.simulation.getStatus(), Status::OUTDATED);
+}
+
+TEST(SimulationAdoptRun, OnlyARunThatWasSimulatedIsAdopted)
+{
+    Adopter                           a;
+    const std::unique_ptr<Simulation> notRun = a.simulation.duplicateForIndependentSimulation();
+    const ModId   atDuplication              = a.simulation.getActiveConfiguration().getModId();
+    ChangeCounter events(a.simulation.changed());
+
+    EXPECT_EQ(bugText([&] { a.simulation.adoptRun(*notRun, atDuplication); }),
+              "The simulation whose run is to be adopted has not been simulated");
+    EXPECT_EQ(events.count(), 0);
+    EXPECT_EQ(a.simulation.getStoredStatus(), Status::NOT_SIMULATED);
+
+    simulateOrFail(a.simulation);
+    events.reset();
+    EXPECT_EQ(bugText([&] { a.simulation.adoptRun(a.simulation, atDuplication); }),
+              "A simulation cannot adopt a run of its own");
+    EXPECT_EQ(events.count(), 0);
 }
 
 // ============================================================================ the copies

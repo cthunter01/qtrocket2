@@ -310,6 +310,7 @@ add_executable(QtRocket_core_tests
     simulation/SimulationListenerHelperTests.cpp
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
+    simulation/SimulationRunTests.cpp
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
     simulation/SimulationTests.cpp

@@ -45,6 +45,7 @@ target_sources(QtRocket_core PRIVATE
     SimulationConditions.cpp
     SimulationInputRanges.cpp
     SimulationOptions.cpp
+    SimulationRun.cpp
     SimulationStatus.cpp
     SimulationStepperMethod.cpp
     TumbleDetector.cpp

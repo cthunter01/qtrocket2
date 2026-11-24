@@ -41,6 +41,7 @@
 #include "QtRocket/simulation/BasicEventSimulationEngine.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
 #include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/LandingDispersionSettings.h"
@@ -48,6 +49,7 @@
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/exception/SimulationCalculationException.h"
 #include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
@@ -669,13 +671,20 @@ Result<void> Simulation::validateInputs() const
 Result<void> Simulation::simulate(
     std::span<const std::shared_ptr<SimulationListener>> additionalListeners)
 {
+    return simulateNamingBranch(additionalListeners, nullptr);
+}
+
+Result<void> Simulation::simulateNamingBranch(
+    std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
+    std::optional<std::string>*                          calculationBranch)
+{
     m_simulatedData = nullptr;
     // What the engine produced (Java: simulator.getFlightData()); null until it has run.
     std::shared_ptr<FlightData> flightData;
     Result<void>                result;
     try
     {
-        result = runSimulation(additionalListeners, flightData);
+        result = runSimulation(additionalListeners, flightData, calculationBranch);
     }
     catch (...)
     {
@@ -705,9 +714,23 @@ Result<void> Simulation::simulate(
     return simulate(std::span<const std::shared_ptr<SimulationListener>>(listeners));
 }
 
+Result<void> Simulation::simulateForRun(
+    const std::stop_token&                               stopToken,
+    std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
+    std::optional<std::string>&                          calculationBranch)
+{
+    calculationBranch.reset();
+    // The listeners of simulate(stopToken, additionalListeners).
+    std::vector<std::shared_ptr<SimulationListener>> listeners(additionalListeners.begin(),
+                                                               additionalListeners.end());
+    listeners.push_back(std::make_shared<InterruptListener>(stopToken));
+    return simulateNamingBranch(std::span<const std::shared_ptr<SimulationListener>>(listeners),
+                                &calculationBranch);
+}
+
 Result<void> Simulation::runSimulation(
     std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
-    std::shared_ptr<FlightData>&                         flightData)
+    std::shared_ptr<FlightData>& flightData, std::optional<std::string>* calculationBranch)
 {
     try
     {
@@ -765,6 +788,16 @@ Result<void> Simulation::runSimulation(
     {
         return fail(ErrorCode::CANCELLED, e.what());
     }
+    catch (const SimulationCalculationException& e)
+    {
+        // Java's run dialog names the branch whose calculation went wrong. Only the name is
+        // read (see SimulationCalculationException, "Lifetime").
+        if (calculationBranch != nullptr && e.getFlightDataBranch() != nullptr)
+        {
+            *calculationBranch = e.getFlightDataBranch()->getName();
+        }
+        return fail(ErrorCode::SIMULATION_ABORTED, e.what());
+    }
     catch (const SimulationException& e)
     {
         return fail(ErrorCode::SIMULATION_ABORTED, e.what());
@@ -779,6 +812,29 @@ void Simulation::recordSimulation(std::shared_ptr<FlightData> flightData)
     m_simulatedConfigurationModId       = getActiveConfiguration().getModId();
     // Java: simulator.getFlightData() when there is a simulator; the data was dropped before.
     m_simulatedData = std::move(flightData);
+
+    m_status = Status::UPTODATE;
+    fireChangeEvent();
+}
+
+void Simulation::adoptRun(const Simulation& run, ModId modIdAtDuplication)
+{
+    if (&run == this)
+    {
+        bug("A simulation cannot adopt a run of its own");
+    }
+    if (!run.m_simulatedConditions.has_value())
+    {
+        bug("The simulation whose run is to be adopted has not been simulated");
+    }
+    // Java's finally block of simulate() (recordSimulation()), with what the run recorded.
+    m_simulatedConditions.emplace(*run.m_simulatedConditions);
+    m_simulatedConfigurationDescription = run.m_simulatedConfigurationDescription;
+    // The id the configuration had when the run started; one that matches no configuration
+    // when the run flew another configuration than this simulation's now (see the header).
+    m_simulatedConfigurationModId =
+        run.m_configId == m_configId ? modIdAtDuplication : ModId::invalid();
+    m_simulatedData = run.m_simulatedData;
 
     m_status = Status::UPTODATE;
     fireChangeEvent();
@@ -1082,6 +1138,28 @@ std::string_view name(Simulation::Status status) noexcept
     return "NOT_SIMULATED";  // not reached: the switch covers every status
 }
 
+std::string_view displayKey(Simulation::Status status) noexcept
+{
+    switch (status)
+    {
+        case Simulation::Status::UPTODATE:
+            return "Simulation.Status.UPTODATE";
+        case Simulation::Status::LOADED:
+            return "Simulation.Status.LOADED";
+        case Simulation::Status::OUTDATED:
+            return "Simulation.Status.OUTDATED";
+        case Simulation::Status::EXTERNAL:
+            return "Simulation.Status.EXTERNAL";
+        case Simulation::Status::NOT_SIMULATED:
+            return "Simulation.Status.NOT_SIMULATED";
+        case Simulation::Status::CANT_RUN:
+            return "Simulation.Status.CANT_RUN";
+        case Simulation::Status::ABORTED:
+            return "Simulation.Status.ABORTED";
+    }
+    return "Simulation.Status.NOT_SIMULATED";  // not reached: the switch covers every status
+}
+
 std::string_view displayName(Simulation::Status status) noexcept
 {
     // The English texts of the keys Simulation.Status.<name>.
@@ -1103,6 +1181,29 @@ std::string_view displayName(Simulation::Status status) noexcept
             return "<i><b>ABORTED</b></i>";
     }
     return "Not Simulated Yet";  // not reached: the switch covers every status
+}
+
+std::string_view descriptionKey(Simulation::Status status) noexcept
+{
+    switch (status)
+    {
+        case Simulation::Status::UPTODATE:
+            return "Simulation.Status.Description.UPTODATE";
+        case Simulation::Status::LOADED:
+            return "Simulation.Status.Description.LOADED";
+        case Simulation::Status::OUTDATED:
+            return "Simulation.Status.Description.OUTDATED";
+        case Simulation::Status::EXTERNAL:
+            return "Simulation.Status.Description.EXTERNAL";
+        case Simulation::Status::NOT_SIMULATED:
+            return "Simulation.Status.Description.NOT_SIMULATED";
+        case Simulation::Status::CANT_RUN:
+            return "Simulation.Status.Description.CANT_RUN";
+        case Simulation::Status::ABORTED:
+            return "Simulation.Status.Description.ABORTED";
+    }
+    // Not reached: the switch covers every status.
+    return "Simulation.Status.Description.NOT_SIMULATED";
 }
 
 std::string_view description(Simulation::Status status) noexcept
