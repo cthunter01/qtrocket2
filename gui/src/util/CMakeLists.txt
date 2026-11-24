@@ -15,7 +15,9 @@ target_sources(QtRocket_gui PRIVATE
     MemoryPlotDefaults.cpp ${gui_include_dir}/util/MemoryPlotDefaults.h
     MenuText.cpp ${gui_include_dir}/util/MenuText.h
     ${gui_include_dir}/util/PlotDefaults.h
+    PollingSimulationExecutor.cpp ${gui_include_dir}/util/PollingSimulationExecutor.h
     QtStrings.cpp ${gui_include_dir}/util/QtStrings.h
+    SimulationBatch.cpp ${gui_include_dir}/util/SimulationBatch.h
     ${gui_include_dir}/util/SimulationDialogs.h
     ${gui_include_dir}/util/SimulationExecutor.h
     SimulationIcons.cpp ${gui_include_dir}/util/SimulationIcons.h

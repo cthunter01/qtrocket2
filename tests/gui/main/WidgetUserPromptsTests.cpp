@@ -714,12 +714,10 @@ TEST_F(WidgetUserPromptsTest, AnUntouchedColourDialogKeepsTheColourWithItsAlpha)
 
 TEST_F(WidgetUserPromptsTest, TheQuestionsWhoseDialogsComeLaterCancelWithoutADialog)
 {
-    // Milestone 4's run dialog, CSV import settings and the table export's CSV options are not
-    // there yet: their questions cancel at once (a dialog would wait here for an answer that never
-    // comes).
+    // Milestone 4's CSV import settings and the table export's CSV options are not there yet:
+    // their questions cancel at once (a dialog would wait here for an answer that never comes).
+    // The run dialog is SimulationRunDialog's (dialogs/simulation/SimulationRunDialogTests.cpp).
     WidgetUserPrompts prompts;
-    EXPECT_EQ(prompts.runSimulations(nullptr, {}),
-              (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
     EXPECT_EQ(prompts.askWindCsvImportSettings(nullptr, {}), std::nullopt);
     UserPrompts::SaveFileRequest tableExport;
     tableExport.title      = QStringLiteral("Save as CSV file");

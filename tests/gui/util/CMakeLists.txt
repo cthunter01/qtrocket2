@@ -15,7 +15,9 @@ target_sources(QtRocket_gui_tests PRIVATE
     MakeChildTests.cpp
     MemoryPlotDefaultsTests.cpp
     MenuTextTests.cpp
+    PollingSimulationExecutorTests.cpp
     QtStringsTests.cpp
+    SimulationBatchTests.cpp
     SimulationIconsTests.cpp
     SimulationStatusColorsTests.cpp
     SvgIconEngineTests.cpp

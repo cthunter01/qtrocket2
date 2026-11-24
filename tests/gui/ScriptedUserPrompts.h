@@ -52,12 +52,19 @@ namespace QtRocket::Gui::Test
 /// message. Their requests are kept as values (the motor chooser's mount by its name and id).
 ///
 /// The questions of Milestone 4 too: the deletion of simulations (an answer), the CSV import
-/// settings and the colour (a value, or nullopt for Cancel), and the run dialog, which the script
-/// answers with how it ended, without running anything (answerRunSimulations()), or with an action
-/// of the test that is given the request, so that it can run the simulations through the
-/// request's executor (answerRunSimulationsWith(); the run dialog's batch of Milestone 4 does it
-/// for the double then). Their requests are kept as values (the simulations of a run by their
-/// names).
+/// settings and the colour (a value, or nullopt for Cancel), and the run dialog. The run dialog is
+/// no question that needs a script: unless the script's next answer is one of the run dialog's,
+/// the simulations really run, as the run dialog runs them (O-M4-8): the run dialog's batch
+/// (SimulationBatch) of the request, through the request's executor, with its failures shown
+/// through this double (recorded as messages), and the answer is how the batch ended. The tests'
+/// executor (ManualSimulationExecutor) runs the jobs in the next turn of the event loop in its
+/// IMMEDIATE mode (the double waits for them in the event loop), at once in its STEPPED mode
+/// (runAll()), and never in its NEVER mode, which fails the test (the batch is cancelled); a
+/// request without a document, an executor or a simulation fails the test and answers a cancelled
+/// batch. A script answers the run dialog with how it ended, without running anything
+/// (answerRunSimulations(): a run the test cancels, or one that must not run), or with an action
+/// of the test that is given the request (answerRunSimulationsWith()). Their requests are kept as
+/// values (the simulations of a run by their names).
 class ScriptedUserPrompts final : public UserPrompts
 {
 public:
@@ -281,8 +288,8 @@ public:
     /// Recorded with the count as the text; the cancelling answer neither confirms nor ticks.
     [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
                                                                std::size_t count) override;
-    /// Recorded with the simulations' names as the texts; the cancelling answer is a cancelled
-    /// batch, and nothing runs.
+    /// Recorded with the simulations' names as the texts; without a scripted answer, the
+    /// simulations run (see the class comment).
     [[nodiscard]] RunSimulationsAnswer runSimulations(
         QWidget* parent, const RunSimulationsRequest& request) override;
     /// Recorded with the header row ("true", "false"), the separator and the four columns' names

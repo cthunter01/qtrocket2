@@ -51,6 +51,7 @@
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/dialogs/motor/MotorChooserDialog.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationRunDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -896,11 +897,12 @@ UserPrompts::DeleteSimulationsAnswer WidgetUserPrompts::askDeleteSimulations(QWi
 }
 
 UserPrompts::RunSimulationsAnswer WidgetUserPrompts::runSimulations(
-    QWidget* /*parent*/, const RunSimulationsRequest& /*request*/)
+    QWidget* parent, const RunSimulationsRequest& request)
 {
-    // The run dialog (SimulationRunDialog) is not there yet: nothing runs (see the class
-    // comment).
-    return {.cancelled = true, .allSuccessful = false};
+    // SimulationRunDialog.runSimulations(): the run dialog, modal to the application, which runs
+    // the simulations, shows their failures through these prompts and closes once every run has
+    // ended (or with its parent: then cancelled).
+    return SimulationRunDialog::run(parent, *this, request);
 }
 
 std::optional<UserPrompts::WindCsvImportSettings> WidgetUserPrompts::askWindCsvImportSettings(

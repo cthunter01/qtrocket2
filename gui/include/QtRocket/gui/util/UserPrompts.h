@@ -575,17 +575,18 @@ public:
     };
 
     /// The simulations the run dialog runs (SimulationRunDialog(window, document,
-    /// simulations...)): the document's own; the dialog prepares a run of each (its seed drawn
-    /// first, randomizeSeedIfNotFixed(), then a duplicate), submits them to the executor,
-    /// shows their progress, hands each result back to its simulation as the run ends (while
-    /// the simulation is still in the document), shows each failure, and tells the document
-    /// once when the batch is done.
+    /// simulations...)): the document's own; the dialog's batch (util/SimulationBatch) draws
+    /// their seeds (randomizeSeedIfNotFixed()), cancels the window's background estimate of them
+    /// (cancelBackgroundRuns), prepares a run of each (a duplicate), submits them to the
+    /// executor, shows their progress, hands each result back to its simulation as the run ends
+    /// (while the simulation is still in the document), shows each failure, and tells the
+    /// document once when the batch is done.
     struct RunSimulationsRequest
     {
-        /// The design window the runs belong to: the executor's jobs carry it; the dialog's
-        /// Cancel cancels the window's jobs (SimulationExecutor::cancelAll()), and the window
-        /// abandons them as it is destroyed (abandonAll()), so the batch's callbacks may capture
-        /// what the window owns. Only compared.
+        /// The design window the runs belong to: the executor's jobs carry it, and the window
+        /// abandons them as it is destroyed (SimulationExecutor::abandonAll()); the batch
+        /// abandons its own as it goes, so its callbacks may capture what the window owns. Only
+        /// compared.
         const QObject* window = nullptr;
         /// The document of the simulations; never null in the application.
         OpenRocketDocument* document = nullptr;
@@ -595,18 +596,28 @@ public:
         std::vector<std::shared_ptr<Simulation>> simulations;
         /// What runs them (GuiServices::simulationExecutor()); never null in the application.
         SimulationExecutor* executor = nullptr;
+        /// What cancels the window's background estimate (the design view's flight estimate,
+        /// figure/BackgroundSimulation) of the simulations the batch runs, called by the batch on
+        /// the GUI thread once, after their seeds are drawn and before their runs are prepared,
+        /// with the request's simulations (the critic's G4, O-M4-16: a background run and a run
+        /// of the batch of the same simulation would both be adopted, the later one winning). May
+        /// be empty: nothing is cancelled then. The window that asks for the run fills it (run
+        /// 3: the Simulations tab's Run and the settings dialog's OK, from the window's
+        /// RocketPanel).
+        std::function<void(std::span<const std::shared_ptr<Simulation>> simulations)>
+            cancelBackgroundRuns;
     };
 
     /// How the run dialog ended.
     struct RunSimulationsAnswer
     {
         /// The batch was cancelled (Cancel, Escape or the dialog's close button: Java's
-        /// cancelSimulations()), or its window closed: the runs that had not ended keep their
-        /// old results and status (OpenRocket bug 40: Java records the partial flight as up to
-        /// date), the queued ones never start.
+        /// cancelSimulations()), or the dialog went with its parent: the runs that had not ended
+        /// keep their old results and status (OpenRocket bug 40: Java records the partial flight
+        /// as up to date), the queued ones never start.
         bool cancelled = true;
         /// SimulationRunDialog.isAllSimulationsSuccessful(): every run ended without an error or
-        /// an exception (so false when the batch was cancelled).
+        /// an exception, and the batch was not cancelled (SimulationBatch::isAllSuccessful()).
         bool allSuccessful = false;
 
         [[nodiscard]] bool operator==(const RunSimulationsAnswer& other) const = default;

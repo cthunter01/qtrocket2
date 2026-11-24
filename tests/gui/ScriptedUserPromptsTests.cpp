@@ -1,6 +1,7 @@
 #include "ScriptedUserPrompts.h"
 
 #include <algorithm>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -19,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "ManualSimulationExecutor.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -36,9 +38,12 @@
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationRun.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "SimulationRunTestSupport.h"
 #include "TestGuiServices.h"
 #include "document/TestDocuments.h"
 #include "rocket/preset/ExamplePresets.h"
@@ -503,24 +508,27 @@ TEST_F(ScriptedUserPromptsTest, TheMilestoneFourQuestionsCancelWithoutAScript)
                             "unexpected DELETE_SIMULATIONS question");
     EXPECT_NONFATAL_FAILURE(color = prompts.askColor(nullptr, QColor(), QString()),
                             "unexpected COLOR question");
+    // The run dialog needs no script, but a request it can run (TheRunDialogRunsTheSimulations*).
     EXPECT_NONFATAL_FAILURE(run = prompts.runSimulations(nullptr, {}),
-                            "unexpected RUN_SIMULATIONS question");
+                            "a RUN_SIMULATIONS question without a document, an executor or a "
+                            "simulation to run");
     EXPECT_EQ(deletion, UserPrompts::DeleteSimulationsAnswer{});
     EXPECT_FALSE(color.has_value());
     EXPECT_EQ(run, (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
+    EXPECT_EQ(prompts.prompts().back().kind, Kind::RUN_SIMULATIONS);
 }
 
-/// A job's work that notes the name of the simulation it was submitted for.
+/// A job's finished() that notes the name of the simulation it was submitted for.
 struct NoteTheRun
 {
     std::vector<std::string>* ran;
     std::string               name;
 
-    void operator()(const std::stop_token& /*stop*/) const { ran->push_back(name); }
+    void operator()(const std::exception_ptr& /*exception*/) const { ran->push_back(name); }
 };
 
 /// The test's run of the simulations of a request: one job per simulation through the request's
-/// executor (as the run dialog's batch submits the run of a duplicate of each), whose work notes
+/// executor (as the run dialog's batch submits the run of a duplicate of each), whose end notes
 /// the simulation's name, and the wait for their ends in the event loop (as the dialog's); all of
 /// them successful.
 struct RunThroughTheExecutor
@@ -535,7 +543,10 @@ struct RunThroughTheExecutor
         for (const std::shared_ptr<Simulation>& simulation : request.simulations)
         {
             jobs.push_back(request.executor->submit(
-                request.window, NoteTheRun{.ran = ran, .name = simulation->getName()}, {}));
+                request.window, std::make_shared<SimulationRun>(*simulation), nullptr, {},
+                std::stop_source{},
+                {.progressed = {},
+                 .finished   = NoteTheRun{.ran = ran, .name = simulation->getName()}}));
         }
         const bool done = QTest::qWaitFor([&jobs, &request] {
             return std::ranges::none_of(jobs, [&request](SimulationExecutor::JobId job) {
@@ -558,10 +569,11 @@ TEST_F(ScriptedUserPromptsTest, TheRunDialogIsAnsweredOrRunByTheTestsAction)
     second->setName("Simulation 2");
     const QWidget                            window;
     const UserPrompts::RunSimulationsRequest request{
-        .window      = &window,
-        .document    = document.get(),
-        .simulations = {first, second},
-        .executor    = services.services().simulationExecutor()};
+        .window               = &window,
+        .document             = document.get(),
+        .simulations          = {first, second},
+        .executor             = services.services().simulationExecutor(),
+        .cancelBackgroundRuns = {}};
 
     ScriptedUserPrompts      prompts;
     std::vector<std::string> ran;
@@ -588,6 +600,57 @@ TEST_F(ScriptedUserPromptsTest, TheRunDialogIsAnsweredOrRunByTheTestsAction)
     EXPECT_EQ(asked.executor, &services.executor());
     EXPECT_EQ(prompts.prompts().front().kind, Kind::RUN_SIMULATIONS);
     EXPECT_EQ(prompts.prompts().front().texts, asked.simulationNames);
+}
+
+TEST_F(ScriptedUserPromptsTest, TheRunDialogRunsTheSimulationsWithoutAScript)
+{
+    // O-M4-8: unscripted, the run dialog's batch runs them through the request's executor (the
+    // test services': in the next turn of the event loop, which the double waits for), and each
+    // simulation adopts its run.
+    TestGuiServices                   services;
+    const ExampleDesign               design(ExampleDesign::kSimpleModelRocket);
+    const std::shared_ptr<Simulation> simulation = design.simulation(0);
+    ASSERT_NE(simulation, nullptr);
+    const std::shared_ptr<FlightData> stored = simulation->getSimulatedData();
+    ScriptedUserPrompts               prompts;
+    EXPECT_EQ(prompts.runSimulations(
+                  nullptr, runRequestOf(design.document(), {simulation}, services.executor())),
+              (UserPrompts::RunSimulationsAnswer{.cancelled = false, .allSuccessful = true}));
+    EXPECT_EQ(services.executor().submittedJobs().size(), 1U);
+    EXPECT_NE(simulation->getSimulatedData(), stored);
+    EXPECT_NE(simulation->getSimulatedData(), nullptr);
+    EXPECT_EQ(simulation->getStatus(), Simulation::Status::UPTODATE);
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts().front().kind, Kind::RUN_SIMULATIONS);
+    EXPECT_EQ(prompts.prompts().front().texts,
+              QStringList{QtStrings::fromUtf8(simulation->getName())});
+}
+
+TEST_F(ScriptedUserPromptsTest, TheRunDialogRunsSteppedJobsAtOnceAndCancelsJobsThatNeverRun)
+{
+    TestGuiServices                   services;
+    const ExampleDesign               design(ExampleDesign::kSimpleModelRocket);
+    const std::shared_ptr<Simulation> simulation = design.simulation(0);
+    ASSERT_NE(simulation, nullptr);
+    ScriptedUserPrompts prompts;
+    services.executor().setMode(ManualSimulationExecutor::Mode::STEPPED);
+    EXPECT_EQ(prompts.runSimulations(
+                  nullptr, runRequestOf(design.document(), {simulation}, services.executor())),
+              (UserPrompts::RunSimulationsAnswer{.cancelled = false, .allSuccessful = true}));
+    const std::shared_ptr<FlightData> ran = simulation->getSimulatedData();
+
+    // An executor that runs nothing fails the test; the batch is cancelled, and the simulation
+    // keeps its results (bug 40).
+    services.executor().setMode(ManualSimulationExecutor::Mode::NEVER);
+    UserPrompts::RunSimulationsAnswer answer{.cancelled = false, .allSuccessful = true};
+    EXPECT_NONFATAL_FAILURE(
+        answer = prompts.runSimulations(
+            nullptr, runRequestOf(design.document(), {simulation}, services.executor())),
+        "a RUN_SIMULATIONS question whose executor runs nothing");
+    EXPECT_EQ(answer,
+              (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
+    EXPECT_EQ(simulation->getSimulatedData(), ran);
+    EXPECT_EQ(services.executor().cancelledJobs().size(), 1U);
 }
 
 TEST_F(ScriptedUserPromptsTest, AMilestoneFourAnswerThatCannotBeUsedFailsTheTest)
