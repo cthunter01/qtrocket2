@@ -297,8 +297,9 @@ OpenRocket's GUI code on a scenario of GUI steps and writes `tests/data/goldens/
 the steps' states and OpenRocket's save). The tables the GUI's tests compare with (the `*Pins.h` headers, which
 name their generator, and a few tables in test files) are written by Java probes in `tools/openrocket-gui-pins/`
 and `tools/openrocket-panel-pins/`; the core's tables of the motor chooser come from
-`tools/openrocket-motor-chooser/`, and those of JDK 17's text collation, which OpenRocket's tables sort with, from
-`tools/openrocket-collation/`. Each tool's README says how to run it.
+`tools/openrocket-motor-chooser/`, the core's plot goldens (`tests/data/goldens/plots/`, OpenRocket's plots of the
+examples' stored simulations) from `tools/openrocket-plots/`, and the tables of JDK 17's text collation, which
+OpenRocket's tables sort with, from `tools/openrocket-collation/`. Each tool's README says how to run it.
 
 ## Releases
 The Release workflow (`.github/workflows/release.yml`) runs only when started by hand, never on a push:
