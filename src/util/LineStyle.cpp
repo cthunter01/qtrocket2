@@ -52,6 +52,22 @@ std::string_view displayKey(LineStyle style) noexcept
     return "LineStyle.Solid";
 }
 
+std::string_view displayName(LineStyle style) noexcept
+{
+    switch (style)
+    {
+        case LineStyle::SOLID:
+            return "Solid";
+        case LineStyle::DASHED:
+            return "Dashed";
+        case LineStyle::DOTTED:
+            return "Dotted";
+        case LineStyle::DASHDOT:
+            return "Dash-dotted";
+    }
+    return "Solid";
+}
+
 std::string_view toString(LineStyle style) noexcept
 {
     switch (style)

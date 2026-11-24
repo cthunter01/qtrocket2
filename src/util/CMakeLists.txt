@@ -7,6 +7,7 @@ target_sources(QtRocket_core PRIVATE
     Config.cpp
     Coordinate.cpp
     DecimalFormat.cpp
+    DecimalFormatter.cpp
     Error.cpp
     ExpressionParser.cpp
     FileIo.cpp

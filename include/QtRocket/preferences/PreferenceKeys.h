@@ -12,11 +12,11 @@
 /// `OPENGL_ENABLE_MSAA` -> kOpenglEnableMsaa, `OBJ_SRGB` -> kObjSrgb). The three directory names
 /// ApplicationPreferences uses as string literals ("componentStyle", "componentMaterials",
 /// "componentColors") are here as k...Node constants, and so are the node names of
-/// SwingPreferences ("units", "userMaterials", "favoritePresets", "excludedMotorManufacturers")
-/// whose storage the core ports, and the two keys the motor chooser's MotorFilterPanel writes as
-/// string literals ("motorFilterLimitLength", "motorFilterLimitDiameter"), named after their
-/// text. The keys DocumentPreferences.java declares (PREF_SHOW_WARNINGS, ...) are members of
-/// DocumentPreferences, as in Java.
+/// SwingPreferences ("units", "userMaterials", "favoritePresets", "excludedMotorManufacturers",
+/// "PlotDefaultAppearances") whose storage the core ports, and the two keys the motor chooser's
+/// MotorFilterPanel writes as string literals ("motorFilterLimitLength",
+/// "motorFilterLimitDiameter"), named after their text. The keys DocumentPreferences.java
+/// declares (PREF_SHOW_WARNINGS, ...) are members of DocumentPreferences, as in Java.
 namespace QtRocket::PreferenceKeys
 {
 
@@ -236,6 +236,10 @@ inline constexpr std::string_view kFavoritePresetsNode = "favoritePresets";
 /// "true" (getExcludedMotorManufacturers(), setExcludedMotorManufacturers();
 /// motor/MotorPreferences.h).
 inline constexpr std::string_view kExcludedMotorManufacturersNode = "excludedMotorManufacturers";
+/// Node of the user's default plot appearances (SwingPreferences.NODE_PLOT_DEFAULT_APPEARANCES):
+/// for a flight data type named N, "N.color" ("R,G,B") and "N.lineStyle" (the LineStyle constant's
+/// name) (getDefaultPlotAppearance(), setDefaultPlotAppearance(); plot/PlotPreferences.h).
+inline constexpr std::string_view kPlotDefaultAppearancesNode = "PlotDefaultAppearances";
 
 // The keys MotorFilterPanel names with string literals (MotorFilterPanel.java:124-125, 446, 454).
 /// Whether the motor chooser limits the motor length to the mount's length (default false).

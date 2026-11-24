@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -231,6 +232,63 @@ TEST(DecimalFormat, NaNAndInfinities)
     EXPECT_EQ(DecimalFormat("#").format(kInf), "∞");
     EXPECT_EQ(DecimalFormat("#").format(-kInf), "-∞");
     EXPECT_EQ(DecimalFormat("0.00E0").format(kInf), "∞");
+}
+
+TEST(DecimalFormat, ToPatternIsTheOneJavaWrites)
+{
+    // The "PATTERN" lines of tools/openrocket-probes/plot-model's expected.txt: JDK 17's
+    // toPattern() of each pattern.
+    struct Case
+    {
+        Case(std::string_view casePattern, std::string_view caseJava)
+          : pattern(casePattern), java(caseJava)
+        {
+        }
+        std::string_view pattern;
+        std::string_view java;
+    };
+    for (const Case& c : {
+             Case("#", "#"),
+             Case("##", "#"),
+             Case("0", "#0"),
+             Case("00", "#00"),
+             Case("000", "#000"),
+             Case("#0", "#0"),
+             Case("##0", "#0"),
+             Case("0.0", "#0.0"),
+             Case("0.#", "#0.#"),
+             Case("0.0##", "#0.0##"),
+             Case("#.###", "#0.###"),
+             Case("0.00", "#0.00"),
+             Case("0.##", "#0.##"),
+             Case("#.##", "#0.##"),
+             Case("#.00", "#.00"),
+             Case("#.000", "#.000"),
+             Case("#.#", "#0.#"),
+             Case("##0.#", "#0.#"),
+             Case("00.##", "#00.##"),
+             Case("#0.0#", "#0.0#"),
+             Case("#.####", "#0.####"),
+             Case(".##", "#.0#"),
+             Case(".00", "#.00"),
+             Case(".0#", "#.0#"),
+             Case("#.", "#0."),
+             Case("0.", "#0."),
+             Case("0.00E0", "0.00E0"),
+             Case("##0.##E0", "##0.##E0"),
+             Case("0.###E0", "0.###E0"),
+             Case("00.0E00", "00.0E00"),
+             Case("#E0", "#E0"),
+             Case("0E0", "0E0"),
+             Case("#.#E0", "0.#E0"),
+             Case("#0.0E0", "#0.0E0"),
+         })
+    {
+        EXPECT_EQ(DecimalFormat(c.pattern).toPattern(), c.java) << c.pattern;
+        // Java's pattern makes the same format.
+        const DecimalFormat again(DecimalFormat(c.pattern).toPattern());
+        EXPECT_EQ(again.toPattern(), c.java) << c.pattern;
+    }
 }
 
 TEST(DecimalFormat, MalformedAndUnsupportedPatternsAreBugs)

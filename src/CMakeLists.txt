@@ -20,10 +20,14 @@ QtRocket_configure_target(QtRocket_core)
 # of file/ fill and read a document. So document/ never includes file/ (the attachments that read
 # an archive are in file/), and simulation/ never includes document/.
 # figure/ (the geometry of the 2D rocket figure: the java.awt.geom shapes, the views and the
-# shapes of each component, which OpenRocket keeps in its swing package) comes last. It reads the
-# rocket model and the motors, so it includes only util/, motor/, rocket/ and the subsystems they
-# build on, never aero/, mass/, simulation/, document/ or file/; the GUI's figure widgets and the
-# figure goldens build on it.
+# shapes of each component, which OpenRocket keeps in its swing package) comes after file/. It
+# reads the rocket model and the motors, so it includes only util/, motor/, rocket/ and the
+# subsystems they build on, never aero/, mass/, simulation/, document/ or file/; the GUI's figure
+# widgets and the figure goldens build on it.
+# plot/ (the model of the simulation plots: what a plot shows, its automatic axes and ranges and
+# its presets, which OpenRocket keeps in its swing package) comes last: it reads simulations and
+# their flight data (simulation/) and nothing of the core uses it. It needs nothing from figure/
+# either. The GUI's plots and the plot goldens build on it, as M7's component analysis plots will.
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(logging)
@@ -38,5 +42,6 @@ add_subdirectory(simulation)
 add_subdirectory(document)
 add_subdirectory(file)
 add_subdirectory(figure)
+add_subdirectory(plot)
 
 add_subdirectory(cli)

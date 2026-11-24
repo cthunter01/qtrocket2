@@ -1,0 +1,717 @@
+PATTERN "#" -> "#" int=0..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "##" -> "#" int=0..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "0" -> "#0" int=1..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "00" -> "#00" int=2..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "000" -> "#000" int=3..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "#0" -> "#0" int=1..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "##0" -> "#0" int=1..2147483647 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "0.0" -> "#0.0" int=1..2147483647 fraction=1..1 pointAlwaysShown=false grouping=false/0
+PATTERN "0.#" -> "#0.#" int=1..2147483647 fraction=0..1 pointAlwaysShown=false grouping=false/0
+PATTERN "0.0##" -> "#0.0##" int=1..2147483647 fraction=1..3 pointAlwaysShown=false grouping=false/0
+PATTERN "#.###" -> "#0.###" int=1..2147483647 fraction=0..3 pointAlwaysShown=false grouping=false/0
+PATTERN "0.00" -> "#0.00" int=1..2147483647 fraction=2..2 pointAlwaysShown=false grouping=false/0
+PATTERN "0.##" -> "#0.##" int=1..2147483647 fraction=0..2 pointAlwaysShown=false grouping=false/0
+PATTERN "#.##" -> "#0.##" int=1..2147483647 fraction=0..2 pointAlwaysShown=false grouping=false/0
+PATTERN "#.00" -> "#.00" int=0..2147483647 fraction=2..2 pointAlwaysShown=false grouping=false/0
+PATTERN "#.000" -> "#.000" int=0..2147483647 fraction=3..3 pointAlwaysShown=false grouping=false/0
+PATTERN "#.#" -> "#0.#" int=1..2147483647 fraction=0..1 pointAlwaysShown=false grouping=false/0
+PATTERN "##0.#" -> "#0.#" int=1..2147483647 fraction=0..1 pointAlwaysShown=false grouping=false/0
+PATTERN "00.##" -> "#00.##" int=2..2147483647 fraction=0..2 pointAlwaysShown=false grouping=false/0
+PATTERN "#0.0#" -> "#0.0#" int=1..2147483647 fraction=1..2 pointAlwaysShown=false grouping=false/0
+PATTERN "#.####" -> "#0.####" int=1..2147483647 fraction=0..4 pointAlwaysShown=false grouping=false/0
+PATTERN ".##" -> "#.0#" int=0..2147483647 fraction=1..2 pointAlwaysShown=true grouping=false/0
+PATTERN ".00" -> "#.00" int=0..2147483647 fraction=2..2 pointAlwaysShown=true grouping=false/0
+PATTERN ".0#" -> "#.0#" int=0..2147483647 fraction=1..2 pointAlwaysShown=true grouping=false/0
+PATTERN "#." -> "#0." int=1..2147483647 fraction=0..0 pointAlwaysShown=true grouping=false/0
+PATTERN "0." -> "#0." int=1..2147483647 fraction=0..0 pointAlwaysShown=true grouping=false/0
+PATTERN "0.00E0" -> "0.00E0" int=1..1 fraction=2..2 pointAlwaysShown=false grouping=false/0
+PATTERN "##0.##E0" -> "##0.##E0" int=1..3 fraction=0..2 pointAlwaysShown=false grouping=false/0
+PATTERN "0.###E0" -> "0.###E0" int=1..1 fraction=0..3 pointAlwaysShown=false grouping=false/0
+PATTERN "00.0E00" -> "00.0E00" int=2..2 fraction=1..1 pointAlwaysShown=false grouping=false/0
+PATTERN "#E0" -> "#E0" int=0..1 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "0E0" -> "0E0" int=1..1 fraction=0..0 pointAlwaysShown=false grouping=false/0
+PATTERN "#.#E0" -> "0.#E0" int=1..1 fraction=0..1 pointAlwaysShown=false grouping=false/0
+PATTERN "#0.0E0" -> "#0.0E0" int=1..2 fraction=1..1 pointAlwaysShown=false grouping=false/0
+DF 12.34 2 false -> "#0.##" fraction=0..2 format="12.34"
+DF 8.0 2 false -> "#0.##" fraction=0..2 format="8"
+DF -8.75 2 false -> "#0.##" fraction=0..2 format="-8.75"
+DF 123.456 2 false -> "#0.##" fraction=0..2 format="123.46"
+DF 8.5 2 false -> "#0.##" fraction=0..2 format="8.5"
+DF 0.00345 2 false -> "#0.####" fraction=0..4 format="0.0034"
+DF 0.0 2 false -> "#0.##" fraction=0..2 format="0"
+DF -0.0 2 false -> "#0.##" fraction=0..2 format="-0"
+DF 0.1 2 false -> "#0.##" fraction=0..2 format="0.1"
+DF 0.09999999999999999 2 false -> "#0.###" fraction=0..3 format="0.1"
+DF 0.099 2 false -> "#0.###" fraction=0..3 format="0.099"
+DF 0.05 2 false -> "#0.###" fraction=0..3 format="0.05"
+DF 0.010000000000000002 2 false -> "#0.####" fraction=0..4 format="0.01"
+DF 0.01 2 false -> "#0.####" fraction=0..4 format="0.01"
+DF 0.009999999999999998 2 false -> "#0.####" fraction=0..4 format="0.01"
+DF 0.001 2 false -> "#0.#####" fraction=0..5 format="0.001"
+DF 9.999E-4 2 false -> "#0.#####" fraction=0..5 format="0.001"
+DF 2.6E-4 2 false -> "#0.#####" fraction=0..5 format="0.00026"
+DF -2.599E-4 2 false -> "#0.#####" fraction=0..5 format="-0.00026"
+DF 1.0E-5 2 false -> "#0.#######" fraction=0..7 format="0.00001"
+DF 1.5E-5 2 false -> "#0.######" fraction=0..6 format="0.000015"
+DF -0.00345 2 false -> "#0.####" fraction=0..4 format="-0.0034"
+DF 25.625 2 false -> "#0.##" fraction=0..2 format="25.62"
+DF 0.125 2 false -> "#0.##" fraction=0..2 format="0.12"
+DF 1234567.891 2 false -> "#0.##" fraction=0..2 format="1234567.89"
+DF 1.0E-300 2 false -> "#0.##############################################################################################################################################################################################################################################################################################################" fraction=0..302 format="0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+DF 1.0E-308 2 false -> "#0.######################################################################################################################################################################################################################################################################################################################" fraction=0..310 format="0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+DF 3.0E-308 2 false -> "#0.#####################################################################################################################################################################################################################################################################################################################" fraction=0..309 format="0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"
+DF 2.2250738585072014E-308 2 false -> "#0.#####################################################################################################################################################################################################################################################################################################################" fraction=0..309 format="0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022"
+DF 1.0E-310 2 false -> NegativeArraySizeException: -2147483647
+DF 4.9E-324 2 false -> NegativeArraySizeException: -2147483647
+DF NaN 2 false -> "#0.##" fraction=0..2 format="NaN"
+DF Infinity 2 false -> "#0.##" fraction=0..2 format="∞"
+DF -Infinity 2 false -> "#0.##" fraction=0..2 format="-∞"
+DF 12.34 2 true -> "#.00" fraction=2..2 format="12.34"
+DF 8.0 2 true -> "#.00" fraction=2..2 format="8.00"
+DF -8.75 2 true -> "#.00" fraction=2..2 format="-8.75"
+DF 123.456 2 true -> "#.00" fraction=2..2 format="123.46"
+DF 8.5 2 true -> "#.00" fraction=2..2 format="8.50"
+DF 0.00345 2 true -> "#.0000" fraction=4..4 format=".0034"
+DF 0.0 2 true -> "#.00" fraction=2..2 format=".00"
+DF -0.0 2 true -> "#.00" fraction=2..2 format="-.00"
+DF 0.1 2 true -> "#.00" fraction=2..2 format=".10"
+DF 0.09999999999999999 2 true -> "#.000" fraction=3..3 format=".100"
+DF 0.099 2 true -> "#.000" fraction=3..3 format=".099"
+DF 0.05 2 true -> "#.000" fraction=3..3 format=".050"
+DF 0.010000000000000002 2 true -> "#.0000" fraction=4..4 format=".0100"
+DF 0.01 2 true -> "#.0000" fraction=4..4 format=".0100"
+DF 0.009999999999999998 2 true -> "#.0000" fraction=4..4 format=".0100"
+DF 0.001 2 true -> "#.00000" fraction=5..5 format=".00100"
+DF 9.999E-4 2 true -> "#.00000" fraction=5..5 format=".00100"
+DF 2.6E-4 2 true -> "#.00000" fraction=5..5 format=".00026"
+DF -2.599E-4 2 true -> "#.00000" fraction=5..5 format="-.00026"
+DF 1.0E-5 2 true -> "#.0000000" fraction=7..7 format=".0000100"
+DF 1.5E-5 2 true -> "#.000000" fraction=6..6 format=".000015"
+DF -0.00345 2 true -> "#.0000" fraction=4..4 format="-.0034"
+DF 25.625 2 true -> "#.00" fraction=2..2 format="25.62"
+DF 0.125 2 true -> "#.00" fraction=2..2 format=".12"
+DF 1234567.891 2 true -> "#.00" fraction=2..2 format="1234567.89"
+DF 1.0E-300 2 true -> "#.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=302..302 format=".00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100"
+DF 1.0E-308 2 true -> "#.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=310..310 format=".0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100"
+DF 3.0E-308 2 true -> "#.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=309..309 format=".000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030"
+DF 2.2250738585072014E-308 2 true -> "#.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=309..309 format=".000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022"
+DF 1.0E-310 2 true -> NegativeArraySizeException: -2147483647
+DF 4.9E-324 2 true -> NegativeArraySizeException: -2147483647
+DF NaN 2 true -> "#.00" fraction=2..2 format="NaN"
+DF Infinity 2 true -> "#.00" fraction=2..2 format="∞"
+DF -Infinity 2 true -> "#.00" fraction=2..2 format="-∞"
+DF 12.34 3 false -> "#0.###" fraction=0..3 format="12.34"
+DF 8.0 3 false -> "#0.###" fraction=0..3 format="8"
+DF -8.75 3 false -> "#0.###" fraction=0..3 format="-8.75"
+DF 123.456 3 false -> "#0.###" fraction=0..3 format="123.456"
+DF 8.5 3 false -> "#0.###" fraction=0..3 format="8.5"
+DF 0.00345 3 false -> "#0.#####" fraction=0..5 format="0.00345"
+DF 0.0 3 false -> "#0.###" fraction=0..3 format="0"
+DF -0.0 3 false -> "#0.###" fraction=0..3 format="-0"
+DF 0.1 3 false -> "#0.###" fraction=0..3 format="0.1"
+DF 0.09999999999999999 3 false -> "#0.###" fraction=0..3 format="0.1"
+DF 0.099 3 false -> "#0.###" fraction=0..3 format="0.099"
+DF 0.05 3 false -> "#0.###" fraction=0..3 format="0.05"
+DF 0.010000000000000002 3 false -> "#0.###" fraction=0..3 format="0.01"
+DF 0.01 3 false -> "#0.#####" fraction=0..5 format="0.01"
+DF 0.009999999999999998 3 false -> "#0.#####" fraction=0..5 format="0.01"
+DF 0.001 3 false -> "#0.######" fraction=0..6 format="0.001"
+DF 9.999E-4 3 false -> "#0.######" fraction=0..6 format="0.001"
+DF 2.6E-4 3 false -> "#0.######" fraction=0..6 format="0.00026"
+DF -2.599E-4 3 false -> "#0.######" fraction=0..6 format="-0.00026"
+DF 1.0E-5 3 false -> "#0.########" fraction=0..8 format="0.00001"
+DF 1.5E-5 3 false -> "#0.#######" fraction=0..7 format="0.000015"
+DF -0.00345 3 false -> "#0.#####" fraction=0..5 format="-0.00345"
+DF 25.625 3 false -> "#0.###" fraction=0..3 format="25.625"
+DF 0.125 3 false -> "#0.###" fraction=0..3 format="0.125"
+DF 1234567.891 3 false -> "#0.###" fraction=0..3 format="1234567.891"
+DF 1.0E-300 3 false -> "#0.###############################################################################################################################################################################################################################################################################################################" fraction=0..303 format="0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+DF 1.0E-308 3 false -> "#0.#######################################################################################################################################################################################################################################################################################################################" fraction=0..311 format="0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+DF 3.0E-308 3 false -> "#0.######################################################################################################################################################################################################################################################################################################################" fraction=0..310 format="0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"
+DF 2.2250738585072014E-308 3 false -> "#0.######################################################################################################################################################################################################################################################################################################################" fraction=0..310 format="0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000223"
+DF 1.0E-310 3 false -> NegativeArraySizeException: -2147483646
+DF 4.9E-324 3 false -> NegativeArraySizeException: -2147483646
+DF NaN 3 false -> "#0.###" fraction=0..3 format="NaN"
+DF Infinity 3 false -> "#0.###" fraction=0..3 format="∞"
+DF -Infinity 3 false -> "#0.###" fraction=0..3 format="-∞"
+DF 12.34 3 true -> "#.000" fraction=3..3 format="12.340"
+DF 8.0 3 true -> "#.000" fraction=3..3 format="8.000"
+DF -8.75 3 true -> "#.000" fraction=3..3 format="-8.750"
+DF 123.456 3 true -> "#.000" fraction=3..3 format="123.456"
+DF 8.5 3 true -> "#.000" fraction=3..3 format="8.500"
+DF 0.00345 3 true -> "#.00000" fraction=5..5 format=".00345"
+DF 0.0 3 true -> "#.000" fraction=3..3 format=".000"
+DF -0.0 3 true -> "#.000" fraction=3..3 format="-.000"
+DF 0.1 3 true -> "#.000" fraction=3..3 format=".100"
+DF 0.09999999999999999 3 true -> "#.000" fraction=3..3 format=".100"
+DF 0.099 3 true -> "#.000" fraction=3..3 format=".099"
+DF 0.05 3 true -> "#.000" fraction=3..3 format=".050"
+DF 0.010000000000000002 3 true -> "#.000" fraction=3..3 format=".010"
+DF 0.01 3 true -> "#.00000" fraction=5..5 format=".01000"
+DF 0.009999999999999998 3 true -> "#.00000" fraction=5..5 format=".01000"
+DF 0.001 3 true -> "#.000000" fraction=6..6 format=".001000"
+DF 9.999E-4 3 true -> "#.000000" fraction=6..6 format=".001000"
+DF 2.6E-4 3 true -> "#.000000" fraction=6..6 format=".000260"
+DF -2.599E-4 3 true -> "#.000000" fraction=6..6 format="-.000260"
+DF 1.0E-5 3 true -> "#.00000000" fraction=8..8 format=".00001000"
+DF 1.5E-5 3 true -> "#.0000000" fraction=7..7 format=".0000150"
+DF -0.00345 3 true -> "#.00000" fraction=5..5 format="-.00345"
+DF 25.625 3 true -> "#.000" fraction=3..3 format="25.625"
+DF 0.125 3 true -> "#.000" fraction=3..3 format=".125"
+DF 1234567.891 3 true -> "#.000" fraction=3..3 format="1234567.891"
+DF 1.0E-300 3 true -> "#.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=303..303 format=".000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000"
+DF 1.0E-308 3 true -> "#.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=311..311 format=".00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000"
+DF 3.0E-308 3 true -> "#.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=310..310 format=".0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300"
+DF 2.2250738585072014E-308 3 true -> "#.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" fraction=310..310 format=".0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000223"
+DF 1.0E-310 3 true -> NegativeArraySizeException: -2147483646
+DF 4.9E-324 3 true -> NegativeArraySizeException: -2147483646
+DF NaN 3 true -> "#.000" fraction=3..3 format="NaN"
+DF Infinity 3 true -> "#.000" fraction=3..3 format="∞"
+DF -Infinity 3 true -> "#.000" fraction=3..3 format="-∞"
+DF 12.34 -1 false -> "#" fraction=0..0 format="12"
+DF 12.34 -1 true -> "#" fraction=0..0 format="12"
+DF 0.00345 -1 false -> "#" fraction=0..0 format="0"
+DF 0.00345 -1 true -> "#" fraction=0..0 format="0"
+DF 0.0 -1 false -> "#" fraction=0..0 format="0"
+DF 0.0 -1 true -> "#" fraction=0..0 format="0"
+DF 0.5 -1 false -> "#" fraction=0..0 format="0"
+DF 0.5 -1 true -> "#" fraction=0..0 format="0"
+DF 0.05 -1 false -> "#" fraction=0..0 format="0"
+DF 0.05 -1 true -> "#" fraction=0..0 format="0"
+DF 1.0E-310 -1 false -> "#" fraction=0..0 format="0"
+DF 1.0E-310 -1 true -> "#" fraction=0..0 format="0"
+DF 12.34 0 false -> "#" fraction=0..0 format="12"
+DF 12.34 0 true -> "#" fraction=0..0 format="12"
+DF 0.00345 0 false -> "#" fraction=0..0 format="0"
+DF 0.00345 0 true -> "#" fraction=0..0 format="0"
+DF 0.0 0 false -> "#" fraction=0..0 format="0"
+DF 0.0 0 true -> "#" fraction=0..0 format="0"
+DF 0.5 0 false -> "#" fraction=0..0 format="0"
+DF 0.5 0 true -> "#" fraction=0..0 format="0"
+DF 0.05 0 false -> "#" fraction=0..0 format="0"
+DF 0.05 0 true -> "#" fraction=0..0 format="0"
+DF 1.0E-310 0 false -> "#" fraction=0..0 format="0"
+DF 1.0E-310 0 true -> "#" fraction=0..0 format="0"
+DF 12.34 1 false -> "#0.#" fraction=0..1 format="12.3"
+DF 12.34 1 true -> "#.0" fraction=1..1 format="12.3"
+DF 0.00345 1 false -> "#0.###" fraction=0..3 format="0.003"
+DF 0.00345 1 true -> "#.000" fraction=3..3 format=".003"
+DF 0.0 1 false -> "#0.#" fraction=0..1 format="0"
+DF 0.0 1 true -> "#.0" fraction=1..1 format=".0"
+DF 0.5 1 false -> "#0.#" fraction=0..1 format="0.5"
+DF 0.5 1 true -> "#.0" fraction=1..1 format=".5"
+DF 0.05 1 false -> "#0.##" fraction=0..2 format="0.05"
+DF 0.05 1 true -> "#.00" fraction=2..2 format=".05"
+DF 1.0E-310 1 false -> NegativeArraySizeException: -2147483648
+DF 1.0E-310 1 true -> NegativeArraySizeException: -2147483648
+DF 12.34 4 false -> "#0.####" fraction=0..4 format="12.34"
+DF 12.34 4 true -> "#.0000" fraction=4..4 format="12.3400"
+DF 0.00345 4 false -> "#0.####" fraction=0..4 format="0.0034"
+DF 0.00345 4 true -> "#.0000" fraction=4..4 format=".0034"
+DF 0.0 4 false -> "#0.####" fraction=0..4 format="0"
+DF 0.0 4 true -> "#.0000" fraction=4..4 format=".0000"
+DF 0.5 4 false -> "#0.####" fraction=0..4 format="0.5"
+DF 0.5 4 true -> "#.0000" fraction=4..4 format=".5000"
+DF 0.05 4 false -> "#0.####" fraction=0..4 format="0.05"
+DF 0.05 4 true -> "#.0000" fraction=4..4 format=".0500"
+DF 1.0E-310 4 false -> NegativeArraySizeException: -2147483645
+DF 1.0E-310 4 true -> NegativeArraySizeException: -2147483645
+LABELS [] -> []
+LABELS ["Sustainer"] -> ["Sustainer"]
+LABELS ["Sustainer", "Booster stage", "Booster stage"] -> ["Sustainer", "Booster stage(1)", "Booster stage(2)"]
+LABELS ["A", "B", "A"] -> ["A(1)", "B", "A(2)"]
+LABELS ["A", "A", "A"] -> ["A(1)", "A(2)", "A(3)"]
+LABELS ["A", "A", "B", "B", "A"] -> ["A(1)", "A(2)", "B(1)", "B(2)", "A(3)"]
+LABELS ["<b>Stage</b>", "Stage"] -> ["Stage(1)", "Stage(2)"]
+LABELS ["a<b", "a<b"] -> ["a<b(1)", "a<b(2)"]
+LABELS ["", ""] -> ["(1)", "(2)"]
+LABELS ["A(1)", "A", "A"] -> ["A(1)", "A(1)", "A(2)"]
+LABELS ["A", "A(1)", "A"] -> IndexOutOfBoundsException: Index 3 out of bounds for length 3
+LABELS ["A", "A", "A(1)"] -> IndexOutOfBoundsException: Index 3 out of bounds for length 3
+LABELS ["Sustainer", "Booster<i> stage</i>", "Booster stage"] -> ["Sustainer", "Booster stage(1)", "Booster stage(2)"]
+SET altitude 1,2,3 DASHDOT
+  Altitude.color=1,2,3
+  Altitude.lineStyle=DASHDOT
+  GET altitude color=1,2,3,255 lineStyle=DASHDOT
+SET altitude 10,20,30,40 null
+  Altitude.color=10,20,30
+  GET altitude color=10,20,30,255 lineStyle=null
+SET altitude null SOLID
+  Altitude.lineStyle=SOLID
+  GET altitude color=null lineStyle=SOLID
+SET altitude null null (vertical velocity 0,114,189 DOTTED)
+  Vertical velocity.color=0,114,189
+  Vertical velocity.lineStyle=DOTTED
+  GET altitude null
+SET vertical velocity null
+STORED color="0,114,189" lineStyle="DASHED" -> GET color=0,114,189,255 lineStyle=DASHED
+STORED color="300,-5,20" lineStyle=absent -> GET color=255,0,20,255 lineStyle=null
+STORED color=absent lineStyle="dashed" -> GET null
+STORED color="1,2" lineStyle="SOLID" -> GET color=null lineStyle=SOLID
+STORED color="a,b,c" lineStyle=absent -> GET null
+STORED color=" 1,2,3" lineStyle=absent -> GET null
+STORED color="1,2,3," lineStyle="DOTTED " -> GET color=1,2,3,255 lineStyle=null
+STORED color="1,2,3,4" lineStyle="DASHDOT" -> GET color=null lineStyle=DASHDOT
+STORED color="" lineStyle="" -> GET null
+STORED color=absent lineStyle="Solid" -> GET null
+
+=== A simple model rocket.ork simulation 0 "Simulation 1" branches 1: [Sustainer length=233 separation=NaN index=-1]
+SERIES-LABELS ["Sustainer"]
+--- preset 0 "Vertical motion vs. time"
+PANEL-COLORS 0->c0 1->c1 2->c2
+TITLE "Simulation 1" SUBTITLE "Vertical motion vs. time"
+DOMAIN label="Time (s)" range [-0.5{-0x1.0p-1}, 16.387999999999998{0x1.06353f7ced916p4}]
+FILLED 0->0 1->0 2->1 | left [-5.8148599999999995{-0x1.7426aa8eb4634p2}, 52.23286{0x1.a1dce5b4245f6p5}] right [-16.94345{-0x1.0f185f06f6944p4}, 152.197103931479{0x1.3064eace773b1p7}]
+AXIS 0 label="Altitude; Vertical velocity" range [-5.8148599999999995{-0x1.7426aa8eb4634p2}, 52.23286{0x1.a1dce5b4245f6p5}] series 2
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=233 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.23{0x1.3ae147ae147aep0},25.628{0x1.9a0c49ba5e354p4} last=15.888{0x1.fc6a7ef9db22dp3},0.0{0x0.0p0}
+  SERIES 1 "Vertical velocity (m/s)" branch=0 row=1 unit='m/s' n=233 set=c1 drawn=c1 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.23{0x1.3ae147ae147aep0},23.006{0x1.70189374bc6a8p4} last=15.888{0x1.fc6a7ef9db22dp3},-4.151{-0x1.09a9fbe76c8b4p2}
+  TOOLTIP 0 0: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>Altitude (m)</i></b><br>Altitude: 25.63 m<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 15.89 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  TOOLTIP 1 116: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: 23.01 m/s<br>Time: 1.23 s<br></html>
+  TOOLTIP 1 232: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: -4.15 m/s<br>Time: 15.89 s<br></html>
+AXIS 1 label="Vertical acceleration" range [-16.94345{-0x1.0f185f06f6944p4}, 152.197103931479{0x1.3064eace773b1p7}] series 1
+  SERIES 0 "Vertical acceleration (m/s²)" branch=0 row=2 unit='m/s²' n=233 set=c2 drawn=c2 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.23{0x1.3ae147ae147aep0},-11.337{-0x1.6ac8b43958106p3} last=15.888{0x1.fc6a7ef9db22dp3},-0.05{-0x1.999999999999ap-5}
+  TOOLTIP 0 0: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -11.34 m/s²<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -0.05 m/s²<br>Time: 15.89 s<br></html>
+LEGEND 3: "Altitude (m)" drawn=c0 | "Vertical velocity (m/s)" drawn=c1 | "Vertical acceleration (m/s²)" drawn=c2
+EVENT-LIST 5: IGNITION@0.0/b0 BURNOUT@0.73/b0 APOGEE@3.481/b0 RECOVERY_DEVICE_DEPLOYMENT@3.731/b0 GROUND_HIT@15.888/b0
+GROUPS all 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+GROUPS branch 0 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES [-0.5{-0x1.0p-1}, 16.387999999999998{0x1.06353f7ced916p4}]
+ICONS (from the last branch)
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=12.648{0x1.94bc6a7ef9db2p3} yloc=12.648{0x1.94bc6a7ef9db2p3} sample=82 image=event:BURNOUT tooltip=<html><b><i>Altitude (m)</i></b><br>Motor burnout<br>Altitude: 12.65 m<br>Time: 0.73 s<br></html>
+  I b0 axis0 series0 row0 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=50.59{0x1.94b851eb851ecp5} yloc=50.59{0x1.94b851eb851ecp5} sample=171 image=event:APOGEE tooltip=<html><b><i>Altitude (m)</i></b><br>Apogee<br>Altitude: 50.59 m<br>Time: 3.48 s<br></html>
+  I b0 axis0 series0 row0 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=50.254{0x1.92083126e978dp5} yloc=50.254{0x1.92083126e978dp5} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Altitude (m)</i></b><br>Recovery device deployment<br>Altitude: 50.25 m<br>Time: 3.73 s<br></html>
+  I b0 axis0 series0 row0 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Time: 15.89 s<br></html>
+  I b0 axis0 series1 row1 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Motor ignition<br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  I b0 axis0 series1 row1 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=28.956{0x1.cf4bc6a7ef9dbp4} yloc=28.956{0x1.cf4bc6a7ef9dbp4} sample=82 image=event:BURNOUT tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Motor burnout<br>Vertical velocity: 28.96 m/s<br>Time: 0.73 s<br></html>
+  I b0 axis0 series1 row1 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=-0.139{-0x1.1cac083126e98p-3} yloc=-0.139{-0x1.1cac083126e98p-3} sample=171 image=event:APOGEE tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Apogee<br>Vertical velocity: -0.14 m/s<br>Time: 3.48 s<br></html>
+  I b0 axis0 series1 row1 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=-2.5366666666666653{-0x1.44b17e4b17e48p1} yloc=-2.5366666666666653{-0x1.44b17e4b17e48p1} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Recovery device deployment<br>Vertical velocity: -2.54 m/s<br>Time: 3.73 s<br></html>
+  I b0 axis0 series1 row1 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=-4.151{-0x1.09a9fbe76c8b4p2} yloc=-4.151{-0x1.09a9fbe76c8b4p2} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Ground hit<br>Vertical velocity: -4.15 m/s<br>Time: 15.89 s<br></html>
+  I b0 axis1 series0 row2 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=6.721441728733607E-16{0x1.8376f8e8b8934p-51} sample=0 image=event:IGNITION tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Motor ignition<br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  I b0 axis1 series0 row2 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=-12.266{-0x1.8883126e978d5p3} yloc=-4.209595611283415{-0x1.0d6a03b5f63bcp2} sample=82 image=event:BURNOUT tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Motor burnout<br>Vertical acceleration: -12.27 m/s²<br>Time: 0.73 s<br></html>
+  I b0 axis1 series0 row2 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=-9.68{-0x1.35c28f5c28f5cp3} yloc=-3.3221005639347347{-0x1.a93a975e0fb95p1} sample=171 image=event:APOGEE tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Apogee<br>Vertical acceleration: -9.68 m/s²<br>Time: 3.48 s<br></html>
+  I b0 axis1 series0 row2 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=-7.772000000000248{-0x1.f16872b020d61p2} yloc=-2.667289832944378{-0x1.5569c0d4b9863p1} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Recovery device deployment<br>Vertical acceleration: -7.77 m/s²<br>Time: 3.73 s<br></html>
+  I b0 axis1 series0 row2 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=-0.05{-0x1.999999999999ap-5} yloc=-0.017159610350901886{-0x1.19249f513b029p-6} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Ground hit<br>Vertical acceleration: -0.05 m/s²<br>Time: 15.89 s<br></html>
+--- preset 2 "Flight side profile"
+PANEL-COLORS 0->c0
+TITLE "Simulation 1" SUBTITLE "Flight side profile"
+DOMAIN label="Position East of launch (m)" range [-20.906{-0x1.4e7ef9db22d0ep4}, 4.123{0x1.07df3b645a1cbp2}]
+FILLED 0->0 | left [-1.5177{-0x1.8487fcb923a2ap0}, 52.1077{0x1.a0dc91d14e3bdp5}] right [NaN{NaN}, NaN{NaN}]
+AXIS 0 label="Altitude" range [-1.5177{-0x1.8487fcb923a2ap0}, 52.1077{0x1.a0dc91d14e3bdp5}] series 1
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=233 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=0.973{0x1.f22d0e5604189p-1},25.628{0x1.9a0c49ba5e354p4} last=-20.406{-0x1.467ef9db22d0ep4},0.0{0x0.0p0}
+  TOOLTIP 0 0: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>Altitude (m)</i></b><br>Altitude: 25.63 m<br>Position East of launch: 0.97 m<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: -20.41 m<br>Time: 15.89 s<br></html>
+LEGEND 1: "Altitude (m)" drawn=c0
+EVENT-LIST 5: IGNITION@0.0/b0 BURNOUT@0.73/b0 APOGEE@3.481/b0 RECOVERY_DEVICE_DEPLOYMENT@3.731/b0 GROUND_HIT@15.888/b0
+GROUPS all 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+GROUPS branch 0 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES none (not the time domain)
+ICONS (from the last branch)
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=0.73{0x1.75c28f5c28f5cp-1} x=0.288{0x1.26e978d4fdf3bp-2} y=12.648{0x1.94bc6a7ef9db2p3} yloc=12.648{0x1.94bc6a7ef9db2p3} sample=82 image=event:BURNOUT tooltip=<html><b><i>Altitude (m)</i></b><br>Motor burnout<br>Altitude: 12.65 m<br>Position East of launch: 0.29 m<br>Time: 0.73 s<br></html>
+  I b0 axis0 series0 row0 t=3.481{0x1.bd916872b020cp1} x=3.382{0x1.b0e5604189375p1} y=50.59{0x1.94b851eb851ecp5} yloc=50.59{0x1.94b851eb851ecp5} sample=171 image=event:APOGEE tooltip=<html><b><i>Altitude (m)</i></b><br>Apogee<br>Altitude: 50.59 m<br>Position East of launch: 3.38 m<br>Time: 3.48 s<br></html>
+  I b0 axis0 series0 row0 t=3.731{0x1.dd916872b020cp1} x=3.574333333333333{0x1.c983c131d5acbp1} y=50.254{0x1.92083126e978dp5} yloc=50.254{0x1.92083126e978dp5} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Altitude (m)</i></b><br>Recovery device deployment<br>Altitude: 50.25 m<br>Position East of launch: 3.57 m<br>Time: 3.73 s<br></html>
+  I b0 axis0 series0 row0 t=15.888{0x1.fc6a7ef9db22dp3} x=-20.406{-0x1.467ef9db22d0ep4} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Position East of launch: -20.41 m<br>Time: 15.89 s<br></html>
+--- preset 4 "Stability vs. time"
+PANEL-COLORS 0->c0 1->c1 2->c2
+TITLE "Simulation 1" SUBTITLE "Stability vs. time"
+DOMAIN label="Time (s)" range [-0.5{-0x1.0p-1}, 16.387999999999998{0x1.06353f7ced916p4}]
+FILLED 0->0 1->1 2->1 | left [-10.040109999999999{-0x1.414894c447c3p3}, 3.7791099999999997{0x1.e3b9e060fe479p1}] right [-89.20799171762667{-0x1.64d4fbc7e42e8p6}, 33.578{0x1.0c9fbe76c8b44p5}]
+AXIS 0 label="Stability margin calibers" range [-10.040109999999999{-0x1.414894c447c3p3}, 3.7791099999999997{0x1.e3b9e060fe479p1}] series 1
+  SERIES 0 "Stability margin calibers" branch=0 row=0 unit='​' n=233 set=c0 drawn=c0 first=0.0{0x0.0p0},NaN{NaN} middle=1.23{0x1.3ae147ae147aep0},2.93{0x1.770a3d70a3d71p1} last=15.888{0x1.fc6a7ef9db22dp3},-9.649{-0x1.34c49ba5e353fp3}
+  TOOLTIP 0 0: <html><b><i>Stability margin calibers</i></b><br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>Stability margin calibers</i></b><br>Stability margin calibers: 2.93 ​<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>Stability margin calibers</i></b><br>Stability margin calibers: -9.65 ​<br>Time: 15.89 s<br></html>
+AXIS 1 label="CP location; CG location" range [-89.20799171762667{-0x1.64d4fbc7e42e8p6}, 33.578{0x1.0c9fbe76c8b44p5}] series 2
+  SERIES 0 "CP location (cm)" branch=0 row=1 unit='cm' n=233 set=c1 drawn=c1 first=0.0{0x0.0p0},NaN{NaN} middle=1.23{0x1.3ae147ae147aep0},31.4{0x1.f666666666666p4} last=15.888{0x1.fc6a7ef9db22dp3},0.0{0x0.0p0}
+  SERIES 1 "CG location (cm)" branch=0 row=2 unit='cm' n=233 set=c2 drawn=c2 first=0.0{0x0.0p0},24.8{0x1.8cccccccccccdp4} middle=1.23{0x1.3ae147ae147aep0},24.099999999999998{0x1.8199999999999p4} last=15.888{0x1.fc6a7ef9db22dp3},24.099999999999998{0x1.8199999999999p4}
+  TOOLTIP 0 0: <html><b><i>CP location (cm)</i></b><br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>CP location (cm)</i></b><br>CP location: 31.4 cm<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>CP location (cm)</i></b><br>CP location: 0 cm<br>Time: 15.89 s<br></html>
+  TOOLTIP 1 0: <html><b><i>CG location (cm)</i></b><br>CG location: 24.8 cm<br>Time: 0 s<br></html>
+  TOOLTIP 1 116: <html><b><i>CG location (cm)</i></b><br>CG location: 24.1 cm<br>Time: 1.23 s<br></html>
+  TOOLTIP 1 232: <html><b><i>CG location (cm)</i></b><br>CG location: 24.1 cm<br>Time: 15.89 s<br></html>
+LEGEND 3: "Stability margin calibers" drawn=c0 | "CP location (cm)" drawn=c1 | "CG location (cm)" drawn=c2
+EVENT-LIST 5: IGNITION@0.0/b0 BURNOUT@0.73/b0 APOGEE@3.481/b0 RECOVERY_DEVICE_DEPLOYMENT@3.731/b0 GROUND_HIT@15.888/b0
+GROUPS all 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+GROUPS branch 0 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.73{0x1.75c28f5c28f5cp-1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@0.73/b0] label="Motor burnout"
+  G t=3.481{0x1.bd916872b020cp1} look=APOGEE image=event:APOGEE events=[APOGEE@3.481/b0] label="Apogee"
+  G t=3.731{0x1.dd916872b020cp1} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@3.731/b0] label="Recovery device deployment"
+  G t=15.888{0x1.fc6a7ef9db22dp3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@15.888/b0] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES [-0.5{-0x1.0p-1}, 16.387999999999998{0x1.06353f7ced916p4}]
+ICONS (from the last branch)
+  I b0 axis0 series0 row0 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=2.873{0x1.6fbe76c8b4396p1} yloc=2.873{0x1.6fbe76c8b4396p1} sample=82 image=event:BURNOUT tooltip=<html><b><i>Stability margin calibers</i></b><br>Motor burnout<br>Stability margin calibers: 2.87 ​<br>Time: 0.73 s<br></html>
+  I b0 axis0 series0 row0 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=3.201{0x1.99ba5e353f7cfp1} yloc=3.201{0x1.99ba5e353f7cfp1} sample=171 image=event:APOGEE tooltip=<html><b><i>Stability margin calibers</i></b><br>Apogee<br>Stability margin calibers: 3.2 ​<br>Time: 3.48 s<br></html>
+  I b0 axis0 series0 row0 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=-0.9649999999993568{-0x1.ee147ae14644p-1} yloc=-0.9649999999993568{-0x1.ee147ae14644p-1} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Stability margin calibers</i></b><br>Recovery device deployment<br>Stability margin calibers: -0.96 ​<br>Time: 3.73 s<br></html>
+  I b0 axis0 series0 row0 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=-9.649{-0x1.34c49ba5e353fp3} yloc=-9.649{-0x1.34c49ba5e353fp3} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>Stability margin calibers</i></b><br>Ground hit<br>Stability margin calibers: -9.65 ​<br>Time: 15.89 s<br></html>
+  I b0 axis1 series0 row1 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=31.3{0x1.f4ccccccccccdp4} yloc=3.522727470367502{0x1.c2e8bbd6f9806p1} sample=82 image=event:BURNOUT tooltip=<html><b><i>CP location (cm)</i></b><br>Motor burnout<br>CP location: 31.3 cm<br>Time: 0.73 s<br></html>
+  I b0 axis1 series0 row1 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=32.1{0x1.00ccccccccccdp5} yloc=3.6127652331883966{0x1.ce6f175655c1dp1} sample=171 image=event:APOGEE tooltip=<html><b><i>CP location (cm)</i></b><br>Apogee<br>CP location: 32.1 cm<br>Time: 3.48 s<br></html>
+  I b0 axis1 series0 row1 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=21.73333333333494{0x1.5bbbbbbbbbd8p4} yloc=2.4460258899678182{0x1.391760594a60ap1} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>CP location (cm)</i></b><br>Recovery device deployment<br>CP location: 21.73 cm<br>Time: 3.73 s<br></html>
+  I b0 axis1 series0 row1 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=0.0{0x0.0p0} yloc=9.258942012136357E-16{0x1.0adeeef850839p-50} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>CP location (cm)</i></b><br>Ground hit<br>CP location: 0 cm<br>Time: 15.89 s<br></html>
+  I b0 axis1 series1 row2 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=24.8{0x1.8cccccccccccdp4} yloc=2.7911706474477334{0x1.6545146c2becbp1} sample=0 image=event:IGNITION tooltip=<html><b><i>CG location (cm)</i></b><br>Motor ignition<br>CG location: 24.8 cm<br>Time: 0 s<br></html>
+  I b0 axis1 series1 row2 t=0.73{0x1.75c28f5c28f5cp-1} x=0.73{0x1.75c28f5c28f5cp-1} y=24.099999999999998{0x1.8199999999999p4} yloc=2.71238760497945{0x1.5b2f845cbb336p1} sample=82 image=event:BURNOUT tooltip=<html><b><i>CG location (cm)</i></b><br>Motor burnout<br>CG location: 24.1 cm<br>Time: 0.73 s<br></html>
+  I b0 axis1 series1 row2 t=3.481{0x1.bd916872b020cp1} x=3.481{0x1.bd916872b020cp1} y=24.099999999999998{0x1.8199999999999p4} yloc=2.71238760497945{0x1.5b2f845cbb336p1} sample=171 image=event:APOGEE tooltip=<html><b><i>CG location (cm)</i></b><br>Apogee<br>CG location: 24.1 cm<br>Time: 3.48 s<br></html>
+  I b0 axis1 series1 row2 t=3.731{0x1.dd916872b020cp1} x=3.731{0x1.dd916872b020cp1} y=24.099999999999998{0x1.8199999999999p4} yloc=2.71238760497945{0x1.5b2f845cbb336p1} sample=176 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>CG location (cm)</i></b><br>Recovery device deployment<br>CG location: 24.1 cm<br>Time: 3.73 s<br></html>
+  I b0 axis1 series1 row2 t=15.888{0x1.fc6a7ef9db22dp3} x=15.888{0x1.fc6a7ef9db22dp3} y=24.099999999999998{0x1.8199999999999p4} yloc=2.71238760497945{0x1.5b2f845cbb336p1} sample=232 image=event:GROUND_HIT tooltip=<html><b><i>CG location (cm)</i></b><br>Ground hit<br>CG location: 24.1 cm<br>Time: 15.89 s<br></html>
+--- preset 5 "Drag coefficients vs. Mach number"
+PANEL-COLORS 0->c0 1->c1 2->c2 3->c3
+TITLE "Simulation 1" SUBTITLE "Drag coefficients vs. Mach number"
+DOMAIN label="Mach number" range [-0.494{-0x1.f9db22d0e5604p-2}, 0.586{0x1.2c083126e978dp-1}]
+FILLED 0->0 1->0 2->0 3->0 | left [-3.456{-0x1.ba5e353f7ced9p1}, 118.656{0x1.da9fbe76c8b44p6}] right [NaN{NaN}, NaN{NaN}]
+AXIS 0 label="Drag coefficient (CD); Friction drag coefficient (CD_friction); Base drag coefficient (CD_base); Pressure drag coefficient (CD_pressure)" range [-3.456{-0x1.ba5e353f7ced9p1}, 118.656{0x1.da9fbe76c8b44p6}] series 4
+  SERIES 0 "Drag coefficient (CD)" branch=0 row=0 unit='​' n=233 set=c0 drawn=c0 first=0.006{0x1.89374bc6a7efap-8},0.857{0x1.b6c8b43958106p-1} middle=0.068{0x1.16872b020c49cp-4},0.617{0x1.3be76c8b43958p-1} last=0.012{0x1.89374bc6a7efap-7},115.2{0x1.ccccccccccccdp6}
+  SERIES 1 "Friction drag coefficient (CD_friction)" branch=0 row=1 unit='​' n=233 set=c1 drawn=c1 first=0.006{0x1.89374bc6a7efap-8},0.665{0x1.547ae147ae148p-1} middle=0.068{0x1.16872b020c49cp-4},0.433{0x1.bb645a1cac083p-2} last=0.012{0x1.89374bc6a7efap-7},0.0{0x0.0p0}
+  SERIES 2 "Base drag coefficient (CD_base)" branch=0 row=2 unit='​' n=233 set=c2 drawn=c2 first=0.006{0x1.89374bc6a7efap-8},0.12{0x1.eb851eb851eb8p-4} middle=0.068{0x1.16872b020c49cp-4},0.121{0x1.ef9db22d0e56p-4} last=0.012{0x1.89374bc6a7efap-7},0.0{0x0.0p0}
+  SERIES 3 "Pressure drag coefficient (CD_pressure)" branch=0 row=3 unit='​' n=233 set=c3 drawn=c3 first=0.006{0x1.89374bc6a7efap-8},0.073{0x1.2b020c49ba5e3p-4} middle=0.068{0x1.16872b020c49cp-4},0.063{0x1.020c49ba5e354p-4} last=0.012{0x1.89374bc6a7efap-7},115.2{0x1.ccccccccccccdp6}
+  TOOLTIP 0 0: <html><b><i>Drag coefficient (CD)</i></b><br>Drag coefficient (CD): 0.86 ​<br>Mach number: 0.006 ​<br>Time: 0 s<br></html>
+  TOOLTIP 0 116: <html><b><i>Drag coefficient (CD)</i></b><br>Drag coefficient (CD): 0.62 ​<br>Mach number: 0.068 ​<br>Time: 1.23 s<br></html>
+  TOOLTIP 0 232: <html><b><i>Drag coefficient (CD)</i></b><br>Drag coefficient (CD): 115.2 ​<br>Mach number: 0.012 ​<br>Time: 15.89 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Friction drag coefficient (CD_friction)</i></b><br>Friction drag coefficient (CD_friction): 0.67 ​<br>Mach number: 0.006 ​<br>Time: 0 s<br></html>
+  TOOLTIP 1 116: <html><b><i>Friction drag coefficient (CD_friction)</i></b><br>Friction drag coefficient (CD_friction): 0.43 ​<br>Mach number: 0.068 ​<br>Time: 1.23 s<br></html>
+  TOOLTIP 1 232: <html><b><i>Friction drag coefficient (CD_friction)</i></b><br>Friction drag coefficient (CD_friction): 0 ​<br>Mach number: 0.012 ​<br>Time: 15.89 s<br></html>
+  TOOLTIP 2 0: <html><b><i>Base drag coefficient (CD_base)</i></b><br>Base drag coefficient (CD_base): 0.12 ​<br>Mach number: 0.006 ​<br>Time: 0 s<br></html>
+  TOOLTIP 2 116: <html><b><i>Base drag coefficient (CD_base)</i></b><br>Base drag coefficient (CD_base): 0.12 ​<br>Mach number: 0.068 ​<br>Time: 1.23 s<br></html>
+  TOOLTIP 2 232: <html><b><i>Base drag coefficient (CD_base)</i></b><br>Base drag coefficient (CD_base): 0 ​<br>Mach number: 0.012 ​<br>Time: 15.89 s<br></html>
+  TOOLTIP 3 0: <html><b><i>Pressure drag coefficient (CD_pressure)</i></b><br>Pressure drag coefficient (CD_pressure): 0.073 ​<br>Mach number: 0.006 ​<br>Time: 0 s<br></html>
+  TOOLTIP 3 116: <html><b><i>Pressure drag coefficient (CD_pressure)</i></b><br>Pressure drag coefficient (CD_pressure): 0.063 ​<br>Mach number: 0.068 ​<br>Time: 1.23 s<br></html>
+  TOOLTIP 3 232: <html><b><i>Pressure drag coefficient (CD_pressure)</i></b><br>Pressure drag coefficient (CD_pressure): 115.2 ​<br>Mach number: 0.012 ​<br>Time: 15.89 s<br></html>
+LEGEND 4: "Drag coefficient (CD)" drawn=c0 | "Friction drag coefficient (CD_friction)" drawn=c1 | "Base drag coefficient (CD_base)" drawn=c2 | "Pressure drag coefficient (CD_pressure)" drawn=c3
+EVENT-LIST 0: 
+GROUPS all 0
+GROUPS branch 0 0
+DOMAIN-WITH-EVENT-LINES none (not the time domain)
+ICONS (from the last branch)
+
+=== Three stage low power rocket.ork simulation 0 "Simulation 1" branches 3: [Sustainer length=559 separation=1.714 index=123] [Booster stage length=262 separation=1.714 index=123] [Booster stage length=186 separation=0.857 index=86]
+SERIES-LABELS ["Sustainer", "Booster stage(1)", "Booster stage(2)"]
+--- preset 0 "Vertical motion vs. time"
+PANEL-COLORS 0->c0 1->c6 2->c1
+TITLE "Simulation 1" SUBTITLE "Vertical motion vs. time"
+DOMAIN label="Time (s)" range [-0.5{-0x1.0p-1}, 72.571{0x1.2248b43958106p6}]
+FILLED 0->0 1->1 2->0 | left [-354.5455{-0x1.628ba5e353f7dp8}, 286.48949999999996{0x1.1e7d4fdf3b645p8}] right [-98.19301347464746{-0x1.88c5a55305315p6}, 79.34459000000001{0x1.3d60dc33721d6p6}]
+AXIS 0 label="Altitude; Vertical acceleration" range [-354.5455{-0x1.628ba5e353f7dp8}, 286.48949999999996{0x1.1e7d4fdf3b645p8}] series 6
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=559 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=10.604{0x1.5353f7ced9168p3},257.157{0x1.01283126e978dp8} last=72.071{0x1.2048b43958106p6},0.0{0x0.0p0}
+  SERIES 1 "Booster stage: Altitude (m)" branch=1 row=0 unit='m' n=262 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.734{0x1.bbe76c8b43958p0},52.363{0x1.a2e76c8b43958p5} last=12.357{0x1.8b6c8b439581p3},0.0{0x0.0p0}
+  SERIES 2 "Booster stage: Altitude (m)" branch=2 row=0 unit='m' n=186 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=0.875{0x1.cp-1},13.299{0x1.a9916872b020cp3} last=5.819{0x1.746a7ef9db22dp2},0.0{0x0.0p0}
+  SERIES 3 "Vertical acceleration (m/s²)" branch=0 row=2 unit='m/s²' n=559 set=c1 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=10.604{0x1.5353f7ced9168p3},-0.003{-0x1.89374bc6a7efap-9} last=72.071{0x1.2048b43958106p6},-0.08{-0x1.47ae147ae147bp-4}
+  SERIES 4 "Booster stage: Vertical acceleration (m/s²)" branch=1 row=2 unit='m/s²' n=262 set=c1 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.734{0x1.bbe76c8b43958p0},-58.909{-0x1.d745a1cac0831p5} last=12.357{0x1.8b6c8b439581p3},0.01{0x1.47ae147ae147bp-7}
+  SERIES 5 "Booster stage: Vertical acceleration (m/s²)" branch=2 row=2 unit='m/s²' n=186 set=c1 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=0.875{0x1.cp-1},-20.76{-0x1.4c28f5c28f5c3p4} last=5.819{0x1.746a7ef9db22dp2},0.003{0x1.89374bc6a7efap-9}
+  TOOLTIP 0 0: <html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 279: <html><b><i>Sustainer: Altitude (m)</i></b><br>Altitude: 257.16 m<br>Time: 10.6 s<br></html>
+  TOOLTIP 0 558: <html><b><i>Sustainer: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 72.07 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Booster stage + Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 1 131: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 52.36 m<br>Time: 1.73 s<br></html>
+  TOOLTIP 1 261: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 12.36 s<br></html>
+  TOOLTIP 2 0: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 2 93: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 13.3 m<br>Time: 0.88 s<br></html>
+  TOOLTIP 2 185: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 5.82 s<br></html>
+  TOOLTIP 3 0: <html><b><i>Sustainer + Booster stage + Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  TOOLTIP 3 279: <html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -0.003 m/s²<br>Time: 10.6 s<br></html>
+  TOOLTIP 3 558: <html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -0.08 m/s²<br>Time: 72.07 s<br></html>
+  TOOLTIP 4 0: <html><b><i>Booster stage + Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  TOOLTIP 4 131: <html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -58.91 m/s²<br>Time: 1.73 s<br></html>
+  TOOLTIP 4 261: <html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0.01 m/s²<br>Time: 12.36 s<br></html>
+  TOOLTIP 5 0: <html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  TOOLTIP 5 93: <html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -20.76 m/s²<br>Time: 0.88 s<br></html>
+  TOOLTIP 5 185: <html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0.003 m/s²<br>Time: 5.82 s<br></html>
+AXIS 1 label="Vertical velocity" range [-98.19301347464746{-0x1.88c5a55305315p6}, 79.34459000000001{0x1.3d60dc33721d6p6}] series 3
+  SERIES 0 "Vertical velocity (m/s)" branch=0 row=1 unit='m/s' n=559 set=c6 drawn=c6 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=10.604{0x1.5353f7ced9168p3},-4.209{-0x1.0d604189374bcp2} last=72.071{0x1.2048b43958106p6},-4.141{-0x1.090624dd2f1aap2}
+  SERIES 1 "Booster stage: Vertical velocity (m/s)" branch=1 row=1 unit='m/s' n=262 set=c6 drawn=c6 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=1.734{0x1.bbe76c8b43958p0},56.681{0x1.c572b020c49bap5} last=12.357{0x1.8b6c8b439581p3},-8.118{-0x1.03c6a7ef9db23p3}
+  SERIES 2 "Booster stage: Vertical velocity (m/s)" branch=2 row=1 unit='m/s' n=186 set=c6 drawn=c6 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=0.875{0x1.cp-1},25.93{0x1.9ee147ae147aep4} last=5.819{0x1.746a7ef9db22dp2},-8.543{-0x1.11604189374bcp3}
+  TOOLTIP 0 0: <html><b><i>Sustainer + Booster stage + Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  TOOLTIP 0 279: <html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Vertical velocity: -4.21 m/s<br>Time: 10.6 s<br></html>
+  TOOLTIP 0 558: <html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Vertical velocity: -4.14 m/s<br>Time: 72.07 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Booster stage + Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  TOOLTIP 1 131: <html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: 56.68 m/s<br>Time: 1.73 s<br></html>
+  TOOLTIP 1 261: <html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: -8.12 m/s<br>Time: 12.36 s<br></html>
+  TOOLTIP 2 0: <html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  TOOLTIP 2 93: <html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: 25.93 m/s<br>Time: 0.88 s<br></html>
+  TOOLTIP 2 185: <html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Vertical velocity: -8.54 m/s<br>Time: 5.82 s<br></html>
+LEGEND 3: "Altitude (m)" drawn=c0 | "Vertical acceleration (m/s²)" drawn=c0 | "Vertical velocity (m/s)" drawn=c6
+EVENT-LIST 23: IGNITION@0.0/b0 IGNITION@0.0/b2 BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0 IGNITION@0.857/b1 BURNOUT@0.857/b2 STAGE_SEPARATION@0.857/b2 TUMBLE@1.18/b2 BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0 BURNOUT@1.714/b1 STAGE_SEPARATION@1.714/b1 TUMBLE@1.889/b1 APOGEE@2.147/b2 BURNOUT@2.444/b0 APOGEE@3.001/b1 GROUND_HIT@5.819/b2 RECOVERY_DEVICE_DEPLOYMENT@7.445/b0 APOGEE@7.64/b0 GROUND_HIT@12.357/b1 GROUND_HIT@72.071/b0
+GROUPS all 13
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.18{0x1.2e147ae147ae1p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.18/b2] label="Tumbling"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.889{0x1.e395810624dd3p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.889/b1] label="Tumbling"
+  G t=2.147{0x1.12d0e56041893p1} look=APOGEE image=event:APOGEE events=[APOGEE@2.147/b2] label="Apogee"
+  G t=2.444{0x1.38d4fdf3b645ap1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@2.444/b0] label="Motor burnout"
+  G t=3.001{0x1.8020c49ba5e35p1} look=APOGEE image=event:APOGEE events=[APOGEE@3.001/b1] label="Apogee"
+  G t=5.819{0x1.746a7ef9db22dp2} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@5.819/b2] label="Ground hit"
+  G t=7.445{0x1.dc7ae147ae148p2} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@7.445/b0] label="Recovery device deployment"
+  G t=7.64{0x1.e8f5c28f5c28fp2} look=APOGEE image=event:APOGEE events=[APOGEE@7.64/b0] label="Apogee"
+  G t=12.357{0x1.8b6c8b439581p3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@12.357/b1] label="Ground hit"
+  G t=72.071{0x1.2048b43958106p6} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@72.071/b0] label="Ground hit"
+GROUPS branch 0 7
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=2.444{0x1.38d4fdf3b645ap1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@2.444/b0] label="Motor burnout"
+  G t=7.445{0x1.dc7ae147ae148p2} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@7.445/b0] label="Recovery device deployment"
+  G t=7.64{0x1.e8f5c28f5c28fp2} look=APOGEE image=event:APOGEE events=[APOGEE@7.64/b0] label="Apogee"
+  G t=72.071{0x1.2048b43958106p6} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@72.071/b0] label="Ground hit"
+GROUPS branch 1 5
+  G t=0.857{0x1.b6c8b43958106p-1} look=IGNITION image=event:IGNITION events=[IGNITION@0.857/b1] label="Motor ignition"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b1 STAGE_SEPARATION@1.714/b1] label="Motor burnout, Stage separation"
+  G t=1.889{0x1.e395810624dd3p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.889/b1] label="Tumbling"
+  G t=3.001{0x1.8020c49ba5e35p1} look=APOGEE image=event:APOGEE events=[APOGEE@3.001/b1] label="Apogee"
+  G t=12.357{0x1.8b6c8b439581p3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@12.357/b1] label="Ground hit"
+GROUPS branch 2 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b2] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b2 STAGE_SEPARATION@0.857/b2] label="Motor burnout, Stage separation"
+  G t=1.18{0x1.2e147ae147ae1p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.18/b2] label="Tumbling"
+  G t=2.147{0x1.12d0e56041893p1} look=APOGEE image=event:APOGEE events=[APOGEE@2.147/b2] label="Apogee"
+  G t=5.819{0x1.746a7ef9db22dp2} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@5.819/b2] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES [-0.5{-0x1.0p-1}, 72.79671{0x1.232fd4bf0995bp6}]
+ICONS (from the last branch)
+  I b2 axis0 series2 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Time: 0 s<br></html>
+  I b2 axis0 series2 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor burnout, Stage separation<br>Altitude: 12.83 m<br>Time: 0.86 s<br></html>
+  I b2 axis0 series2 row0 t=1.18{0x1.2e147ae147ae1p0} x=1.18{0x1.2e147ae147ae1p0} y=20.269{0x1.444dd2f1a9fbep4} yloc=20.269{0x1.444dd2f1a9fbep4} sample=151 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Tumbling<br>Altitude: 20.27 m<br>Time: 1.18 s<br></html>
+  I b2 axis0 series2 row0 t=2.147{0x1.12d0e56041893p1} x=2.147{0x1.12d0e56041893p1} y=26.743{0x1.abe353f7ced91p4} yloc=26.743{0x1.abe353f7ced91p4} sample=171 image=event:APOGEE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Apogee<br>Altitude: 26.74 m<br>Time: 2.15 s<br></html>
+  I b2 axis0 series2 row0 t=5.819{0x1.746a7ef9db22dp2} x=5.819{0x1.746a7ef9db22dp2} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=185 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Time: 5.82 s<br></html>
+  I b2 axis0 series5 row2 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor ignition<br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  I b2 axis0 series5 row2 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=-21.044{-0x1.50b4395810625p4} yloc=-21.044{-0x1.50b4395810625p4} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor burnout, Stage separation<br>Vertical acceleration: -21.04 m/s²<br>Time: 0.86 s<br></html>
+  I b2 axis0 series5 row2 t=1.18{0x1.2e147ae147ae1p0} x=1.18{0x1.2e147ae147ae1p0} y=-60.892{-0x1.e722d0e560419p5} yloc=-60.892{-0x1.e722d0e560419p5} sample=151 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Tumbling<br>Vertical acceleration: -60.89 m/s²<br>Time: 1.18 s<br></html>
+  I b2 axis0 series5 row2 t=2.147{0x1.12d0e56041893p1} x=2.147{0x1.12d0e56041893p1} y=-9.806{-0x1.39cac083126e9p3} yloc=-9.806{-0x1.39cac083126e9p3} sample=171 image=event:APOGEE tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Apogee<br>Vertical acceleration: -9.81 m/s²<br>Time: 2.15 s<br></html>
+  I b2 axis0 series5 row2 t=5.819{0x1.746a7ef9db22dp2} x=5.819{0x1.746a7ef9db22dp2} y=0.003{0x1.89374bc6a7efap-9} yloc=0.003{0x1.89374bc6a7efap-9} sample=185 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Ground hit<br>Vertical acceleration: 0.003 m/s²<br>Time: 5.82 s<br></html>
+  I b2 axis1 series2 row1 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=2.0491314154813514E-14{0x1.712381c9e5ae9p-46} sample=0 image=event:IGNITION tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Motor ignition<br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  I b2 axis1 series2 row1 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=26.309{0x1.a4f1a9fbe76c9p4} yloc=94.99390261516251{0x1.7bf9c19b6e20ap6} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Motor burnout, Stage separation<br>Vertical velocity: 26.31 m/s<br>Time: 0.86 s<br></html>
+  I b2 axis1 series2 row1 t=1.18{0x1.2e147ae147ae1p0} x=1.18{0x1.2e147ae147ae1p0} y=19.515{0x1.383d70a3d70a4p4} yloc=70.46280776672988{0x1.19d9ea4779c23p6} sample=151 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Tumbling<br>Vertical velocity: 19.52 m/s<br>Time: 1.18 s<br></html>
+  I b2 axis1 series2 row1 t=2.147{0x1.12d0e56041893p1} x=2.147{0x1.12d0e56041893p1} y=0.0{0x0.0p0} yloc=2.0491314154813514E-14{0x1.712381c9e5ae9p-46} sample=171 image=event:APOGEE tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Apogee<br>Vertical velocity: 0 m/s<br>Time: 2.15 s<br></html>
+  I b2 axis1 series2 row1 t=5.819{0x1.746a7ef9db22dp2} x=5.819{0x1.746a7ef9db22dp2} y=-8.543{-0x1.11604189374bcp3} yloc=-30.846208903467733{-0x1.ed8a1258dfa5ap4} sample=185 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Ground hit<br>Vertical velocity: -8.54 m/s<br>Time: 5.82 s<br></html>
+  I b1 axis0 series1 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:IGNITION tooltip=<html><b><i>Booster stage + Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 12.83 m<br>Time: 0.86 s<br></html>
+  I b1 axis0 series1 row0 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=51.217{0x1.99bc6a7ef9db2p5} yloc=51.217{0x1.99bc6a7ef9db2p5} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor burnout, Stage separation<br>Altitude: 51.22 m<br>Time: 1.71 s<br></html>
+  I b1 axis0 series1 row0 t=1.889{0x1.e395810624dd3p0} x=1.889{0x1.e395810624dd3p0} y=60.438{0x1.e3810624dd2f2p5} yloc=60.438{0x1.e3810624dd2f2p5} sample=187 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Tumbling<br>Altitude: 60.44 m<br>Time: 1.89 s<br></html>
+  I b1 axis0 series1 row0 t=3.001{0x1.8020c49ba5e35p1} x=3.001{0x1.8020c49ba5e35p1} y=71.885{0x1.1f8a3d70a3d71p6} yloc=71.885{0x1.1f8a3d70a3d71p6} sample=234 image=event:APOGEE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Apogee<br>Altitude: 71.89 m<br>Time: 3 s<br></html>
+  I b1 axis0 series1 row0 t=12.357{0x1.8b6c8b439581p3} x=12.357{0x1.8b6c8b439581p3} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=261 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Time: 12.36 s<br></html>
+  I b1 axis0 series4 row2 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=-11.637{-0x1.74624dd2f1aap3} yloc=-11.637{-0x1.74624dd2f1aap3} sample=86 image=event:IGNITION tooltip=<html><b><i>Booster stage + Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor ignition<br>Vertical acceleration: -11.64 m/s²<br>Time: 0.86 s<br></html>
+  I b1 axis0 series4 row2 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=-61.696{-0x1.ed916872b020cp5} yloc=-61.696{-0x1.ed916872b020cp5} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor burnout, Stage separation<br>Vertical acceleration: -61.7 m/s²<br>Time: 1.71 s<br></html>
+  I b1 axis0 series4 row2 t=1.889{0x1.e395810624dd3p0} x=1.889{0x1.e395810624dd3p0} y=-336.403{-0x1.50672b020c49cp8} yloc=-336.403{-0x1.50672b020c49cp8} sample=187 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Tumbling<br>Vertical acceleration: -336.4 m/s²<br>Time: 1.89 s<br></html>
+  I b1 axis0 series4 row2 t=3.001{0x1.8020c49ba5e35p1} x=3.001{0x1.8020c49ba5e35p1} y=-9.806{-0x1.39cac083126e9p3} yloc=-9.806{-0x1.39cac083126e9p3} sample=234 image=event:APOGEE tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Apogee<br>Vertical acceleration: -9.81 m/s²<br>Time: 3 s<br></html>
+  I b1 axis0 series4 row2 t=12.357{0x1.8b6c8b439581p3} x=12.357{0x1.8b6c8b439581p3} y=0.01{0x1.47ae147ae147bp-7} yloc=0.01{0x1.47ae147ae147bp-7} sample=261 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Vertical acceleration (m/s²)</i></b><br>Ground hit<br>Vertical acceleration: 0.01 m/s²<br>Time: 12.36 s<br></html>
+  I b1 axis1 series1 row1 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=26.309{0x1.a4f1a9fbe76c9p4} yloc=94.99390261516251{0x1.7bf9c19b6e20ap6} sample=86 image=event:IGNITION tooltip=<html><b><i>Booster stage + Booster stage: Vertical velocity (m/s)</i></b><br>Motor ignition<br>Vertical velocity: 26.31 m/s<br>Time: 0.86 s<br></html>
+  I b1 axis1 series1 row1 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=57.889{0x1.cf1cac083126fp5} yloc=209.019804192069{0x1.a20a23c66a852p7} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Motor burnout, Stage separation<br>Vertical velocity: 57.89 m/s<br>Time: 1.71 s<br></html>
+  I b1 axis1 series1 row1 t=1.889{0x1.e395810624dd3p0} x=1.889{0x1.e395810624dd3p0} y=46.967{0x1.77bc6a7ef9db2p5} yloc=169.58374032180387{0x1.532ae002ef022p7} sample=187 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Tumbling<br>Vertical velocity: 46.97 m/s<br>Time: 1.89 s<br></html>
+  I b1 axis1 series1 row1 t=3.001{0x1.8020c49ba5e35p1} x=3.001{0x1.8020c49ba5e35p1} y=0.0{0x0.0p0} yloc=2.0491314154813514E-14{0x1.712381c9e5ae9p-46} sample=234 image=event:APOGEE tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Apogee<br>Vertical velocity: 0 m/s<br>Time: 3 s<br></html>
+  I b1 axis1 series1 row1 t=12.357{0x1.8b6c8b439581p3} x=12.357{0x1.8b6c8b439581p3} y=-8.118{-0x1.03c6a7ef9db23p3} yloc=-29.31166146299322{-0x1.d4fc90baefabap4} sample=261 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Vertical velocity (m/s)</i></b><br>Ground hit<br>Vertical velocity: -8.12 m/s<br>Time: 12.36 s<br></html>
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Altitude: 12.83 m<br>Time: 0.86 s<br></html>
+  I b0 axis0 series0 row0 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=51.217{0x1.99bc6a7ef9db2p5} yloc=51.217{0x1.99bc6a7ef9db2p5} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage: Altitude (m)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Altitude: 51.22 m<br>Time: 1.71 s<br></html>
+  I b0 axis0 series0 row0 t=2.444{0x1.38d4fdf3b645ap1} x=2.444{0x1.38d4fdf3b645ap1} y=102.26{0x1.990a3d70a3d71p6} yloc=102.26{0x1.990a3d70a3d71p6} sample=148 image=event:BURNOUT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Motor burnout<br>Altitude: 102.26 m<br>Time: 2.44 s<br></html>
+  I b0 axis0 series0 row0 t=7.445{0x1.dc7ae147ae148p2} x=7.445{0x1.dc7ae147ae148p2} y=268.0806666666667{0x1.0c14a6921735fp8} yloc=268.0806666666667{0x1.0c14a6921735fp8} sample=255 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Recovery device deployment<br>Altitude: 268.08 m<br>Time: 7.45 s<br></html>
+  I b0 axis0 series0 row0 t=7.64{0x1.e8f5c28f5c28fp2} x=7.64{0x1.e8f5c28f5c28fp2} y=268.347{0x1.0c58d4fdf3b64p8} yloc=268.347{0x1.0c58d4fdf3b64p8} sample=263 image=event:APOGEE tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Apogee<br>Altitude: 268.35 m<br>Time: 7.64 s<br></html>
+  I b0 axis0 series0 row0 t=72.071{0x1.2048b43958106p6} x=72.071{0x1.2048b43958106p6} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=558 image=event:GROUND_HIT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Time: 72.07 s<br></html>
+  I b0 axis0 series3 row2 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor ignition<br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  I b0 axis0 series3 row2 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=-11.637{-0x1.74624dd2f1aap3} yloc=-11.637{-0x1.74624dd2f1aap3} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Vertical acceleration: -11.64 m/s²<br>Time: 0.86 s<br></html>
+  I b0 axis0 series3 row2 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=-19.553{-0x1.38d916872b021p4} yloc=-19.553{-0x1.38d916872b021p4} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage: Vertical acceleration (m/s²)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Vertical acceleration: -19.55 m/s²<br>Time: 1.71 s<br></html>
+  I b0 axis0 series3 row2 t=2.444{0x1.38d4fdf3b645ap1} x=2.444{0x1.38d4fdf3b645ap1} y=-27.698{-0x1.bb2b020c49ba6p4} yloc=-27.698{-0x1.bb2b020c49ba6p4} sample=148 image=event:BURNOUT tooltip=<html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Motor burnout<br>Vertical acceleration: -27.7 m/s²<br>Time: 2.44 s<br></html>
+  I b0 axis0 series3 row2 t=7.445{0x1.dc7ae147ae148p2} x=7.445{0x1.dc7ae147ae148p2} y=-15.678333333335097{-0x1.f5b4e81b4ebfcp3} yloc=-15.678333333335097{-0x1.f5b4e81b4ebfcp3} sample=255 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Recovery device deployment<br>Vertical acceleration: -15.68 m/s²<br>Time: 7.45 s<br></html>
+  I b0 axis0 series3 row2 t=7.64{0x1.e8f5c28f5c28fp2} x=7.64{0x1.e8f5c28f5c28fp2} y=-9.805{-0x1.39c28f5c28f5cp3} yloc=-9.805{-0x1.39c28f5c28f5cp3} sample=263 image=event:APOGEE tooltip=<html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Apogee<br>Vertical acceleration: -9.8 m/s²<br>Time: 7.64 s<br></html>
+  I b0 axis0 series3 row2 t=72.071{0x1.2048b43958106p6} x=72.071{0x1.2048b43958106p6} y=-0.08{-0x1.47ae147ae147bp-4} yloc=-0.08{-0x1.47ae147ae147bp-4} sample=558 image=event:GROUND_HIT tooltip=<html><b><i>Sustainer: Vertical acceleration (m/s²)</i></b><br>Ground hit<br>Vertical acceleration: -0.08 m/s²<br>Time: 72.07 s<br></html>
+  I b0 axis1 series0 row1 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=2.0491314154813514E-14{0x1.712381c9e5ae9p-46} sample=0 image=event:IGNITION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Vertical velocity (m/s)</i></b><br>Motor ignition<br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  I b0 axis1 series0 row1 t=0.857{0x1.b6c8b43958106p-1} x=0.857{0x1.b6c8b43958106p-1} y=26.309{0x1.a4f1a9fbe76c9p4} yloc=94.99390261516251{0x1.7bf9c19b6e20ap6} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Vertical velocity (m/s)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Vertical velocity: 26.31 m/s<br>Time: 0.86 s<br></html>
+  I b0 axis1 series0 row1 t=1.714{0x1.b6c8b43958106p0} x=1.714{0x1.b6c8b43958106p0} y=57.889{0x1.cf1cac083126fp5} yloc=209.019804192069{0x1.a20a23c66a852p7} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage: Vertical velocity (m/s)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Vertical velocity: 57.89 m/s<br>Time: 1.71 s<br></html>
+  I b0 axis1 series0 row1 t=2.444{0x1.38d4fdf3b645ap1} x=2.444{0x1.38d4fdf3b645ap1} y=75.754{0x1.2f04189374bc7p6} yloc=273.52495718989775{0x1.118663982a693p8} sample=148 image=event:BURNOUT tooltip=<html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Motor burnout<br>Vertical velocity: 75.75 m/s<br>Time: 2.44 s<br></html>
+  I b0 axis1 series0 row1 t=7.445{0x1.dc7ae147ae148p2} x=7.445{0x1.dc7ae147ae148p2} y=3.261999999999998{0x1.a189374bc6a7ap1} yloc=11.778102943124422{0x1.78e63824b480fp3} sample=255 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Recovery device deployment<br>Vertical velocity: 3.26 m/s<br>Time: 7.45 s<br></html>
+  I b0 axis1 series0 row1 t=7.64{0x1.e8f5c28f5c28fp2} x=7.64{0x1.e8f5c28f5c28fp2} y=0.0{0x0.0p0} yloc=2.0491314154813514E-14{0x1.712381c9e5ae9p-46} sample=263 image=event:APOGEE tooltip=<html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Apogee<br>Vertical velocity: 0 m/s<br>Time: 7.64 s<br></html>
+  I b0 axis1 series0 row1 t=72.071{0x1.2048b43958106p6} x=72.071{0x1.2048b43958106p6} y=-4.141{-0x1.090624dd2f1aap2} yloc=-14.951908120011682{-0x1.de76080487e79p3} sample=558 image=event:GROUND_HIT tooltip=<html><b><i>Sustainer: Vertical velocity (m/s)</i></b><br>Ground hit<br>Vertical velocity: -4.14 m/s<br>Time: 72.07 s<br></html>
+--- preset 2 "Flight side profile"
+PANEL-COLORS 0->c0
+TITLE "Simulation 1" SUBTITLE "Flight side profile"
+DOMAIN label="Position East of launch (m)" range [-57.701{-0x1.cd9ba5e353f7dp5}, 70.45{0x1.19ccccccccccdp6}]
+FILLED 0->0 | left [-8.05041{-0x1.019cf56eac86p3}, 276.39741{0x1.1465bca9691a7p8}] right [NaN{NaN}, NaN{NaN}]
+AXIS 0 label="Altitude" range [-8.05041{-0x1.019cf56eac86p3}, 276.39741{0x1.1465bca9691a7p8}] series 3
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=559 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=65.433{0x1.05bb645a1cac1p6},257.157{0x1.01283126e978dp8} last=-57.201{-0x1.c99ba5e353f7dp5},0.0{0x0.0p0}
+  SERIES 1 "Booster stage: Altitude (m)" branch=1 row=0 unit='m' n=262 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=6.418{0x1.9ac083126e979p2},52.363{0x1.a2e76c8b43958p5} last=-12.736{-0x1.978d4fdf3b646p3},0.0{0x0.0p0}
+  SERIES 2 "Booster stage: Altitude (m)" branch=2 row=0 unit='m' n=186 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=0.546{0x1.178d4fdf3b646p-1},13.299{0x1.a9916872b020cp3} last=-8.727{-0x1.174395810624ep3},0.0{0x0.0p0}
+  TOOLTIP 0 0: <html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 279: <html><b><i>Sustainer: Altitude (m)</i></b><br>Altitude: 257.16 m<br>Position East of launch: 65.43 m<br>Time: 10.6 s<br></html>
+  TOOLTIP 0 558: <html><b><i>Sustainer: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: -57.2 m<br>Time: 72.07 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Booster stage + Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 1 131: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 52.36 m<br>Position East of launch: 6.42 m<br>Time: 1.73 s<br></html>
+  TOOLTIP 1 261: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: -12.74 m<br>Time: 12.36 s<br></html>
+  TOOLTIP 2 0: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 2 93: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 13.3 m<br>Position East of launch: 0.55 m<br>Time: 0.88 s<br></html>
+  TOOLTIP 2 185: <html><b><i>Booster stage: Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: -8.73 m<br>Time: 5.82 s<br></html>
+LEGEND 1: "Altitude (m)" drawn=c0
+EVENT-LIST 23: IGNITION@0.0/b0 IGNITION@0.0/b2 BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0 IGNITION@0.857/b1 BURNOUT@0.857/b2 STAGE_SEPARATION@0.857/b2 TUMBLE@1.18/b2 BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0 BURNOUT@1.714/b1 STAGE_SEPARATION@1.714/b1 TUMBLE@1.889/b1 APOGEE@2.147/b2 BURNOUT@2.444/b0 APOGEE@3.001/b1 GROUND_HIT@5.819/b2 RECOVERY_DEVICE_DEPLOYMENT@7.445/b0 APOGEE@7.64/b0 GROUND_HIT@12.357/b1 GROUND_HIT@72.071/b0
+GROUPS all 13
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.18{0x1.2e147ae147ae1p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.18/b2] label="Tumbling"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.889{0x1.e395810624dd3p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.889/b1] label="Tumbling"
+  G t=2.147{0x1.12d0e56041893p1} look=APOGEE image=event:APOGEE events=[APOGEE@2.147/b2] label="Apogee"
+  G t=2.444{0x1.38d4fdf3b645ap1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@2.444/b0] label="Motor burnout"
+  G t=3.001{0x1.8020c49ba5e35p1} look=APOGEE image=event:APOGEE events=[APOGEE@3.001/b1] label="Apogee"
+  G t=5.819{0x1.746a7ef9db22dp2} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@5.819/b2] label="Ground hit"
+  G t=7.445{0x1.dc7ae147ae148p2} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@7.445/b0] label="Recovery device deployment"
+  G t=7.64{0x1.e8f5c28f5c28fp2} look=APOGEE image=event:APOGEE events=[APOGEE@7.64/b0] label="Apogee"
+  G t=12.357{0x1.8b6c8b439581p3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@12.357/b1] label="Ground hit"
+  G t=72.071{0x1.2048b43958106p6} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@72.071/b0] label="Ground hit"
+GROUPS branch 0 7
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b0 IGNITION@0.857/b0 STAGE_SEPARATION@0.857/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b0 IGNITION@1.714/b0 STAGE_SEPARATION@1.714/b0] label="Motor burnout, Motor ignition, Stage separation"
+  G t=2.444{0x1.38d4fdf3b645ap1} look=BURNOUT image=event:BURNOUT events=[BURNOUT@2.444/b0] label="Motor burnout"
+  G t=7.445{0x1.dc7ae147ae148p2} look=RECOVERY_DEVICE_DEPLOYMENT image=event:RECOVERY_DEVICE_DEPLOYMENT events=[RECOVERY_DEVICE_DEPLOYMENT@7.445/b0] label="Recovery device deployment"
+  G t=7.64{0x1.e8f5c28f5c28fp2} look=APOGEE image=event:APOGEE events=[APOGEE@7.64/b0] label="Apogee"
+  G t=72.071{0x1.2048b43958106p6} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@72.071/b0] label="Ground hit"
+GROUPS branch 1 5
+  G t=0.857{0x1.b6c8b43958106p-1} look=IGNITION image=event:IGNITION events=[IGNITION@0.857/b1] label="Motor ignition"
+  G t=1.714{0x1.b6c8b43958106p0} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@1.714/b1 STAGE_SEPARATION@1.714/b1] label="Motor burnout, Stage separation"
+  G t=1.889{0x1.e395810624dd3p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.889/b1] label="Tumbling"
+  G t=3.001{0x1.8020c49ba5e35p1} look=APOGEE image=event:APOGEE events=[APOGEE@3.001/b1] label="Apogee"
+  G t=12.357{0x1.8b6c8b439581p3} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@12.357/b1] label="Ground hit"
+GROUPS branch 2 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b2] label="Motor ignition"
+  G t=0.857{0x1.b6c8b43958106p-1} look=STAGE_SEPARATION image=event:STAGE_SEPARATION events=[BURNOUT@0.857/b2 STAGE_SEPARATION@0.857/b2] label="Motor burnout, Stage separation"
+  G t=1.18{0x1.2e147ae147ae1p0} look=TUMBLE image=event:TUMBLE events=[TUMBLE@1.18/b2] label="Tumbling"
+  G t=2.147{0x1.12d0e56041893p1} look=APOGEE image=event:APOGEE events=[APOGEE@2.147/b2] label="Apogee"
+  G t=5.819{0x1.746a7ef9db22dp2} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@5.819/b2] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES none (not the time domain)
+ICONS (from the last branch)
+  I b2 axis0 series2 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  I b2 axis0 series2 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.506{0x1.03126e978d4fep-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor burnout, Stage separation<br>Altitude: 12.83 m<br>Position East of launch: 0.51 m<br>Time: 0.86 s<br></html>
+  I b2 axis0 series2 row0 t=1.18{0x1.2e147ae147ae1p0} x=0.716{0x1.6e978d4fdf3b6p-1} y=20.269{0x1.444dd2f1a9fbep4} yloc=20.269{0x1.444dd2f1a9fbep4} sample=151 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Tumbling<br>Altitude: 20.27 m<br>Position East of launch: 0.72 m<br>Time: 1.18 s<br></html>
+  I b2 axis0 series2 row0 t=2.147{0x1.12d0e56041893p1} x=-1.284{-0x1.48b4395810625p0} y=26.743{0x1.abe353f7ced91p4} yloc=26.743{0x1.abe353f7ced91p4} sample=171 image=event:APOGEE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Apogee<br>Altitude: 26.74 m<br>Position East of launch: -1.28 m<br>Time: 2.15 s<br></html>
+  I b2 axis0 series2 row0 t=5.819{0x1.746a7ef9db22dp2} x=-8.727{-0x1.174395810624ep3} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=185 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Position East of launch: -8.73 m<br>Time: 5.82 s<br></html>
+  I b1 axis0 series1 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.506{0x1.03126e978d4fep-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:IGNITION tooltip=<html><b><i>Booster stage + Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 12.83 m<br>Position East of launch: 0.51 m<br>Time: 0.86 s<br></html>
+  I b1 axis0 series1 row0 t=1.714{0x1.b6c8b43958106p0} x=6.22{0x1.8e147ae147ae1p2} y=51.217{0x1.99bc6a7ef9db2p5} yloc=51.217{0x1.99bc6a7ef9db2p5} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Motor burnout, Stage separation<br>Altitude: 51.22 m<br>Position East of launch: 6.22 m<br>Time: 1.71 s<br></html>
+  I b1 axis0 series1 row0 t=1.889{0x1.e395810624dd3p0} x=7.325{0x1.d4ccccccccccdp2} y=60.438{0x1.e3810624dd2f2p5} yloc=60.438{0x1.e3810624dd2f2p5} sample=187 image=event:TUMBLE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Tumbling<br>Altitude: 60.44 m<br>Position East of launch: 7.33 m<br>Time: 1.89 s<br></html>
+  I b1 axis0 series1 row0 t=3.001{0x1.8020c49ba5e35p1} x=5.233{0x1.4ee978d4fdf3bp2} y=71.885{0x1.1f8a3d70a3d71p6} yloc=71.885{0x1.1f8a3d70a3d71p6} sample=234 image=event:APOGEE tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Apogee<br>Altitude: 71.89 m<br>Position East of launch: 5.23 m<br>Time: 3 s<br></html>
+  I b1 axis0 series1 row0 t=12.357{0x1.8b6c8b439581p3} x=-12.736{-0x1.978d4fdf3b646p3} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=261 image=event:GROUND_HIT tooltip=<html><b><i>Booster stage: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Position East of launch: -12.74 m<br>Time: 12.36 s<br></html>
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=0.857{0x1.b6c8b43958106p-1} x=0.506{0x1.03126e978d4fep-1} y=12.826{0x1.9a6e978d4fdf4p3} yloc=12.826{0x1.9a6e978d4fdf4p3} sample=86 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage + Booster stage: Altitude (m)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Altitude: 12.83 m<br>Position East of launch: 0.51 m<br>Time: 0.86 s<br></html>
+  I b0 axis0 series0 row0 t=1.714{0x1.b6c8b43958106p0} x=6.22{0x1.8e147ae147ae1p2} y=51.217{0x1.99bc6a7ef9db2p5} yloc=51.217{0x1.99bc6a7ef9db2p5} sample=123 image=event:STAGE_SEPARATION tooltip=<html><b><i>Sustainer + Booster stage: Altitude (m)</i></b><br>Motor burnout, Motor ignition, Stage separation<br>Altitude: 51.22 m<br>Position East of launch: 6.22 m<br>Time: 1.71 s<br></html>
+  I b0 axis0 series0 row0 t=2.444{0x1.38d4fdf3b645ap1} x=16.065{0x1.010a3d70a3d71p4} y=102.26{0x1.990a3d70a3d71p6} yloc=102.26{0x1.990a3d70a3d71p6} sample=148 image=event:BURNOUT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Motor burnout<br>Altitude: 102.26 m<br>Position East of launch: 16.07 m<br>Time: 2.44 s<br></html>
+  I b0 axis0 series0 row0 t=7.445{0x1.dc7ae147ae148p2} x=68.52166666666666{0x1.12162fc962fc9p6} y=268.0806666666667{0x1.0c14a6921735fp8} yloc=268.0806666666667{0x1.0c14a6921735fp8} sample=255 image=event:RECOVERY_DEVICE_DEPLOYMENT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Recovery device deployment<br>Altitude: 268.08 m<br>Position East of launch: 68.52 m<br>Time: 7.45 s<br></html>
+  I b0 axis0 series0 row0 t=7.64{0x1.e8f5c28f5c28fp2} x=69.475{0x1.15e6666666666p6} y=268.347{0x1.0c58d4fdf3b64p8} yloc=268.347{0x1.0c58d4fdf3b64p8} sample=263 image=event:APOGEE tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Apogee<br>Altitude: 268.35 m<br>Position East of launch: 69.47 m<br>Time: 7.64 s<br></html>
+  I b0 axis0 series0 row0 t=72.071{0x1.2048b43958106p6} x=-57.201{-0x1.c99ba5e353f7dp5} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=558 image=event:GROUND_HIT tooltip=<html><b><i>Sustainer: Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Position East of launch: -57.2 m<br>Time: 72.07 s<br></html>
+
+=== 3D printable nose cone and fins.ork simulation 2 "Simulation 3 - too short delay" branches 1: [Sustainer length=487 separation=NaN index=-1]
+SERIES-LABELS ["Sustainer"]
+--- preset 0 "Vertical motion vs. time"
+PANEL-COLORS 0->c0 1->c2 2->c1
+TITLE "Simulation 3 - too short delay" SUBTITLE "Vertical motion vs. time"
+DOMAIN label="Time (s)" range [-0.5{-0x1.0p-1}, 62.431{0x1.f372b020c49bap5}]
+FILLED 0->0 1->1 2->0 | left [-407.27081{-0x1.974553cddd6ep8}, 262.04181{0x1.060ab40f66a55p8}] right [-132.9017710394624{-0x1.09cdb4ef05f12p7}, 85.51023{0x1.560a79bbadc0ap6}]
+AXIS 0 label="Altitude; Vertical acceleration" range [-407.27081{-0x1.974553cddd6ep8}, 262.04181{0x1.060ab40f66a55p8}] series 2
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=487 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=7.318{0x1.d45a1cac08312p2},236.052{0x1.d81a9fbe76c8bp7} last=61.931{0x1.ef72b020c49bap5},0.0{0x0.0p0}
+  SERIES 1 "Vertical acceleration (m/s²)" branch=0 row=2 unit='m/s²' n=487 set=c1 drawn=c1 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=7.318{0x1.d45a1cac08312p2},0.003{0x1.89374bc6a7efap-9} last=61.931{0x1.ef72b020c49bap5},-7.642E-4{-0x1.90a9300f92444p-11}
+  TOOLTIP 0 0: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 243: <html><b><i>Altitude (m)</i></b><br>Altitude: 236.05 m<br>Time: 7.32 s<br></html>
+  TOOLTIP 0 486: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Time: 61.93 s<br></html>
+  TOOLTIP 1 0: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  TOOLTIP 1 243: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: 0.003 m/s²<br>Time: 7.32 s<br></html>
+  TOOLTIP 1 486: <html><b><i>Vertical acceleration (m/s²)</i></b><br>Vertical acceleration: -0.00076 m/s²<br>Time: 61.93 s<br></html>
+AXIS 1 label="Vertical velocity" range [-132.9017710394624{-0x1.09cdb4ef05f12p7}, 85.51023{0x1.560a79bbadc0ap6}] series 1
+  SERIES 0 "Vertical velocity (m/s)" branch=0 row=1 unit='m/s' n=487 set=c2 drawn=c2 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=7.318{0x1.d45a1cac08312p2},-4.347{-0x1.16353f7ced917p2} last=61.931{0x1.ef72b020c49bap5},-4.298{-0x1.13126e978d4fep2}
+  TOOLTIP 0 0: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  TOOLTIP 0 243: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: -4.35 m/s<br>Time: 7.32 s<br></html>
+  TOOLTIP 0 486: <html><b><i>Vertical velocity (m/s)</i></b><br>Vertical velocity: -4.3 m/s<br>Time: 61.93 s<br></html>
+LEGEND 3: "Altitude (m)" drawn=c0 | "Vertical acceleration (m/s²)" drawn=c1 | "Vertical velocity (m/s)" drawn=c2
+EVENT-LIST 6: IGNITION@0.0/b0 BURNOUT@1.86/b0 RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0 APOGEE@5.431/b0 GROUND_HIT@61.931/b0
+GROUPS all 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=1.86{0x1.dc28f5c28f5c3p0} look=BURNOUT image=event:BURNOUT events=[BURNOUT@1.86/b0] label="Motor burnout"
+  G t=4.861{0x1.371a9fbe76c8bp2} look=SIM_WARN image=warning:NORMAL events=[RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0] label="Recovery device deployment, Warning"
+  G t=5.431{0x1.5b95810624dd3p2} look=APOGEE image=event:APOGEE events=[APOGEE@5.431/b0] label="Apogee"
+  G t=61.931{0x1.ef72b020c49bap5} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@61.931/b0] label="Ground hit"
+GROUPS branch 0 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=1.86{0x1.dc28f5c28f5c3p0} look=BURNOUT image=event:BURNOUT events=[BURNOUT@1.86/b0] label="Motor burnout"
+  G t=4.861{0x1.371a9fbe76c8bp2} look=SIM_WARN image=warning:NORMAL events=[RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0] label="Recovery device deployment, Warning"
+  G t=5.431{0x1.5b95810624dd3p2} look=APOGEE image=event:APOGEE events=[APOGEE@5.431/b0] label="Apogee"
+  G t=61.931{0x1.ef72b020c49bap5} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@61.931/b0] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES [-0.5{-0x1.0p-1}, 62.55531{0x1.f471465e89225p5}]
+ICONS (from the last branch)
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=1.86{0x1.dc28f5c28f5c3p0} x=1.86{0x1.dc28f5c28f5c3p0} y=89.247{0x1.64fced916872bp6} yloc=89.247{0x1.64fced916872bp6} sample=131 image=event:BURNOUT tooltip=<html><b><i>Altitude (m)</i></b><br>Motor burnout<br>Altitude: 89.25 m<br>Time: 1.86 s<br></html>
+  I b0 axis0 series0 row0 t=4.861{0x1.371a9fbe76c8bp2} x=4.861{0x1.371a9fbe76c8bp2} y=239.83733333333333{0x1.dfacb6f46508ep7} yloc=239.83733333333333{0x1.dfacb6f46508ep7} sample=204 image=warning:NORMAL tooltip=<html><b><i>Altitude (m)</i></b><br><b><i>Warning:  Recovery device deployment at high speed (26.9 m/s):  "Parachute"</b></i><br>Recovery device deployment<br>Altitude: 239.84 m<br>Time: 4.86 s<br></html>
+  I b0 axis0 series0 row0 t=5.431{0x1.5b95810624dd3p2} x=5.431{0x1.5b95810624dd3p2} y=243.099{0x1.e632b020c49bap7} yloc=243.099{0x1.e632b020c49bap7} sample=233 image=event:APOGEE tooltip=<html><b><i>Altitude (m)</i></b><br>Apogee<br>Altitude: 243.1 m<br>Time: 5.43 s<br></html>
+  I b0 axis0 series0 row0 t=61.931{0x1.ef72b020c49bap5} x=61.931{0x1.ef72b020c49bap5} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=486 image=event:GROUND_HIT tooltip=<html><b><i>Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Time: 61.93 s<br></html>
+  I b0 axis0 series1 row2 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Motor ignition<br>Vertical acceleration: 0 m/s²<br>Time: 0 s<br></html>
+  I b0 axis0 series1 row2 t=1.86{0x1.dc28f5c28f5c3p0} x=1.86{0x1.dc28f5c28f5c3p0} y=-31.676{-0x1.fad0e56041893p4} yloc=-31.676{-0x1.fad0e56041893p4} sample=131 image=event:BURNOUT tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Motor burnout<br>Vertical acceleration: -31.68 m/s²<br>Time: 1.86 s<br></html>
+  I b0 axis0 series1 row2 t=4.861{0x1.371a9fbe76c8bp2} x=4.861{0x1.371a9fbe76c8bp2} y=-137.4706666665924{-0x1.12f0fb38a8a9dp7} yloc=-137.4706666665924{-0x1.12f0fb38a8a9dp7} sample=204 image=warning:NORMAL tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br><b><i>Warning:  Recovery device deployment at high speed (26.9 m/s):  "Parachute"</b></i><br>Recovery device deployment<br>Vertical acceleration: -137.47 m/s²<br>Time: 4.86 s<br></html>
+  I b0 axis0 series1 row2 t=5.431{0x1.5b95810624dd3p2} x=5.431{0x1.5b95810624dd3p2} y=-9.805{-0x1.39c28f5c28f5cp3} yloc=-9.805{-0x1.39c28f5c28f5cp3} sample=233 image=event:APOGEE tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Apogee<br>Vertical acceleration: -9.8 m/s²<br>Time: 5.43 s<br></html>
+  I b0 axis0 series1 row2 t=61.931{0x1.ef72b020c49bap5} x=61.931{0x1.ef72b020c49bap5} y=-7.642E-4{-0x1.90a9300f92444p-11} yloc=-7.642E-4{-0x1.90a9300f92444p-11} sample=486 image=event:GROUND_HIT tooltip=<html><b><i>Vertical acceleration (m/s²)</i></b><br>Ground hit<br>Vertical acceleration: -0.00076 m/s²<br>Time: 61.93 s<br></html>
+  I b0 axis1 series0 row1 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=3.331299369794618E-14{0x1.2c0e889c4368fp-45} sample=0 image=event:IGNITION tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Motor ignition<br>Vertical velocity: 0 m/s<br>Time: 0 s<br></html>
+  I b0 axis1 series0 row1 t=1.86{0x1.dc28f5c28f5c3p0} x=1.86{0x1.dc28f5c28f5c3p0} y=82.585{0x1.4a570a3d70a3dp6} yloc=253.0775894164943{0x1.fa27b9ccccb7bp7} sample=131 image=event:BURNOUT tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Motor burnout<br>Vertical velocity: 82.58 m/s<br>Time: 1.86 s<br></html>
+  I b0 axis1 series0 row1 t=4.861{0x1.371a9fbe76c8bp2} x=4.861{0x1.371a9fbe76c8bp2} y=26.777000000000005{0x1.ac6e978d4fdf5p4} yloc=82.05677316468453{0x1.483a22be96712p6} sample=204 image=warning:NORMAL tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br><b><i>Warning:  Recovery device deployment at high speed (26.9 m/s):  "Parachute"</b></i><br>Recovery device deployment<br>Vertical velocity: 26.78 m/s<br>Time: 4.86 s<br></html>
+  I b0 axis1 series0 row1 t=5.431{0x1.5b95810624dd3p2} x=5.431{0x1.5b95810624dd3p2} y=0.0{0x0.0p0} yloc=3.331299369794618E-14{0x1.2c0e889c4368fp-45} sample=233 image=event:APOGEE tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Apogee<br>Vertical velocity: 0 m/s<br>Time: 5.43 s<br></html>
+  I b0 axis1 series0 row1 t=61.931{0x1.ef72b020c49bap5} x=61.931{0x1.ef72b020c49bap5} y=-4.298{-0x1.13126e978d4fep2} yloc=-13.171005380057997{-0x1.a578e0465940bp3} sample=486 image=event:GROUND_HIT tooltip=<html><b><i>Vertical velocity (m/s)</i></b><br>Ground hit<br>Vertical velocity: -4.3 m/s<br>Time: 61.93 s<br></html>
+--- preset 2 "Flight side profile"
+PANEL-COLORS 0->c0
+TITLE "Simulation 3 - too short delay" SUBTITLE "Flight side profile"
+DOMAIN label="Position East of launch (m)" range [-95.406{-0x1.7d9fbe76c8b44p6}, 18.693{0x1.2b16872b020c5p4}]
+FILLED 0->0 | left [-7.2929699999999995{-0x1.d2c0053e2d623p2}, 250.39197{0x1.f4c8b04ab606bp7}] right [NaN{NaN}, NaN{NaN}]
+AXIS 0 label="Altitude" range [-7.2929699999999995{-0x1.d2c0053e2d623p2}, 250.39197{0x1.f4c8b04ab606bp7}] series 1
+  SERIES 0 "Altitude (m)" branch=0 row=0 unit='m' n=487 set=c0 drawn=c0 first=0.0{0x0.0p0},0.0{0x0.0p0} middle=14.502{0x1.d010624dd2f1bp3},236.052{0x1.d81a9fbe76c8bp7} last=-94.906{-0x1.7b9fbe76c8b44p6},0.0{0x0.0p0}
+  TOOLTIP 0 0: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  TOOLTIP 0 243: <html><b><i>Altitude (m)</i></b><br>Altitude: 236.05 m<br>Position East of launch: 14.5 m<br>Time: 7.32 s<br></html>
+  TOOLTIP 0 486: <html><b><i>Altitude (m)</i></b><br>Altitude: 0 m<br>Position East of launch: -94.91 m<br>Time: 61.93 s<br></html>
+LEGEND 1: "Altitude (m)" drawn=c0
+EVENT-LIST 6: IGNITION@0.0/b0 BURNOUT@1.86/b0 RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0 APOGEE@5.431/b0 GROUND_HIT@61.931/b0
+GROUPS all 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=1.86{0x1.dc28f5c28f5c3p0} look=BURNOUT image=event:BURNOUT events=[BURNOUT@1.86/b0] label="Motor burnout"
+  G t=4.861{0x1.371a9fbe76c8bp2} look=SIM_WARN image=warning:NORMAL events=[RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0] label="Recovery device deployment, Warning"
+  G t=5.431{0x1.5b95810624dd3p2} look=APOGEE image=event:APOGEE events=[APOGEE@5.431/b0] label="Apogee"
+  G t=61.931{0x1.ef72b020c49bap5} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@61.931/b0] label="Ground hit"
+GROUPS branch 0 5
+  G t=0.0{0x0.0p0} look=IGNITION image=event:IGNITION events=[IGNITION@0.0/b0] label="Motor ignition"
+  G t=1.86{0x1.dc28f5c28f5c3p0} look=BURNOUT image=event:BURNOUT events=[BURNOUT@1.86/b0] label="Motor burnout"
+  G t=4.861{0x1.371a9fbe76c8bp2} look=SIM_WARN image=warning:NORMAL events=[RECOVERY_DEVICE_DEPLOYMENT@4.861/b0 SIM_WARN@4.863/b0] label="Recovery device deployment, Warning"
+  G t=5.431{0x1.5b95810624dd3p2} look=APOGEE image=event:APOGEE events=[APOGEE@5.431/b0] label="Apogee"
+  G t=61.931{0x1.ef72b020c49bap5} look=GROUND_HIT image=event:GROUND_HIT events=[GROUND_HIT@61.931/b0] label="Ground hit"
+DOMAIN-WITH-EVENT-LINES none (not the time domain)
+ICONS (from the last branch)
+  I b0 axis0 series0 row0 t=0.0{0x0.0p0} x=0.0{0x0.0p0} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=0 image=event:IGNITION tooltip=<html><b><i>Altitude (m)</i></b><br>Motor ignition<br>Altitude: 0 m<br>Position East of launch: 0 m<br>Time: 0 s<br></html>
+  I b0 axis0 series0 row0 t=1.86{0x1.dc28f5c28f5c3p0} x=4.917{0x1.3ab020c49ba5ep2} y=89.247{0x1.64fced916872bp6} yloc=89.247{0x1.64fced916872bp6} sample=131 image=event:BURNOUT tooltip=<html><b><i>Altitude (m)</i></b><br>Motor burnout<br>Altitude: 89.25 m<br>Position East of launch: 4.92 m<br>Time: 1.86 s<br></html>
+  I b0 axis0 series0 row0 t=4.861{0x1.371a9fbe76c8bp2} x=18.075333333333333{0x1.213490b9af72p4} y=239.83733333333333{0x1.dfacb6f46508ep7} yloc=239.83733333333333{0x1.dfacb6f46508ep7} sample=204 image=warning:NORMAL tooltip=<html><b><i>Altitude (m)</i></b><br><b><i>Warning:  Recovery device deployment at high speed (26.9 m/s):  "Parachute"</b></i><br>Recovery device deployment<br>Altitude: 239.84 m<br>Position East of launch: 18.08 m<br>Time: 4.86 s<br></html>
+  I b0 axis0 series0 row0 t=5.431{0x1.5b95810624dd3p2} x=17.758{0x1.1c20c49ba5e35p4} y=243.099{0x1.e632b020c49bap7} yloc=243.099{0x1.e632b020c49bap7} sample=233 image=event:APOGEE tooltip=<html><b><i>Altitude (m)</i></b><br>Apogee<br>Altitude: 243.1 m<br>Position East of launch: 17.76 m<br>Time: 5.43 s<br></html>
+  I b0 axis0 series0 row0 t=61.931{0x1.ef72b020c49bap5} x=-94.906{-0x1.7b9fbe76c8b44p6} y=0.0{0x0.0p0} yloc=0.0{0x0.0p0} sample=486 image=event:GROUND_HIT tooltip=<html><b><i>Altitude (m)</i></b><br>Ground hit<br>Altitude: 0 m<br>Position East of launch: -94.91 m<br>Time: 61.93 s<br></html>
+
+=== aborts: Three stage low power rocket.ork simulation 0, a SIM_ABORT at 0.6 times each branch's last time, causes (3 b + 4) mod 10, branch 1 a second one a second later
+BRANCH "Sustainer" abort t=43.242599999999996{0x1.59f0d844d013ap5} cause=NO_LIFTOFF
+BRANCH "Booster stage" abort t=7.414199999999999{0x1.da8240b780346p2} cause=ACTIVE_MASS_ZERO
+BRANCH "Booster stage" abort t=3.4914{0x1.bee631f8a0903p1} cause=NO_ACTIVE_STAGES
+ABORT all: "Simulation Abort\nStage: Sustainer; Time: 43.24 s; Cause: <html>Motor burnout without liftoff. <br>Use more (powerful) motors, or decrease the rocket mass.</html>\nStage: Booster stage; Time: 7.41 s; Cause: Total mass of active stages is 0\nStage: Booster stage; Time: 3.49 s; Cause: No active stages" at (0.01, 0.01)
+ABORT branch 0: "Simulation Abort\nStage: Sustainer; Time: 43.24 s; Cause: <html>Motor burnout without liftoff. <br>Use more (powerful) motors, or decrease the rocket mass.</html>" at (0.01, 0.01)
+ABORT branch 1: "Simulation Abort\nStage: Booster stage; Time: 7.41 s; Cause: Total mass of active stages is 0" at (0.01, 0.01)
+ABORT branch 2: "Simulation Abort\nStage: Booster stage; Time: 3.49 s; Cause: No active stages" at (0.01, 0.01)

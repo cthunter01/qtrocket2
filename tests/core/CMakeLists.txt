@@ -21,6 +21,7 @@ add_library(QtRocket_test_support STATIC
     file/openrocket/OpenRocketSaverTestMotors.cpp
     file/preset/OrcEdgeCases.cpp
     file/preset/OrcProbeTranscript.cpp
+    plot/SimulationPlotGoldens.cpp
     cli/CliRunSupport.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
@@ -57,6 +58,7 @@ add_executable(QtRocket_core_tests
     util/ColorTests.cpp
     util/ConfigTests.cpp
     util/CoordinateTests.cpp
+    util/DecimalFormatterTests.cpp
     util/DecimalFormatTests.cpp
     util/ExpressionParserTests.cpp
     util/FileIoTests.cpp
@@ -492,6 +494,13 @@ add_executable(QtRocket_core_tests
     figure/TransitionShapesTests.cpp
     figure/TubeFinSetShapesTests.cpp
     figure/TubeShapesTests.cpp
+    plot/PlotAxisBoundsTests.cpp
+    plot/PlotConfigurationTests.cpp
+    plot/PlotPreferencesTests.cpp
+    plot/PlotUtilTests.cpp
+    plot/simulation_plot_golden_tests.cpp
+    plot/SimulationPlotConfigurationTests.cpp
+    plot/SimulationPlotModelTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp

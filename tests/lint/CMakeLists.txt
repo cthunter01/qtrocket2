@@ -49,10 +49,14 @@ function(lint_plant_test tree lint)
     endif()
 endfunction()
 
-# Every rule kept, with figure/ in the core (above file/), rocketplot in plot/, the areas plot/ and flightconfig/ in
-# their places, and words that only look like violations.
+# Every rule kept, with figure/ in the core (above file/) and plot/ (above figure/), rocketplot in plot/, the areas
+# plot/ and flightconfig/ in their places (the GUI's plot/ also including the core's plot/), and words that only look
+# like violations.
 lint_plant(clean-tree src/figure/Shapes.cpp "#include \"QtRocket/file/GeneralRocketLoader.h\"")
+lint_plant(clean-tree src/plot/PlotModel.cpp
+    "#include \"QtRocket/figure/Shapes.h\"\n#include \"QtRocket/simulation/Simulation.h\"")
 lint_plant(clean-tree src/cli/Cli.cpp "#include \"QtRocket/figure/Shapes.h\"\n#include <vector>")
+lint_plant(clean-tree include/QtRocket/cli/Plots.h "#include \"QtRocket/plot/PlotModel.h\"")
 lint_plant(clean-tree src/file/ZipArchive.cpp "#include \"MinizipHandle.h\"\n#include <minizip/mz.h>")
 lint_plant(clean-tree src/file/MinizipHandle.h "#include <minizip/mz.h>")
 lint_plant(clean-tree gui/src/app/MacSetup.mm "#import <AppKit/AppKit.h>\n#include \"QtRocket/gui/main/MainWindow.h\"")
@@ -70,6 +74,8 @@ lint_plant(clean-tree gui/include/QtRocket/gui/plot/ThrustCurvePlot.h
     "#include <rocketplot/PlotWidget.h>\n#include \"QtRocket/gui/widgets/UnitSpinBox.h\"")
 lint_plant(clean-tree gui/src/plot/ThrustCurvePlot.cpp
     "#include <rocketplot/text.h>\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/plot/SimulationPlot.cpp
+    "#include <rocketplot/PlotWidget.h>\n#include \"QtRocket/plot/SimulationPlotModel.h\"")
 lint_plant(clean-tree gui/src/tree/ComponentTreeModel.cpp "#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
 lint_plant(clean-tree gui/src/flightconfig/MotorConfigurationPanel.cpp
     "#include \"QtRocket/gui/dialogs/IgnitionSelectionDialog.h\"\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
@@ -82,6 +88,11 @@ lint_plant(core-order src/rocket/BodyTube.cpp "#include \"QtRocket/aero/Barrowma
 lint_plant_test(core-order layers "src/rocket/BodyTube\\.cpp:1: rocket includes aero")
 lint_plant(file-before-figure include/QtRocket/file/Saver.h "\n#include \"QtRocket/figure/Shapes.h\"")
 lint_plant_test(file-before-figure layers "include/QtRocket/file/Saver\\.h:2: file includes figure")
+lint_plant(figure-before-plot src/figure/RocketFigureGeometry.cpp
+    "#include \"QtRocket/plot/PlotConfiguration.h\"")
+lint_plant_test(figure-before-plot layers "src/figure/RocketFigureGeometry\\.cpp:1: figure includes plot")
+lint_plant(plot-before-cli include/QtRocket/plot/PlotModel.h "#include \"QtRocket/cli/Cli.h\"")
+lint_plant_test(plot-before-cli layers "include/QtRocket/plot/PlotModel\\.h:1: plot includes cli")
 lint_plant(core-before-cli src/document/Document.cpp "#include \"QtRocket/cli/Cli.h\"")
 lint_plant_test(core-before-cli layers "src/document/Document\\.cpp:1: document includes cli")
 lint_plant(unknown-subsystem include/QtRocket/widgets/Spinner.h "#include <string>")
@@ -118,6 +129,9 @@ lint_plant_test(rocketplot-in-the-application layers "gui/main\\.cpp:1: <rocketp
 lint_plant(rocketplot-in-core src/motor/ThrustCurve.cpp "#include <rocketplot/text.h>")
 lint_plant_test(rocketplot-in-core layers
     "src/motor/ThrustCurve\\.cpp:1: the core includes rocketplot's header <rocketplot/text\\.h>")
+lint_plant(rocketplot-in-core-plot src/plot/SimulationPlotModel.cpp "#include <rocketplot/text.h>")
+lint_plant_test(rocketplot-in-core-plot layers
+    "src/plot/SimulationPlotModel\\.cpp:1: the core includes rocketplot's header <rocketplot/text\\.h>")
 lint_plant(quoted-rocketplot gui/src/plot/ThrustCurvePlot.cpp "#include \"rocketplot/PlotWidget.h\"")
 lint_plant_test(quoted-rocketplot layers
     "gui/src/plot/ThrustCurvePlot\\.cpp:1: \"rocketplot/PlotWidget\\.h\": a quoted include is")

@@ -5,9 +5,9 @@
 #
 # 1. The core (include/QtRocket/<subsystem>/, src/<subsystem>/): a subsystem includes only itself and the subsystems
 #    before it, in the order of CLAUDE.md (src/CMakeLists.txt adds them in that order): util, unit, logging,
-#    preferences, material, motor, rocket, models, mass, aero, simulation, document, file, figure, with cli (the
-#    command-line tool's commands) on top. A subsystem the order does not name is a violation too: a new one is
-#    added here and in CLAUDE.md. figure/ may be there or not.
+#    preferences, material, motor, rocket, models, mass, aero, simulation, document, file, figure, plot, with cli
+#    (the command-line tool's commands) on top. A subsystem the order does not name is a violation too: a new one
+#    is added here and in CLAUDE.md. figure/ and plot/ may be there or not.
 # 2. The GUI (gui/include/QtRocket/gui/<area>/, gui/src/<area>/): an area includes only itself and the areas before
 #    it, in the order of CLAUDE.md (plan sections 9.2 and 10.2): util, settings, binding, widgets, plot, tree, figure,
 #    configdialog, dialogs, flightconfig, main, app, with gui/main.cpp on top; any subsystem of the core, but never
@@ -32,7 +32,7 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/LintSupport.cmake)
 
 set(core_order util unit logging preferences material motor rocket models mass aero simulation document file figure
-    cli)
+    plot cli)
 set(gui_order util settings binding widgets plot tree figure configdialog dialogs flightconfig main app)
 list(LENGTH gui_order gui_top)   # gui/main.cpp, above every area
 

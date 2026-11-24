@@ -1212,8 +1212,8 @@ divisions (its back view's search for the lowest tab point passes over points of
 test (`tests/core/file/csv_export_golden_tests.cpp`): what OpenRocket's `CSVExport.exportCSV()`
 writes for flight data STORED in the example designs. The designs are loaded and never simulated
 again, so the numbers are those of the files and the export alone decides the text, which QtRocket
-reproduces byte for byte. `tests/data/csv/README.md` lists the nine fixtures (a branch of each of
-five examples, one of them also with four other sets of options) and what they cover.
+reproduces byte for byte. `tests/data/csv/README.md` lists the eleven fixtures (a branch of each of
+five examples, one of them also with six other sets of options and units) and what they cover.
 
 - **Environment**: OpenRocket's test bootstrap as for the goldens (`ServicesForTesting` overridden
   by `PluginModule`, then a second injector with the thrust curve database read from
@@ -1223,13 +1223,24 @@ five examples, one of them also with four other sets of options) and what they c
 - **Export**: every type of the branch in the order of `getTypes()`, each in the default unit of
   its group, with the options OpenRocket's export dialog opens with (`,`, 3 decimal places,
   exponential notation, `#`, the simulation, field and event comments on) or, for the first
-  fixture, also with the four sets of `CsvExportDumper.VARIANTS` (`_variant1` to `_variant4`).
+  fixture, also with the six sets of `CsvExportDumper.VARIANTS` (`_variant1` to `_variant6`): a
+  variant is a set of options and a choice of units, the default unit of each field's group
+  (`Units.DEFAULT`) or its last unit (`Units.LAST`, `_variant5`: `|`, 2 decimals, fixed notation,
+  `!!`; the units a user can choose in the export dialog, for 39 of the 58 fields not the
+  default). `_variant6` has the multi-character separator `<->`, 0 decimals and an empty comment
+  starter.
 - **Files**: `<example slug>_sim<NN>_branch<B>[_variant<V>].csv.gz`, gzipped at the best
   compression. `CSVExport` ends a line with the platform's line separator; the dumper refuses to
   run where that is not `\n`. QtRocket always writes `\n` (a documented deviation).
-- `--all` writes every branch of every simulation of every example (73 files, 3.1 MB with the
-  variants) into a scratch directory instead: QtRocket's export matched all 73 when the fixtures
-  were made (tier 10a, OpenRocket 5f164fd0e).
+- `--all` writes every branch of every simulation of every example (75 files, 3.2 MB with the
+  variants) into a scratch directory instead: QtRocket's export matched all of them when the
+  fixtures were made (tier 10a, OpenRocket 5f164fd0e; the M4 export scout compared 429 exports of
+  the 69 branches with seven sets of options and units, among them those of `_variant5` and
+  `_variant6` for every branch, all byte for byte).
+- `--check` writes nothing: it exports as a run would and compares each text with the file of
+  the same name in `--out`, inflated (the gzip bytes depend on the JDK's zlib), printing `same`,
+  `DIFFERS` or `MISSING`, then `EXTRA` for any other `.csv.gz` file there, and `check: same` or
+  `check: DIFFERS` last; the exit status is 1 unless all are the same.
 
 The fixtures are independent of `tests/data/goldens` and of `manifest.json`. To regenerate them,
 with the checkout at the commit of the goldens and Java 17 (the numbers go through
@@ -1245,4 +1256,5 @@ java -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezo
 
 (`data/motors/initial_motors.db` is OpenRocket's bundled database, byte for byte.) The gzip bytes
 depend on the JDK's zlib, so compare the content of a regenerated file, not its bytes
-(`cmp <(zcat old) <(zcat new)`); the test does the same.
+(`cmp <(zcat old) <(zcat new)`); the test does the same. The same command with `--check` added
+does that for every committed fixture and writes nothing (about 6 s).

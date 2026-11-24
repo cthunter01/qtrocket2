@@ -12,6 +12,7 @@ namespace
 
 using QtRocket::dashes;
 using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::kAllLineStyles;
 using QtRocket::LineStyle;
 using QtRocket::lineStyleFromOrkName;
@@ -39,6 +40,15 @@ TEST(LineStyle, DisplayKeys)
     EXPECT_EQ(displayKey(LineStyle::DASHED), "LineStyle.Dashed");
     EXPECT_EQ(displayKey(LineStyle::DOTTED), "LineStyle.Dotted");
     EXPECT_EQ(displayKey(LineStyle::DASHDOT), "LineStyle.Dash-dotted");
+}
+
+TEST(LineStyle, DisplayNamesAreOpenRocketsEnglishTexts)
+{
+    // messages.properties: LineStyle.Solid = Solid, ...
+    EXPECT_EQ(displayName(LineStyle::SOLID), "Solid");
+    EXPECT_EQ(displayName(LineStyle::DASHED), "Dashed");
+    EXPECT_EQ(displayName(LineStyle::DOTTED), "Dotted");
+    EXPECT_EQ(displayName(LineStyle::DASHDOT), "Dash-dotted");
 }
 
 TEST(LineStyle, OrkSpelling)

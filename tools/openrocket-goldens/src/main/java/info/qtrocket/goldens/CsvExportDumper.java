@@ -7,9 +7,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.Deflater;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import com.google.inject.AbstractModule;
@@ -35,6 +39,7 @@ import info.openrocket.core.simulation.FlightDataBranch;
 import info.openrocket.core.simulation.FlightDataType;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.unit.Unit;
+import info.openrocket.core.unit.UnitGroup;
 
 /**
  * Writes the fixtures of QtRocket's CsvExport golden test (tests/data/csv): what OpenRocket's
@@ -47,8 +52,8 @@ import info.openrocket.core.unit.Unit;
  * exports it (SimulationExportPanel, CsvOptionPanel): every type of the branch in the order of
  * {@code getTypes()}, each in the default unit of its group, and the dialog's default options
  * ("," between fields, 3 decimals, exponential notation, "#" for comments, the simulation, field
- * and event comments all on), or one of four other sets of options ({@link #VARIANTS}). Each is
- * written gzipped to {@code <slug of the example>_sim<NN>_branch<B>[_variant<V>].csv.gz}.
+ * and event comments all on), or one of six other sets of options and units ({@link #VARIANTS}).
+ * Each is written gzipped to {@code <slug of the example>_sim<NN>_branch<B>[_variant<V>].csv.gz}.
  * <p>
  * The environment is that of OpenRocket's tests (ServicesForTesting overridden by PluginModule)
  * with the bundled thrust curve database, so that every motor of the examples is found and every
@@ -56,10 +61,14 @@ import info.openrocket.core.unit.Unit;
  * stored flight data does not depend on them). Every line of a CSV file ends with the platform's
  * line separator, so the dumper refuses to run where that is not "\n".
  * <p>
- * Usage: {@code CsvExportDumper --examples <dir> --motors <initial_motors.db> --out <dir> [--all]}.
- * {@code --all} writes every branch of every simulation of every example with the default options,
- * and the variants of the first fixture, instead of the fixtures alone (73 files, 3.1 MB: for a
- * comparison outside the repository). See README.md.
+ * Usage: {@code CsvExportDumper --examples <dir> --motors <initial_motors.db> --out <dir> [--all]
+ * [--check]}. {@code --all} writes every branch of every simulation of every example with the
+ * default options, and the variants of the first fixture, instead of the fixtures alone (75 files,
+ * 3.2 MB: for a comparison outside the repository). {@code --check} writes nothing: it compares
+ * what it would write with the files in {@code --out}, after inflating them (their gzip bytes
+ * depend on the JDK's zlib), prints {@code same}, {@code DIFFERS} or {@code MISSING} for each
+ * and {@code EXTRA} for any other {@code .csv.gz} file there, and exits with status 1 unless every
+ * file is the same. See README.md.
  */
 public final class CsvExportDumper {
 
@@ -71,17 +80,35 @@ public final class CsvExportDumper {
 	/** The options of OpenRocket's export dialog as it first opens. */
 	static final Options DIALOG_DEFAULTS = new Options(",", 3, true, "#", true, true, true);
 
+	/** The unit of its group that each field of a variant is exported in. */
+	enum Units {
+		/** The default unit of the group, the one the export dialog starts with. */
+		DEFAULT,
+		/** The last unit of the group, the last one the dialog's unit selector offers. */
+		LAST
+	}
+
+	/** A set of options and the units of the fields, for a variant of the first fixture. */
+	record Variant(Options options, Units units) {
+	}
+
 	/**
-	 * The other sets of options, exported for the first fixture as {@code ..._variant1} to
-	 * {@code ..._variant4}: every separator the dialog offers, 0, 6 and 15 decimals, the fixed
-	 * notation, every comment starter it offers and one of its own, and the comment options in four
-	 * more combinations of on and off.
+	 * The other sets of options and units, exported for the first fixture as {@code ..._variant1}
+	 * to {@code ..._variant6}: every separator the dialog offers and two that a user types ("|"
+	 * and the multi-character "<->"), 0, 2, 6 and 15 decimals, the fixed notation, every comment
+	 * starter it offers, two of its own ("//", "!!") and the empty one, the comment options in four
+	 * more combinations of on and off, and the last unit of every unit group (for 39 of the first
+	 * fixture's 58 fields a unit other than the default: minutes, nautical miles, knots, G, arc
+	 * minutes, rpm, pounds, kgf, the offset unit of degrees Fahrenheit, and the units of south
+	 * latitude and west longitude, which negate the value).
 	 */
-	static final List<Options> VARIANTS = List.of(
-			new Options(";", 6, false, "%", true, false, false),
-			new Options(" ", 0, true, ";", false, true, true),
-			new Options("\t", 15, true, "#", false, false, true),
-			new Options(",", 3, true, "//", true, true, false));
+	static final List<Variant> VARIANTS = List.of(
+			new Variant(new Options(";", 6, false, "%", true, false, false), Units.DEFAULT),
+			new Variant(new Options(" ", 0, true, ";", false, true, true), Units.DEFAULT),
+			new Variant(new Options("\t", 15, true, "#", false, false, true), Units.DEFAULT),
+			new Variant(new Options(",", 3, true, "//", true, true, false), Units.DEFAULT),
+			new Variant(new Options("|", 2, false, "!!", true, true, true), Units.LAST),
+			new Variant(new Options("<->", 0, false, "", true, true, true), Units.DEFAULT));
 
 	/** A branch to export: the file name in data/examples, the simulation and branch indices. */
 	record Fixture(String example, int simulation, int branch, boolean withVariants) {
@@ -109,29 +136,37 @@ public final class CsvExportDumper {
 		Path motors = null;
 		Path out = null;
 		boolean all = false;
+		boolean check = false;
 		for (int i = 0; i < args.length; i++) {
 			switch (args[i]) {
 				case "--examples" -> examples = Path.of(args[++i]);
 				case "--motors" -> motors = Path.of(args[++i]);
 				case "--out" -> out = Path.of(args[++i]);
 				case "--all" -> all = true;
+				case "--check" -> check = true;
 				default -> throw new IllegalArgumentException("unknown argument " + args[i]);
 			}
 		}
 		if (examples == null || motors == null || out == null) {
-			throw new IllegalArgumentException(
-					"usage: CsvExportDumper --examples <dir> --motors <initial_motors.db> --out <dir> [--all]");
+			throw new IllegalArgumentException("usage: CsvExportDumper --examples <dir> --motors <initial_motors.db>"
+					+ " --out <dir> [--all] [--check]");
 		}
 		if (!System.lineSeparator().equals("\n")) {
 			throw new IllegalStateException("the line separator is not \\n: CSVExport would write another file");
 		}
 		Locale.setDefault(Locale.US);
-		Files.createDirectories(out);
+		if (!check) {
+			Files.createDirectories(out);
+		}
 		bootstrap(motors);
 
 		List<Fixture> fixtures = all ? everyBranch(examples) : FIXTURES;
+		Target target = check ? new FixtureChecker(out) : new FixtureWriter(out);
 		for (Fixture fixture : fixtures) {
-			dump(examples, out, fixture);
+			dump(examples, target, fixture);
+		}
+		if (!target.finish()) {
+			System.exit(1);
 		}
 	}
 
@@ -158,39 +193,121 @@ public final class CsvExportDumper {
 	}
 
 	/** Loads the example of {@code fixture} and writes its fixture and, if it has them, its variants. */
-	private static void dump(Path examples, Path out, Fixture fixture) throws Exception {
+	private static void dump(Path examples, Target target, Fixture fixture) throws Exception {
 		Path file = examples.resolve(fixture.example());
 		OpenRocketDocument doc = new GeneralRocketLoader(file.toFile()).load();
 		Simulation sim = doc.getSimulation(fixture.simulation());
 		FlightDataBranch branch = sim.getSimulatedData().getBranch(fixture.branch());
 		FlightDataType[] types = branch.getTypes();
-		Unit[] units = new Unit[types.length];
-		for (int i = 0; i < types.length; i++) {
-			units[i] = types[i].getUnitGroup().getDefaultUnit();
-		}
 		String stem = String.format(Locale.ROOT, "%s_sim%02d_branch%d",
 				GoldenDumper.slug(fixture.example().replaceAll("\\.ork$", "")), fixture.simulation(),
 				fixture.branch());
-		write(out.resolve(stem + ".csv.gz"), sim, branch, types, units, DIALOG_DEFAULTS);
+		export(target, stem + ".csv.gz", sim, branch, types, units(types, Units.DEFAULT), DIALOG_DEFAULTS);
 		if (fixture.withVariants()) {
 			for (int v = 0; v < VARIANTS.size(); v++) {
-				write(out.resolve(stem + "_variant" + (v + 1) + ".csv.gz"), sim, branch, types, units,
-						VARIANTS.get(v));
+				Variant variant = VARIANTS.get(v);
+				export(target, stem + "_variant" + (v + 1) + ".csv.gz", sim, branch, types,
+						units(types, variant.units()), variant.options());
 			}
 		}
 	}
 
-	/** Exports {@code branch} with {@code options} into {@code target}, gzipped at the best compression. */
-	private static void write(Path target, Simulation sim, FlightDataBranch branch, FlightDataType[] types,
-			Unit[] units, Options options) throws IOException {
+	/** The unit of each of {@code types}, in order, that {@code choice} names. */
+	private static Unit[] units(FlightDataType[] types, Units choice) {
+		Unit[] units = new Unit[types.length];
+		for (int i = 0; i < types.length; i++) {
+			UnitGroup group = types[i].getUnitGroup();
+			units[i] = switch (choice) {
+				case DEFAULT -> group.getDefaultUnit();
+				case LAST -> group.getUnit(group.getUnitCount() - 1);
+			};
+		}
+		return units;
+	}
+
+	/** Exports {@code branch} with {@code options} and hands the text to {@code target} as {@code name}. */
+	private static void export(Target target, String name, Simulation sim, FlightDataBranch branch,
+			FlightDataType[] types, Unit[] units, Options options) throws IOException {
 		ByteArrayOutputStream csv = new ByteArrayOutputStream();
 		CSVExport.exportCSV(csv, sim, branch, types, units, options.fieldSeparator(), options.decimalPlaces(),
 				options.exponentialNotation(), options.commentStarter(), options.simulationComments(),
 				options.fieldComments(), options.eventComments());
-		try (GZIPOutputStream gzip = new BestCompressionGzip(Files.newOutputStream(target))) {
-			csv.writeTo(gzip);
+		target.accept(name, csv.toByteArray(), sim);
+	}
+
+	/** What becomes of an exported fixture: written, or compared with the file already there. */
+	private interface Target {
+		/** Takes the text {@code csv} of the fixture file {@code name}, exported from {@code sim}. */
+		void accept(String name, byte[] csv, Simulation sim) throws IOException;
+
+		/** Called after the last fixture: whether all went well. */
+		boolean finish() throws IOException;
+	}
+
+	/** Writes each fixture into the output directory, gzipped at the best compression. */
+	private record FixtureWriter(Path out) implements Target {
+		@Override
+		public void accept(String name, byte[] csv, Simulation sim) throws IOException {
+			try (GZIPOutputStream gzip = new BestCompressionGzip(Files.newOutputStream(out.resolve(name)))) {
+				gzip.write(csv);
+			}
+			System.out.println(name + ": " + csv.length + " bytes, status " + sim.getStatus());
 		}
-		System.out.println(target.getFileName() + ": " + csv.size() + " bytes, status " + sim.getStatus());
+
+		@Override
+		public boolean finish() {
+			return true;
+		}
+	}
+
+	/**
+	 * Compares each fixture with the file of the same name in the output directory, inflated, and
+	 * remembers the names it was given, so that {@link #finish()} can name the other files there.
+	 */
+	private static final class FixtureChecker implements Target {
+		private final Path out;
+		private final Set<String> names = new TreeSet<>();
+		private boolean allSame = true;
+
+		FixtureChecker(Path out) {
+			this.out = out;
+		}
+
+		@Override
+		public void accept(String name, byte[] csv, Simulation sim) throws IOException {
+			names.add(name);
+			Path file = out.resolve(name);
+			String verdict;
+			if (!Files.isRegularFile(file)) {
+				verdict = "MISSING";
+			} else {
+				byte[] stored;
+				try (GZIPInputStream gzip = new GZIPInputStream(Files.newInputStream(file))) {
+					stored = gzip.readAllBytes();
+				}
+				verdict = Arrays.equals(stored, csv) ? "same" : "DIFFERS";
+			}
+			allSame &= verdict.equals("same");
+			System.out.println(name + ": " + verdict);
+		}
+
+		/** Prints the {@code .csv.gz} files of the directory that no fixture names; whether all was the same. */
+		@Override
+		public boolean finish() throws IOException {
+			if (Files.isDirectory(out)) {
+				try (var list = Files.list(out)) {
+					for (Path file : list.sorted().toList()) {
+						String name = file.getFileName().toString();
+						if (name.endsWith(".csv.gz") && !names.contains(name)) {
+							System.out.println(name + ": EXTRA");
+							allSame = false;
+						}
+					}
+				}
+			}
+			System.out.println(allSame ? "check: same" : "check: DIFFERS");
+			return allSame;
+		}
 	}
 
 	/** A gzip stream at Deflater.BEST_COMPRESSION (GZIPOutputStream's own level is the default, 6). */
