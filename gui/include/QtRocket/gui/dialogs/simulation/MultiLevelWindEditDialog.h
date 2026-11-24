@@ -61,7 +61,9 @@ class WindProfilePlot;
 ///
 /// Deviations from OpenRocket: the table (MultiLevelWindTableView: U-M4-6, bugs 31 to 33) and the
 /// profile (WindProfilePlot: rocketplot) are QtRocket's; the radio buttons follow the model's
-/// altitude reference when it changes elsewhere (Java sets them once).
+/// altitude reference when it changes elsewhere (Java sets them once); the CSV import stores and
+/// splits at the separator itself (OpenRocket bug 34) and imports the file as chosen (bug 37), see
+/// importLevels().
 class MultiLevelWindEditDialog final : public QDialog
 {
     Q_OBJECT
@@ -115,8 +117,26 @@ public:
     /// (MultiLevelWindTableModel::resetLevels()).
     void resetLevels();
 
-    /// "Import levels" (Java's importLevels(): the CSV import settings, the file, the overwrite
-    /// question, the import; part S3 of Milestone 4's run 2). Does nothing yet.
+    /// "Import levels" (Java's importLevels()), after committing a cell editor's pending text:
+    /// 1. asks the CSV import settings (UserPrompts::askWindCsvImportSettings(), starting with
+    ///    CsvImportSettingsDialog::storedSettings()); Cancel ends here;
+    /// 2. stores them (CsvImportSettingsDialog::storeSettings(): the separator itself, OpenRocket
+    ///    bug 34);
+    /// 3. asks the file (UserPrompts::askOpenFiles(): "Import wind levels", FileNames::csvFilter()
+    ///    chosen and FileNames::allFilesFilter(), in the default directory); Cancel ends here;
+    ///    the file is taken as chosen (OpenRocket bug 37: Java forces ".csv" onto it), and the
+    ///    dialog's directory becomes the default directory;
+    /// 4. while the model has levels, asks overwriteLevelsQuestion(); No ends here;
+    /// 5. replaces the levels with the file's (MultiLevelPinkNoiseWindModel::importLevelsFromCsv(),
+    ///    the columns by CsvImportSettingsDialog::importColumn(), the settings' units and
+    ///    separator), which the table and the profile follow; then the table's altitude, speed,
+    ///    direction and deviation columns take the settings' units (Java: setAltitudeUnit() ...);
+    ///    a failed import gives the model the one level of the preferences' average wind
+    ///    (MultiLevelWindTableModel::resetLevels()) and shows the error "Import Wind Levels
+    ///    Failed" with the lines "An issue occurred while importing wind levels:" and the
+    ///    import's message (UserPrompts::showMessage()).
+    /// The import stops, changing nothing more, when the dialog or the model goes during a
+    /// question.
     void importLevels();
 
     /// Commits a cell editor's pending text, then closes the dialog (QDialog::done()).

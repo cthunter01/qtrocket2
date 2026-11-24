@@ -9,13 +9,16 @@
 #include <QAbstractButton>
 #include <QAbstractSpinBox>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QFrame>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLayout>
 #include <QLayoutItem>
+#include <QLineEdit>
 #include <QObject>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QSlider>
 #include <QString>
 #include <QWidget>
@@ -66,6 +69,21 @@ namespace
     {
         return QStringLiteral("SPINNER ") + clean(spinner->text());
     }
+    if (const auto* const combo = qobject_cast<const QComboBox*>(&widget))
+    {
+        QString items;
+        for (int index = 0; index < combo->count(); ++index)
+        {
+            items += (index > 0 ? QStringLiteral("|") : QString()) + combo->itemText(index);
+        }
+        return QStringLiteral("COMBO selected=") + clean(combo->currentText()) +
+               QStringLiteral(" items=") + items +
+               (combo->isEditable() ? QStringLiteral(" editable") : QString());
+    }
+    if (const auto* const field = qobject_cast<const QLineEdit*>(&widget))
+    {
+        return QStringLiteral("FIELD ") + clean(field->text());
+    }
     if (const auto* const radio = qobject_cast<const QRadioButton*>(&widget))
     {
         return QStringLiteral("RADIO ") + radio->text() + selected(radio->isChecked());
@@ -93,7 +111,9 @@ namespace
     }
     if (const auto* const label = qobject_cast<const QLabel*>(&widget))
     {
-        return QStringLiteral("LABEL ") + clean(label->text());
+        // A word wrapped label is Java's read-only JTextArea.
+        return (label->wordWrap() ? QStringLiteral("TEXTAREA ") : QStringLiteral("LABEL ")) +
+               clean(label->text());
     }
     // After the label, which is a frame too.
     if (const auto* const frame = qobject_cast<const QFrame*>(&widget);
@@ -143,6 +163,13 @@ void walkWidget(const QWidget& widget, const QWidget& root, const QString& inden
     {
         lines.push_back(QtStrings::toUtf8(indent + QStringLiteral("BORDER ") + box->title()));
         inner += QStringLiteral("  ");
+    }
+    if (const auto* const scrollArea = qobject_cast<const QScrollArea*>(&widget);
+        scrollArea != nullptr && scrollArea->widget() != nullptr)
+    {
+        // Java walks a scroll pane's view (and its scroll bars, which the walk leaves out).
+        walkWidget(*scrollArea->widget(), root, inner, lines);
+        return;
     }
     if (const QLayout* const layout = widget.layout(); layout != nullptr)
     {

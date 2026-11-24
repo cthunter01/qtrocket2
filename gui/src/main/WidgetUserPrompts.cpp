@@ -51,6 +51,7 @@
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/dialogs/motor/MotorChooserDialog.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
+#include "QtRocket/gui/dialogs/simulation/CsvImportSettingsDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -904,10 +905,21 @@ UserPrompts::RunSimulationsAnswer WidgetUserPrompts::runSimulations(
 }
 
 std::optional<UserPrompts::WindCsvImportSettings> WidgetUserPrompts::askWindCsvImportSettings(
-    QWidget* /*parent*/, const WindCsvImportSettings& /*initial*/)
+    QWidget* parent, const WindCsvImportSettings& initial)
 {
-    // CSVImportSettingsDialog is not there yet: cancelled (see the class comment).
-    return std::nullopt;
+    // MultiLevelWindEditDialog.importLevels(): new CSVImportSettingsDialog(this), shown modal; its
+    // OK refuses invalid columns with messages of these prompts.
+    ModalDialog<CsvImportSettingsDialog> dialog(parent, initial, *this);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return std::nullopt;
+    }
+    const CsvImportSettingsDialog* const answered = dialog.get();
+    if (answered == nullptr)
+    {
+        return std::nullopt;
+    }
+    return answered->settings();
 }
 
 std::optional<QColor> WidgetUserPrompts::askColor(QWidget* parent, const QColor& initial,

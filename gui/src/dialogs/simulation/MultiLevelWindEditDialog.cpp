@@ -1,6 +1,8 @@
 #include "QtRocket/gui/dialogs/simulation/MultiLevelWindEditDialog.h"
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 
 #include <QDialog>
 #include <QFrame>
@@ -9,25 +11,34 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QList>
+#include <QPointer>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSplitter>
 #include <QString>
+#include <QStringList>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
+#include <QtContainerFwd>
 
+#include "QtRocket/gui/dialogs/simulation/CsvImportSettingsDialog.h"
 #include "QtRocket/gui/dialogs/simulation/MultiLevelWindTableModel.h"
 #include "QtRocket/gui/dialogs/simulation/MultiLevelWindTableView.h"
 #include "QtRocket/gui/plot/WindProfilePlot.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
+#include "QtRocket/gui/widgets/UnitSelector.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/WindModel.h"
+#include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/util/Error.h"
 
 namespace QtRocket::Gui
 {
@@ -301,8 +312,109 @@ void MultiLevelWindEditDialog::resetLevels()
 void MultiLevelWindEditDialog::importLevels()
 {
     m_table->commitEditing();
-    // Part S3 of Milestone 4's run 2: Java's importLevels() (the CSV import settings, the file,
-    // the overwrite question, MultiLevelPinkNoiseWindModel::importLevelsFromCsv()).
+    if (!m_connection.connected())
+    {
+        // The model has gone: nothing to import into.
+        return;
+    }
+    // The services' objects outlive the dialog; the dialog itself may go during a question (its
+    // window closed in the question's event loop), and so may the model.
+    Preferences&                             preferences = m_services.preferences();
+    UserPrompts&                             prompts     = m_services.prompts();
+    const QPointer<MultiLevelWindEditDialog> alive(this);
+
+    // First, the import settings dialog to configure column mappings and units (Java: new
+    // CSVImportSettingsDialog(this), which starts with the stored ones)
+    const std::optional<UserPrompts::WindCsvImportSettings> settings =
+        prompts.askWindCsvImportSettings(this,
+                                         CsvImportSettingsDialog::storedSettings(preferences));
+    if (alive.isNull() || !settings.has_value())
+    {
+        return;
+    }
+
+    // Save the preferences (OpenRocket bug 34: the separator itself)
+    CsvImportSettingsDialog::storeSettings(preferences, *settings);
+
+    // Now the file chooser to select the CSV file
+    UserPrompts::OpenFileRequest request;
+    //: WindProfileEditorDlg.dlg.importLevels.title
+    request.title = tr("Import wind levels");
+    // FileHelper.CSV_FILTER, chosen, and the accept-all filter of Swing's file chooser.
+    request.nameFilters = QStringList{FileNames::csvFilter(), FileNames::allFilesFilter()};
+    if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
+    {
+        request.directory = *directory;
+    }
+    const std::optional<UserPrompts::OpenFileAnswer> answer = prompts.askOpenFiles(this, request);
+    if (alive.isNull() || !answer.has_value() || answer->files.empty())
+    {
+        return;
+    }
+    // OpenRocket bug 37: Java forces the extension "csv" onto the file chosen in this open dialog
+    // (FileHelper.forceExtension()), so that a file of another extension, chosen through "All
+    // Files", is looked for under another name ("wind.txt" as "wind.txt.csv": "Could not load the
+    // file."); the file is imported as chosen.
+    const std::filesystem::path file = answer->files.front();
+    preferences.setDefaultDirectory(answer->directory);
+
+    // A warning that the current levels will be overwritten
+    if (!m_connection.connected())
+    {
+        return;
+    }
+    if (!m_model->getLevels().empty())
+    {
+        const bool overwrite = prompts.askYesNo(this, overwriteLevelsQuestion());
+        if (alive.isNull() || !overwrite || !m_connection.connected())
+        {
+            return;
+        }
+    }
+
+    // Import the CSV file with the configured settings. The levels are read into a model of
+    // their own, which the editor's then copies at once: Java's import changes the model once per
+    // level (it removes them all, then adds each), and the table, the profile and the launch
+    // conditions follow each change, which made a file of 2000 levels take minutes; the levels
+    // and the altitude reference the model ends with are Java's.
+    MultiLevelPinkNoiseWindModel levels(preferences);
+    const bool                   header   = settings->hasHeader;
+    const Result<void>           imported = levels.importLevelsFromCsv(
+        file, QtStrings::toUtf8(settings->separator),
+        QtStrings::toUtf8(CsvImportSettingsDialog::importColumn(settings->altitude, header)),
+        QtStrings::toUtf8(CsvImportSettingsDialog::importColumn(settings->speed, header)),
+        QtStrings::toUtf8(CsvImportSettingsDialog::importColumn(settings->direction, header)),
+        QtStrings::toUtf8(
+            CsvImportSettingsDialog::importColumn(settings->standardDeviation, header)),
+        settings->altitude.unit, settings->speed.unit, settings->direction.unit,
+        settings->standardDeviation.unit, header);
+    if (!imported.has_value())
+    {
+        // Java: the table's importLevels() and then the dialog reset the levels.
+        m_tableModel->resetLevels();
+        prompts.showMessage(this, {.severity = UserPrompts::Severity::ERROR,
+                                   //: WindProfileEditorDlg.msg.importLevelsError.title
+                                   .title = tr("Import Wind Levels Failed"),
+                                   //: WindProfileEditorDlg.msg.importLevelsError
+                                   .lines = {tr("An issue occurred while importing wind levels:"),
+                                             QtStrings::fromUtf8(imported.error().message)}});
+        return;
+    }
+    const WindModel::AltitudeReference reference = m_model->getAltitudeReference();
+    m_model->loadFrom(levels);
+    // loadFrom() tells nobody (and takes the other model's reference): setAltitudeReference()
+    // tells the model's listeners once.
+    m_model->setAltitudeReference(reference);
+
+    // The units of the wind table become those of the settings dialog
+    m_table->unitSelector(MultiLevelWindTableModel::kAltitudeColumn)
+        .setSelectedUnit(*settings->altitude.unit);
+    m_table->unitSelector(MultiLevelWindTableModel::kSpeedColumn)
+        .setSelectedUnit(*settings->speed.unit);
+    m_table->unitSelector(MultiLevelWindTableModel::kDirectionColumn)
+        .setSelectedUnit(*settings->direction.unit);
+    m_table->unitSelector(MultiLevelWindTableModel::kDeviationColumn)
+        .setSelectedUnit(*settings->standardDeviation.unit);
 }
 
 void MultiLevelWindEditDialog::done(int result)

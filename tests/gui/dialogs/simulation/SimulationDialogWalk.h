@@ -3,8 +3,9 @@
 // The simulation dialogs' panels as text, widget by widget in the order of their layouts, in the
 // form of the walk of OpenRocket's panels that the probe
 // tools/openrocket-probes/simulation-conditions prints (its WALK lines, without "WALK "), which is
-// the M4 sim-config scout's dialog walk with SEPARATOR added; and a number row's state as its STEP
-// lines print it.
+// the M4 sim-config scout's dialog walk with SEPARATOR added (and the probe
+// tools/openrocket-probes/csv-import-settings's, which prints FIELD, COMBO and TEXTAREA as the
+// scout's walk); and a number row's state as its STEP lines print it.
 
 #include <span>
 #include <string>
@@ -29,9 +30,12 @@ namespace QtRocket::Gui::Test
 /// "CHECK <text> selected=<true|false>"; a UnitSelector as "LABEL <unit>" (Java's UnitSelector is
 /// a label); another button as "BUTTON <text>", with " icon" when it has one; a QSlider as
 /// "SLIDER <min>..<max> at <value>"; a horizontal line (QFrame::HLine) as "SEPARATOR"; a QLabel
-/// as "LABEL <text>". Each line but BORDER and SEPARATOR ends with " disabled" when the widget is
-/// disabled and " tip=<tooltip>" when it has a tooltip, line breaks written as "\n". @p root
-/// itself is walked too (a titled box is a BORDER).
+/// as "LABEL <text>", or, word wrapped (Java's read-only JTextArea), as "TEXTAREA <text>"; a
+/// QComboBox as "COMBO selected=<text> items=<item>|<item>..." with " editable" when it is; a
+/// QLineEdit (not a spin box's or a combo box's) as "FIELD <text>"; a QScrollArea's widget in its
+/// place (not its scroll bars). Each line but BORDER and SEPARATOR ends with " disabled" when the
+/// widget is disabled and " tip=<tooltip>" when it has a tooltip, line breaks written as "\n".
+/// @p root itself is walked too (a titled box is a BORDER).
 [[nodiscard]] std::vector<std::string> dialogWalk(const QWidget& root);
 
 /// A number row's state as the probe's STEP lines print it: "<name>=[<spin box text>]", then

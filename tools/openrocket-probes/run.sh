@@ -105,10 +105,24 @@ for probe in "$@"; do
         cat "${work}/${probe}/javac.log" >&2
         exit 1
     }
+    # A probe that makes a window (a JDialog, which headless Swing refuses) has the file needs-display beside its
+    # probe/ directory: it runs on a virtual display (xvfb-run, never the desktop's), which merges the program's
+    # standard error into its standard output, so the standard error goes to the log first.
+    launcher=()
+    headless=true
+    if [[ -f "${here}/${probe}/needs-display" ]]; then
+        if ! command -v xvfb-run > /dev/null; then
+            echo "error: the probe ${probe} needs a display: install xvfb-run (Xvfb)" >&2
+            exit 1
+        fi
+        launcher=(xvfb-run -a bash -c 'exec "$@" 2>> "${PROBE_LOG}"' bash)
+        headless=false
+    fi
     for main in "${here}/${probe}"/probe/*Probe.java; do
         class="probe.$(basename "${main}" .java)"
         echo "running ${class} (${probe})" >&2
-        env -u DISPLAY -u WAYLAND_DISPLAY "${java}" -Xmx2g -Djava.awt.headless=true \
+        env -u DISPLAY -u WAYLAND_DISPLAY PROBE_LOG="${work}/${probe}/log.txt" \
+            "${launcher[@]}" "${java}" -Xmx2g -Djava.awt.headless="${headless}" \
             -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
             -Duser.home="${work}/${probe}/home" -Djava.io.tmpdir="${work}/${probe}/tmp" \
             -Djava.util.prefs.userRoot="${work}/${probe}/prefs" -Djava.util.prefs.systemRoot="${work}/${probe}/prefs" \

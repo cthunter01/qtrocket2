@@ -1,0 +1,628 @@
+== fresh preferences
+DIALOG title=[Wind Data Import Settings] modality=APPLICATION_MODAL size=600x550 default=[OK] escape=true
+WALK TEXTAREA This dialog configures how the data is structured in your CSV file.
+WALK BORDER CSV Settings
+WALK   TEXTAREA Specify which columns in your CSV file contain each required data type and the units used in the file.
+WALK   CHECK CSV file has a header row selected=true tip=Select if your CSV file includes column names in the first row
+WALK   LABEL Data Type
+WALK   LABEL Column Name
+WALK   LABEL Unit
+WALK   LABEL Altitude
+WALK   FIELD altitude
+WALK   LABEL m
+WALK   LABEL Speed
+WALK   FIELD speed
+WALK   LABEL m/s
+WALK   LABEL Direction
+WALK   FIELD direction
+WALK   LABEL °
+WALK   LABEL Standard Deviation (optional)
+WALK   FIELD stddev
+WALK   LABEL m/s
+WALK   SEPARATOR
+WALK   LABEL Field Separator
+WALK   COMBO selected=, items=,|;|SPACE|TAB editable
+WALK BORDER CSV Example Contents Preview
+WALK   TEXTAREA An example of how the first lines of data in you CSV file should look like for some example data. Make sure the data is correctly separated and that the column names are correct.\nYou can add blank lines or comment lines starting with a hash (#).
+WALK BUTTON Cancel
+WALK BUTTON OK
+UNITS altitude m|km|ft|yd|mi|nmi
+UNITS speed m/s|km/h|ft/s|mph|kt
+UNITS direction °|rad|arcmin
+UNITS stdDeviation m/s|km/h|ft/s|mph|kt
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+BOX TEXTAREA This dialog configures how the data is x=12 y=12 w=566 h=36
+BOX BORDER CSV Settings x=12 y=66 w=566 h=312
+BOX TEXTAREA Specify which columns in your CSV file x=23 y=92 w=472 h=34
+BOX CHECK CSV file has a header row selected=true x=23 y=144 w=196 h=22
+BOX LABEL Data Type x=23 y=172 w=120 h=18
+BOX LABEL Column Name x=223 y=172 w=146 h=18
+BOX LABEL Unit x=375 y=172 w=120 h=18
+BOX LABEL Altitude x=23 y=199 w=49 h=18
+BOX FIELD altitude x=223 y=196 w=146 h=24
+BOX LABEL m x=375 y=197 w=15 h=22
+BOX LABEL Speed x=23 y=229 w=45 h=18
+BOX FIELD speed x=223 y=226 w=146 h=24
+BOX LABEL m/s x=375 y=227 w=27 h=22
+BOX LABEL Direction x=23 y=259 w=59 h=18
+BOX FIELD direction x=223 y=256 w=146 h=24
+BOX LABEL ° x=375 y=257 w=10 h=22
+BOX LABEL Standard Deviation (optional) x=23 y=289 w=194 h=18
+BOX FIELD stddev x=223 y=286 w=146 h=24
+BOX LABEL m/s x=375 y=287 w=27 h=22
+BOX SEPARATOR x=23 y=316 w=472 h=3
+BOX LABEL Field Separator x=23 y=340 w=102 h=18
+BOX COMBO selected=, items=,|;|SPACE|TAB editable x=223 y=337 w=81 h=24
+BOX BORDER CSV Example Contents Preview x=12 y=396 w=566 h=286
+BOX TEXTAREA An example of how the first lines of d x=23 y=422 w=544 h=102
+BOX TEXTPANE x=23 y=542 w=544 h=129
+BOX BUTTON Cancel x=442 y=521 w=76 h=24
+BOX BUTTON OK x=523 y=521 w=72 h=24
+STEP altitude name empty
+STATE columnType=[Column Name] header=true columns=[|speed|direction|stddev] names=[|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Missing required column name(s). Please fill in the highlighted fields.]
+STEP altitude name blank
+STATE columnType=[Column Name] header=true columns=[|speed|direction|stddev] names=[|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Missing required column name(s). Please fill in the highlighted fields.]
+STEP speed name = altitude
+STATE columnType=[Column Name] header=true columns=[altitude|altitude|direction|stddev] names=[altitude|altitude|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=ERROR directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,altitude,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Duplicate column names found. Please ensure that each column name is unique.]
+STEP altitude name empty again (speed still named altitude)
+STATE columnType=[Column Name] header=true columns=[|altitude|direction|stddev] names=[|altitude|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[,altitude,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Missing required column name(s). Please fill in the highlighted fields.]
+STEP altitude empty, speed and direction named altitude
+STATE columnType=[Column Name] header=true columns=[|altitude|altitude|stddev] names=[|altitude|altitude|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=ERROR directionField=ERROR stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[,altitude,altitude]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Missing required column name(s). Please fill in the highlighted fields.\nDuplicate column names found. Please ensure that each column name is unique.]
+STEP altitude ' alt ', std dev 'alt' (trimmed duplicates)
+STATE columnType=[Column Name] header=true columns=[alt|speed|direction|alt] names=[alt|speed|direction|alt] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=ERROR speedField=NONE directionField=NONE stdDeviationField=ERROR altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[alt,speed,direction]optional[,alt]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Duplicate column names found. Please ensure that each column name is unique.]
+STEP std dev name empty
+STATE columnType=[Column Name] header=true columns=[alt|speed|direction|] names=[alt|speed|direction|] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[alt,speed,direction]
+PREVIEW normal[100,5,90]
+PREVIEW normal[200,7.5,75]
+PREVIEW normal[300,10,105]
+PREVIEW normal[400,12.5,135]
+PREVIEW normal[…]
+OK approved
+STEP std dev name blank
+STATE columnType=[Column Name] header=true columns=[alt|speed|direction|] names=[alt|speed|direction|] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[alt,speed,direction]
+PREVIEW normal[100,5,90]
+PREVIEW normal[200,7.5,75]
+PREVIEW normal[300,10,105]
+PREVIEW normal[400,12.5,135]
+PREVIEW normal[…]
+OK approved
+STEP names back to the defaults
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item ;
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[;]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude;speed;direction]optional[;stddev]
+PREVIEW normal[100;5;90]optional[;1]
+PREVIEW normal[200;7.5;75]optional[;1.5]
+PREVIEW normal[300;10;105]optional[;2]
+PREVIEW normal[400;12.5;135]optional[;2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item SPACE
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[SPACE]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude\sspeed\sdirection]optional[\sstddev]
+PREVIEW normal[100\s5\s90]optional[\s1]
+PREVIEW normal[200\s7.5\s75]optional[\s1.5]
+PREVIEW normal[300\s10\s105]optional[\s2]
+PREVIEW normal[400\s12.5\s135]optional[\s2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item TAB
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[TAB]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude\tspeed\tdirection]optional[\tstddev]
+PREVIEW normal[100\t5\t90]optional[\t1]
+PREVIEW normal[200\t7.5\t75]optional[\t1.5]
+PREVIEW normal[300\t10\t105]optional[\t2]
+PREVIEW normal[400\t12.5\t135]optional[\t2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item |
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[|]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude|speed|direction]optional[|stddev]
+PREVIEW normal[100|5|90]optional[|1]
+PREVIEW normal[200|7.5|75]optional[|1.5]
+PREVIEW normal[300|10|105]optional[|2]
+PREVIEW normal[400|12.5|135]optional[|2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item <->
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[<->]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude<->speed<->direction]optional[<->stddev]
+PREVIEW normal[100<->5<->90]optional[<->1]
+PREVIEW normal[200<->7.5<->75]optional[<->1.5]
+PREVIEW normal[300<->10<->105]optional[<->2]
+PREVIEW normal[400<->12.5<->135]optional[<->2.5]
+PREVIEW normal[…]
+OK approved
+STEP separator item 
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|stddev] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitudespeeddirection]optional[stddev]
+PREVIEW normal[100590]optional[1]
+PREVIEW normal[2007.575]optional[1.5]
+PREVIEW normal[30010105]optional[2]
+PREVIEW normal[40012.5135]optional[2.5]
+PREVIEW normal[…]
+OK approved
+UNITSTEP altitude m
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP altitude km
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[0.1,5,90]optional[,1]
+PREVIEW normal[0.2,7.5,75]optional[,1.5]
+PREVIEW normal[0.3,10,105]optional[,2]
+PREVIEW normal[0.4,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP altitude ft
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[328,5,90]optional[,1]
+PREVIEW normal[656,7.5,75]optional[,1.5]
+PREVIEW normal[984,10,105]optional[,2]
+PREVIEW normal[1312,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP altitude yd
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[109,5,90]optional[,1]
+PREVIEW normal[219,7.5,75]optional[,1.5]
+PREVIEW normal[328,10,105]optional[,2]
+PREVIEW normal[437,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP altitude mi
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[0.062,5,90]optional[,1]
+PREVIEW normal[0.124,7.5,75]optional[,1.5]
+PREVIEW normal[0.186,10,105]optional[,2]
+PREVIEW normal[0.249,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP altitude nmi
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[0.054,5,90]optional[,1]
+PREVIEW normal[0.108,7.5,75]optional[,1.5]
+PREVIEW normal[0.162,10,105]optional[,2]
+PREVIEW normal[0.216,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP speed m/s
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP speed km/h
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,18,90]optional[,1]
+PREVIEW normal[200,27,75]optional[,1.5]
+PREVIEW normal[300,36,105]optional[,2]
+PREVIEW normal[400,45,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP speed ft/s
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,16.4,90]optional[,1]
+PREVIEW normal[200,24.6,75]optional[,1.5]
+PREVIEW normal[300,32.8,105]optional[,2]
+PREVIEW normal[400,41,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP speed mph
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,11.2,90]optional[,1]
+PREVIEW normal[200,16.8,75]optional[,1.5]
+PREVIEW normal[300,22.4,105]optional[,2]
+PREVIEW normal[400,28,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP speed kt
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,9.72,90]optional[,1]
+PREVIEW normal[200,14.6,75]optional[,1.5]
+PREVIEW normal[300,19.4,105]optional[,2]
+PREVIEW normal[400,24.3,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP direction °
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP direction rad
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,1.57]optional[,1]
+PREVIEW normal[200,7.5,1.31]optional[,1.5]
+PREVIEW normal[300,10,1.83]optional[,2]
+PREVIEW normal[400,12.5,2.36]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP direction arcmin
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,5400]optional[,1]
+PREVIEW normal[200,7.5,4500]optional[,1.5]
+PREVIEW normal[300,10,6300]optional[,2]
+PREVIEW normal[400,12.5,8100]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP stdDeviation m/s
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+UNITSTEP stdDeviation km/h
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,3.6]
+PREVIEW normal[200,7.5,75]optional[,5.4]
+PREVIEW normal[300,10,105]optional[,7.2]
+PREVIEW normal[400,12.5,135]optional[,9]
+PREVIEW normal[…]
+UNITSTEP stdDeviation ft/s
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,3.28]
+PREVIEW normal[200,7.5,75]optional[,4.92]
+PREVIEW normal[300,10,105]optional[,6.56]
+PREVIEW normal[400,12.5,135]optional[,8.2]
+PREVIEW normal[…]
+UNITSTEP stdDeviation mph
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,2.24]
+PREVIEW normal[200,7.5,75]optional[,3.36]
+PREVIEW normal[300,10,105]optional[,4.47]
+PREVIEW normal[400,12.5,135]optional[,5.59]
+PREVIEW normal[…]
+UNITSTEP stdDeviation kt
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]optional[,stddev]
+PREVIEW normal[100,5,90]optional[,1.94]
+PREVIEW normal[200,7.5,75]optional[,2.92]
+PREVIEW normal[300,10,105]optional[,3.89]
+PREVIEW normal[400,12.5,135]optional[,4.86]
+PREVIEW normal[…]
+STEP header row unchecked
+STATE columnType=[Column Index] header=false columns=[0|1|2|3] names=[altitude|speed|direction|stddev] indices=[0|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[0=Altitude, 1=Speed, 2=Direction]optional[, 3=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+WALK TEXTAREA This dialog configures how the data is structured in your CSV file.
+WALK BORDER CSV Settings
+WALK   TEXTAREA Specify which columns in your CSV file contain each required data type and the units used in the file.
+WALK   CHECK CSV file has a header row selected=false tip=Select if your CSV file includes column names in the first row
+WALK   LABEL Data Type
+WALK   LABEL Column Index
+WALK   LABEL Unit
+WALK   LABEL Altitude
+WALK   SPINNER 0
+WALK   LABEL m
+WALK   LABEL Speed
+WALK   SPINNER 1
+WALK   LABEL m/s
+WALK   LABEL Direction
+WALK   SPINNER 2
+WALK   LABEL °
+WALK   LABEL Standard Deviation (optional)
+WALK   SPINNER 3
+WALK   LABEL m/s
+WALK   SEPARATOR
+WALK   LABEL Field Separator
+WALK   COMBO selected=, items=,|;|SPACE|TAB editable
+WALK BORDER CSV Example Contents Preview
+WALK   TEXTAREA An example of how the first lines of data in you CSV file should look like for some example data. Make sure the data is correctly separated and that the column names are correct.\nYou can add blank lines or comment lines starting with a hash (#).
+WALK BUTTON Cancel
+WALK BUTTON OK
+STEP altitude index 1
+STATE columnType=[Column Index] header=false columns=[1|1|2|3] names=[altitude|speed|direction|stddev] indices=[1|1|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=ERROR speedSpinner=ERROR directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[1=Altitude, 1=Speed, 2=Direction]optional[, 3=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Duplicate column indices found. Please ensure that each column index is unique.]
+STEP direction index 1 too
+STATE columnType=[Column Index] header=false columns=[1|1|1|3] names=[altitude|speed|direction|stddev] indices=[1|1|1|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=ERROR speedSpinner=ERROR directionSpinner=ERROR stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[1=Altitude, 1=Speed, 1=Direction]optional[, 3=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Duplicate column indices found. Please ensure that each column index is unique.]
+STEP std dev index 0 (its name stddev)
+STATE columnType=[Column Index] header=false columns=[0|1|2|0] names=[altitude|speed|direction|stddev] indices=[0|1|2|0] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=ERROR speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=ERROR
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[0=Altitude, 1=Speed, 2=Direction]optional[, 0=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Duplicate column indices found. Please ensure that each column index is unique.]
+STEP std dev name emptied in the header mode, back to the index mode
+STATE columnType=[Column Index] header=false columns=[0|1|2|0] names=[altitude|speed|direction|] indices=[0|1|2|0] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[0=Altitude, 1=Speed, 2=Direction]optional[, 0=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+STEP indices 12345, 7, 2, 3
+STATE columnType=[Column Index] header=false columns=[12345|7|2|3] names=[altitude|speed|direction|] indices=[12345|7|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[12345=Altitude, 7=Speed, 2=Direction]optional[, 3=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+STEP header row checked again (std dev name empty)
+STATE columnType=[Column Name] header=true columns=[altitude|speed|direction|] names=[altitude|speed|direction|] indices=[12345|7|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,speed,direction]
+PREVIEW normal[100,5,90]
+PREVIEW normal[200,7.5,75]
+PREVIEW normal[300,10,105]
+PREVIEW normal[400,12.5,135]
+PREVIEW normal[…]
+OK approved
+STEP speed name empty, then the index mode
+STATE columnType=[Column Index] header=false columns=[12345|7|2|3] names=[altitude||direction|] indices=[12345|7|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[12345=Altitude, 7=Speed, 2=Direction]optional[, 3=StdDev]
+PREVIEW normal[100,5,90]optional[,1]
+PREVIEW normal[200,7.5,75]optional[,1.5]
+PREVIEW normal[300,10,105]optional[,2]
+PREVIEW normal[400,12.5,135]optional[,2.5]
+PREVIEW normal[…]
+OK approved
+STEP speed index 0, back to the header mode (speed name empty)
+STATE columnType=[Column Name] header=true columns=[altitude||direction|] names=[altitude||direction|] indices=[12345|0|2|3] units=[m|m/s|°|m/s] separator=[,]
+OUTLINE altitudeField=NONE speedField=ERROR directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[altitude,,direction]
+PREVIEW normal[100,5,90]
+PREVIEW normal[200,7.5,75]
+PREVIEW normal[300,10,105]
+PREVIEW normal[400,12.5,135]
+PREVIEW normal[…]
+OK ERROR [Incorrect Data Input] [Missing required column name(s). Please fill in the highlighted fields.]
+== OK and Cancel
+OK clicked: approved=true displayable=false
+Cancel clicked: approved=false displayable=false
+== stored preferences
+DIALOG title=[Wind Data Import Settings] modality=APPLICATION_MODAL size=600x550 default=[OK] escape=true
+WALK TEXTAREA This dialog configures how the data is structured in your CSV file.
+WALK BORDER CSV Settings
+WALK   TEXTAREA Specify which columns in your CSV file contain each required data type and the units used in the file.
+WALK   CHECK CSV file has a header row selected=false tip=Select if your CSV file includes column names in the first row
+WALK   LABEL Data Type
+WALK   LABEL Column Index
+WALK   LABEL Unit
+WALK   LABEL Altitude
+WALK   SPINNER 4
+WALK   LABEL ft
+WALK   LABEL Speed
+WALK   SPINNER 2
+WALK   LABEL km/h
+WALK   LABEL Direction
+WALK   SPINNER 0
+WALK   LABEL rad
+WALK   LABEL Standard Deviation (optional)
+WALK   SPINNER 2
+WALK   LABEL mph
+WALK   SEPARATOR
+WALK   LABEL Field Separator
+WALK   COMBO selected=; items=,|;|SPACE|TAB editable
+WALK BORDER CSV Example Contents Preview
+WALK   TEXTAREA An example of how the first lines of data in you CSV file should look like for some example data. Make sure the data is correctly separated and that the column names are correct.\nYou can add blank lines or comment lines starting with a hash (#).
+WALK BUTTON Cancel
+WALK BUTTON OK
+UNITS altitude m|km|ft|yd|mi|nmi
+UNITS speed m/s|km/h|ft/s|mph|kt
+UNITS direction °|rad|arcmin
+UNITS stdDeviation m/s|km/h|ft/s|mph|kt
+STATE columnType=[Column Index] header=false columns=[4|2|0|2] names=[Alt (ft)|Wind|Dir|] indices=[4|2|0|2] units=[ft|km/h|rad|mph] separator=[;]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[4=Altitude, 2=Speed, 0=Direction]optional[, 2=StdDev]
+PREVIEW normal[328;18;1.57]optional[;2.24]
+PREVIEW normal[656;27;1.31]optional[;3.36]
+PREVIEW normal[984;36;1.83]optional[;4.47]
+PREVIEW normal[1312;45;2.36]optional[;5.59]
+PREVIEW normal[…]
+OK approved
+BOX TEXTAREA This dialog configures how the data is x=12 y=12 w=566 h=36
+BOX BORDER CSV Settings x=12 y=66 w=566 h=312
+BOX TEXTAREA Specify which columns in your CSV file x=23 y=92 w=472 h=34
+BOX CHECK CSV file has a header row selected=false x=23 y=144 w=196 h=22
+BOX LABEL Data Type x=23 y=172 w=120 h=18
+BOX LABEL Column Index x=223 y=172 w=146 h=18
+BOX LABEL Unit x=375 y=172 w=120 h=18
+BOX LABEL Altitude x=23 y=199 w=49 h=18
+BOX SPINNER 4 x=223 y=196 w=146 h=24
+BOX LABEL ft x=375 y=197 w=13 h=22
+BOX LABEL Speed x=23 y=229 w=45 h=18
+BOX SPINNER 2 x=223 y=226 w=146 h=24
+BOX LABEL km/h x=375 y=227 w=36 h=22
+BOX LABEL Direction x=23 y=259 w=59 h=18
+BOX SPINNER 0 x=223 y=256 w=146 h=24
+BOX LABEL rad x=375 y=257 w=26 h=22
+BOX LABEL Standard Deviation (optional) x=23 y=289 w=194 h=18
+BOX SPINNER 2 x=223 y=286 w=146 h=24
+BOX LABEL mph x=375 y=287 w=32 h=22
+BOX SEPARATOR x=23 y=316 w=472 h=3
+BOX LABEL Field Separator x=23 y=340 w=102 h=18
+BOX COMBO selected=; items=,|;|SPACE|TAB editable x=223 y=337 w=81 h=24
+BOX BORDER CSV Example Contents Preview x=12 y=396 w=566 h=303
+BOX TEXTAREA An example of how the first lines of d x=23 y=422 w=544 h=102
+BOX TEXTPANE x=23 y=542 w=544 h=146
+BOX BUTTON Cancel x=442 y=521 w=76 h=24
+BOX BUTTON OK x=523 y=521 w=72 h=24
+STEP header row checked
+STATE columnType=[Column Name] header=true columns=[Alt (ft)|Wind|Dir|] names=[Alt (ft)|Wind|Dir|] indices=[4|2|0|2] units=[ft|km/h|rad|mph] separator=[;]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW normal[Alt (ft);Wind;Dir]
+PREVIEW normal[328;18;1.57]
+PREVIEW normal[656;27;1.31]
+PREVIEW normal[984;36;1.83]
+PREVIEW normal[1312;45;2.36]
+PREVIEW normal[…]
+OK approved
+STEP separator stored as SPACE
+STATE columnType=[Column Index] header=false columns=[4|2|0|2] names=[Alt (ft)|Wind|Dir|] indices=[4|2|0|2] units=[ft|km/h|rad|mph] separator=[S]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[4=Altitude, 2=Speed, 0=Direction]optional[, 2=StdDev]
+PREVIEW normal[328S18S1.57]optional[S2.24]
+PREVIEW normal[656S27S1.31]optional[S3.36]
+PREVIEW normal[984S36S1.83]optional[S4.47]
+PREVIEW normal[1312S45S2.36]optional[S5.59]
+PREVIEW normal[…]
+OK approved
+STEP separator stored as a tab
+STATE columnType=[Column Index] header=false columns=[4|2|0|2] names=[Alt (ft)|Wind|Dir|] indices=[4|2|0|2] units=[ft|km/h|rad|mph] separator=[TAB]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[4=Altitude, 2=Speed, 0=Direction]optional[, 2=StdDev]
+PREVIEW normal[328\t18\t1.57]optional[\t2.24]
+PREVIEW normal[656\t27\t1.31]optional[\t3.36]
+PREVIEW normal[984\t36\t1.83]optional[\t4.47]
+PREVIEW normal[1312\t45\t2.36]optional[\t5.59]
+PREVIEW normal[…]
+OK approved
+STEP separator stored empty
+STATE columnType=[Column Index] header=false columns=[4|2|0|2] names=[Alt (ft)|Wind|Dir|] indices=[4|2|0|2] units=[ft|km/h|rad|mph] separator=[,]
+OUTLINE altitudeField=NONE speedField=NONE directionField=NONE stdDeviationField=NONE altitudeSpinner=NONE speedSpinner=NONE directionSpinner=NONE stdDeviationSpinner=NONE
+PREVIEW optional[# You can add comments with a hash]
+PREVIEW optional[# Column mapping: ]index[4=Altitude, 2=Speed, 0=Direction]optional[, 2=StdDev]
+PREVIEW normal[328,18,1.57]optional[,2.24]
+PREVIEW normal[656,27,1.31]optional[,3.36]
+PREVIEW normal[984,36,1.83]optional[,4.47]
+PREVIEW normal[1312,45,2.36]optional[,5.59]
+PREVIEW normal[…]
+OK approved
+negative index: java.lang.IllegalArgumentException: (minimum <= value <= maximum) is false
