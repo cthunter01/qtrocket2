@@ -305,6 +305,7 @@ add_executable(QtRocket_core_tests
     simulation/simulation_lookup_invalidation_tests.cpp
     simulation/simulation_row_bound_tests.cpp
     simulation/simulation_threading_tests.cpp
+    simulation/SimulationBatchCompletionTests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp
@@ -313,6 +314,7 @@ add_executable(QtRocket_core_tests
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
     simulation/SimulationProgressEstimatorTests.cpp
+    simulation/SimulationRunnerTests.cpp
     simulation/SimulationRunTests.cpp
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
