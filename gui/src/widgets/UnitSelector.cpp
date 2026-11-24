@@ -51,16 +51,31 @@ UnitSelector::UnitSelector(std::shared_ptr<DoubleBinding> binding, QWidget* pare
     m_binding(checkedBinding(std::move(binding))),
     m_menu(makeChild<QMenu>(this))
 {
+    setUp();
+    connectBinding();
+    refresh();
+}
+
+UnitSelector::UnitSelector(const UnitGroup& group, QWidget* parent)
+  : QToolButton(parent),
+    m_group(&group),
+    m_unit(&group.getDefaultUnit()),
+    m_menu(makeChild<QMenu>(this))
+{
+    setUp();
+    refresh();
+}
+
+UnitSelector::~UnitSelector() = default;
+
+void UnitSelector::setUp()
+{
     setAutoRaise(true);
     setToolButtonStyle(Qt::ToolButtonTextOnly);
     setFocusPolicy(Qt::NoFocus);
     // Every button's press comes to mousePressEvent(), the right one's too (no context menu).
     setContextMenuPolicy(Qt::PreventContextMenu);
-    connectBinding();
-    refresh();
 }
-
-UnitSelector::~UnitSelector() = default;
 
 void UnitSelector::connectBinding()
 {
@@ -74,8 +89,54 @@ void UnitSelector::setBinding(std::shared_ptr<DoubleBinding> binding)
     m_menu->hide();
     m_connection.disconnect();
     m_binding = std::move(checked);
+    m_group   = nullptr;
+    m_unit    = nullptr;
     connectBinding();
     refresh();
+}
+
+const UnitGroup& UnitSelector::getUnitGroup() const noexcept
+{
+    return m_binding != nullptr ? m_binding->getUnitGroup() : *m_group;
+}
+
+void UnitSelector::setUnitGroup(const UnitGroup& group)
+{
+    if (m_binding != nullptr)
+    {
+        bug("The unit group of a unit selector over a binding is the binding's");
+    }
+    if (m_group == &group)
+    {
+        return;
+    }
+    m_menu->hide();
+    m_group = &group;
+    m_unit  = &group.getDefaultUnit();
+    refresh();
+}
+
+const Unit& UnitSelector::getSelectedUnit() const noexcept
+{
+    return m_binding != nullptr ? m_binding->getCurrentUnit() : *m_unit;
+}
+
+void UnitSelector::setSelectedUnit(const Unit& unit)
+{
+    if (!getUnitGroup().contains(unit))
+    {
+        bug("The unit selected is not one of the unit selector's group");
+    }
+    if (m_binding != nullptr)
+    {
+        m_binding->setCurrentUnit(unit);
+    }
+    else
+    {
+        m_unit = &unit;
+    }
+    refresh();
+    Q_EMIT unitSelected();
 }
 
 void UnitSelector::setFieldEnabled(bool enabled)
@@ -86,13 +147,13 @@ void UnitSelector::setFieldEnabled(bool enabled)
 
 bool UnitSelector::hasChoice() const
 {
-    return m_binding->getUnitGroup().getUnitCount() > 1;
+    return getUnitGroup().getUnitCount() > 1;
 }
 
 void UnitSelector::refresh()
 {
-    setText(symbolText(m_binding->getCurrentUnit()));
-    setEnabled(m_fieldEnabled && m_binding->isEnabled());
+    setText(symbolText(getSelectedUnit()));
+    setEnabled(m_fieldEnabled && (m_binding == nullptr || m_binding->isEnabled()));
     // Without a choice, the mouse goes past the button: no hover, no menu.
     setAttribute(Qt::WA_TransparentForMouseEvents, !hasChoice());
 }
@@ -104,7 +165,7 @@ void UnitSelector::showUnitMenu()
         return;
     }
     m_menu->clear();
-    for (const Unit* const unit : m_binding->getUnitGroup().getUnits())
+    for (const Unit* const unit : getUnitGroup().getUnits())
     {
         const QAction* const action = m_menu->addAction(symbolText(*unit));
         connect(action, &QAction::triggered, this,
@@ -116,10 +177,10 @@ void UnitSelector::showUnitMenu()
 
 void UnitSelector::chooseUnit(const Unit& unit)
 {
-    // The menu is made from the binding's group; a binding set since is of another one.
-    if (m_binding->getUnitGroup().contains(unit))
+    // The menu is made from the group; a binding or a group set since is of another one.
+    if (getUnitGroup().contains(unit))
     {
-        m_binding->setCurrentUnit(unit);
+        setSelectedUnit(unit);
     }
 }
 

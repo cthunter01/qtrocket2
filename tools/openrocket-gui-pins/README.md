@@ -23,6 +23,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `motor-chooser` | `tests/gui/dialogs/motor/MotorChooserPins.h` | `MotorChooserMountsProbe` | `gen_motor_chooser_mount_pins.py` | `motor_chooser_mounts_golden_tests.cpp` |
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
+| `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -33,13 +34,13 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
 (`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
-`flight-config`, `motor-chooser`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
+`flight-config`, `motor-chooser`, `plot-widgets`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
 and apply FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts
 and back); `open-designs` binds `SwingPreferences` with one value changed (its parts-library probe: at their
 defaults) and FlatLaf Light (below);
 `scale-figure` binds `SwingPreferences` without a theme; the two material probes keep
 `ServicesForTesting`'s preferences, the four component probes swing's. All but the material, component,
-`preferences` and `open-designs` probes load OpenRocket's motor database and no component presets. `figure-paint`, `rocket-info`,
+`preferences`, `open-designs` and `plot-widgets` probes load OpenRocket's motor database and no component presets. `figure-paint`, `rocket-info`,
 `ribbon`, `rocket-panel` and `motor-chooser` settle a design they load from `data/examples` or build with
 `TestRockets` as the golden harness settles it (a copy of `tools/openrocket-goldens`' `AutomaticDimensions`).
 Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toString`).
@@ -271,6 +272,18 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   `ComponentPresetTableProbe.viewKey()`) with its first five rows' shown cells, and the view with the ticked
   diameter boxes unticked. The generator shares the first rows of dialogs whose first rows are equal (140 rows
   for the 222 dialogs). `OpenDesignsExitGoldenPartsLibrary` opens each of them from QtRocket's dialog.
+- `plot-widgets`: the widgets of the plot tab's rows (Milestone 4), as OpenRocket's own Swing classes make them,
+  headless: the data type combo box (`GroupableAndSearchableComboBox` as `PlotTypeSelector` makes it over
+  `FlightDataType.ALL_TYPES`, then over a few types that compare equal, and the domain type selector of the
+  `PlotPanel` of `PlotTypeSelectorTest`): its placeholder, its MigLayout constraints, its tooltip, its model's
+  order (a `HashSet`'s), its groups popup and `filter()` searches (read by reflection, as `material-combo` reads
+  them) and its item events after `setSelectedItem()`; `UnitSelector(UnitGroup)`: its text, selected unit,
+  `setSelectedUnit()` and `setUnitGroup()` with their item events and refusals; the line style combo box of
+  `SimulationPlotTypeSelector`: its items, what its renderer's `LineStyleIcon` paints into a recording
+  `Graphics2D` (`shared/probe/DelegatingGraphics2D`) and its events; and `ColorChooserButton`: its `ColorIcon`,
+  painted enabled and disabled, and its property change events. It builds no design (its UUIDs are seeded all
+  the same) and loads no motors. The tests pin the whole transcript by hand (`DataTypeComboBoxTests.cpp`,
+  `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` of `tests/gui/widgets/`).
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -364,6 +377,9 @@ difference is reported (exit status 1) and never written: review the tests that 
 copy the new lines (`<work>/<probe>.hand-pinned.txt`) over `hand-pinned.txt`. The three snapshots equal the
 lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-probe.out` and G1's
 `out.txt` in the Milestone 2 handoff).
+
+`PlotWidgetsProbe` (`plot-widgets`) has no table either: the four tests above pin its whole transcript by hand,
+and its `hand-pinned.txt` is that transcript.
 
 `PresetGuiProbe`, `ConfigPresetRowProbe` and `PresetShownProbe` (`preset-chooser`; its other probe,
 `PresetChooserProbe`, writes `PresetChooserPins.h`) have no table: the tests pin their whole transcripts by hand

@@ -13,6 +13,7 @@
 #include <QChar>
 #include <QCheckBox>
 #include <QColor>
+#include <QColorDialog>
 #include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -909,11 +910,27 @@ std::optional<UserPrompts::WindCsvImportSettings> WidgetUserPrompts::askWindCsvI
     return std::nullopt;
 }
 
-std::optional<QColor> WidgetUserPrompts::askColor(QWidget* /*parent*/, const QColor& /*initial*/,
-                                                  const QString& /*title*/)
+std::optional<QColor> WidgetUserPrompts::askColor(QWidget* parent, const QColor& initial,
+                                                  const QString& title)
 {
-    // The colour dialog is not there yet: cancelled (see the class comment).
-    return std::nullopt;
+    // JColorChooser.createDialog(button, "Select color", true, chooser, ...): modal, the chooser's
+    // colour to start with.
+    ModalDialog<QColorDialog> dialog(parent, initial);
+    QColorDialog&             chooser = *dialog.get();
+    chooser.setObjectName(QStringLiteral("colorDialog"));
+    chooser.setOption(QColorDialog::DontUseNativeDialog, true);
+    chooser.setOption(QColorDialog::ShowAlphaChannel, true);
+    chooser.setWindowTitle(title);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return std::nullopt;
+    }
+    const QColorDialog* const answered = dialog.get();
+    if (answered == nullptr)
+    {
+        return std::nullopt;
+    }
+    return answered->selectedColor();
 }
 
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)

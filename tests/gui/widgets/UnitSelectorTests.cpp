@@ -1,4 +1,10 @@
-// The unit of a number field and the choice of another (Java: UnitSelector on a DoubleModel).
+// The unit of a number field and the choice of another (Java: UnitSelector on a DoubleModel), and
+// the choice of a unit of a bare unit group (Java: UnitSelector(UnitGroup)).
+//
+// Expectations marked "probe" are OpenRocket's own results, printed by the Java probe
+// tools/openrocket-gui-pins/plot-widgets/probe/PlotWidgetsProbe.java (OpenRocket 5f164fd0e, JDK 17;
+// its transcript is plot-widgets/hand-pinned.txt): a UnitSelector(UnitGroup.UNITS_LENGTH), its
+// texts, selected units and item events.
 
 #include "QtRocket/gui/widgets/UnitSelector.h"
 
@@ -9,6 +15,7 @@
 #include <QAction>
 #include <QList>
 #include <QMenu>
+#include <QSignalSpy>
 #include <QString>
 #include <QTest>
 #include <QToolButton>
@@ -254,6 +261,146 @@ TEST_F(UnitSelectorTest, AnotherBindingTakesThePlaceOfTheFirst)
     first->setCurrentUnit(*unitGroup(UnitGroupId::LENGTH).getUnit("mm"));
     EXPECT_EQ(selector.text(),
               QtStrings::unitSymbol(unitGroup(UnitGroupId::MASS).getDefaultUnit()));
+}
+
+TEST_F(UnitSelectorTest, ABareGroupStartsAtItsDefaultUnit)
+{
+    // probe: units: mm cm m in in/64 ft; default=cm; text='cm' selected=cm model=null
+    const UnitGroup&   length = unitGroup(UnitGroupId::LENGTH);
+    const UnitSelector selector(length, nullptr);
+    EXPECT_EQ(unitSymbols(length),
+              (std::vector<QString>{QStringLiteral("mm"), QStringLiteral("cm"), QStringLiteral("m"),
+                                    QStringLiteral("in"), QStringLiteral("in/64"),
+                                    QStringLiteral("ft")}));
+    EXPECT_EQ(selector.text(), QStringLiteral("cm"));
+    EXPECT_EQ(&selector.getSelectedUnit(), &length.getDefaultUnit());
+    EXPECT_EQ(&selector.getUnitGroup(), &length);
+    EXPECT_EQ(selector.binding(), nullptr);
+    EXPECT_TRUE(selector.autoRaise());
+    EXPECT_EQ(selector.focusPolicy(), Qt::NoFocus);
+    EXPECT_EQ(selector.contextMenuPolicy(), Qt::PreventContextMenu);
+    EXPECT_FALSE(selector.testAttribute(Qt::WA_TransparentForMouseEvents));
+    EXPECT_TRUE(selector.isEnabled());
+}
+
+TEST_F(UnitSelectorTest, EverySelectionOfAUnitIsToldOf)
+{
+    // probe: setSelectedUnit(in): text='in' selected=in events=[SELECTED in] default=cm; again:
+    // events=[SELECTED in].
+    const UnitGroup& length = unitGroup(UnitGroupId::LENGTH);
+    UnitSelector     selector(length, nullptr);
+    const QSignalSpy selections(&selector, &UnitSelector::unitSelected);
+    const Unit*      inch = length.getUnit("in");
+    ASSERT_NE(inch, nullptr);
+    selector.setSelectedUnit(*inch);
+    EXPECT_EQ(selector.text(), QStringLiteral("in"));
+    EXPECT_EQ(&selector.getSelectedUnit(), inch);
+    EXPECT_EQ(selections.count(), 1);
+    EXPECT_EQ(length.getDefaultUnit().getUnit(), "cm");
+    selector.setSelectedUnit(*inch);
+    EXPECT_EQ(selections.count(), 2);
+}
+
+TEST_F(UnitSelectorTest, AnotherGroupStartsAtItsDefaultUnitAndTellsOfNothing)
+{
+    // probe: setUnitGroup(UNITS_LENGTH), the same: text='in' selected=in events=[];
+    // setUnitGroup(UNITS_DISTANCE): units: m km ft yd mi nmi; text='m' selected=m events=[].
+    const UnitGroup& length   = unitGroup(UnitGroupId::LENGTH);
+    const UnitGroup& distance = unitGroup(UnitGroupId::DISTANCE);
+    UnitSelector     selector(length, nullptr);
+    selector.setSelectedUnit(*length.getUnit("in"));
+    const QSignalSpy selections(&selector, &UnitSelector::unitSelected);
+    selector.setUnitGroup(length);
+    EXPECT_EQ(selector.text(), QStringLiteral("in"));
+    selector.setUnitGroup(distance);
+    EXPECT_EQ(&selector.getUnitGroup(), &distance);
+    EXPECT_EQ(selector.text(), QStringLiteral("m"));
+    EXPECT_EQ(&selector.getSelectedUnit(), &distance.getDefaultUnit());
+    EXPECT_EQ(selections.count(), 0);
+    EXPECT_EQ(
+        unitSymbols(distance),
+        (std::vector<QString>{QStringLiteral("m"), QStringLiteral("km"), QStringLiteral("ft"),
+                              QStringLiteral("yd"), QStringLiteral("mi"), QStringLiteral("nmi")}));
+}
+
+TEST_F(UnitSelectorTest, AUnitOfAnotherGroupIsAProgrammingError)
+{
+    // probe: setSelectedUnit(in) of another group: IllegalArgumentException, text='m' events=[];
+    // setUnitGroup() of a model's selector: IllegalStateException.
+    UnitSelector     selector(unitGroup(UnitGroupId::DISTANCE), nullptr);
+    const QSignalSpy selections(&selector, &UnitSelector::unitSelected);
+    EXPECT_THROW(selector.setSelectedUnit(*unitGroup(UnitGroupId::LENGTH).getUnit("in")), BugError);
+    EXPECT_EQ(selector.text(), QStringLiteral("m"));
+    EXPECT_EQ(selections.count(), 0);
+
+    const TwoTubeRocket rocket;
+    UnitSelector        bound(lengthBinding(*rocket.tubeA), nullptr);
+    EXPECT_THROW(bound.setUnitGroup(unitGroup(UnitGroupId::DISTANCE)), BugError);
+}
+
+TEST_F(UnitSelectorTest, TheMenuChoosesTheUnitOfABareGroup)
+{
+    QWidget window;
+    auto*   selector = makeChild<UnitSelector>(&window, unitGroup(UnitGroupId::LENGTH));
+    ASSERT_TRUE(showActiveWith(window, {selector}));
+    const QSignalSpy             selections(selector, &UnitSelector::unitSelected);
+    const OffscreenPopupWarnings popup;
+    EXPECT_TRUE(opensMenu(*selector, Qt::LeftButton));
+    ASSERT_NE(selector->unitMenu(), nullptr);
+    EXPECT_EQ(itemTexts(*selector->unitMenu()), unitSymbols(unitGroup(UnitGroupId::LENGTH)));
+    QAction* const feet = menuItem(*selector->unitMenu(), QStringLiteral("ft"));
+    ASSERT_NE(feet, nullptr);
+    feet->trigger();
+    EXPECT_EQ(selector->getSelectedUnit().getUnit(), "ft");
+    EXPECT_EQ(selector->text(), QStringLiteral("ft"));
+    EXPECT_EQ(selections.count(), 1);
+}
+
+TEST_F(UnitSelectorTest, ABareGroupOfOneUnitOffersNoChoice)
+{
+    // probe: UnitSelector(UNITS_NONE): units=1 text='\u200b'
+    UnitSelector selector(unitGroup(UnitGroupId::NONE), nullptr);
+    EXPECT_EQ(selector.text(), QStringLiteral("\u200b"));
+    EXPECT_TRUE(selector.testAttribute(Qt::WA_TransparentForMouseEvents));
+    selector.showUnitMenu();
+    EXPECT_FALSE(selector.unitMenu()->isVisible());
+}
+
+TEST_F(UnitSelectorTest, OverABindingTheSelectedUnitIsTheBindings)
+{
+    const TwoTubeRocket rocket;
+    const auto          binding = lengthBinding(*rocket.tubeA);
+    UnitSelector        selector(binding, nullptr);
+    const QSignalSpy    selections(&selector, &UnitSelector::unitSelected);
+    EXPECT_EQ(&selector.getUnitGroup(), &binding->getUnitGroup());
+    EXPECT_EQ(&selector.getSelectedUnit(), &binding->getCurrentUnit());
+    selector.setSelectedUnit(*unitGroup(UnitGroupId::LENGTH).getUnit("mm"));
+    EXPECT_EQ(binding->getCurrentUnit().getUnit(), "mm");
+    EXPECT_EQ(selector.text(), QStringLiteral("mm"));
+    EXPECT_EQ(selections.count(), 1);
+}
+
+TEST_F(UnitSelectorTest, ABindingTakesThePlaceOfTheBareGroup)
+{
+    // Java: setModel() on a selector of a unit group.
+    const TwoTubeRocket rocket;
+    UnitSelector        selector(unitGroup(UnitGroupId::MASS), nullptr);
+    const auto          binding = lengthBinding(*rocket.tubeA);
+    selector.setBinding(binding);
+    EXPECT_EQ(selector.binding(), binding);
+    EXPECT_EQ(&selector.getUnitGroup(), &unitGroup(UnitGroupId::LENGTH));
+    EXPECT_EQ(selector.text(), QStringLiteral("cm"));
+}
+
+TEST_F(UnitSelectorTest, TheFieldEnablesABareSelector)
+{
+    UnitSelector selector(unitGroup(UnitGroupId::LENGTH), nullptr);
+    selector.setFieldEnabled(false);
+    EXPECT_FALSE(selector.isEnabled());
+    selector.showUnitMenu();
+    EXPECT_FALSE(selector.unitMenu()->isVisible());
+    selector.setFieldEnabled(true);
+    EXPECT_TRUE(selector.isEnabled());
 }
 
 }  // namespace

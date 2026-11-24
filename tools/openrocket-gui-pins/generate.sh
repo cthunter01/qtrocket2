@@ -33,6 +33,9 @@
 #   open-designs       tests/gui/exit/OpenDesignsTabPins.h (the Motors & Configuration tab of each design of
 #                      OpenDesignsExitGolden) and OpenDesignsPartsLibraryPins.h (the parts library of each
 #                      component of its examples that takes presets; both probes run under xvfb-run)
+#   plot-widgets       the values tests/gui/widgets/DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp,
+#                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
+#                      see README.md)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -40,7 +43,7 @@
 # OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
-# never rewrite it (README.md, "Values pinned by hand"); so does preset-chooser.
+# never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser and plot-widgets.
 #
 # Environment:
 #   OPENROCKET_DIR        the OpenRocket checkout (default: "openrocket" next to the main working tree of the
@@ -71,7 +74,7 @@ set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser open-designs)
+    preset-chooser open-designs plot-widgets)
 
 check=false
 families=()
@@ -479,6 +482,14 @@ for family in "${families[@]}"; do
         file=tests/gui/exit/OpenDesignsPartsLibraryPins.h
         python3 -I "${here}/${family}/gen_open_designs_parts_library_pins.py" \
             "${work}/OpenDesignsPartsLibraryProbe.txt" "$(generated "${file}")" "${commit}"
+        ;;
+    plot-widgets)
+        # Swing's PlotTypeSelector, SimulationPlotTypeSelector, UnitSelector and ColorChooserButton are
+        # JPanels and a JButton: they run headless. The tests pin the whole transcript by hand.
+        run_probe "${family}" PlotWidgetsProbe headless
+        check_hand_pins "${family}" PlotWidgetsProbe \
+            "DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp, LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp"
+        continue
         ;;
     esac
     finish "${file}"

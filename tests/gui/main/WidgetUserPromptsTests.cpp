@@ -16,6 +16,7 @@
 #include <QChar>
 #include <QCheckBox>
 #include <QColor>
+#include <QColorDialog>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -611,17 +612,78 @@ TEST_F(WidgetUserPromptsTest, AsksWhetherToDeleteTheSimulations)
               (UserPrompts::DeleteSimulationsAnswer{.confirmed = false, .doNotAskAgain = true}));
 }
 
+/// What the colour dialog looked like.
+struct ColorQuestion
+{
+    QString objectName;
+    QString title;
+    QColor  initial;
+    bool    qtDialog = false;
+    bool    alpha    = false;
+};
+
+/// Records the colour dialog and accepts it with @p color, or rejects it when it is invalid.
+struct AnswerColor
+{
+    QColor         color;
+    ColorQuestion* seen;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<QColorDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            seen->objectName = dialog->objectName();
+            seen->title      = dialog->windowTitle();
+            seen->initial    = dialog->currentColor();
+            seen->qtDialog   = dialog->testOption(QColorDialog::DontUseNativeDialog);
+            seen->alpha      = dialog->testOption(QColorDialog::ShowAlphaChannel);
+        }
+        if (!color.isValid())
+        {
+            dialog->reject();
+            return;
+        }
+        dialog->setCurrentColor(color);
+        dialog->accept();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, AsksForAColourInQtsOwnDialog)
+{
+    // ColorChooserButton: JColorChooser.createDialog(button, "Select color", true, ...), the
+    // button's colour to start with; Java's chooser has a transparency slider.
+    WidgetUserPrompts     prompts;
+    ColorQuestion         seen;
+    std::optional<QColor> chosen;
+    {
+        const Gui::Test::NextModalDialog choose(
+            AnswerColor{.color = QColor(10, 20, 30, 40), .seen = &seen});
+        chosen = prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color"));
+    }
+    EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
+    EXPECT_EQ(seen.objectName, QStringLiteral("colorDialog"));
+    EXPECT_EQ(seen.title, QStringLiteral("Select color"));
+    EXPECT_EQ(seen.initial, QColor(1, 2, 3));
+    EXPECT_TRUE(seen.qtDialog);
+    EXPECT_TRUE(seen.alpha);
+
+    // Cancel and the close button choose nothing.
+    const Gui::Test::NextModalDialog cancel(AnswerColor{.color = QColor(), .seen = nullptr});
+    EXPECT_EQ(prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color")),
+              std::nullopt);
+}
+
 TEST_F(WidgetUserPromptsTest, TheQuestionsWhoseDialogsComeLaterCancelWithoutADialog)
 {
-    // Milestone 4's run dialog, CSV import settings, colour dialog and the table export's CSV
-    // options are not there yet: their questions cancel at once (a dialog would wait here for an
-    // answer that never comes).
+    // Milestone 4's run dialog, CSV import settings and the table export's CSV options are not
+    // there yet: their questions cancel at once (a dialog would wait here for an answer that never
+    // comes).
     WidgetUserPrompts prompts;
     EXPECT_EQ(prompts.runSimulations(nullptr, {}),
               (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
     EXPECT_EQ(prompts.askWindCsvImportSettings(nullptr, {}), std::nullopt);
-    EXPECT_EQ(prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color")),
-              std::nullopt);
     UserPrompts::SaveFileRequest tableExport;
     tableExport.title      = QStringLiteral("Save as CSV file");
     tableExport.fileName   = QStringLiteral("Rocket.csv");

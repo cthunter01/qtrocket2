@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <memory>
 #include <utility>
 #include <vector>
 
@@ -28,7 +27,6 @@
 #include <QWidget>
 #include <Qt>
 
-#include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/gui/widgets/CsvOptionPanel.h"
@@ -325,8 +323,7 @@ void CsvExportPanel::buildTable(bool withExtraColumn)
         widgets.nameLabel->setObjectName(QStringLiteral("nameLabel"));
         grid.addWidget(widgets.nameLabel, gridRow, 1);
 
-        widgets.unitSelector =
-            makeChild<UnitSelector>(table, std::make_shared<DoubleBinding>(0.0, *row.unitGroup));
+        widgets.unitSelector = makeChild<UnitSelector>(table, *row.unitGroup);
         widgets.unitSelector->setObjectName(QStringLiteral("unitSelector"));
         grid.addWidget(widgets.unitSelector, gridRow, 2);
 
@@ -444,7 +441,7 @@ std::size_t CsvExportPanel::selectedCount() const
 
 const Unit& CsvExportPanel::unit(std::size_t row) const
 {
-    return rowWidgets(row).unitSelector->binding()->getCurrentUnit();
+    return rowWidgets(row).unitSelector->getSelectedUnit();
 }
 
 std::vector<const Unit*> CsvExportPanel::units() const
@@ -453,14 +450,14 @@ std::vector<const Unit*> CsvExportPanel::units() const
     result.reserve(m_rowWidgets.size());
     for (const RowWidgets& widgets : m_rowWidgets)
     {
-        result.push_back(&widgets.unitSelector->binding()->getCurrentUnit());
+        result.push_back(&widgets.unitSelector->getSelectedUnit());
     }
     return result;
 }
 
 void CsvExportPanel::setSelectedUnit(std::size_t row, const Unit& unit)
 {
-    rowWidgets(row).unitSelector->binding()->setCurrentUnit(unit);
+    rowWidgets(row).unitSelector->setSelectedUnit(unit);
 }
 
 void CsvExportPanel::selectAll()

@@ -1,0 +1,178 @@
+== data type combo (PlotTypeSelector over FlightDataType.ALL_TYPES, Damping moment coefficient (aerodynamic) selected)
+placeholder='Enter the data type'
+DATA_TYPE_SELECTOR_WIDTH='200lp!'
+constraints typeSelector='width 200lp!, gapright unrel, top'
+constraints unitSelector='width 40lp, gapright unrel, top'
+tooltip='Damping moment coefficient (aerodynamic)'
+selected display='Damping moment coefficient (aerodynamic)' editable=false
+model: 71: Reference area | Wind velocity | Total velocity | Roll forcing coefficient | Roll moment coefficient | Natural frequency | Reynolds number | Mach number | Air pressure | Simulation time step | Normal force coefficient (CN) | Damping moment coefficient | Lateral direction | Damping moment coefficient (propulsive) | Drag coefficient (CD) | Longitude | Side force coefficient | Vertical velocity | Pitch damping coefficient | Z body acceleration | Wind direction | CG location | Gravitational acceleration | Corrective moment coefficient | Base drag coefficient (CD_base) | Pitch rate (Y) | Thrust | Speed of sound | Coriolis acceleration | Altitude | Thrust-to-weight ratio | Lateral velocity | Lateral acceleration | Vertical orientation (zenith) | Reference length | Latitude | Mass | Position East of launch | Yaw rate (X) | X body acceleration | Air temperature | Altitude above sea level | Damping moment coefficient (aerodynamic) | Y body acceleration | Acceleration to the North | Computation time | Yaw damping coefficient | Total acceleration | Position North of launch | Normal force coefficient derivative (CNα) | Air density | Longitudinal moment of inertia | Pitch moment coefficient (Cm) | Lateral distance | Friction drag coefficient (CD_friction) | Rotational moment of inertia | Angle of attack | Pressure drag coefficient (CD_pressure) | Yaw moment coefficient | Roll damping coefficient | Roll rate (Z) | Lateral orientation (azimuth) | Damping ratio | Motor mass | Drag force | Stability margin calibers | CP location | Vertical acceleration | Time | Axial drag coefficient (CA) | Acceleration to the East
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time': Time
+  menu 'Position and Motion': Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Acceleration to the East | Acceleration to the North | X body acceleration | Y body acceleration | Z body acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude
+  menu 'Orientation': Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth)
+  menu 'Mass and Inertia': Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration
+  menu 'Stability': CP location | CG location | Stability margin calibers | Damping ratio | Natural frequency
+  menu 'Thrust and Drag': Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA)
+  menu 'Coefficients' [checked]: Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Yaw damping coefficient | Damping moment coefficient | [x] Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Corrective moment coefficient
+  menu 'Atmospheric Conditions': Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound
+  menu 'Characteristic Numbers': Mach number | Reynolds number
+  menu 'Reference Values': Reference length | Reference area
+  menu 'Simulation Information': Simulation time step | Computation time
+  menu 'Custom': Coriolis acceleration
+search 'alt': 2: Altitude | Altitude above sea level
+search 'ALT': 2: Altitude | Altitude above sea level
+search 'coef': 19: Axial drag coefficient (CA) | Base drag coefficient (CD_base) | Corrective moment coefficient | Damping moment coefficient | ✓ Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch damping coefficient | Pitch moment coefficient (Cm) | Pressure drag coefficient (CD_pressure) | Roll damping coefficient | Roll forcing coefficient | Roll moment coefficient | Side force coefficient | Yaw damping coefficient | Yaw moment coefficient
+search '(': 15: Axial drag coefficient (CA) | Base drag coefficient (CD_base) | ✓ Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Lateral orientation (azimuth) | Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch moment coefficient (Cm) | Pitch rate (Y) | Pressure drag coefficient (CD_pressure) | Roll rate (Z) | Vertical orientation (zenith) | Yaw rate (X)
+search 'moment': 9: Corrective moment coefficient | Damping moment coefficient | ✓ Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Longitudinal moment of inertia | Pitch moment coefficient (Cm) | Roll moment coefficient | Rotational moment of inertia | Yaw moment coefficient
+search 'zzz': 0: 
+search ' ': 65: Acceleration to the East | Acceleration to the North | Air density | Air pressure | Air temperature | Altitude above sea level | Angle of attack | Axial drag coefficient (CA) | Base drag coefficient (CD_base) | CG location | Computation time | Coriolis acceleration | Corrective moment coefficient | CP location | Damping moment coefficient | ✓ Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Damping ratio | Drag coefficient (CD) | Drag force | Friction drag coefficient (CD_friction) | Gravitational acceleration | Lateral acceleration | Lateral direction | Lateral distance | Lateral orientation (azimuth) | Lateral velocity | Longitudinal moment of inertia | Mach number | Motor mass | Natural frequency | Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch damping coefficient | Pitch moment coefficient (Cm) | Pitch rate (Y) | Position East of launch | Position North of launch | Pressure drag coefficient (CD_pressure) | Reference area | Reference length | Reynolds number | Roll damping coefficient | Roll forcing coefficient | Roll moment coefficient | Roll rate (Z) | Rotational moment of inertia | Side force coefficient | Simulation time step | Speed of sound | Stability margin calibers | Thrust-to-weight ratio | Total acceleration | Total velocity | Vertical acceleration | Vertical orientation (zenith) | Vertical velocity | Wind direction | Wind velocity | X body acceleration | Y body acceleration | Yaw damping coefficient | Yaw moment coefficient | Yaw rate (X) | Z body acceleration
+search 'Mach': 1: Mach number
+search 'x': 3: Axial drag coefficient (CA) | X body acceleration | Yaw rate (X)
+search 'damping moment': 3: Damping moment coefficient | ✓ Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive)
+setSelectedItem(Altitude): tooltip='Altitude' events=[DESELECTED Damping moment coefficient (aerodynamic), SELECTED Altitude, action]
+setSelectedItem(Altitude) again: events=[]
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time': Time
+  menu 'Position and Motion' [checked]: [x] Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Acceleration to the East | Acceleration to the North | X body acceleration | Y body acceleration | Z body acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude
+  menu 'Orientation': Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth)
+  menu 'Mass and Inertia': Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration
+  menu 'Stability': CP location | CG location | Stability margin calibers | Damping ratio | Natural frequency
+  menu 'Thrust and Drag': Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA)
+  menu 'Coefficients': Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Yaw damping coefficient | Damping moment coefficient | Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Corrective moment coefficient
+  menu 'Atmospheric Conditions': Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound
+  menu 'Characteristic Numbers': Mach number | Reynolds number
+  menu 'Reference Values': Reference length | Reference area
+  menu 'Simulation Information': Simulation time step | Computation time
+  menu 'Custom': Coriolis acceleration
+search 'alt': 2: ✓ Altitude | Altitude above sea level
+setSelectedItem(Thrust Pressure Correction, not an item): selected='Thrust Pressure Correction' index=-1 tooltip='Thrust Pressure Correction' events=[DESELECTED Altitude, SELECTED Thrust Pressure Correction, action]
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time': Time
+  menu 'Position and Motion': Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Acceleration to the East | Acceleration to the North | X body acceleration | Y body acceleration | Z body acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude
+  menu 'Orientation': Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth)
+  menu 'Mass and Inertia': Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration
+  menu 'Stability': CP location | CG location | Stability margin calibers | Damping ratio | Natural frequency
+  menu 'Thrust and Drag' [checked]: Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA)
+  menu 'Coefficients': Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Yaw damping coefficient | Damping moment coefficient | Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Corrective moment coefficient
+  menu 'Atmospheric Conditions': Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound
+  menu 'Characteristic Numbers': Mach number | Reynolds number
+  menu 'Reference Values': Reference length | Reference area
+  menu 'Simulation Information': Simulation time step | Computation time
+  menu 'Custom': Coriolis acceleration
+setSelectedItem(null): selected=null tooltip='Thrust Pressure Correction' events=[DESELECTED Thrust Pressure Correction, action]
+== data type combo (ties: Thrust Pressure Correction, Altitude, Thrust, Time; Time selected)
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time' [checked]: [x] Time
+  menu 'Position and Motion': Altitude
+  menu 'Thrust and Drag': Thrust Pressure Correction | Thrust
+search 't': 4: Altitude | Thrust | Thrust Pressure Correction | ✓ Time
+search 'THRUST': 2: Thrust | Thrust Pressure Correction
+== data type combo (ties reversed: Time, Thrust, Altitude, Thrust Pressure Correction; Time selected)
+model: 4: Altitude | Thrust Pressure Correction | Thrust | Time
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time' [checked]: [x] Time
+  menu 'Position and Motion': Altitude
+  menu 'Thrust and Drag': Thrust Pressure Correction | Thrust
+without a selection change (a new combo box: the list's order):
+model: 4: Altitude | Thrust Pressure Correction | Thrust | Time
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time': Time
+  menu 'Position and Motion': Altitude
+  menu 'Thrust and Drag': Thrust | Thrust Pressure Correction
+== data type combo (FlightDataType.ALL_TYPES and Thrust Pressure Correction; Altitude selected)
+model: 72: Reference area | Wind velocity | Total velocity | Roll forcing coefficient | Roll moment coefficient | Natural frequency | Reynolds number | Mach number | Air pressure | Simulation time step | Normal force coefficient (CN) | Damping moment coefficient | Lateral direction | Damping moment coefficient (propulsive) | Drag coefficient (CD) | Longitude | Side force coefficient | Vertical velocity | Pitch damping coefficient | Thrust Pressure Correction | Z body acceleration | Wind direction | CG location | Gravitational acceleration | Corrective moment coefficient | Base drag coefficient (CD_base) | Pitch rate (Y) | Thrust | Speed of sound | Coriolis acceleration | Altitude | Thrust-to-weight ratio | Lateral velocity | Lateral acceleration | Vertical orientation (zenith) | Reference length | Latitude | Mass | Position East of launch | Yaw rate (X) | X body acceleration | Air temperature | Altitude above sea level | Damping moment coefficient (aerodynamic) | Y body acceleration | Acceleration to the North | Computation time | Yaw damping coefficient | Total acceleration | Position North of launch | Normal force coefficient derivative (CNα) | Air density | Longitudinal moment of inertia | Pitch moment coefficient (Cm) | Lateral distance | Friction drag coefficient (CD_friction) | Rotational moment of inertia | Angle of attack | Pressure drag coefficient (CD_pressure) | Yaw moment coefficient | Roll damping coefficient | Roll rate (Z) | Lateral orientation (azimuth) | Damping ratio | Motor mass | Drag force | Stability margin calibers | CP location | Vertical acceleration | Time | Axial drag coefficient (CA) | Acceleration to the East
+groups popup:
+  PlaceholderTextField text=''
+  Separator
+  menu 'Time': Time
+  menu 'Position and Motion' [checked]: [x] Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Acceleration to the East | Acceleration to the North | X body acceleration | Y body acceleration | Z body acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude
+  menu 'Orientation': Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth)
+  menu 'Mass and Inertia': Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration
+  menu 'Stability': CP location | CG location | Stability margin calibers | Damping ratio | Natural frequency
+  menu 'Thrust and Drag': Thrust Pressure Correction | Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA)
+  menu 'Coefficients': Normal force coefficient (CN) | Normal force coefficient derivative (CNα) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Yaw damping coefficient | Damping moment coefficient | Damping moment coefficient (aerodynamic) | Damping moment coefficient (propulsive) | Corrective moment coefficient
+  menu 'Atmospheric Conditions': Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound
+  menu 'Characteristic Numbers': Mach number | Reynolds number
+  menu 'Reference Values': Reference length | Reference area
+  menu 'Simulation Information': Simulation time step | Computation time
+  menu 'Custom': Coriolis acceleration
+== domain type selector (PlotPanel of PlotTypeSelectorTest)
+constraints domainTypeSelector='width 200lp!, gapright unrel'
+tooltip='Damping moment coefficient (aerodynamic)'
+setSelectedItem(Altitude): tooltip='Altitude'
+== unit selector (UnitSelector(UnitGroup.UNITS_LENGTH))
+units: mm cm m in in/64 ft; default=cm
+text='cm' selected=cm model=null group is UNITS_LENGTH=true
+setSelectedUnit(in): text='in' selected=in events=[SELECTED in] default=cm
+setSelectedUnit(in) again: events=[SELECTED in]
+setUnitGroup(UNITS_LENGTH), the same: text='in' selected=in events=[]
+setUnitGroup(UNITS_DISTANCE): units: m km ft yd mi nmi; text='m' selected=m events=[]
+setSelectedUnit(in) of another group: IllegalArgumentException: unit in not contained in group UnitGroup:m text='m' events=[]
+UnitSelector(UNITS_NONE): units=1 text='​'
+setUnitGroup() of a model's selector: IllegalStateException: UnitGroup cannot be set when backed up with model.
+== line style combo (SimulationPlotTypeSelector, initial line style null)
+items: SOLID='Solid' | DASHED='Dashed' | DOTTED='Dotted' | DASHDOT='Dash-dotted'
+selected=SOLID editable=false
+dashes SOLID=[10.0, 0.0]
+dashes DASHED=[6.0, 4.0]
+dashes DOTTED=[2.0, 3.0]
+dashes DASHDOT=[8.0, 3.0, 2.0, 3.0]
+renderer SOLID: text='Solid' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+  paint SOLID (48x12) at 3,4:
+    create()
+    setColor(0,0,0,255)
+    setStroke(width=2.0 cap=0 join=2 miter=0.0 dashes=null phase=0.0)
+    drawLine(3, 10, 51, 10)
+    dispose()
+renderer SOLID selected: text='Solid' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+renderer DASHED: text='Dashed' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+  paint DASHED (48x12) at 3,4:
+    create()
+    setColor(0,0,0,255)
+    setStroke(width=2.0 cap=0 join=2 miter=0.0 dashes=[6.0, 4.0] phase=0.0)
+    drawLine(3, 10, 51, 10)
+    dispose()
+renderer DASHED selected: text='Dashed' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+renderer DOTTED: text='Dotted' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+  paint DOTTED (48x12) at 3,4:
+    create()
+    setColor(0,0,0,255)
+    setStroke(width=2.0 cap=0 join=2 miter=0.0 dashes=[2.0, 3.0] phase=0.0)
+    drawLine(3, 10, 51, 10)
+    dispose()
+renderer DOTTED selected: text='Dotted' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+renderer DASHDOT: text='Dash-dotted' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+  paint DASHDOT (48x12) at 3,4:
+    create()
+    setColor(0,0,0,255)
+    setStroke(width=2.0 cap=0 join=2 miter=0.0 dashes=[8.0, 3.0, 2.0, 3.0] phase=0.0)
+    drawLine(3, 10, 51, 10)
+    dispose()
+renderer DASHDOT selected: text='Dash-dotted' gap=8 foreground=0,0,0,255 list foreground=0,0,0,255 selection foreground=0,0,0,255
+setSelectedLineStyle(DASHED): selected=DASHED events=[DESELECTED SOLID, SELECTED DASHED, action]
+setSelectedLineStyle(DASHED) again: events=[action]
+initial DOTTED: selected=DOTTED
+== color chooser button (ColorChooserButton(new Color(1, 2, 3)))
+COLOR_KEY='selectedColor' selected=1,2,3,255 icon=ColorIcon 25x15 text='' tooltip=null
+  paint enabled (25x15) at 3,4:
+    setColor(1,2,3,255)
+    fillRect(3, 4, 25, 15)
+  paint disabled (25x15) at 3,4:
+    setColor(1,2,3,255)
+    drawRect(3, 4, 25, 15)
+setSelectedColor(1,2,3), equal: events=[] same icon=true
+setSelectedColor(null): selected=1,2,3,255 events=[]
+setSelectedColor(200,100,50,128): selected=200,100,50,128 events=[selectedColor 1,2,3,255 -> 200,100,50,128, selectedColor 1,2,3,255 -> 200,100,50,128] same icon=false
+ColorChooserButton(null): selected=null icon=null

@@ -59,10 +59,10 @@ class UnitSelector;
 /// "unitSelector", "selectedCountLabel", "csvOptions"; and the locals "selectAllButton",
 /// "selectNoneButton", "scrollPane" and "contentPanel".
 ///
+/// Each row's unit selector is a UnitSelector over the row's bare unit group (Java:
+/// UnitSelector(UnitGroup)).
+///
 /// Deviations from OpenRocket:
-/// - Each row's unit selector is a UnitSelector over a DoubleBinding of its own (0 in the row's
-///   unit group, as figure/RulerUnitSelector's), which shows only the current unit's symbol: Java's
-///   UnitSelector(UnitGroup) has no model. (Run 1's K5 adds the bare-group UnitSelector.)
 /// - hasExtraColumn() is false unless a subclass says otherwise; Java's hasExtraComponent()
 ///   makes a throwaway extra component of the first row to find out.
 /// - Each row's check box has the row's name as its accessible name (Java's has none).
