@@ -38,8 +38,8 @@
 
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/settings/CsvOptionPreferences.h"
+#include "QtRocket/gui/util/EnumText.h"
 #include "QtRocket/gui/util/MakeChild.h"
-#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/gui/widgets/CsvOptionPanel.h"
 #include "QtRocket/gui/widgets/UnitSelector.h"
@@ -69,13 +69,13 @@ using Rows = std::vector<CsvExportPanel::Row>;
         std::vector<CsvOptionPanel::CommentOption>(3), CsvOptionPanel::Arrangement::ON_NEW_ROWS);
 }
 
-/// The row of the built-in flight data type @p id, ticked when @p selected.
+/// The row of the built-in flight data type @p id, ticked when @p selected, named as the export
+/// tab names it.
 [[nodiscard]] CsvExportPanel::Row typeRow(FlightDataTypeId id, bool selected)
 {
     const FlightDataType& type = FlightDataType::builtin(id);
-    return {.name      = QtStrings::fromUtf8(type.getName()),
-            .unitGroup = &type.getUnitGroup(),
-            .selected  = selected};
+    return {
+        .name = flightDataTypeText(type), .unitGroup = &type.getUnitGroup(), .selected = selected};
 }
 
 /// Time (ticked), Altitude and Stability margin calibers: the first two rows of the probe's
@@ -469,7 +469,7 @@ TEST_F(CsvExportPanelTest, DISABLED_MeasureTheConstructionOfTheExportTabsRows)
     Rows rows;
     for (const FlightDataType* const type : FlightDataType::allTypesSorted())
     {
-        rows.push_back({.name      = QtStrings::fromUtf8(type->getName()),
+        rows.push_back({.name      = flightDataTypeText(*type),
                         .unitGroup = &type->getUnitGroup(),
                         .selected  = false});
     }

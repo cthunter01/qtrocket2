@@ -31,6 +31,7 @@
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/unit/FixedUnitGroup.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -353,6 +354,55 @@ TEST_F(UnitSelectorTest, TheMenuChoosesTheUnitOfABareGroup)
     feet->trigger();
     EXPECT_EQ(selector->getSelectedUnit().getUnit(), "ft");
     EXPECT_EQ(selector->text(), QStringLiteral("ft"));
+    EXPECT_EQ(selections.count(), 1);
+}
+
+TEST_F(UnitSelectorTest, ABareGroupSelectsItsOwnUnit)
+{
+    // A unit equal to one of the group's (Unit::equals(): the distances' "m" and the lengths') is
+    // selected as the group's own, as DoubleBinding::setCurrentUnit() does, so that a caller that
+    // compares units by address finds it in the group (Java keeps the unit given).
+    const UnitGroup& length        = unitGroup(UnitGroupId::LENGTH);
+    const UnitGroup& distance      = unitGroup(UnitGroupId::DISTANCE);
+    const Unit*      lengthMetre   = length.getUnit("m");
+    const Unit*      distanceMetre = distance.getUnit("m");
+    ASSERT_NE(lengthMetre, nullptr);
+    ASSERT_NE(distanceMetre, nullptr);
+    ASSERT_NE(lengthMetre, distanceMetre);
+    ASSERT_TRUE(lengthMetre->equals(*distanceMetre));
+    UnitSelector selector(length, nullptr);
+    selector.setSelectedUnit(*distanceMetre);
+    EXPECT_EQ(&selector.getSelectedUnit(), lengthMetre);
+
+    // A group that contains a unit it does not list keeps the unit given.
+    const FixedUnitGroup fixed("N");
+    UnitSelector         custom(fixed, nullptr);
+    custom.setSelectedUnit(fixed.getDefaultUnit());
+    EXPECT_EQ(&custom.getSelectedUnit(), &fixed.getDefaultUnit());
+}
+
+TEST_F(UnitSelectorTest, AMenuOfTheGroupBeforeChoosesTheUnitOfTheNewGroup)
+{
+    // The menu was made from the distances; the selector has the lengths since: its "m" is the
+    // lengths' own.
+    QWidget window;
+    auto*   selector = makeChild<UnitSelector>(&window, unitGroup(UnitGroupId::DISTANCE));
+    ASSERT_TRUE(showActiveWith(window, {selector}));
+    const OffscreenPopupWarnings popup;
+    EXPECT_TRUE(opensMenu(*selector, Qt::LeftButton));
+    ASSERT_NE(selector->unitMenu(), nullptr);
+    QAction* const metre = menuItem(*selector->unitMenu(), QStringLiteral("m"));
+    ASSERT_NE(metre, nullptr);
+    selector->setUnitGroup(unitGroup(UnitGroupId::LENGTH));
+    const QSignalSpy selections(selector, &UnitSelector::unitSelected);
+    metre->trigger();
+    EXPECT_EQ(&selector->getSelectedUnit(), unitGroup(UnitGroupId::LENGTH).getUnit("m"));
+    EXPECT_EQ(selections.count(), 1);
+    // A unit the new group does not have is no choice.
+    QAction* const kilometre = menuItem(*selector->unitMenu(), QStringLiteral("km"));
+    ASSERT_NE(kilometre, nullptr);
+    kilometre->trigger();
+    EXPECT_EQ(selector->getSelectedUnit().getUnit(), "m");
     EXPECT_EQ(selections.count(), 1);
 }
 

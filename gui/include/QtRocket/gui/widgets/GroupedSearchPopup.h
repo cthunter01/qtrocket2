@@ -30,7 +30,8 @@ namespace QtRocket::Gui
 /// those of the groups Content::groups() leaves out and gives the others their items in the
 /// order given, each checkable and checked when it is Content::current(), and checks the submenu
 /// of Content::currentGroup() (Java draws a check mark on that group, which is the value's group
-/// also when the value is none of the items).
+/// also when the value is none of the items). The titles and the items' texts are shown as they
+/// are: an '&' in them is no shortcut's mark (MenuText::escaped()).
 ///
 /// Typing in the search field (searchField()) switches the popup to the search (isSearching()):
 /// the submenus make way for a list (searchList()) of the items whose text contains the typed text

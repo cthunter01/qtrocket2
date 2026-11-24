@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <QCoreApplication>
 #include <QObject>
 
 #include <gtest/gtest-spi.h>
@@ -12,8 +13,9 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/util/SimulationExecutor.h"
 
-// The tests' executor of the simulations: it runs a job's work on the calling thread, at once, when
-// the test says, or never, and tells the callbacks as SimulationExecutor's contract says.
+// The tests' executor of the simulations: it runs a job's work on the calling thread, in the next
+// turn of the event loop, when the test says, or never, and tells the callbacks as
+// SimulationExecutor's contract says.
 
 namespace QtRocket::Gui::Test
 {
@@ -132,7 +134,46 @@ struct SetWhenFinished
     void operator()(Ending /*ending*/) const { *called = true; }
 };
 
-TEST_F(ManualSimulationExecutorTest, TheImmediateModeRunsAJobInsideSubmit)
+/// A job's finished() that notes the job its caller had as its current one by then (as the
+/// design view's background estimate adopts only its current job's run).
+struct NoteTheCurrentJob
+{
+    const JobId* current;
+    JobId*       seen;
+
+    void operator()(Ending /*ending*/) const { *seen = *current; }
+};
+
+/// A job's work that logs the stop before and after it abandons the jobs of @p window (as its
+/// window goes while the run goes on).
+struct WindowClosingWork
+{
+    ManualSimulationExecutor* executor;
+    const QObject*            window;
+    Log*                      log;
+
+    void operator()(const std::stop_token& stop) const
+    {
+        log->emplace_back(stop.stop_requested() ? "stopped" : "running");
+        executor->abandonAll(window);
+        log->emplace_back(stop.stop_requested() ? "stopped" : "running");
+    }
+};
+
+/// A job's progressed() that logs "progressed" and abandons the job that runs (its own).
+struct SelfAbandoningProgress
+{
+    ManualSimulationExecutor* executor;
+    Log*                      log;
+
+    void operator()() const
+    {
+        log->emplace_back("progressed");
+        executor->abandon(executor->runningJob());
+    }
+};
+
+TEST_F(ManualSimulationExecutorTest, TheImmediateModeRunsAJobInTheNextTurnOfTheEventLoop)
 {
     ManualSimulationExecutor executor;
     EXPECT_EQ(executor.mode(), Mode::IMMEDIATE);
@@ -141,9 +182,14 @@ TEST_F(ManualSimulationExecutorTest, TheImmediateModeRunsAJobInsideSubmit)
     Log              log;
     const JobId      job = executor.submit(
         &window, NoteWhileRunning{.executor = &executor, .seen = &seen}, logging(log, "a"));
-    // The work, then progressed(), then finished(RAN), all before submit() returned.
-    EXPECT_EQ(log, (Log{"progressed a", "finished a RAN"}));
+    // Nothing inside submit(): the job waits for the turn.
+    EXPECT_TRUE(log.empty());
     EXPECT_NE(job, SimulationExecutor::kNoJob);
+    EXPECT_TRUE(executor.isPending(job));
+    EXPECT_EQ(executor.waitingJobs(), std::vector<JobId>{job});
+    QCoreApplication::processEvents();
+    // The work, then progressed(), then finished(RAN).
+    EXPECT_EQ(log, (Log{"progressed a", "finished a RAN"}));
     EXPECT_EQ(seen.running, job);
     EXPECT_TRUE(seen.pending);
     EXPECT_FALSE(executor.isPending(job));
@@ -152,6 +198,33 @@ TEST_F(ManualSimulationExecutorTest, TheImmediateModeRunsAJobInsideSubmit)
     EXPECT_EQ(executor.submittedJobs().front().id, job);
     EXPECT_EQ(executor.submittedJobs().front().window, &window);
     EXPECT_TRUE(executor.cancelledJobs().empty());
+    EXPECT_TRUE(executor.abandonedJobs().empty());
+}
+
+TEST_F(ManualSimulationExecutorTest, TheCallerKnowsTheJobBeforeItsCallbacks)
+{
+    // submit() returns before any callback, so a caller that keeps its current job finds it in
+    // the callbacks (Java: RocketPanel's backgroundSimulationWorker == this).
+    ManualSimulationExecutor executor;
+    JobId                    current = SimulationExecutor::kNoJob;
+    JobId                    seen    = SimulationExecutor::kNoJob;
+    current                          = executor.submit(
+        nullptr, {},
+        {.progressed = {}, .finished = NoteTheCurrentJob{.current = &current, .seen = &seen}});
+    QCoreApplication::processEvents();
+    EXPECT_NE(current, SimulationExecutor::kNoJob);
+    EXPECT_EQ(seen, current);
+
+    // As before the turn, when the test runs the job itself.
+    seen    = SimulationExecutor::kNoJob;
+    current = executor.submit(
+        nullptr, {},
+        {.progressed = {}, .finished = NoteTheCurrentJob{.current = &current, .seen = &seen}});
+    EXPECT_EQ(executor.runAll(), 1U);
+    EXPECT_EQ(seen, current);
+    // The turn finds nothing left to run.
+    QCoreApplication::processEvents();
+    EXPECT_EQ(executor.submittedJobs().size(), 2U);
 }
 
 TEST_F(ManualSimulationExecutorTest, SteppedJobsWaitAndRunOldestFirst)
@@ -203,6 +276,7 @@ TEST_F(ManualSimulationExecutorTest, ARunningJobThatIsCancelledSeesTheStopAndRun
     Log                      log;
     const JobId              job = executor.submit(
         nullptr, SelfCancellingWork{.executor = &executor, .log = &log}, logging(log, "a"));
+    QCoreApplication::processEvents();
     EXPECT_EQ(log, (Log{"running", "stopped", "progressed a", "finished a RAN"}));
     EXPECT_EQ(executor.cancelledJobs(), std::vector<JobId>{job});
 }
@@ -222,6 +296,68 @@ TEST_F(ManualSimulationExecutorTest, CancelAllCancelsTheJobsOfOneWindowInTheirOr
     EXPECT_EQ(executor.waitingJobs(), std::vector<JobId>{second});
     EXPECT_EQ(executor.runAll(), 1U);
     EXPECT_EQ(log.back(), "finished b1 RAN");
+}
+
+TEST_F(ManualSimulationExecutorTest, AnAbandonedRunningJobCallsNothingAgain)
+{
+    // Its window goes while the job runs: the work runs to its end with the stop requested, and
+    // neither progressed() nor finished() comes.
+    ManualSimulationExecutor executor;
+    const QObject            window;
+    Log                      log;
+    const JobId              job = executor.submit(
+        &window, WindowClosingWork{.executor = &executor, .window = &window, .log = &log},
+        logging(log, "a"));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(log, (Log{"running", "stopped"}));
+    EXPECT_FALSE(executor.isPending(job));
+    EXPECT_EQ(executor.abandonedJobs(), std::vector<JobId>{job});
+    EXPECT_TRUE(executor.cancelledJobs().empty());
+    // An abandoned job is not cancelled or abandoned again.
+    executor.cancel(job);
+    executor.abandon(job);
+    EXPECT_TRUE(executor.cancelledJobs().empty());
+    EXPECT_EQ(executor.abandonedJobs(), std::vector<JobId>{job});
+}
+
+TEST_F(ManualSimulationExecutorTest, AJobThatAbandonsItselfInItsProgressIsNotFinished)
+{
+    ManualSimulationExecutor executor(Mode::STEPPED);
+    Log                      log;
+    const JobId              job =
+        executor.submit(nullptr, LoggingWork{.log = &log, .name = "a"},
+                        {.progressed = SelfAbandoningProgress{.executor = &executor, .log = &log},
+                         .finished   = LoggingFinish{.log = &log, .name = "a"}});
+    EXPECT_TRUE(executor.runNext());
+    EXPECT_EQ(log, (Log{"work a", "progressed"}));
+    EXPECT_EQ(executor.abandonedJobs(), std::vector<JobId>{job});
+    EXPECT_FALSE(executor.isPending(job));
+}
+
+TEST_F(ManualSimulationExecutorTest, AbandonDropsTheWaitingJobsOfAWindowWithoutACallback)
+{
+    ManualSimulationExecutor executor(Mode::STEPPED);
+    const QObject            closing;
+    const QObject            other;
+    Log                      log;
+    const JobId              first  = submitLogged(executor, log, "a1", &closing);
+    const JobId              second = submitLogged(executor, log, "b1", &other);
+    const JobId              third  = submitLogged(executor, log, "a2", &closing);
+    executor.abandonAll(&closing);
+    EXPECT_TRUE(log.empty());
+    EXPECT_EQ(executor.abandonedJobs(), (std::vector<JobId>{first, third}));
+    EXPECT_FALSE(executor.isPending(first));
+    EXPECT_FALSE(executor.isPending(third));
+    EXPECT_EQ(executor.waitingJobs(), std::vector<JobId>{second});
+    executor.abandon(second);
+    EXPECT_TRUE(executor.waitingJobs().empty());
+    // Nothing for a job that is over, an unknown one or none.
+    executor.abandon(second);
+    executor.abandon(third + 1);
+    executor.abandon(SimulationExecutor::kNoJob);
+    EXPECT_EQ(executor.abandonedJobs(), (std::vector<JobId>{first, third, second}));
+    EXPECT_EQ(executor.runAll(), 0U);
+    EXPECT_TRUE(log.empty());
 }
 
 TEST_F(ManualSimulationExecutorTest, TheNeverModeRunsNothingUntilTheJobIsCancelled)
@@ -256,6 +392,9 @@ TEST_F(ManualSimulationExecutorTest, ACallbackMaySubmitTheNextJob)
     static_cast<void>(executor.submit(
         nullptr, LoggingWork{.log = &log, .name = "first"},
         {.progressed = {}, .finished = SubmitTheNext{.executor = &executor, .log = &log}}));
+    EXPECT_TRUE(log.empty());
+    // The one submitted in the turn runs in it, after submit() has returned.
+    QCoreApplication::processEvents();
     EXPECT_EQ(log, (Log{"work first", "finished first RAN", "work second", "progressed second",
                         "finished second RAN"}));
     EXPECT_EQ(executor.submittedJobs().size(), 2U);
@@ -268,8 +407,12 @@ TEST_F(ManualSimulationExecutorTest, AModeChangeIsForTheJobsSubmittedAfterIt)
     const JobId              waiting = submitLogged(executor, log, "a");
     executor.setMode(Mode::IMMEDIATE);
     static_cast<void>(submitLogged(executor, log, "b"));
+    // A job submitted in the IMMEDIATE mode runs in the turn, whatever the mode is by then.
+    executor.setMode(Mode::NEVER);
+    QCoreApplication::processEvents();
     EXPECT_EQ(log, (Log{"work b", "progressed b", "finished b RAN"}));
     EXPECT_EQ(executor.waitingJobs(), std::vector<JobId>{waiting});
+    executor.setMode(Mode::STEPPED);
     EXPECT_EQ(executor.runAll(), 1U);
 }
 
@@ -280,7 +423,12 @@ TEST_F(ManualSimulationExecutorTest, DestroyingItDropsTheWaitingJobsWithoutACall
         ManualSimulationExecutor executor(Mode::STEPPED);
         static_cast<void>(executor.submit(
             nullptr, {}, {.progressed = {}, .finished = SetWhenFinished{.called = &finished}}));
+        // And the turn of a job of the IMMEDIATE mode goes with it.
+        executor.setMode(Mode::IMMEDIATE);
+        static_cast<void>(executor.submit(
+            nullptr, {}, {.progressed = {}, .finished = SetWhenFinished{.called = &finished}}));
     }
+    QCoreApplication::processEvents();
     EXPECT_FALSE(finished);
 }
 

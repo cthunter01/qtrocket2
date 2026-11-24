@@ -14,7 +14,9 @@
 #include <vector>
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QTextDocument>
@@ -184,17 +186,30 @@ TEST_F(ApplicationContextTest, TheServicesHaveTheSimulationsServices)
     EXPECT_EQ(context.plotDefaults().lastPlotted(), nullptr);
 
     // Until the runner adapter of Milestone 4 comes, the executor runs nothing: a job is dropped
-    // at once.
+    // in the next turn of the event loop, never inside submit().
+    SimulationExecutor&                       executor = context.simulationExecutor();
     std::optional<SimulationExecutor::Ending> ending;
     bool                                      ran = false;
-    const SimulationExecutor::JobId           job = context.simulationExecutor().submit(
-        nullptr, NoteWork{.ran = &ran},
-        {.progressed = {}, .finished = NoteEnding{.ending = &ending}});
+    const SimulationExecutor::JobId           job =
+        executor.submit(nullptr, NoteWork{.ran = &ran},
+                        {.progressed = {}, .finished = NoteEnding{.ending = &ending}});
     EXPECT_NE(job, SimulationExecutor::kNoJob);
+    EXPECT_FALSE(ending.has_value());
+    EXPECT_TRUE(executor.isPending(job));
+    // An abandoned job is dropped without a callback.
+    const QObject                             window;
+    std::optional<SimulationExecutor::Ending> abandonedEnding;
+    const SimulationExecutor::JobId           abandoned =
+        executor.submit(&window, NoteWork{.ran = &ran},
+                        {.progressed = {}, .finished = NoteEnding{.ending = &abandonedEnding}});
+    executor.abandonAll(&window);
+    EXPECT_FALSE(executor.isPending(abandoned));
+    QCoreApplication::processEvents();
     EXPECT_EQ(ending,
               std::optional<SimulationExecutor::Ending>(SimulationExecutor::Ending::DROPPED));
+    EXPECT_FALSE(abandonedEnding.has_value());
     EXPECT_FALSE(ran);
-    EXPECT_FALSE(context.simulationExecutor().isPending(job));
+    EXPECT_FALSE(executor.isPending(job));
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)

@@ -103,7 +103,10 @@ public:
 
     /// SwingPreferences.isFlightDataTypeExportSelected(): whether the type named @p typeName
     /// (FlightDataType::getName()) is ticked in the export tab, from the node "exports" (unticked
-    /// when the node or the key is absent; never creates the node).
+    /// when the node or the key is absent; never creates the node). Deviation: the key is the
+    /// core's English name, where Java's type.getName() is the translated one (the same in en_US),
+    /// so the ticks do not depend on the language; the tab shows the translated name
+    /// (flightDataTypeText()).
     [[nodiscard]] static bool isFlightDataTypeExportSelected(const Preferences& preferences,
                                                              std::string_view   typeName);
     [[nodiscard]] static bool isFlightDataTypeExportSelected(const Preferences&    preferences,

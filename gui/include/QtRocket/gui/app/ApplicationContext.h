@@ -69,7 +69,8 @@ class SettingsPreferences;
 ///    a scripted double in a test);
 /// 10. the simulations' services (Milestone 4): the executor that runs them for every window
 ///    (GuiServices::simulationExecutor(); until Milestone 4's runner adapter replaces it, one that
-///    runs nothing and drops every job at once), the last plotted configuration
+///    runs nothing and drops every job in the next turn of the event loop), the last plotted
+///    configuration
 ///    (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the process) and
 ///    the simulation dialogs (GuiServices::simulationDialogs(); until Milestone 4's settings and
 ///    plot dialogs replace them, ones that open nothing).

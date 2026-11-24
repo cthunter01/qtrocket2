@@ -1,5 +1,6 @@
 #include "ScriptedUserPrompts.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -12,6 +13,7 @@
 #include <QStringList>
 #include <QWidget>
 #include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
 
 #include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
@@ -21,6 +23,7 @@
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
@@ -518,7 +521,8 @@ struct NoteTheRun
 
 /// The test's run of the simulations of a request: one job per simulation through the request's
 /// executor (as the run dialog's batch submits the run of a duplicate of each), whose work notes
-/// the simulation's name; all of them successful.
+/// the simulation's name, and the wait for their ends in the event loop (as the dialog's); all of
+/// them successful.
 struct RunThroughTheExecutor
 {
     std::vector<std::string>* ran;
@@ -526,12 +530,19 @@ struct RunThroughTheExecutor
     [[nodiscard]] UserPrompts::RunSimulationsAnswer operator()(
         QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
     {
+        std::vector<SimulationExecutor::JobId> jobs;
+        jobs.reserve(request.simulations.size());
         for (const std::shared_ptr<Simulation>& simulation : request.simulations)
         {
-            static_cast<void>(request.executor->submit(
+            jobs.push_back(request.executor->submit(
                 request.window, NoteTheRun{.ran = ran, .name = simulation->getName()}, {}));
         }
-        return {.cancelled = false, .allSuccessful = true};
+        const bool done = QTest::qWaitFor([&jobs, &request] {
+            return std::ranges::none_of(jobs, [&request](SimulationExecutor::JobId job) {
+                return request.executor->isPending(job);
+            });
+        });
+        return {.cancelled = !done, .allSuccessful = done};
     }
 };
 
@@ -560,7 +571,8 @@ TEST_F(ScriptedUserPromptsTest, TheRunDialogIsAnsweredOrRunByTheTestsAction)
     EXPECT_EQ(prompts.runSimulations(nullptr, request),
               (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
     EXPECT_TRUE(ran.empty());
-    // Run by the test's action, through the request's executor (the test services' runs at once).
+    // Run by the test's action, through the request's executor (the test services' runs in the
+    // next turn of the event loop).
     EXPECT_EQ(prompts.runSimulations(nullptr, request),
               (UserPrompts::RunSimulationsAnswer{.cancelled = false, .allSuccessful = true}));
     EXPECT_EQ(ran, (std::vector<std::string>{"Simulation 1", "Simulation 2"}));

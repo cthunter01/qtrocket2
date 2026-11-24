@@ -914,12 +914,18 @@ std::optional<QColor> WidgetUserPrompts::askColor(QWidget* parent, const QColor&
                                                   const QString& title)
 {
     // JColorChooser.createDialog(button, "Select color", true, chooser, ...): modal, the chooser's
-    // colour to start with.
-    ModalDialog<QColorDialog> dialog(parent, initial);
+    // colour to start with (chooser.setColor(originalColor)), its alpha included.
+    ModalDialog<QColorDialog> dialog(parent);
     QColorDialog&             chooser = *dialog.get();
     chooser.setObjectName(QStringLiteral("colorDialog"));
+    // The options before the colour, which Qt 6.8's QColorDialog would lose otherwise: made with
+    // a colour, it hands it to the platform's native dialog where there is one (macOS, the GTK
+    // and KDE themes) and builds its own widgets only when DontUseNativeDialog is set, starting
+    // them at white; and while ShowAlphaChannel is off, it makes the colour opaque. Offscreen
+    // there is no native dialog, so the tests see only the second.
     chooser.setOption(QColorDialog::DontUseNativeDialog, true);
     chooser.setOption(QColorDialog::ShowAlphaChannel, true);
+    chooser.setCurrentColor(initial);
     chooser.setWindowTitle(title);
     if (dialog.exec() != QDialog::Accepted)
     {

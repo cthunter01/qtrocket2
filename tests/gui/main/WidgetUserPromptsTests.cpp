@@ -622,9 +622,21 @@ struct ColorQuestion
     bool    alpha    = false;
 };
 
-/// Records the colour dialog and accepts it with @p color, or rejects it when it is invalid.
+/// What the colour dialog's user does.
+enum class ColorAction
+{
+    /// Chooses the answer's colour and presses OK.
+    CHOOSE,
+    /// Presses OK without touching anything.
+    ACCEPT,
+    /// Presses Cancel.
+    CANCEL,
+};
+
+/// Records the colour dialog and answers it as @p action says (CHOOSE: with @p color).
 struct AnswerColor
 {
+    ColorAction    action;
     QColor         color;
     ColorQuestion* seen;
 
@@ -640,13 +652,19 @@ struct AnswerColor
             seen->qtDialog   = dialog->testOption(QColorDialog::DontUseNativeDialog);
             seen->alpha      = dialog->testOption(QColorDialog::ShowAlphaChannel);
         }
-        if (!color.isValid())
+        switch (action)
         {
-            dialog->reject();
-            return;
+            case ColorAction::CHOOSE:
+                dialog->setCurrentColor(color);
+                dialog->accept();
+                return;
+            case ColorAction::ACCEPT:
+                dialog->accept();
+                return;
+            case ColorAction::CANCEL:
+                dialog->reject();
+                return;
         }
-        dialog->setCurrentColor(color);
-        dialog->accept();
     }
 };
 
@@ -658,8 +676,8 @@ TEST_F(WidgetUserPromptsTest, AsksForAColourInQtsOwnDialog)
     ColorQuestion         seen;
     std::optional<QColor> chosen;
     {
-        const Gui::Test::NextModalDialog choose(
-            AnswerColor{.color = QColor(10, 20, 30, 40), .seen = &seen});
+        const Gui::Test::NextModalDialog choose(AnswerColor{
+            .action = ColorAction::CHOOSE, .color = QColor(10, 20, 30, 40), .seen = &seen});
         chosen = prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color"));
     }
     EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
@@ -670,9 +688,28 @@ TEST_F(WidgetUserPromptsTest, AsksForAColourInQtsOwnDialog)
     EXPECT_TRUE(seen.alpha);
 
     // Cancel and the close button choose nothing.
-    const Gui::Test::NextModalDialog cancel(AnswerColor{.color = QColor(), .seen = nullptr});
+    const Gui::Test::NextModalDialog cancel(
+        AnswerColor{.action = ColorAction::CANCEL, .color = QColor(), .seen = nullptr});
     EXPECT_EQ(prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color")),
               std::nullopt);
+}
+
+TEST_F(WidgetUserPromptsTest, AnUntouchedColourDialogKeepsTheColourWithItsAlpha)
+{
+    // Java's chooser starts at the button's colour (chooser.setColor(originalColor)), its alpha
+    // included, so OK without a change changes nothing. QColorDialog makes the colour it is
+    // given opaque while ShowAlphaChannel is off (and, with a native dialog, which the offscreen
+    // platform has not, starts its own widgets at white): the options come first.
+    WidgetUserPrompts     prompts;
+    ColorQuestion         seen;
+    std::optional<QColor> chosen;
+    {
+        const Gui::Test::NextModalDialog accept(
+            AnswerColor{.action = ColorAction::ACCEPT, .color = QColor(), .seen = &seen});
+        chosen = prompts.askColor(nullptr, QColor(10, 20, 30, 40), QStringLiteral("Select color"));
+    }
+    EXPECT_EQ(seen.initial, QColor(10, 20, 30, 40));
+    EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
 }
 
 TEST_F(WidgetUserPromptsTest, TheQuestionsWhoseDialogsComeLaterCancelWithoutADialog)

@@ -90,7 +90,10 @@ public:
     /// getSelectedUnit()).
     [[nodiscard]] const Unit& getSelectedUnit() const noexcept;
     /// Selects @p unit (over a binding: its current unit) and tells of it with unitSelected(), also
-    /// when it is the selected one already (Java: setSelectedUnit()).
+    /// when it is the selected one already (Java: setSelectedUnit()). The unit selected is the
+    /// group's own one equal to @p unit (Unit::equals()), as DoubleBinding's, or @p unit itself
+    /// when the group lists none (a FixedUnitGroup, which contains every unit; @p unit must then
+    /// outlive its selection).
     /// @throws BugError when @p unit is not one of the group's (Java: IllegalArgumentException)
     void setSelectedUnit(const Unit& unit);
 

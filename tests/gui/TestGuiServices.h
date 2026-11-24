@@ -30,8 +30,9 @@ namespace QtRocket::Gui::Test
 /// view's background estimate (GuiPreferenceKeys::kBackgroundFlight) is off, so that no window of
 /// a test runs a simulation on its own (O-M4-12); the tests of the estimate turn it on.
 ///
-/// The simulations' services: the executor runs every job at once on the calling thread
-/// (ManualSimulationExecutor, in its IMMEDIATE mode; executor().setMode() for the others), the
+/// The simulations' services: the executor runs every job on the calling thread in the next turn
+/// of the event loop (ManualSimulationExecutor, in its IMMEDIATE mode; executor().setMode() for
+/// the others), the
 /// last plotted configuration is kept in memory (MemoryPlotDefaults), and the simulation dialogs
 /// are recorded, never shown (RecordingSimulationDialogs).
 class TestGuiServices

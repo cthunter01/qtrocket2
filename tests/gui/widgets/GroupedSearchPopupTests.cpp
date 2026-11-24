@@ -55,12 +55,12 @@ struct Item
 class Owner
 {
 public:
-    Owner()
-      : m_popup(makeChild<GroupedSearchPopup>(
-            &m_window, QStringLiteral("Search here"),
-            std::vector<QString>{QStringLiteral("Fruit"), QStringLiteral("Stone"),
-                                 QStringLiteral("Empty")},
-            content()))
+    /// The owner of a popup with the groups @p titles.
+    explicit Owner(const std::vector<QString>& titles = {QStringLiteral("Fruit"),
+                                                         QStringLiteral("Stone"),
+                                                         QStringLiteral("Empty")})
+      : m_popup(makeChild<GroupedSearchPopup>(&m_window, QStringLiteral("Search here"), titles,
+                                              content()))
     {
         m_window.setObjectName(QStringLiteral("owner"));
     }
@@ -229,6 +229,27 @@ TEST_F(GroupedSearchPopupTest, TheSearchSortsByTheKeyIgnoringCase)
     QTest::keyClicks(&owner.popup().searchField(), QStringLiteral("zz"));
     EXPECT_TRUE(searchRows(owner.popup()).empty());
     EXPECT_EQ(owner.popup().searchList().currentRow(), -1);
+}
+
+TEST_F(GroupedSearchPopupTest, ShowsAnAmpersandAsItIs)
+{
+    // Java's menus show a group's title and an item's text as they are (a custom data type's or
+    // material's name may hold an '&'), where a QMenu would take the '&' for a shortcut's mark.
+    Owner owner({QStringLiteral("Fruit & nuts"), QStringLiteral("Stone"), QStringLiteral("Empty")});
+    owner.items.at(0).text = QStringLiteral("A & B");
+    ASSERT_TRUE(showActive(owner.window()));
+    const OffscreenPopupWarnings warnings;
+    owner.popup().popUpBelow(owner.window());
+    const QMenu& fruit = owner.popup().groupMenu(0);
+    EXPECT_EQ(fruit.title(), QStringLiteral("Fruit && nuts"));
+    EXPECT_EQ(fruit.menuAction()->iconText(), QStringLiteral("Fruit & nuts"));
+    ASSERT_FALSE(fruit.actions().isEmpty());
+    EXPECT_EQ(fruit.actions().at(0)->text(), QStringLiteral("A && B"));
+    // The text as the menu draws it, without the marks.
+    EXPECT_EQ(fruit.actions().at(0)->iconText(), QStringLiteral("A & B"));
+    // The search list shows the text itself.
+    QTest::keyClicks(&owner.popup().searchField(), QStringLiteral("&"));
+    EXPECT_EQ(searchRows(owner.popup()), std::vector<std::string>{"A & B"});
 }
 
 TEST_F(GroupedSearchPopupTest, AnEmptySearchBringsTheGroupsBack)

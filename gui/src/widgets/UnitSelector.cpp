@@ -133,7 +133,14 @@ void UnitSelector::setSelectedUnit(const Unit& unit)
     }
     else
     {
-        m_unit = &unit;
+        // The group's own unit, as DoubleBinding::setCurrentUnit() keeps it: contains() compares
+        // with Unit::equals(), so @p unit may be another group's equal one (the distances' "m"
+        // for the lengths'), or a unit of an old menu chosen after setUnitGroup(), which a caller
+        // that compares units by address would not find in the group. Java keeps the unit given.
+        // A group that contains a unit it does not list (a FixedUnitGroup contains every unit)
+        // keeps @p unit, as Java.
+        const int index = m_group->getUnitIndex(unit);
+        m_unit          = index >= 0 ? &m_group->getUnit(index) : &unit;
     }
     refresh();
     Q_EMIT unitSelected();

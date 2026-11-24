@@ -78,7 +78,9 @@ the workflow or create a tag only when the user asks.
   - GUI (`tests/gui/`, namespace `QtRocket::Gui::Test`): `GuiTestSupport.h` (the fixture `GuiTest`),
     `ExpectedQtMessage.h`, `ScriptedUserPrompts.h`, `HookedUserPrompts.h`, `ForwardingUserPrompts.h` (a base for a
     double that overrides one question), `NextModalDialog.h` (for the widget prompts and the dialogs themselves),
-    `TestGuiServices.h`, `RecordingGuardHook.h`, `ScopedApplicationPalette.h`; in the areas
+    `TestGuiServices.h`, `ManualSimulationExecutor.h` (the tests' `SimulationExecutor`: a job runs on the GUI
+    thread in the next turn of the event loop, when the test says, or never), `RecordingSimulationDialogs.h`,
+    `RecordingGuardHook.h`, `ScopedApplicationPalette.h`; in the areas
     `configdialog/ConfigDialogTestSupport.h` (the fixture `ConfigDialogTest`), `dialogs/PreferencesPageTranscript.h`
     (`chooseItem()`), `main/FileMenusTestSupport.h`, `widgets/WidgetTestSupport.h` (focus, typing, the wheel),
     `figure/RecordingPaintDevice.h` (what is painted, without pixels), `FigureMouse.h`, `tree/TreeViewMouse.h`,
@@ -183,7 +185,16 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   functor sent from a worker (TSan cannot see the locking inside an uninstrumented Qt). Runs go through the core's
   `SimulationRunner` (`std::jthread`s, a mutex mailbox per job); the GUI thread polls the mailboxes (a `QTimer`) and
   adopts a result there, only while its simulation is still in the document and the job is current. A worker never
-  touches a Qt object, `Guard`, or a `Simulation`, `Rocket` or document it does not own; destructors cancel and join
+  touches a Qt object, `Guard`, or a `Simulation`, `Rocket` or document it does not own; destructors cancel and join.
+  The GUI submits through `util/SimulationExecutor` (`GuiServices`): no callback comes from inside `submit()`, and a
+  window (`abandonAll()`) or an object of shorter life (`abandon()`) abandons its jobs before the objects their
+  callbacks capture go
+- Shared widgets and helpers (reuse, never duplicate): `binding/ObjectSelection` (a binding over any object with a
+  change `Signal`, `PropertySource::ofObject`), `widgets/FieldValidator` (a field's warnings and errors; its popup
+  is a child of the window, never a `QToolTip`), `widgets/CollapsiblePanel`, `widgets/GroupedSearchPopup` (the
+  grouped, searchable popup of `MaterialComboBox` and `DataTypeComboBox`), `widgets/UnitSelector` over a bare
+  `UnitGroup`, `util/FileNames` (`forceExtension()`, the CSV and All Files filters), `util/WaitCursor`, and
+  `util/EnumText`'s `flightDataTypeText()` (a flight data type's shown name)
 - rocketplot: only `plot/` includes it, as `<rocketplot/X.h>` (`lint.layers`, which also refuses a quoted
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text

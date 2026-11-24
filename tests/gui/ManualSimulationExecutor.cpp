@@ -6,6 +6,9 @@
 #include <utility>
 #include <vector>
 
+#include <QObject>
+#include <QTimer>
+
 #include <gtest/gtest.h>
 
 #include "QtRocket/gui/util/SimulationExecutor.h"
@@ -67,13 +70,12 @@ SimulationExecutor::JobId ManualSimulationExecutor::submit(const QObject* window
     job.window    = window;
     job.work      = std::move(work);
     job.callbacks = std::move(callbacks);
+    job.immediate = m_mode == Mode::IMMEDIATE;
+    m_waiting.push_back(std::move(job));
     if (m_mode == Mode::IMMEDIATE)
     {
-        run(std::move(job));
-    }
-    else
-    {
-        m_waiting.push_back(std::move(job));
+        // Never inside submit(): the caller has the id before any callback.
+        postTurn();
     }
     return id;
 }
@@ -83,7 +85,7 @@ void ManualSimulationExecutor::cancel(JobId job)
     if (Job* const running = findRunning(job); running != nullptr)
     {
         // Its work sees the stop through its token; finished(RAN) once it has returned.
-        recordCancel(job);
+        record(m_cancelled, job);
         requestStop(*running);
         return;
     }
@@ -94,7 +96,7 @@ void ManualSimulationExecutor::cancel(JobId job)
     }
     const Job dropped = std::move(*waiting);
     m_waiting.erase(waiting);
-    recordCancel(job);
+    record(m_cancelled, job);
     if (dropped.callbacks.finished)
     {
         dropped.callbacks.finished(Ending::DROPPED);
@@ -103,33 +105,47 @@ void ManualSimulationExecutor::cancel(JobId job)
 
 void ManualSimulationExecutor::cancelAll(const QObject* window)
 {
-    std::vector<JobId> jobs;
-    for (const Job* const running : m_running)
-    {
-        if (running->window == window)
-        {
-            jobs.push_back(running->id);
-        }
-    }
-    for (const Job& waiting : m_waiting)
-    {
-        if (waiting.window == window)
-        {
-            jobs.push_back(waiting.id);
-        }
-    }
-    // In the order they were submitted: their ids grow.
-    std::ranges::sort(jobs);
-    for (const JobId job : jobs)
+    for (const JobId job : pendingJobsOf(window))
     {
         cancel(job);
     }
 }
 
+void ManualSimulationExecutor::abandon(JobId job)
+{
+    if (Job* const running = findRunning(job); running != nullptr)
+    {
+        // Its work runs to its end with the stop requested; run() calls nothing after it. The
+        // callback that may be running is a copy (run(), reportProgress()).
+        record(m_abandoned, job);
+        running->abandoned = true;
+        running->callbacks = {};
+        requestStop(*running);
+        return;
+    }
+    const auto waiting = std::ranges::find(m_waiting, job, &Job::id);
+    if (waiting == m_waiting.end())
+    {
+        return;
+    }
+    // Its callbacks go with it, here.
+    m_waiting.erase(waiting);
+    record(m_abandoned, job);
+}
+
+void ManualSimulationExecutor::abandonAll(const QObject* window)
+{
+    for (const JobId job : pendingJobsOf(window))
+    {
+        abandon(job);
+    }
+}
+
 bool ManualSimulationExecutor::isPending(JobId job) const
 {
-    return std::ranges::any_of(m_running,
-                               [job](const Job* running) { return running->id == job; }) ||
+    return std::ranges::any_of(
+               m_running,
+               [job](const Job* running) { return running->id == job && !running->abandoned; }) ||
            findIn(m_waiting, job);
 }
 
@@ -203,15 +219,51 @@ void ManualSimulationExecutor::run(Job job)
     {
         job.work(job.stop.get_token());
     }
-    if (job.callbacks.progressed)
+    if (!job.abandoned)
     {
-        job.callbacks.progressed();
+        // A copy: the callback may abandon its job, which destroys the job's callbacks.
+        const std::function<void()> progressed = job.callbacks.progressed;
+        if (progressed)
+        {
+            progressed();
+        }
     }
     // No longer pending once finished() is called.
     running.leave();
-    if (job.callbacks.finished)
+    if (!job.abandoned)
     {
-        job.callbacks.finished(Ending::RAN);
+        const std::function<void(Ending)> finished = std::move(job.callbacks.finished);
+        job.callbacks                              = {};
+        if (finished)
+        {
+            finished(Ending::RAN);
+        }
+    }
+}
+
+void ManualSimulationExecutor::postTurn()
+{
+    if (m_turnPosted)
+    {
+        return;
+    }
+    m_turnPosted = true;
+    // A queued call of the GUI thread to itself, which goes with m_turn.
+    QTimer::singleShot(0, &m_turn, [this] {
+        m_turnPosted = false;
+        runImmediateJobs();
+    });
+}
+
+void ManualSimulationExecutor::runImmediateJobs()
+{
+    // One at a time, oldest first: a callback may submit, cancel or abandon jobs meanwhile.
+    for (auto found = std::ranges::find(m_waiting, true, &Job::immediate); found != m_waiting.end();
+         found      = std::ranges::find(m_waiting, true, &Job::immediate))
+    {
+        Job job = std::move(*found);
+        m_waiting.erase(found);
+        run(std::move(job));
     }
 }
 
@@ -223,9 +275,33 @@ ManualSimulationExecutor::Job* ManualSimulationExecutor::findWaiting(JobId job)
 
 ManualSimulationExecutor::Job* ManualSimulationExecutor::findRunning(JobId job)
 {
-    const auto running = std::ranges::find_if(
-        m_running, [job](const Job* candidate) { return candidate->id == job; });
+    const auto running = std::ranges::find_if(m_running, [job](const Job* candidate) {
+        return candidate->id == job && !candidate->abandoned;
+    });
     return running == m_running.end() ? nullptr : *running;
+}
+
+std::vector<SimulationExecutor::JobId> ManualSimulationExecutor::pendingJobsOf(
+    const QObject* window) const
+{
+    std::vector<JobId> jobs;
+    for (const Job* const running : m_running)
+    {
+        if (running->window == window && !running->abandoned)
+        {
+            jobs.push_back(running->id);
+        }
+    }
+    for (const Job& waiting : m_waiting)
+    {
+        if (waiting.window == window)
+        {
+            jobs.push_back(waiting.id);
+        }
+    }
+    // In the order they were submitted: their ids grow.
+    std::ranges::sort(jobs);
+    return jobs;
 }
 
 void ManualSimulationExecutor::requestStop(Job& job) noexcept
@@ -235,11 +311,11 @@ void ManualSimulationExecutor::requestStop(Job& job) noexcept
     static_cast<void>(job.stop.request_stop());
 }
 
-void ManualSimulationExecutor::recordCancel(JobId job)
+void ManualSimulationExecutor::record(std::vector<JobId>& jobs, JobId job)
 {
-    if (std::ranges::find(m_cancelled, job) == m_cancelled.end())
+    if (std::ranges::find(jobs, job) == jobs.end())
     {
-        m_cancelled.push_back(job);
+        jobs.push_back(job);
     }
 }
 

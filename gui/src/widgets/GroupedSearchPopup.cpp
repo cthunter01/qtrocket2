@@ -28,6 +28,7 @@
 
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/gui/util/MenuText.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"
 
@@ -97,7 +98,8 @@ GroupedSearchPopup::GroupedSearchPopup(const QString&              placeholder,
     m_groupMenus.reserve(groupTitles.size());
     for (const QString& title : groupTitles)
     {
-        m_groupMenus.push_back(addMenu(title));
+        // Shown as it is (Java's JMenu): a menu would take an '&' for a shortcut's mark.
+        m_groupMenus.push_back(addMenu(MenuText::escaped(title)));
         m_groupMenus.back()->menuAction()->setCheckable(true);
     }
 
@@ -165,7 +167,9 @@ void GroupedSearchPopup::fillGroups()
         QMenu& menu = groupMenu(group.group);
         for (const int item : group.items)
         {
-            QAction* action = menu.addAction(m_content.text(item));
+            // Shown as it is (Java's JCheckBoxMenuItem), as in the search list: a menu would take
+            // an '&' (a material's or a custom data type's name) for a shortcut's mark.
+            QAction* action = menu.addAction(MenuText::escaped(m_content.text(item)));
             action->setCheckable(true);
             action->setChecked(item == current);
             connect(action, &QAction::triggered, this, [this, item] { take(item); });

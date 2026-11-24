@@ -21,8 +21,9 @@
 // which turn it off before the application starts; the tests of the estimate turn it on. The
 // services a test makes of its own objects (the open-designs replay's, ...) have no simulation
 // executor (GuiServices::simulationExecutor() is null), and without one nothing runs a simulation.
-// The test services' executor runs a job at once on the GUI thread (ManualSimulationExecutor,
-// IMMEDIATE), so a test that runs simulations needs no sleep and no wait; fresh runs use only the
+// The test services' executor runs a job on the GUI thread in the next turn of the event loop
+// (ManualSimulationExecutor, IMMEDIATE: QCoreApplication::processEvents(), or its runAll()), so a
+// test that runs simulations needs no sleep and no thread; fresh runs use only the
 // short flights of "Clustered motors" #1, "3D printable" #1 or "A simple model rocket" #1, and pin
 // no late value of a fresh flight (CLAUDE.md, Portability).
 

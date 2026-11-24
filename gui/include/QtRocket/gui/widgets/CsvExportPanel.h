@@ -71,7 +71,9 @@ class CsvExportPanel : public QWidget
     Q_OBJECT
 
 public:
-    /// A variable: its name (Java: getDisplayName(type), SimulationExportPanel's type.getName()),
+    /// A variable: its name as shown (Java: getDisplayName(type); SimulationExportPanel's is
+    /// type.getName(), which is translated in Java: for a flight data type flightDataTypeText()
+    /// of util/EnumText, as the plots show it, never the core's English FlightDataType::getName()),
     /// the unit group of its values and whether it starts ticked.
     struct Row
     {

@@ -582,8 +582,10 @@ public:
     /// once when the batch is done.
     struct RunSimulationsRequest
     {
-        /// The design window the runs belong to: the executor's jobs carry it, and the window's
-        /// jobs are cancelled when it closes (SimulationExecutor::cancelAll()). Only compared.
+        /// The design window the runs belong to: the executor's jobs carry it; the dialog's
+        /// Cancel cancels the window's jobs (SimulationExecutor::cancelAll()), and the window
+        /// abandons them as it is destroyed (abandonAll()), so the batch's callbacks may capture
+        /// what the window owns. Only compared.
         const QObject* window = nullptr;
         /// The document of the simulations; never null in the application.
         OpenRocketDocument* document = nullptr;
