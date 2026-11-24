@@ -55,6 +55,7 @@
 #include "QtRocket/util/ModId.h"
 #include "rocket/TestRockets.h"
 #include "simulation/FlightDifferences.h"
+#include "simulation/HeldRunSupport.h"
 #include "simulation/SimulationRunSupport.h"
 
 namespace
@@ -84,6 +85,8 @@ using QtRocket::WindModelType;
 using QtRocket::Test::addCoreFins;
 using QtRocket::Test::flightDifferences;
 using QtRocket::Test::JavaTestPreferences;
+using QtRocket::Test::kStepsBeforeTheHold;
+using QtRocket::Test::runHolding;
 using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
@@ -713,70 +716,6 @@ TEST(SimulationThreading, AStopRequestedFromAnotherThreadCancelsTheRunningSimula
 }
 
 // ======================================================= a run handed back to its original
-
-/// The number of steps a held run takes before it waits for the test's thread.
-constexpr int kStepsBeforeTheHold = 30;
-
-/// What the thread of a held run (SimulationRun) and the test's thread share.
-struct Hold
-{
-    /// Set by the run's thread when it has taken kStepsBeforeTheHold steps; it then waits for
-    /// released.
-    std::atomic<bool> reached{false};
-    /// Set by the test's thread when the run may go on.
-    std::atomic<bool> released{false};
-    /// Set by the run's thread when run() has returned.
-    std::atomic<bool> finished{false};
-};
-
-/// A listener that, after step kStepsBeforeTheHold, tells the test's thread that the run is
-/// under way and holds it until the test's thread releases it.
-[[nodiscard]] std::shared_ptr<ProgressListener> holdingListener(Hold& hold)
-{
-    const auto steps = std::make_shared<int>(0);
-    return std::make_shared<ProgressListener>([&hold, steps](const SimulationStatus& /*status*/) {
-        (*steps)++;
-        if (*steps != kStepsBeforeTheHold)
-        {
-            return;
-        }
-        hold.reached.store(true);
-        while (!hold.released.load())
-        {
-            std::this_thread::yield();
-        }
-    });
-}
-
-/// The body of the thread of a held run: SimulationRun::run() with @p stopToken and the holding
-/// listener.
-void runHeld(SimulationRun& run, Hold& hold, const std::stop_token& stopToken)
-{
-    const std::vector<std::shared_ptr<SimulationListener>> listeners{holdingListener(hold)};
-    run.run(stopToken, listeners);
-    hold.finished.store(true);
-}
-
-/// Runs @p run on a thread of its own with @p stopToken, does @p whileHeld on this thread (the
-/// one that owns the simulation the run was made from) while the run is held after
-/// kStepsBeforeTheHold steps, then lets the run go on and waits for it. Returns whether the run
-/// got to that step (else it ended before, and @p whileHeld ran after it).
-[[nodiscard]] bool runHolding(SimulationRun& run, const std::stop_token& stopToken,
-                              const std::function<void()>& whileHeld)
-{
-    Hold hold;
-    {
-        // Not the stop token of the std::jthread, whose destructor requests a stop.
-        const std::jthread thread(runHeld, std::ref(run), std::ref(hold), stopToken);
-        while (!hold.reached.load() && !hold.finished.load())
-        {
-            std::this_thread::yield();
-        }
-        whileHeld();
-        hold.released.store(true);
-    }  // joins
-    return hold.reached.load();
-}
 
 /// The simulation the held runs are made from, and the flight it gives as it is now.
 struct RunOriginal

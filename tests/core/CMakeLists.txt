@@ -298,6 +298,8 @@ add_executable(QtRocket_core_tests
     simulation/Rk4SimulationStepperTests.cpp
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp
+    simulation/RunSampleListenerTests.cpp
+    simulation/RunSampleTests.cpp
     simulation/simulation_branch_listener_tests.cpp
     simulation/simulation_input_validation_tests.cpp
     simulation/simulation_lookup_invalidation_tests.cpp
@@ -310,6 +312,7 @@ add_executable(QtRocket_core_tests
     simulation/SimulationListenerHelperTests.cpp
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
+    simulation/SimulationProgressEstimatorTests.cpp
     simulation/SimulationRunTests.cpp
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp

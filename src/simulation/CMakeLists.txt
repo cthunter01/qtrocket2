@@ -33,6 +33,7 @@ target_sources(QtRocket_core PRIVATE
     LandingDispersionSettings.cpp
     listeners/AbstractSimulationListener.cpp
     listeners/ProgressListener.cpp
+    listeners/RunSampleListener.cpp
     listeners/SimulationListenerHelper.cpp
     listeners/system/ApogeeEndListener.cpp
     listeners/system/GroundHitListener.cpp
@@ -41,10 +42,12 @@ target_sources(QtRocket_core PRIVATE
     listeners/system/RecoveryDeviceDeploymentEndListener.cpp
     Rk4SimulationStepper.cpp
     Rk6SimulationStepper.cpp
+    RunSample.cpp
     Simulation.cpp
     SimulationConditions.cpp
     SimulationInputRanges.cpp
     SimulationOptions.cpp
+    SimulationProgressEstimator.cpp
     SimulationRun.cpp
     SimulationStatus.cpp
     SimulationStepperMethod.cpp
