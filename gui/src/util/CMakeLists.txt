@@ -7,6 +7,7 @@ target_sources(QtRocket_gui PRIVATE
     ${gui_include_dir}/util/CsvOptionValues.h
     CustomFinImporter.cpp ${gui_include_dir}/util/CustomFinImporter.h
     EnumText.cpp ${gui_include_dir}/util/EnumText.h
+    FileNames.cpp ${gui_include_dir}/util/FileNames.h
     Guard.cpp ${gui_include_dir}/util/Guard.h
     ${gui_include_dir}/util/GuiServices.h
     Icons.cpp ${gui_include_dir}/util/Icons.h
@@ -23,4 +24,5 @@ target_sources(QtRocket_gui PRIVATE
     TableSortKeys.cpp ${gui_include_dir}/util/TableSortKeys.h
     ThemeColors.cpp ${gui_include_dir}/util/ThemeColors.h
     ${gui_include_dir}/util/UserPrompts.h
+    WaitCursor.cpp ${gui_include_dir}/util/WaitCursor.h
 )

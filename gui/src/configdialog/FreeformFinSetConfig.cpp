@@ -1,13 +1,9 @@
 #include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
 
-#include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <optional>
-#include <string>
-#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -54,6 +50,7 @@
 #include "QtRocket/gui/figure/ScrollAreaZoomModel.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/CustomFinImporter.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
@@ -147,15 +144,6 @@ public:
 {
     return type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease ||
            type == QEvent::MouseButtonDblClick || type == QEvent::MouseMove;
-}
-
-/// @p text in lower case (ASCII; Locale.ENGLISH).
-[[nodiscard]] std::string lowerCase(std::string_view text)
-{
-    std::string lower(text);
-    std::ranges::transform(lower, lower.begin(),
-                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return lower;
 }
 
 }  // namespace
@@ -753,7 +741,7 @@ void FreeformFinSetConfig::importImage()
     // FileHelper.getImageFileFilter(), chosen, and the accept-all filter of Swing's file chooser
     // (FileChooser.acceptAllFileFilterText).
     request.nameFilters =
-        QStringList{CustomFinImporter::imageNameFilter(), tr("All Files") + QStringLiteral(" (*)")};
+        QStringList{CustomFinImporter::imageNameFilter(), FileNames::allFilesFilter()};
     if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
     {
         request.directory = *directory;
@@ -833,9 +821,7 @@ void FreeformFinSetConfig::exportCsv()
     UserPrompts::SaveFileRequest request;
     // FileHelper.CSV_FILTER, chosen, and the accept-all filter of Swing's file chooser
     // (FileChooser.acceptAllFileFilterText).
-    request.nameFilters =
-        //: FileHelper.CSV_FILTER
-        QStringList{tr("Comma Separated Files (*.csv)"), tr("All Files") + QStringLiteral(" (*)")};
+    request.nameFilters = QStringList{FileNames::csvFilter(), FileNames::allFilesFilter()};
     if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
     {
         request.directory = *directory;
@@ -848,8 +834,9 @@ void FreeformFinSetConfig::exportCsv()
     {
         return;
     }
-    const std::filesystem::path file = forceExtension(answer->file, "csv");
-    std::error_code             error;
+    const std::filesystem::path file =
+        FileNames::forceExtension(answer->file, QStringLiteral("csv"));
+    std::error_code error;
     if (std::filesystem::exists(file, error))
     {
         const bool overwrite = prompts.askOverwrite(this, QtStrings::fromPath(file.filename()));
@@ -876,24 +863,6 @@ Result<void> FreeformFinSetConfig::writeCsvFile(const FinPointTableModel&    mod
                                                 const std::filesystem::path& file)
 {
     return writeTextFile(file, QtStrings::toUtf8(model.csvText()));
-}
-
-std::filesystem::path FreeformFinSetConfig::forceExtension(const std::filesystem::path& file,
-                                                           std::string_view             extension)
-{
-    const std::string      name              = pathToUtf8(file.filename());
-    const std::size_t      index             = name.rfind('.');
-    const std::string_view originalExtension = index != std::string::npos && index > 0
-                                                   ? std::string_view(name).substr(index + 1)
-                                                   : std::string_view();
-    if (lowerCase(originalExtension) == lowerCase(extension))
-    {
-        return file;
-    }
-    const std::string withExtension = extension.starts_with('.')
-                                          ? pathToUtf8(file) + std::string(extension)
-                                          : pathToUtf8(file) + '.' + std::string(extension);
-    return pathFromUtf8(withExtension);
 }
 
 // ---------------------------------------------------------------------------------- mouse

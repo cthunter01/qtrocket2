@@ -14,8 +14,6 @@
 
 #include <QAction>
 #include <QChar>
-#include <QCursor>
-#include <QGuiApplication>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -23,7 +21,6 @@
 #include <QTimer>
 #include <Qt>
 #include <QtContainerFwd>
-#include <QtTypes>
 
 #include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/OpenRocketDocument.h"
@@ -39,10 +36,12 @@
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/gui/util/WaitCursor.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -58,39 +57,6 @@ namespace QtRocket::Gui
 namespace
 {
 
-/// The wait cursor while a design is read or written (decision O15), until this ends.
-class WaitCursor final
-{
-public:
-    WaitCursor() { QGuiApplication::setOverrideCursor(QCursor(Qt::WaitCursor)); }
-    ~WaitCursor() { QGuiApplication::restoreOverrideCursor(); }
-    WaitCursor(const WaitCursor&)            = delete;
-    WaitCursor& operator=(const WaitCursor&) = delete;
-    WaitCursor(WaitCursor&&)                 = delete;
-    WaitCursor& operator=(WaitCursor&&)      = delete;
-};
-
-/// @p file made absolute as Java's File.getAbsolutePath() makes it: resolved against the
-/// current directory as text, nothing of its name changed (std::filesystem::absolute() on
-/// Windows drops the dots and spaces that end a name), with the platform's separators (Java's
-/// File turns '/' into '\\' on Windows: a file chosen in a file dialog, which Qt names with '/',
-/// and the same file from the command line are one recent file); @p file with the platform's
-/// separators when the current directory is unknown.
-[[nodiscard]] std::filesystem::path absoluteFile(const std::filesystem::path& file)
-{
-    std::filesystem::path absolute = file;
-    if (!file.is_absolute())
-    {
-        std::error_code             error;
-        const std::filesystem::path current = std::filesystem::current_path(error);
-        if (!error)
-        {
-            absolute = current / file;
-        }
-    }
-    return absolute.make_preferred();
-}
-
 /// Whether @p first and @p second are the same file: the same file of the file system when
 /// both exist, else the same absolute path.
 [[nodiscard]] bool isSameFile(const std::filesystem::path& first,
@@ -101,7 +67,8 @@ public:
     {
         return true;
     }
-    return absoluteFile(first).lexically_normal() == absoluteFile(second).lexically_normal();
+    return FileNames::absoluteFile(first).lexically_normal() ==
+           FileNames::absoluteFile(second).lexically_normal();
 }
 
 /// Whether @p file can be opened for reading (Java's FileInputStream, whose
@@ -200,7 +167,7 @@ QString DocumentFileOperations::openRocketDesignFilter()
 QString DocumentFileOperations::allFilesFilter()
 {
     // Swing's accept-all filter (FileChooser.acceptAllFileFilterText).
-    return tr("All Files") + QStringLiteral(" (*)");
+    return FileNames::allFilesFilter();
 }
 
 QStringList DocumentFileOperations::openFilters()
@@ -210,26 +177,6 @@ QStringList DocumentFileOperations::openFilters()
     // in Milestone 8, goes between the two), and the OpenRocket designs are chosen
     // (openAction()).
     return {allFilesFilter(), openRocketDesignFilter()};
-}
-
-std::filesystem::path DocumentFileOperations::forceExtension(const std::filesystem::path& file,
-                                                             const QString&               extension)
-{
-    // FileHelper.forceExtension(): the extension of the name is what follows its last dot,
-    // unless that dot is its first character.
-    const QString   name  = QtStrings::fromPath(file.filename());
-    const qsizetype index = name.lastIndexOf(QChar(u'.'));
-    const QString   given = index > 0 ? name.mid(index + 1) : QString();
-    if (given.toLower() == extension.toLower())
-    {
-        return file;
-    }
-    QString absolute = QtStrings::fromPath(absoluteFile(file));
-    if (!extension.startsWith(QChar(u'.')))
-    {
-        absolute += QChar(u'.');
-    }
-    return QtStrings::toPath(absolute + extension);
 }
 
 bool DocumentFileOperations::hasSimulatedData(const OpenRocketDocument& document)
@@ -306,7 +253,7 @@ void DocumentFileOperations::openAction(MainWindow* origin)
 MainWindow* DocumentFileOperations::open(const std::filesystem::path& file, MainWindow* origin)
 {
     const QPointer<MainWindow>  alive(origin);
-    const std::filesystem::path absolute = absoluteFile(file);
+    const std::filesystem::path absolute = FileNames::absoluteFile(file);
     // Decision U4: a file open in a window already is shown there (OpenRocket opens it again).
     if (MainWindow* const window = findWindowOfFile(absolute); window != nullptr)
     {
@@ -404,7 +351,7 @@ bool DocumentFileOperations::saveAs(MainWindow& window)
     {
         return false;
     }
-    *file = forceExtension(*file, orkExtension());
+    *file = FileNames::forceExtension(*file, orkExtension());
     // FileHelper.confirmWrite().
     if (fileExists(*file) &&
         (!m_services.prompts().askOverwrite(&window, QtStrings::fromPath(file->filename())) ||
@@ -416,7 +363,7 @@ bool DocumentFileOperations::saveAs(MainWindow& window)
     {
         return false;
     }
-    Q_EMIT designFileSavedAs(QtStrings::fromPath(absoluteFile(*file)));
+    Q_EMIT designFileSavedAs(QtStrings::fromPath(FileNames::absoluteFile(*file)));
     return true;
 }
 
@@ -495,7 +442,7 @@ bool DocumentFileOperations::saveAsOpenRocket(MainWindow&                  windo
                                               const std::filesystem::path& target)
 {
     const QPointer<MainWindow>  alive(&window);
-    const std::filesystem::path file = forceExtension(target, orkExtension());
+    const std::filesystem::path file = FileNames::forceExtension(target, orkExtension());
     if (!verifyStorageOptions(window) || alive.isNull())
     {
         return false;
@@ -619,7 +566,7 @@ std::optional<std::filesystem::path> DocumentFileOperations::askSaveAsFile(MainW
         // the chooser's directory (the default directory, or the user's home directory) is a
         // legal name, so only a file of that directory; then JFileChooser.setSelectedFile() takes
         // the chooser to the file's directory.
-        const std::filesystem::path proposed = forceExtension(*name, orkExtension());
+        const std::filesystem::path proposed = FileNames::forceExtension(*name, orkExtension());
         if (SaveFileNames::isProposable(proposed,
                                         SaveFileNames::chooserDirectory(request.directory)))
         {

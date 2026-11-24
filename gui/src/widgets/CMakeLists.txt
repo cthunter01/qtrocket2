@@ -5,10 +5,13 @@ target_sources(QtRocket_gui PRIVATE
     BoolCheckBox.cpp ${gui_include_dir}/widgets/BoolCheckBox.h
     CollapsiblePanel.cpp ${gui_include_dir}/widgets/CollapsiblePanel.h
     ConfigurationComboBox.cpp ${gui_include_dir}/widgets/ConfigurationComboBox.h
+    CsvExportPanel.cpp ${gui_include_dir}/widgets/CsvExportPanel.h
+    CsvOptionPanel.cpp ${gui_include_dir}/widgets/CsvOptionPanel.h
     DescriptionArea.cpp ${gui_include_dir}/widgets/DescriptionArea.h
     DropdownButton.cpp ${gui_include_dir}/widgets/DropdownButton.h
     EnumComboBox.cpp ${gui_include_dir}/widgets/EnumComboBox.h
     FieldEnabling.cpp ${gui_include_dir}/widgets/FieldEnabling.h
+    FieldSeparatorComboBox.cpp ${gui_include_dir}/widgets/FieldSeparatorComboBox.h
     FieldValidator.cpp ${gui_include_dir}/widgets/FieldValidator.h
     FlowLayout.cpp ${gui_include_dir}/widgets/FlowLayout.h
     HtmlLabel.cpp ${gui_include_dir}/widgets/HtmlLabel.h

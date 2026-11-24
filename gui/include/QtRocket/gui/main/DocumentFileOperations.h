@@ -70,8 +70,8 @@ class WindowManager;
 /// or of a subdirectory); names with an illegal character refused (SaveFileChooser); the storage
 /// option offered when the design holds simulated data); the storage options are stored and
 /// marked explicitly set, the directory becomes the default one, the extension "ork" is forced
-/// (forceExtension()), and an existing file is overwritten only when the user agrees ("File
-/// exists"). Then saveAsOpenRocket().
+/// (FileNames::forceExtension()), and an existing file is overwritten only when the user agrees
+/// ("File exists"). Then saveAsOpenRocket().
 ///
 /// WRITING (saveAsOpenRocket()): the extension forced again; the storage options asked when they
 /// are not set explicitly and the design holds simulated data (verifyStorageOptions(): "Save
@@ -134,14 +134,6 @@ public:
     /// The name filters of File > Open, in JFileChooser's order (its accept-all filter first);
     /// openAction() chooses openRocketDesignFilter().
     [[nodiscard]] static QStringList openFilters();
-
-    /// FileHelper.forceExtension(@p file, @p extension): @p file when the text after the last
-    /// dot of its name (a dot that is not its first character) is @p extension, ignoring case;
-    /// otherwise the absolute path of @p file with "." and @p extension added ("x.ork.gz" ->
-    /// "x.ork.gz.ork", ".ork" -> ".ork.ork", "x." -> "x..ork"). An @p extension that starts with
-    /// a dot is added as it is. A file made absolute has the platform's separators.
-    [[nodiscard]] static std::filesystem::path forceExtension(const std::filesystem::path& file,
-                                                              const QString& extension);
 
     /// Whether @p document holds simulated data the storage options decide about
     /// (verifyStorageOptions()): a simulation that is not NOT_SIMULATED or EXTERNAL, with

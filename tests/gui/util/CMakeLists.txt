@@ -6,6 +6,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     ComponentIconsTests.cpp
     CustomFinImporterTests.cpp
     EnumTextTests.cpp
+    FileNamesTests.cpp
     FinImportReport.cpp
     GuardTests.cpp
     GuiServicesTests.cpp
@@ -20,4 +21,5 @@ target_sources(QtRocket_gui_tests PRIVATE
     SvgIconEngineTests.cpp
     TableSortKeysTests.cpp
     ThemeColorsTests.cpp
+    WaitCursorTests.cpp
 )

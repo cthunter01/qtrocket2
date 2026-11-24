@@ -5,10 +5,13 @@ target_sources(QtRocket_gui_tests PRIVATE
     BoolCheckBoxTests.cpp
     CollapsiblePanelTests.cpp
     ConfigurationComboBoxTests.cpp
+    CsvExportPanelTests.cpp
+    CsvOptionPanelTests.cpp
     DescriptionAreaTests.cpp
     DropdownButtonTests.cpp
     EnumComboBoxTests.cpp
     FieldEnablingTests.cpp
+    FieldSeparatorComboBoxTests.cpp
     FieldValidatorTests.cpp
     FlowLayoutTests.cpp
     HtmlLabelTests.cpp
