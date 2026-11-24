@@ -30,6 +30,8 @@
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
+#include "QtRocket/gui/dialogs/ModalDialog.h"
+#include "QtRocket/gui/dialogs/simulation/MultiLevelWindEditDialog.h"
 #include "QtRocket/gui/dialogs/simulation/TurbulenceIntensityText.h"
 #include "QtRocket/gui/dialogs/simulation/WindLevelSummary.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -249,8 +251,22 @@ void SimulationConditionsPanel::buildWind(const Contexts& contexts, BindingScope
     m_windCards->addWidget(m_windLevelSummary);
     connect(m_windLevelSummary, &WindLevelSummary::editLevelsRequested, this,
             &SimulationConditionsPanel::editWindLevelsRequested);
+    connect(this, &SimulationConditionsPanel::editWindLevelsRequested, this,
+            guarded([this] { editWindLevels(); }, context()));
     column->addWidget(m_windCards);
     showWindModel();
+}
+
+void SimulationConditionsPanel::editWindLevels()
+{
+    SimulationOptions* const options = liveOptions();
+    if (options == nullptr)
+    {
+        return;
+    }
+    ModalDialog<MultiLevelWindEditDialog> dialog(window(), options->getMultiLevelWindModel(),
+                                                 m_services);
+    dialog.exec();
 }
 
 void SimulationConditionsPanel::buildWindModelChoice(QWidget& parent)

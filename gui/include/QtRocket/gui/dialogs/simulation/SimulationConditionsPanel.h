@@ -112,7 +112,8 @@ class WindLevelSummary;
 ///
 /// Deviations from OpenRocket:
 /// - The maxima of the spin boxes where Java has none (see above).
-/// - The wind editor is opened through editWindLevelsRequested() (see there).
+/// - The wind editor (MultiLevelWindEditDialog) is a ModalDialog child of the panel's window,
+///   opened by editWindLevels() after editWindLevelsRequested() (see there).
 /// - Variant::SIMULATION needs a SimulationOptions (a BugError otherwise); Java's static method
 ///   takes the wind model radios for any target and makes them do nothing for one that is not.
 /// - The multi-level summary is written again on every change of the levels (OpenRocket bug 36,
@@ -255,11 +256,16 @@ public:
     /// The easter egg (see the class comment); the events always go on (false).
     bool eventFilter(QObject* watched, QEvent* event) override;
 
+    /// What "Edit levels" does (Java: new MultiLevelWindEditDialog(window,
+    /// model).setVisible(true)): the wind editor of the options' MultiLevelPinkNoiseWindModel,
+    /// modal for the application, as a ModalDialog child of the panel's window; returns when it is
+    /// closed (the summary has followed every change: WindLevelSummary). Nothing with
+    /// Variant::LAUNCH_PREFERENCES or once the options have gone.
+    void editWindLevels();
+
 Q_SIGNALS:
     /// The user clicked the multi-level card's "Edit levels" (WindLevelSummary::
-    /// editLevelsRequested()): the wind editor of the options' MultiLevelPinkNoiseWindModel opens
-    /// (Java: a MultiLevelWindEditDialog, APPLICATION_MODAL, over the panel's window). The editor
-    /// is part S2 of Milestone 4's run 2, which opens it here; until then nothing answers.
+    /// editLevelsRequested()); the panel then opens the wind editor (editWindLevels()).
     void editWindLevelsRequested();
 
 private:

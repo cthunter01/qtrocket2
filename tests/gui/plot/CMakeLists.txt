@@ -11,4 +11,5 @@ target_sources(QtRocket_gui_tests PRIVATE
     thrust_curve_plot_golden_tests.cpp
     ThrustCurvePlotTests.cpp
     ThrustCurvePreviewTests.cpp
+    WindProfilePlotTests.cpp
 )

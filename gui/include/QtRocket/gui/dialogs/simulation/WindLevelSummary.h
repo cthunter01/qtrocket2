@@ -30,9 +30,9 @@ namespace QtRocket::Gui
 /// VELOCITY (not WINDSPEED, as Java).
 ///
 /// The button tells of its click (editLevelsRequested()); the owner opens the wind editor, a
-/// modal dialog over the model (part S2 of Milestone 4: MultiLevelWindEditDialog), with the
-/// services it needs (the preferences of "Reset levels", the questions of the CSV import), which
-/// this widget has not.
+/// modal dialog over the model (SimulationConditionsPanel::editWindLevels():
+/// MultiLevelWindEditDialog), with the services it needs (the preferences of "Reset levels", the
+/// questions of the CSV import), which this widget has not.
 ///
 /// The model must stay at its address while the summary shows it (a SimulationOptions' model
 /// does, for the life of the options); the summary learns that it has gone from its change

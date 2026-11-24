@@ -29,6 +29,7 @@
 
 #include <QGroupBox>
 #include <QLabel>
+#include <QObject>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRect>
@@ -37,16 +38,20 @@
 #include <QString>
 #include <QTest>
 #include <QWidget>
+#include <Qt>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
+#include "QtRocket/gui/dialogs/simulation/MultiLevelWindEditDialog.h"
+#include "QtRocket/gui/dialogs/simulation/MultiLevelWindTableModel.h"
 #include "QtRocket/gui/dialogs/simulation/WindLevelSummary.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -735,6 +740,27 @@ struct Relation
 
 // -------------------------------------------------------------------------------------- tests
 
+/// What the test of "Edit levels" does with the wind editor: checks it (over the panel's window,
+/// modal for the application, a row per level), adds a level and closes it.
+struct WindEditorAnswer
+{
+    const QWidget* window = nullptr;
+    std::size_t    levels = 0;
+    bool*          shown  = nullptr;
+
+    void operator()(QWidget& dialog) const
+    {
+        auto* const editor = qobject_cast<MultiLevelWindEditDialog*>(&dialog);
+        ASSERT_NE(editor, nullptr);
+        *shown = true;
+        EXPECT_EQ(editor->parentWidget(), window);
+        EXPECT_EQ(editor->windowModality(), Qt::ApplicationModal);
+        EXPECT_EQ(editor->tableModel().rowCount(), static_cast<int>(levels));
+        editor->addButton().click();
+        editor->closeButton().click();
+    }
+};
+
 TEST_F(SimulationConditionsPanelTest, TheTabShowsWhatOpenRocketsTabShows)
 {
     const ExampleTab tab;
@@ -869,12 +895,23 @@ TEST_F(SimulationConditionsPanelTest, ThePanelShowsChangesMadeElsewhere)
     EXPECT_EQ(tab.panel().rodDirection().spinBox->text(), QStringLiteral("180"));
 }
 
-TEST_F(SimulationConditionsPanelTest, TheEditLevelsButtonAsksForTheWindEditor)
+TEST_F(SimulationConditionsPanelTest, TheEditLevelsButtonOpensTheWindEditor)
 {
-    const ExampleTab tab;
+    // Java: a MultiLevelWindEditDialog over the options' multi-level wind, modal for the
+    // application, over the panel's window; the summary follows what it changes (bug 36).
+    ExampleTab       tab;
     const QSignalSpy requests(&tab.panel(), &SimulationConditionsPanel::editWindLevelsRequested);
+    const MultiLevelPinkNoiseWindModel& wind   = tab.options().getMultiLevelWindModel();
+    const std::size_t                   levels = wind.getLevels().size();
+    bool                                shown  = false;
+    const Gui::Test::NextModalDialog    answer(
+        WindEditorAnswer{.window = &tab.window(), .levels = levels, .shown = &shown});
     tab.panel().windLevelSummary()->editButton().click();
     EXPECT_EQ(requests.count(), 1);
+    EXPECT_TRUE(shown);
+    EXPECT_EQ(wind.getLevels().size(), levels + 1);
+    EXPECT_EQ(tab.panel().windLevelSummary()->summaryLabel().text(),
+              WindLevelSummary::summaryText(wind));
 }
 
 TEST_F(SimulationConditionsPanelTest, TypingFortyTwoIntoTheTurbulenceIntensityShowsTheAnswer)
