@@ -42,13 +42,14 @@ namespace
 
 }  // namespace
 
-SimulationCopy::SimulationCopy(std::vector<Entry> entries) noexcept : m_entries(std::move(entries))
+SimulationCopy::SimulationCopy(std::vector<std::unique_ptr<const Entry>> entries) noexcept
+  : m_entries(std::move(entries))
 {
 }
 
 SimulationCopy SimulationCopy::copyOf(const std::vector<const Simulation*>& simulations)
 {
-    std::vector<Entry> entries;
+    std::vector<std::unique_ptr<const Entry>> entries;
     entries.reserve(simulations.size());
     for (const Simulation* simulation : simulations)
     {
@@ -56,7 +57,7 @@ SimulationCopy SimulationCopy::copyOf(const std::vector<const Simulation*>& simu
         {
             bug("A simulation to copy is null");
         }
-        entries.push_back(entryOf(*simulation));
+        entries.push_back(std::make_unique<const Entry>(entryOf(*simulation)));
     }
     return SimulationCopy(std::move(entries));
 }
@@ -67,7 +68,7 @@ const SimulationCopy::Entry& SimulationCopy::getEntry(std::size_t index) const
     {
         bug("The simulation copy has no entry at that index");
     }
-    return m_entries[index];
+    return *m_entries[index];
 }
 
 std::shared_ptr<Simulation> SimulationCopy::makeSimulation(std::size_t         index,

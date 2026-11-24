@@ -388,6 +388,25 @@ struct SampledFlight
     return event->getTime();
 }
 
+/// The first time of @p branch after @p time; NaN when there is none.
+[[nodiscard]] double firstTimeAfter(const FlightDataBranch& branch, double time)
+{
+    const std::vector<double>* times =
+        branch.getView(FlightDataType::builtin(FlightDataTypeId::TYPE_TIME));
+    if (times == nullptr)
+    {
+        ADD_FAILURE() << "no time column";
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const auto after = std::ranges::upper_bound(*times, time);
+    if (after == times->end())
+    {
+        ADD_FAILURE() << "no time after " << time;
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return *after;
+}
+
 /// The time of the first of @p samples; NaN when there is none.
 [[nodiscard]] double firstSampleTime(const std::vector<RunSample>& samples)
 {
@@ -479,7 +498,9 @@ TEST(RunSampleListener, SamplesAFlightAtItsEventsAndEvery200MillisecondsOfSteps)
     EXPECT_EQ(samples.size(), 3 + ((steps + 3) / 4));
     EXPECT_TRUE(inTimeOrder(samples));
     EXPECT_EQ(firstSampleTime(samples), firstEventTime(branch, Type::LAUNCH));
-    EXPECT_TRUE(hasSampleAt(samples, firstEventTime(branch, Type::APOGEE)));
+    // The APOGEE event has the time of the step before the one that found it, and is handled
+    // after that step: its sample has the time of the next row.
+    EXPECT_TRUE(hasSampleAt(samples, firstTimeAfter(branch, firstEventTime(branch, Type::APOGEE))));
     EXPECT_EQ(lastSampleTime(samples), data.getFlightTime());
     EXPECT_EQ(lastSampleTime(samples), lastEventTime(branch, Type::SIMULATION_END));
     EXPECT_TRUE(std::ranges::all_of(samples, &RunSample::sustainerActive));

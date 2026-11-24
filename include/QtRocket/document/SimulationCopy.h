@@ -149,9 +149,11 @@ public:
     [[nodiscard]] static bool hasNumberedName(std::string_view name) noexcept;
 
 private:
-    explicit SimulationCopy(std::vector<Entry> entries) noexcept;
+    explicit SimulationCopy(std::vector<std::unique_ptr<const Entry>> entries) noexcept;
 
-    std::vector<Entry> m_entries;
+    /// Never null. Each entry on the heap: MSVC's std::vector copies an element that is not
+    /// nothrow-movable when it grows (an Entry's std::map is not), and an Entry is not copyable.
+    std::vector<std::unique_ptr<const Entry>> m_entries;
 };
 
 }  // namespace QtRocket
