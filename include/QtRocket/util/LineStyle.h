@@ -28,6 +28,10 @@ inline constexpr std::array<LineStyle, 4> kAllLineStyles{LineStyle::SOLID, LineS
 /// The translation key of the style's display name, e.g. "LineStyle.Dash-dotted".
 [[nodiscard]] std::string_view displayKey(LineStyle style) noexcept;
 
+/// The English display name (Java: toString() with OpenRocket's English messages): "Solid",
+/// "Dashed", "Dotted", "Dash-dotted". The plot panel's line style combo box shows it.
+[[nodiscard]] std::string_view displayName(LineStyle style) noexcept;
+
 /// The .ork spelling: the lower-cased enum name ("solid", "dashed", "dotted", "dashdot").
 [[nodiscard]] std::string_view toString(LineStyle style) noexcept;
 

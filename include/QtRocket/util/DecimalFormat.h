@@ -32,6 +32,16 @@ public:
     /// DecimalFormat.format(double).
     [[nodiscard]] std::string format(double value) const;
 
+    /// DecimalFormat.toPattern(): the pattern Java writes for the format's digit counts, which is
+    /// not always the pattern it was made from. Without an exponent: one '#' and a '0' for every
+    /// required integer digit ("#" for "#" and "##", "#0" for "0", "#0.##" for "#.##", "#.0#" for
+    /// ".##"), then the point when there are fraction digits or the point is always shown ("#0."
+    /// for "#."), a '0' for every required fraction digit and a '#' for every further one. With an
+    /// exponent: as many integer digits as at most, the required ones as '0' ("##0.##E0", "0.#E0"
+    /// for "#.#E0"), and "E" with a '0' for every required exponent digit. (Grouping, which Java
+    /// would write too, is outside the supported syntax.)
+    [[nodiscard]] std::string toPattern() const;
+
     [[nodiscard]] int  getMinimumIntegerDigits() const noexcept { return m_minIntegerDigits; }
     [[nodiscard]] int  getMaximumIntegerDigits() const noexcept { return m_maxIntegerDigits; }
     [[nodiscard]] int  getMinimumFractionDigits() const noexcept { return m_minFractionDigits; }

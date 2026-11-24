@@ -369,6 +369,38 @@ DecimalFormat::DecimalFormat(std::string_view pattern)
     m_decimalSeparatorAlwaysShown = parts.point && (integerLength == 0 || fractionLength == 0);
 }
 
+std::string DecimalFormat::toPattern() const
+{
+    // From JDK 17's output for the supported patterns (the probe plot-model of
+    // tools/openrocket-probes): the integer part has one digit more than the required ones, a
+    // '#' first, unless the exponent fixes its length at the most integer digits.
+    std::string pattern;
+    if (m_useExponentialNotation)
+    {
+        for (int digit = m_maxIntegerDigits; digit > 0; --digit)
+        {
+            pattern += digit <= m_minIntegerDigits ? '0' : '#';
+        }
+    }
+    else
+    {
+        pattern += '#';
+        pattern.append(static_cast<std::size_t>(m_minIntegerDigits), '0');
+    }
+    if (m_maxFractionDigits > 0 || m_decimalSeparatorAlwaysShown)
+    {
+        pattern += '.';
+    }
+    pattern.append(static_cast<std::size_t>(m_minFractionDigits), '0');
+    pattern.append(static_cast<std::size_t>(m_maxFractionDigits - m_minFractionDigits), '#');
+    if (m_useExponentialNotation)
+    {
+        pattern += 'E';
+        pattern.append(static_cast<std::size_t>(m_minExponentDigits), '0');
+    }
+    return pattern;
+}
+
 std::string DecimalFormat::format(double value) const
 {
     if (std::isnan(value))

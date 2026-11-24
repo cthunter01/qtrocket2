@@ -57,6 +57,7 @@ add_executable(QtRocket_core_tests
     util/ColorTests.cpp
     util/ConfigTests.cpp
     util/CoordinateTests.cpp
+    util/DecimalFormatterTests.cpp
     util/DecimalFormatTests.cpp
     util/ExpressionParserTests.cpp
     util/FileIoTests.cpp
@@ -485,7 +486,10 @@ add_executable(QtRocket_core_tests
     figure/TubeShapesTests.cpp
     plot/PlotAxisBoundsTests.cpp
     plot/PlotConfigurationTests.cpp
+    plot/PlotPreferencesTests.cpp
+    plot/PlotUtilTests.cpp
     plot/SimulationPlotConfigurationTests.cpp
+    plot/SimulationPlotModelTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp

@@ -112,7 +112,9 @@ using ComponentDefaults = std::span<const std::pair<std::string_view, std::strin
 ///   preferences/: free functions taking a Preferences in
 ///   QtRocket/rocket/preset/ComponentPresetFavorites.h. The motor chooser's stored state
 ///   (SwingPreferences' excluded manufacturers, the preferred thrust curves, the filter flags) is
-///   in QtRocket/motor/MotorPreferences.h the same way.
+///   in QtRocket/motor/MotorPreferences.h the same way, and SwingPreferences'
+///   getDefaultPlotAppearance() and setDefaultPlotAppearance(), typed on FlightDataType and
+///   PlotAppearance (simulation/), are in QtRocket/plot/PlotPreferences.h with the plots' flags.
 /// - getUITheme()/setUITheme(Object): the GUI's.
 /// - saveOBJExportOptions(OBJExportOptions)/loadOBJExportOptions(Rocket): typed on the OBJ export
 ///   options and Rocket; the node and key names are in PreferenceKeys (kObj...).
