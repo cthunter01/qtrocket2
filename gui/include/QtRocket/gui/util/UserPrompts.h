@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -7,15 +8,18 @@
 #include <span>
 #include <vector>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 
+#include "QtRocket/gui/util/CsvOptionValues.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 
+class QObject;
 class QWidget;
 
 namespace QtRocket
@@ -25,12 +29,15 @@ class FlightConfigurationId;
 class Motor;
 class MotorMount;
 class OpenRocketDocument;
+class Simulation;
+class Unit;
 }  // namespace QtRocket
 
 namespace QtRocket::Gui
 {
 
 class GuiServices;
+class SimulationExecutor;
 
 /// Every modal question the GUI asks and every message box it shows, as one interface, so that
 /// no code below the main windows opens a modal dialog itself: an offscreen test would hang in
@@ -54,6 +61,81 @@ class GuiServices;
 /// value and the caller applies it as the dialog's OK action did, after its undo position. Only
 /// the motor chooser is shown a component (the mount, which it reads while it is open); no
 /// answer refers to one, so no component pointer outlives a question.
+///
+/// The questions of Milestone 4 (the Simulations tab, the simulation settings dialog, its wind
+/// editor and aerodynamic lookup, the plots and the exports) are all declared here too, with what
+/// OpenRocket's call sites give their dialogs and read back:
+/// - askDeleteSimulations(): SimulationPanel.verifyDeleteSimulation()'s "Delete simulations",
+///   asked while Preferences::getConfirmSimDeletion() is on;
+/// - askDiscardChanges() with SIMULATION_CHANGES or SIMULATION_ADDITION: SimulationConfigDialog.
+///   cancelSimEdit()'s "Cancel operation", asked while isShowDiscardSimulationConfirmation() is
+///   on;
+/// - runSimulations(): SimulationRunDialog, which runs the simulations and returns when they are
+///   done or cancelled;
+/// - askWindCsvImportSettings(): CSVImportSettingsDialog ("Wind Data Import Settings");
+/// - askColor(): ColorChooserButton's JColorChooser dialog;
+/// - askYesNo(): the wind editor's "Overwrite wind levels?" (WindProfileEditorDlg.dlg.
+///   overwriteLevels.title, .msg; WARNING), before Reset levels and before an import over levels;
+/// - askOpenFiles(): the wind editor's "Import wind levels" (WindProfileEditorDlg.dlg.importLevels.
+///   title; FileHelper.CSV_FILTER chosen beside "All Files", in the default directory, which the
+///   caller then stores; no extension forced on the chosen file: OpenRocket's forceExtension() on
+///   an open dialog is bug 37) and the aerodynamic lookup's "Load from file..."
+///   (AerodynamicLookupDialog.title.choose "Select CSV file", AerodynamicLookupDialog.csvFilter
+///   for *.csv *.txt *.dat, in the directory of the table's file with that file selected:
+///   OpenFileRequest::fileName);
+/// - askSaveFile() and askOverwrite(): the export tab's CSV file (SimulationExportPanel.doExport():
+///   a SaveFileChooser, so refuseIllegalNames; FileHelper.CSV_FILTER beside "All Files", the
+///   default directory, no proposed name; the caller forces ".csv" and then asks askOverwrite()),
+///   the simulation table's CSV file (SimulationPanel.exportSimulationsToCSV():
+///   simpanel.pop.exportToCSV.save.dialog.title "Save as CSV file", FileHelper.CSV_FILTER only, the
+///   default directory, which is not stored after, "<rocket name>.csv" proposed,
+///   refuseIllegalNames, and the CSV options asked after the file: SaveFileRequest::csvOptions),
+///   and the plot dialog's Export Image (plot/PlotExport, as in Milestone 3).
+/// Every file question of Milestone 4 goes through these (the critic's G8): only
+/// WidgetFileDialogTest shows Qt's own file dialog. The settings dialog, the plot dialog, the wind
+/// editor and the lookup dialog are dialogs of their own, not questions (util/SimulationDialogs;
+/// ModalDialog children of the settings dialog).
+///
+/// The messages of Milestone 4 go through showMessage() with these texts (DetailDialog without
+/// details, as M3's messages):
+/// - the table export without rows (SimulationPanel.exportSimulationsToCSV()): INFORMATION, the
+///   line simpanel.dlg.no.simulation.table.rows ("Simulation table has no entries... Please run a
+///   simulation first.", with Java's ellipsis character), and JOptionPane's own title of a
+///   message dialog, "Message" (Swing's OptionPane.messageDialogTitle);
+/// - a Copy whose selection cannot be read (SimulationPanel.copySimulationValues()): ERROR, title
+///   and line both simpanel.msg.invalidCopySelection ("Invalid copy selection");
+/// - Plot with no variable on the y axis (SimulationPlotPanel.doPlot()): ERROR, title
+///   SimulationPlotPanel.error.noPlotSelected.title ("Nothing to plot"), line
+///   SimulationPlotPanel.error.noPlotSelected ("Please add one or more variables to plot on the
+///   Y-axis.");
+/// - a 16th y-axis variable (PlotPanel's "New Y axis plot type"): ERROR, title
+///   simplotpanel.OptionPane.lbl2 ("Cannot add plot"), line simplotpanel.OptionPane.lbl1 ("A
+///   maximum of 15 plots is allowed.");
+/// - a run that failed (SimulationRunDialog's DetailDialog): ERROR, the simulation's name as the
+///   title, the lines SimuRunDlg.msg.errorOccurred ("An error occurred during the simulation:"),
+///   or for a calculation of a branch SimuRunDlg.msg.branchErrorOccurred ("An error occurred
+///   during simulation branch") + " \"<branch name>\"", and then the error's message; one at a
+///   time, the runs' poll paused meanwhile. A run that threw goes to Guard instead (OpenRocket's
+///   "An exception occurred during the simulation");
+/// - an import of wind levels that failed (MultiLevelWindEditDialog.importLevels()): ERROR, title
+///   WindProfileEditorDlg.msg.importLevelsError.title ("Import Wind Levels Failed"), the lines
+///   WindProfileEditorDlg.msg.importLevelsError ("An issue occurred while importing wind
+///   levels:") and the error's message;
+/// - the CSV import settings that cannot be used (CSVImportSettingsDialog's OK, from inside that
+///   dialog, through the same prompts): ERROR, title CSVImportSettingsDialog.validationError
+///   ("Incorrect Data Input"), the line CSVImportSettingsDialog.emptyColumnNameError,
+///   .duplicateColumnNameError or .duplicateColumnError;
+/// - a lookup table that cannot be loaded (AerodynamicLookupDialog.showLookupError()): ERROR, title
+///   AerodynamicLookupDialog.error.title ("Failed to load CSV"), AerodynamicLookupDialog.error.msg
+///   ("Failed to load %s:%n%s": the file, a line break, the reason); and a table's file that is
+///   gone (refresh): WARNING, the same title, AerodynamicLookupDialog.error.fileNotFound ("The CSV
+///   file does not exist:%n%s");
+/// - an export that cannot be written (the export tab's and the table's, bug 53): ERROR, title
+///   error.writing.title ("Error writing file"), the lines error.writing.desc ("An error occurred
+///   while writing to the file:") and the error's message, as Milestone 3's exports;
+/// - the launch conditions' easter egg (SimulationConditionsPanel.addEasterEgg(), O-M4-19):
+///   INFORMATION, title "42", the line "The answer to the ultimate question of life, the universe,
+///   and everything." (Java's literals).
 class UserPrompts
 {
 public:
@@ -87,13 +169,19 @@ public:
     /// Whose changes Cancel would discard: the configuration dialog's, editing a component
     /// ("RocketCompCfg.CancelOperation.msg.discardChanges") or a component just added
     /// ("RocketCompCfg.CancelOperation.msg.undoAdd"), both titled
-    /// "RocketCompCfg.CancelOperation.title"; or the preferences dialog's
-    /// ("PreferencesDialog.CancelOperation.*").
+    /// "RocketCompCfg.CancelOperation.title"; the preferences dialog's
+    /// ("PreferencesDialog.CancelOperation.*"); or the simulation settings dialog's
+    /// (SimulationConfigDialog.createCancelOperationContent()), editing a simulation
+    /// ("SimulationConfigDialog.CancelOperation.msg.discardChanges") or a simulation just added
+    /// ("SimulationConfigDialog.CancelOperation.msg.undoAdd"), both titled
+    /// "SimulationConfigDialog.CancelOperation.title".
     enum class DiscardQuestion
     {
         COMPONENT_CHANGES,
         COMPONENT_ADDITION,
         PREFERENCE_CHANGES,
+        SIMULATION_CHANGES,
+        SIMULATION_ADDITION,
     };
 
     struct DiscardAnswer
@@ -204,6 +292,10 @@ public:
         /// approveButtonText): "pref.dlg.Add" for the preferences' user files); empty for the
         /// platform's own ("Open").
         QString approveButtonText;
+        /// The name of the file selected in directory when the dialog opens (JFileChooser.
+        /// setSelectedFile(): the aerodynamic lookup's current table file); empty for none.
+        // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
+        QString fileName = {};
     };
 
     struct OpenFileAnswer
@@ -232,6 +324,14 @@ public:
         /// of SaveFileNames::illegalCharacter() is refused with the warning "Illegal filename"
         /// and asked for again (WidgetUserPrompts).
         bool refuseIllegalNames = false;
+        /// For the simulation table's export: the CSV options the dialog asks once the file is
+        /// chosen (CsvOptionPanel(SimulationTableCSVExport.class), the JFileChooser accessory of
+        /// SimulationPanel.setUpSimExportCSVFileChooser(); WidgetUserPrompts asks them in a
+        /// dialog after the file, U-M4-6), starting with these values (the caller's, from the
+        /// preferences); nullopt for no such options. The table export's panel has no comment
+        /// options: commentOptions come back as they are given.
+        // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
+        std::optional<CsvOptionValues> csvOptions = {};
     };
 
     struct SaveFileAnswer
@@ -247,6 +347,10 @@ public:
         /// chosen filter's suffix (PlotExport).
         // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
         QString selectedNameFilter = {};
+        /// The CSV options chosen, when the request had them; the caller stores them in the
+        /// preferences (CsvOptionPanel.storePreferences()) and exports with them.
+        // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
+        std::optional<CsvOptionValues> csvOptions = {};
     };
 
     // ---------------------------------------------- the flight configuration dialogs (M3)
@@ -456,6 +560,96 @@ public:
         QString message;
     };
 
+    // ------------------------------------------------------------------ the simulations (M4)
+
+    /// The answer to "Delete simulations" (SimulationPanel.verifyDeleteSimulation()).
+    struct DeleteSimulationsAnswer
+    {
+        /// OK: delete them (Cancel, Escape and the close button do not).
+        bool confirmed = false;
+        /// "Do not ask me again" was ticked. OpenRocket then turns the confirmation off
+        /// (setConfirmSimDeletion(false)) whatever the answer.
+        bool doNotAskAgain = false;
+
+        [[nodiscard]] bool operator==(const DeleteSimulationsAnswer& other) const = default;
+    };
+
+    /// The simulations the run dialog runs (SimulationRunDialog(window, document,
+    /// simulations...)): the document's own; the dialog prepares a run of each (its seed drawn
+    /// first, randomizeSeedIfNotFixed(), then a duplicate), submits them to the executor,
+    /// shows their progress, hands each result back to its simulation as the run ends (while
+    /// the simulation is still in the document), shows each failure, and tells the document
+    /// once when the batch is done.
+    struct RunSimulationsRequest
+    {
+        /// The design window the runs belong to: the executor's jobs carry it, and the window's
+        /// jobs are cancelled when it closes (SimulationExecutor::cancelAll()). Only compared.
+        const QObject* window = nullptr;
+        /// The document of the simulations; never null in the application.
+        OpenRocketDocument* document = nullptr;
+        /// The simulations to run, in their order, at least one (Java throws for none): the
+        /// document's, shared so that a simulation removed during the run is still there to be
+        /// asked (and then not given the run).
+        std::vector<std::shared_ptr<Simulation>> simulations;
+        /// What runs them (GuiServices::simulationExecutor()); never null in the application.
+        SimulationExecutor* executor = nullptr;
+    };
+
+    /// How the run dialog ended.
+    struct RunSimulationsAnswer
+    {
+        /// The batch was cancelled (Cancel, Escape or the dialog's close button: Java's
+        /// cancelSimulations()), or its window closed: the runs that had not ended keep their
+        /// old results and status (OpenRocket bug 40: Java records the partial flight as up to
+        /// date), the queued ones never start.
+        bool cancelled = true;
+        /// SimulationRunDialog.isAllSimulationsSuccessful(): every run ended without an error or
+        /// an exception (so false when the batch was cancelled).
+        bool allSuccessful = false;
+
+        [[nodiscard]] bool operator==(const RunSimulationsAnswer& other) const = default;
+    };
+
+    /// One column of a wind CSV file, as CSVImportSettingsDialog shows it in a row (Altitude,
+    /// Speed, Direction, "Standard Deviation (optional)") and Preferences stores it
+    /// (getMultiLevelWindCsvImport...Column(), ...ColumnIndex(), ...Unit()).
+    struct WindCsvColumn
+    {
+        /// "Column Name", trimmed (the file has a header row); empty for no standard deviation.
+        QString name;
+        /// "Column Index", from 0 (the file has no header row).
+        int index = 0;
+        /// "Unit": the unit the file's values are in, a unit of the column's process-wide group
+        /// (DISTANCE for the altitude, WINDSPEED for the speed and the standard deviation, ANGLE
+        /// for the direction); never null in an answer.
+        const Unit* unit = nullptr;
+
+        [[nodiscard]] bool operator==(const WindCsvColumn& other) const = default;
+    };
+
+    /// The settings of CSVImportSettingsDialog ("Wind Data Import Settings"): how the wind
+    /// editor's "Import levels" reads a CSV file. The question starts with the stored ones
+    /// (Preferences' MultiLevelWindCsvImport... and, for the separator, ExportFieldSeparator:
+    /// FieldSeparatorComboBox.loadFromExportPreferences()); the caller stores the chosen ones
+    /// (MultiLevelWindEditDialog.importLevels(), then asks for the file) and imports with them
+    /// (MultiLevelPinkNoiseWindModel::importLevelsFromCsv(): a column is read by its name with a
+    /// header row, by its index without).
+    struct WindCsvImportSettings
+    {
+        /// "CSV file has a header row".
+        bool          hasHeader = true;
+        WindCsvColumn altitude;
+        WindCsvColumn speed;
+        WindCsvColumn direction;
+        WindCsvColumn standardDeviation;
+        /// "Field Separator": the separator string the fields are split at ("," ";" " " "\t"
+        /// or what the user typed), never the combo box's text "SPACE" or "TAB" (which Java's
+        /// dialog gives and stores as the export separator: OpenRocket bug 34).
+        QString separator;
+
+        [[nodiscard]] bool operator==(const WindCsvImportSettings& other) const = default;
+    };
+
     // ------------------------------------------------------------------ the questions
 
     UserPrompts()                              = default;
@@ -560,6 +754,32 @@ public:
     /// the favourites afterwards (its preset combo box) and applies a CHOSEN preset.
     [[nodiscard]] virtual PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
                                                     const PresetRequest& request) = 0;
+
+    /// Whether to delete the @p count selected simulations (SimulationPanel.
+    /// verifyDeleteSimulation(): "Delete simulations", "Delete the selected simulations?", "Do
+    /// not ask me again" and, smaller, "You can change the default operation in the
+    /// preferences.", with OK and Cancel). The caller asks only while the confirmation is on
+    /// (Preferences::getConfirmSimDeletion()) and turns it off when the box was ticked.
+    [[nodiscard]] virtual DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
+                                                                       std::size_t count) = 0;
+
+    /// Runs the simulations of @p request (SimulationRunDialog, "Running simulations...", modal
+    /// to the application, with its progress and Cancel) and returns when they are all done or
+    /// the batch was cancelled.
+    [[nodiscard]] virtual RunSimulationsAnswer runSimulations(
+        QWidget* parent, const RunSimulationsRequest& request) = 0;
+
+    /// The settings of a wind CSV import (CSVImportSettingsDialog), starting with @p initial:
+    /// those chosen with OK, or nullopt for Cancel, Escape and the close button.
+    [[nodiscard]] virtual std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* parent, const WindCsvImportSettings& initial) = 0;
+
+    /// A colour (ColorChooserButton's colour dialog, JColorChooser.createDialog(), titled
+    /// @p title: OpenRocket's literal "Select color"), starting with @p initial: the colour chosen
+    /// with OK, or nullopt for Cancel and the close button (Java's chooser then puts the initial
+    /// colour back).
+    [[nodiscard]] virtual std::optional<QColor> askColor(QWidget* parent, const QColor& initial,
+                                                         const QString& title) = 0;
 
     // ------------------------------------------------------------------ the messages
 

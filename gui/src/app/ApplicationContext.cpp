@@ -16,6 +16,8 @@
 #include "QtRocket/gui/app/MotorDatabaseMetadataIO.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialPreferences.h"
@@ -68,6 +70,45 @@ template <class ReadFiles>
     return readFiles(defaultDirectory.value_or(std::filesystem::path()));
 }
 
+/// The application's executor of the simulations until Milestone 4's adapter of the core's
+/// SimulationRunner replaces it: it runs nothing, and drops every job at once (its finished()
+/// callback, inside submit()). Nothing submits a job yet.
+class DroppingSimulationExecutor final : public SimulationExecutor
+{
+public:
+    [[nodiscard]] JobId submit(const QObject* /*window*/, Work /*work*/,
+                               Callbacks callbacks) override
+    {
+        const JobId job = ++m_lastJob;
+        if (callbacks.finished)
+        {
+            callbacks.finished(Ending::DROPPED);
+        }
+        return job;
+    }
+    void               cancel(JobId /*job*/) override { }
+    void               cancelAll(const QObject* /*window*/) override { }
+    [[nodiscard]] bool isPending(JobId /*job*/) const override { return false; }
+
+private:
+    JobId m_lastJob{kNoJob};
+};
+
+/// The application's simulation dialogs until Milestone 4's settings and plot dialogs replace
+/// them: they open nothing. Nothing asks for them yet.
+class NoSimulationDialogs final : public SimulationDialogs
+{
+public:
+    void editSimulations(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                         const EditRequest& /*request*/) override
+    {
+    }
+    void plotSimulation(QWidget* /*parent*/, std::shared_ptr<Simulation> /*simulation*/,
+                        const SimulationPlotConfiguration& /*configuration*/) override
+    {
+    }
+};
+
 /// The problem of the database @p database with the file @p file and the message of @p error.
 [[nodiscard]] UserPrompts::DatabaseProblem databaseProblem(UserPrompts::DatabaseKind    database,
                                                            const std::filesystem::path& file,
@@ -85,6 +126,8 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     m_prompts(nonNull(std::move(prompts))),
     m_motorFinder(m_motors),
     m_extensions(SimulationExtensionRegistry::bundled()),
+    m_simulationExecutor(std::make_unique<DroppingSimulationExecutor>()),
+    m_simulationDialogs(std::make_unique<NoSimulationDialogs>()),
     m_services(*m_preferences, m_materials, m_motors, m_presets, m_loadingContext, *m_prompts)
 {
     // SwingStartup.runInEDT(): the default units before any window.
@@ -104,6 +147,10 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     m_loadingContext.setPreferences(m_preferences.get());
     m_loadingContext.setComponentPresetDatabase(&m_presets);
     m_loadingContext.setSimulationExtensionRegistry(&m_extensions);
+    // Step 10.
+    m_services.setSimulationExecutor(m_simulationExecutor.get());
+    m_services.setPlotDefaults(&m_plotDefaults);
+    m_services.setSimulationDialogs(m_simulationDialogs.get());
 }
 
 ApplicationContext::~ApplicationContext() = default;

@@ -4,6 +4,7 @@
 #include <optional>
 #include <vector>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 
@@ -12,6 +13,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
@@ -129,6 +131,39 @@ TEST_F(ForwardingUserPromptsTest, ForwardsTheMilestoneThreeQuestionsAndMessages)
               (std::vector<Kind>{Kind::IGNITION, Kind::DEPLOYMENT, Kind::SEPARATION,
                                  Kind::RENAME_CONFIGURATION, Kind::MOTOR, Kind::PRESET,
                                  Kind::DATABASE_PROBLEMS}));
+}
+
+TEST_F(ForwardingUserPromptsTest, ForwardsTheMilestoneFourQuestions)
+{
+    ScriptedUserPrompts   scripted;
+    ForwardingUserPrompts forwarding(scripted);
+    scripted.answerDeleteSimulations({.confirmed = true, .doNotAskAgain = false});
+    scripted.answerRunSimulations({.cancelled = false, .allSuccessful = true});
+    scripted.answerWindCsvImportSettings(std::nullopt);
+    scripted.answerColor(QColor(10, 20, 30));
+
+    EXPECT_TRUE(forwarding.askDeleteSimulations(nullptr, 2).confirmed);
+    EXPECT_TRUE(forwarding.runSimulations(nullptr, {}).allSuccessful);
+    EXPECT_FALSE(forwarding.askWindCsvImportSettings(nullptr, {}).has_value());
+    EXPECT_EQ(forwarding.askColor(nullptr, QColor(), QStringLiteral("Select color")),
+              std::optional<QColor>(QColor(10, 20, 30)));
+
+    EXPECT_EQ(kindsOf(scripted), (std::vector<Kind>{Kind::DELETE_SIMULATIONS, Kind::RUN_SIMULATIONS,
+                                                    Kind::WIND_CSV_IMPORT_SETTINGS, Kind::COLOR}));
+}
+
+TEST_F(ForwardingUserPromptsTest, TheServicesWithOtherPromptsKeepTheSimulationsServices)
+{
+    // withPrompts() (a double's services) keeps the executor, the plot defaults and the
+    // simulation dialogs of the services it copies.
+    const TestGuiServices services;
+    ScriptedUserPrompts   scripted;
+    ForwardingUserPrompts forwarding(scripted);
+    const GuiServices     own = withPrompts(services.services(), forwarding);
+    EXPECT_EQ(&own.prompts(), &forwarding);
+    EXPECT_EQ(own.simulationExecutor(), services.services().simulationExecutor());
+    EXPECT_EQ(own.plotDefaults(), services.services().plotDefaults());
+    EXPECT_EQ(own.simulationDialogs(), services.services().simulationDialogs());
 }
 
 }  // namespace

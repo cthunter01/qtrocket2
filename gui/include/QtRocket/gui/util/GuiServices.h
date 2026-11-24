@@ -16,6 +16,9 @@ class ThrustCurveMotorSetDatabase;
 namespace QtRocket::Gui
 {
 
+class PlotDefaults;
+class SimulationDialogs;
+class SimulationExecutor;
 class UserPrompts;
 
 /// The application's services that the areas below the application need, handed down by
@@ -38,6 +41,20 @@ class UserPrompts;
 /// - prompts(): every modal question and message box.
 /// - startupData(): what the start found that the areas below the application show (StartupData),
 ///   all of it none until setStartupData() is given some.
+/// - simulationExecutor(): what runs the simulations off the GUI thread (SimulationExecutor:
+///   the run dialog's runs and the design view's background estimate), the application's one
+///   for every window;
+/// - plotDefaults(): the plot configuration last plotted, which every simulation's plot tab
+///   starts from (PlotDefaults);
+/// - simulationDialogs(): the simulation settings dialog and the plot dialog, as the
+///   Simulations tab opens them (SimulationDialogs).
+/// The last three are none until they are set (setSimulationExecutor(), ...): the services a
+/// test makes of its own objects have none, and whoever would use one does nothing without it
+/// (no simulation runs without an executor: neither the tab's Run nor the background estimate).
+/// The application's (app/ApplicationContext) and the tests' (TestGuiServices) have all three.
+///
+/// Trivially copyable: a copy refers to the same objects (withPrompts() makes one with other
+/// questions).
 class GuiServices
 {
 public:
@@ -86,6 +103,44 @@ public:
     /// services and their copies); the copies made before keep what they referred to.
     void setStartupData(const StartupData& data) noexcept { m_startupData = &data; }
 
+    /// The executor of the simulations, or null when the services have none (see the class
+    /// comment).
+    [[nodiscard]] SimulationExecutor* simulationExecutor() const noexcept
+    {
+        return m_simulationExecutor;
+    }
+    /// Refers to @p executor from now on (null: none), borrowed as setStartupData()'s data.
+    void setSimulationExecutor(SimulationExecutor* executor) noexcept
+    {
+        m_simulationExecutor = executor;
+    }
+
+    /// The last plotted configuration's keeper, or null when the services have none.
+    [[nodiscard]] PlotDefaults* plotDefaults() const noexcept { return m_plotDefaults; }
+    /// Refers to @p defaults from now on (null: none), borrowed as setStartupData()'s data.
+    void setPlotDefaults(PlotDefaults* defaults) noexcept { m_plotDefaults = defaults; }
+
+    /// The simulation dialogs, or null when the services have none.
+    [[nodiscard]] SimulationDialogs* simulationDialogs() const noexcept
+    {
+        return m_simulationDialogs;
+    }
+    /// Refers to @p dialogs from now on (null: none), borrowed as setStartupData()'s data.
+    void setSimulationDialogs(SimulationDialogs* dialogs) noexcept
+    {
+        m_simulationDialogs = dialogs;
+    }
+
+    /// A copy of these services that asks its questions through @p prompts (borrowed as the
+    /// other objects are), with everything else of these: a test's prompts that act on one
+    /// question of their own.
+    [[nodiscard]] GuiServices withPrompts(UserPrompts& prompts) const noexcept
+    {
+        GuiServices services = *this;
+        services.m_prompts   = &prompts;
+        return services;
+    }
+
 private:
     Preferences*                       m_preferences;
     MaterialStorage*                   m_materials;
@@ -94,6 +149,9 @@ private:
     const DocumentLoadingContext*      m_loadingContext;
     UserPrompts*                       m_prompts;
     const StartupData*                 m_startupData{nullptr};
+    SimulationExecutor*                m_simulationExecutor{nullptr};
+    PlotDefaults*                      m_plotDefaults{nullptr};
+    SimulationDialogs*                 m_simulationDialogs{nullptr};
 
     /// The StartupData of nothing.
     [[nodiscard]] static const StartupData& noStartupData() noexcept

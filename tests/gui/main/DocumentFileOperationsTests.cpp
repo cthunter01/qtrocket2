@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <QAction>
+#include <QColor>
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
@@ -1109,6 +1110,26 @@ public:
                                             const PresetRequest& /*request*/) override
     {
         return {};
+    }
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget* /*parent*/,
+                                                               std::size_t /*count*/) override
+    {
+        return {};
+    }
+    [[nodiscard]] RunSimulationsAnswer runSimulations(
+        QWidget* /*parent*/, const RunSimulationsRequest& /*request*/) override
+    {
+        return {};
+    }
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* /*parent*/, const WindCsvImportSettings& /*initial*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* /*parent*/, const QColor& /*initial*/,
+                                                 const QString& /*title*/) override
+    {
+        return std::nullopt;
     }
     void showMessage(QWidget* /*parent*/, const Message& /*message*/) override { }
     void showWarnings(QWidget* /*parent*/, const WarningsMessage& /*message*/) override { }

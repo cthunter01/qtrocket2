@@ -65,6 +65,7 @@
 #include "QtRocket/gui/main/RocketActions.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
@@ -488,11 +489,14 @@ FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
 {
     std::unique_ptr<FromScratchPrompts> prompts = makePrompts(m_scripted);
     QTROCKET_ASSERT(prompts != nullptr);
-    m_prompts    = prompts.get();
+    m_prompts        = prompts.get();
+    auto preferences = std::make_unique<SettingsPreferences>(
+        QtStrings::fromPath(m_directory / std::filesystem::path(kPreferencesFile)));
+    // No window runs a simulation on its own (GuiTestSupport.h): OpenRocket's reference tool
+    // builds no design view, and its saves hold simulations that were never run.
+    preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
     auto context = std::make_unique<ApplicationContext>(
-        std::make_unique<SettingsPreferences>(
-            QtStrings::fromPath(m_directory / std::filesystem::path(kPreferencesFile))),
-        DataPaths::forApplication(), std::move(prompts));
+        std::move(preferences), DataPaths::forApplication(), std::move(prompts));
     ApplicationSession::Options options;
     options.lastWindowBehaviour    = WindowManager::LastWindowBehaviour::KEEP_RUNNING;
     Application* const application = Application::current();

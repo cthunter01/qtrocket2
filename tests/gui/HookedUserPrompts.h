@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <optional>
 #include <span>
 
+#include <QColor>
 #include <QString>
 
 #include "QtRocket/gui/util/Guard.h"
@@ -77,9 +79,17 @@ public:
     [[nodiscard]] std::optional<MotorChoice> chooseMotor(
         QWidget* parent, const GuiServices& services, const MotorMount& mount,
         const FlightConfigurationId& configurationId) override;
-    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
-                                            const PresetRequest& request) override;
-    void                       showMessage(QWidget* parent, const Message& message) override;
+    [[nodiscard]] PresetAnswer            choosePreset(QWidget* parent, const GuiServices& services,
+                                                       const PresetRequest& request) override;
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
+                                                               std::size_t count) override;
+    [[nodiscard]] RunSimulationsAnswer    runSimulations(
+        QWidget* parent, const RunSimulationsRequest& request) override;
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* parent, const WindCsvImportSettings& initial) override;
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* parent, const QColor& initial,
+                                                 const QString& title) override;
+    void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
     void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override;

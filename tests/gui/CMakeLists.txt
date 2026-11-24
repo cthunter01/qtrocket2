@@ -15,12 +15,17 @@ add_executable(QtRocket_gui_tests
     GuiTestSupportTests.cpp
     HookedUserPrompts.cpp
     HookedUserPromptsTests.cpp
+    ManualSimulationExecutor.cpp
+    ManualSimulationExecutorTests.cpp
     NextModalDialog.cpp
     RecordingGuardHook.cpp
+    RecordingSimulationDialogs.cpp
+    RecordingSimulationDialogsTests.cpp
     ScopedApplicationPalette.cpp
     ScriptedUserPrompts.cpp
     ScriptedUserPromptsTests.cpp
     TestGuiServices.cpp
+    TestGuiServicesTests.cpp
 )
 add_subdirectory(util)
 add_subdirectory(settings)

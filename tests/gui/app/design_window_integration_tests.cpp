@@ -54,6 +54,7 @@
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
@@ -205,11 +206,13 @@ protected:
     {
         GuiTest::SetUp();
         ComponentConfigDialog::forgetPreviousDialogs();
-        auto prompts = std::make_unique<DesignInformationPrompts>(m_scripted);
+        auto prompts     = std::make_unique<DesignInformationPrompts>(m_scripted);
+        auto preferences = std::make_unique<SettingsPreferences>(
+            QtStrings::fromPath(m_directory.resolve("QtRocket.ini")));
+        // No window runs a simulation on its own (GuiTestSupport.h).
+        preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
         auto context = std::make_unique<ApplicationContext>(
-            std::make_unique<SettingsPreferences>(
-                QtStrings::fromPath(m_directory.resolve("QtRocket.ini"))),
-            DataPaths::forApplication(), std::move(prompts));
+            std::move(preferences), DataPaths::forApplication(), std::move(prompts));
         ApplicationSession::Options options;
         options.lastWindowBehaviour    = Behaviour::EXIT;
         Application* const application = Application::current();

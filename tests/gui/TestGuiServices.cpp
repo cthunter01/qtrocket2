@@ -14,8 +14,13 @@ TestGuiServices::TestGuiServices()
     m_context.setPreferences(&m_preferences);
     m_context.setComponentPresetDatabase(&m_presets);
     m_services.setStartupData(m_startupData);
-    // A new component's dialog does not open the parts library (GuiTestSupport.h).
+    m_services.setSimulationExecutor(&m_executor);
+    m_services.setPlotDefaults(&m_plotDefaults);
+    m_services.setSimulationDialogs(&m_simulationDialogs);
+    // A new component's dialog does not open the parts library, and no window runs a simulation
+    // on its own (GuiTestSupport.h).
     m_preferences.putBoolean(GuiPreferenceKeys::kAutoOpenPartsLibrary, false);
+    m_preferences.putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
 }
 
 }  // namespace QtRocket::Gui::Test

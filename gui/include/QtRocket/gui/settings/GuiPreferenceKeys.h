@@ -19,9 +19,12 @@
 ///
 /// Not here yet, with the milestone of the code that reads them: SwingPreferences' UI_SCALE,
 /// UI_FONT_SIZE, UI_FONT_STYLE, UI_FONT_TRACKING (the UI page, M5), UPDATE_PLATFORM (update
-/// checks, not ported), NODE_PLOT_DEFAULT_APPEARANCES, "backgroundFlight", "exports" and
-/// "exportsComponentAnalysis" (M4), "decalEditorPreference" (M5); never: getTableColumnWidth()'s
-/// "cw.<key>.<index>" in NODE_TABLES, which no code of OpenRocket calls.
+/// checks, not ported), "exportsComponentAnalysis" (the component analysis export, M7),
+/// "decalEditorPreference" (M5); never: getTableColumnWidth()'s "cw.<key>.<index>" in
+/// NODE_TABLES, which no code of OpenRocket calls. SwingPreferences' NODE_PLOT_DEFAULT_APPEARANCES
+/// ("PlotDefaultAppearances", the default colour and line style of each flight data type's plot)
+/// is not here: the core's preferences read the default plot appearances (Milestone 4), so its
+/// key is the core's.
 ///
 /// Milestone 3's keys of the motor chooser and the preset favourites are the core's, since the
 /// core reads them (QtRocket/preferences/PreferenceKeys.h: MotorHideSimilar,
@@ -138,6 +141,54 @@ inline constexpr std::string_view kComponentPresetTableId = "CmpPrst.";
                                                           std::string_view column)
 {
     return std::format("{}{}{}", table, kTableColumnVisibilityPrefix, column);
+}
+
+// ---------------------------------------------------------------------- simulations (M4)
+
+/// SwingPreferences.computeFlightInBackground()'s "backgroundFlight": whether the design view
+/// computes the flight of the selected configuration in the background and shows its apogee,
+/// maximum velocity and acceleration (RocketPanel's estimate; the Design page's "Update estimated
+/// flight parameters in design window"). The GUI's tests turn it off (TestGuiServices, the tests
+/// of the application over a preferences file: GuiTestSupport.h).
+inline constexpr std::string_view kBackgroundFlight        = "backgroundFlight";
+inline constexpr bool             kBackgroundFlightDefault = true;
+
+/// SimulationPanel.PREF_KEY_SIMULATION_TABLE_HIDDEN_COLUMNS: a key of the design's own
+/// preferences (OpenRocketDocument::getDocumentPreferences(), saved in the design file's
+/// <docprefs>), not of the application's: the ids of the simulation table's hidden columns,
+/// joined by ',' in the order they were hidden ("" for none). Every change of the column chooser
+/// writes it.
+inline constexpr std::string_view kSimulationTableHiddenColumns = "simulation.table.hiddenColumns";
+/// SimulationPanel.APP_PREF_KEY_SIMULATION_TABLE_HIDDEN_COLUMNS: the application's preference that
+/// the column chooser's "Save as default" writes, with the same text; a design without its own
+/// (kSimulationTableHiddenColumns, or an empty one) shows this one, and without either the
+/// stepper column is hidden.
+inline constexpr std::string_view kSimulationTableHiddenColumnsDefault =
+    "simulation.table.hiddenColumns.default";
+
+// --------------------------------------------------------------------- data export (M4)
+
+/// SwingPreferences' node "exports" (isFlightDataTypeExportSelected(),
+/// setFlightDataTypeExportSelected()): whether a flight data type is ticked in the simulation
+/// dialog's export tab, under the key of the type's name (FlightDataType.getName(), its English
+/// name), unticked by default.
+inline constexpr std::string_view kExportsNode           = "exports";
+inline constexpr bool             kExportSelectedDefault = false;
+
+/// The comment options of OpenRocket's CSV option panel (CsvOptionPanel: "Include simulation
+/// description", ...): each under "csvOptions." + the panel's class name (getSimpleName():
+/// "SimulationExportPanel") + "." + its index, csvOptionKey(); ticked by default. The panel's
+/// other values are the core's keys (PreferenceKeys::kExportFieldSeparator,
+/// kExportDecimalPlaces, kExportExponentialNotation and kExportCommentCharacter), with the
+/// defaults of the core's CsvExport::Options.
+inline constexpr std::string_view kCsvOptionsPrefix = "csvOptions.";
+inline constexpr bool             kCsvOptionDefault = true;
+
+/// The key of the comment option @p index (from 0) of the CSV option panel of the class
+/// @p baseClassName: "csvOptions.SimulationExportPanel.0".
+[[nodiscard]] inline std::string csvOptionKey(std::string_view baseClassName, int index)
+{
+    return std::format("{}{}.{}", kCsvOptionsPrefix, baseClassName, index);
 }
 
 // ---------------------------------------------------------------------- recent files

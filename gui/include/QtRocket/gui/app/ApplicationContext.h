@@ -12,6 +12,9 @@
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/util/GuiServices.h"
+#include "QtRocket/gui/util/MemoryPlotDefaults.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialStorage.h"
@@ -63,7 +66,13 @@ class SettingsPreferences;
 ///    materials, preferences, presets and extensions, as the command-line tool's
 ///    (CliEnvironment);
 /// 9. the questions and messages (the UserPrompts it is given: the dialogs of the application,
-///    a scripted double in a test).
+///    a scripted double in a test);
+/// 10. the simulations' services (Milestone 4): the executor that runs them for every window
+///    (GuiServices::simulationExecutor(); until Milestone 4's runner adapter replaces it, one that
+///    runs nothing and drops every job at once), the last plotted configuration
+///    (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the process) and
+///    the simulation dialogs (GuiServices::simulationDialogs(); until Milestone 4's settings and
+///    plot dialogs replace them, ones that open nothing).
 /// The user's files that could not be loaded and that OpenRocket shows a warning for are kept for
 /// the user (databaseProblems(): the start shows them after its first window).
 ///
@@ -154,6 +163,17 @@ public:
         return m_startupData.motorDatabaseVersion;
     }
 
+    /// The simulations' services of step 10, as the services hand them out.
+    [[nodiscard]] SimulationExecutor& simulationExecutor() const noexcept
+    {
+        return *m_simulationExecutor;
+    }
+    [[nodiscard]] MemoryPlotDefaults& plotDefaults() noexcept { return m_plotDefaults; }
+    [[nodiscard]] SimulationDialogs&  simulationDialogs() const noexcept
+    {
+        return *m_simulationDialogs;
+    }
+
 private:
     /// Step 2 and 3 of the class comment.
     void loadMaterials();
@@ -180,6 +200,11 @@ private:
     std::vector<UserPrompts::DatabaseProblem>                m_databaseProblems;
     SimulationExtensionRegistry                              m_extensions;
     DocumentLoadingContext                                   m_loadingContext;
+    /// Step 10. Declared after the store and the databases, so destroyed before them: the
+    /// executor's destructor cancels its jobs and waits for the running ones, which may read them.
+    std::unique_ptr<SimulationExecutor> m_simulationExecutor;
+    MemoryPlotDefaults                  m_plotDefaults;
+    std::unique_ptr<SimulationDialogs>  m_simulationDialogs;
     /// Declared before the services, which refer to it.
     GuiServices::StartupData m_startupData;
     GuiServices              m_services;

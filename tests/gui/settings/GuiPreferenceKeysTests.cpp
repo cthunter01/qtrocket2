@@ -35,6 +35,14 @@ TEST_F(GuiPreferenceKeysTest, KeysMatchOpenRocket)
     EXPECT_EQ(Keys::kTableColumnWidthPrefix, ".cw.");
     EXPECT_EQ(Keys::kTableColumnOrderPrefix, ".co.");
     EXPECT_EQ(Keys::kTableColumnVisibilityPrefix, ".cv.");
+    // SwingPreferences' "backgroundFlight" and its node "exports", CsvOptionPanel's
+    // "csvOptions.", SimulationPanel's PREF_KEY_SIMULATION_TABLE_HIDDEN_COLUMNS and
+    // APP_PREF_KEY_SIMULATION_TABLE_HIDDEN_COLUMNS.
+    EXPECT_EQ(Keys::kBackgroundFlight, "backgroundFlight");
+    EXPECT_EQ(Keys::kExportsNode, "exports");
+    EXPECT_EQ(Keys::kCsvOptionsPrefix, "csvOptions.");
+    EXPECT_EQ(Keys::kSimulationTableHiddenColumns, "simulation.table.hiddenColumns");
+    EXPECT_EQ(Keys::kSimulationTableHiddenColumnsDefault, "simulation.table.hiddenColumns.default");
     // GUIUtil.getDPI(), InnerTubeConfig.PREF_SEPARATION_RELATIVE, MRUDesignFile.
     EXPECT_EQ(Keys::kDpi, "DPI");
     EXPECT_EQ(Keys::kInnerTubeSeparationRelative, "InnerTubeSeparationRelative");
@@ -57,6 +65,19 @@ TEST_F(GuiPreferenceKeysTest, DefaultsMatchOpenRocket)
     EXPECT_TRUE(Keys::kAutoOpenPartsLibraryDefault);
     EXPECT_TRUE(Keys::kAlwaysOpenPresetDefault);
     EXPECT_TRUE(Keys::kTableColumnVisibleDefault);
+    // computeFlightInBackground(), isFlightDataTypeExportSelected() and CsvOptionPanel's
+    // getBoolean("csvOptions." + baseClassName + "." + i, true).
+    EXPECT_TRUE(Keys::kBackgroundFlightDefault);
+    EXPECT_FALSE(Keys::kExportSelectedDefault);
+    EXPECT_TRUE(Keys::kCsvOptionDefault);
+}
+
+TEST_F(GuiPreferenceKeysTest, TheCsvOptionKeysNameThePanelsClassAndTheOption)
+{
+    // "csvOptions." + baseClass.getSimpleName() + "." + i: the export tab's three options.
+    EXPECT_EQ(Keys::csvOptionKey("SimulationExportPanel", 0), "csvOptions.SimulationExportPanel.0");
+    EXPECT_EQ(Keys::csvOptionKey("SimulationExportPanel", 2), "csvOptions.SimulationExportPanel.2");
+    EXPECT_EQ(Keys::csvOptionKey("CAExportPanel", 1), "csvOptions.CAExportPanel.1");
 }
 
 TEST_F(GuiPreferenceKeysTest, ThePartsLibraryKeysNameTheComponentInEnglish)

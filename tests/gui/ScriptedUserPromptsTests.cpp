@@ -3,8 +3,11 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stop_token>
+#include <string>
 #include <vector>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 #include <QWidget>
@@ -21,6 +24,7 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
@@ -29,6 +33,9 @@
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/unit/Unit.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "TestGuiServices.h"
 #include "document/TestDocuments.h"
 #include "rocket/preset/ExamplePresets.h"
@@ -426,6 +433,164 @@ TEST_F(ScriptedUserPromptsTest, RecordsTheDatabaseProblems)
                      QStringLiteral("broken.orc"), QStringLiteral("Unexpected end of file")}));
     ASSERT_EQ(prompts.databaseProblems().size(), 2U);
     EXPECT_EQ(prompts.databaseProblems().back().file, std::filesystem::path("broken.orc"));
+}
+
+/// Wind CSV import settings of a file with a header row and the columns @p altitude ... (SI units).
+[[nodiscard]] UserPrompts::WindCsvImportSettings windSettings(const QString& altitude,
+                                                              const QString& separator)
+{
+    const Unit* const metres  = &unitGroup(UnitGroupId::DISTANCE).getSIUnit();
+    const Unit* const speed   = &unitGroup(UnitGroupId::WINDSPEED).getSIUnit();
+    const Unit* const degrees = &unitGroup(UnitGroupId::ANGLE).getDefaultUnit();
+    return {.hasHeader         = true,
+            .altitude          = {.name = altitude, .index = 0, .unit = metres},
+            .speed             = {.name = QStringLiteral("speed"), .index = 1, .unit = speed},
+            .direction         = {.name = QStringLiteral("direction"), .index = 2, .unit = degrees},
+            .standardDeviation = {.name = QString(), .index = 3, .unit = speed},
+            .separator         = separator};
+}
+
+TEST_F(ScriptedUserPromptsTest, AnswersTheMilestoneFourQuestionsAndKeepsTheirRequests)
+{
+    ScriptedUserPrompts prompts;
+    prompts.answerDeleteSimulations({.confirmed = true, .doNotAskAgain = true});
+    prompts.answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    const UserPrompts::WindCsvImportSettings chosen =
+        windSettings(QStringLiteral("height"), QStringLiteral("\t"));
+    prompts.answerWindCsvImportSettings(chosen);
+    prompts.answerColor(QColor(255, 0, 0));
+
+    EXPECT_EQ(prompts.askDeleteSimulations(nullptr, 3),
+              (UserPrompts::DeleteSimulationsAnswer{.confirmed = true, .doNotAskAgain = true}));
+    EXPECT_TRUE(
+        prompts.askDiscardChanges(nullptr, UserPrompts::DiscardQuestion::SIMULATION_ADDITION)
+            .discard);
+    const UserPrompts::WindCsvImportSettings initial =
+        windSettings(QStringLiteral("altitude"), QStringLiteral(","));
+    EXPECT_EQ(prompts.askWindCsvImportSettings(nullptr, initial),
+              std::optional<UserPrompts::WindCsvImportSettings>(chosen));
+    EXPECT_EQ(prompts.askColor(nullptr, QColor(0, 0, 255), QStringLiteral("Select color")),
+              std::optional<QColor>(QColor(255, 0, 0)));
+    EXPECT_EQ(prompts.unusedAnswers(), 0U);
+
+    ASSERT_EQ(prompts.prompts().size(), 4U);
+    EXPECT_EQ(prompts.prompts().at(0).kind, Kind::DELETE_SIMULATIONS);
+    EXPECT_EQ(prompts.prompts().at(0).texts, QStringList{QStringLiteral("3")});
+    EXPECT_EQ(prompts.prompts().at(1).texts, QStringList{QStringLiteral("SIMULATION_ADDITION")});
+    EXPECT_EQ(prompts.prompts().at(2).kind, Kind::WIND_CSV_IMPORT_SETTINGS);
+    EXPECT_EQ(prompts.prompts().at(2).texts,
+              (QStringList{QStringLiteral("true"), QStringLiteral(","), QStringLiteral("altitude"),
+                           QStringLiteral("speed"), QStringLiteral("direction"), QString()}));
+    EXPECT_EQ(prompts.prompts().at(3).kind, Kind::COLOR);
+    EXPECT_EQ(prompts.prompts().at(3).title, QStringLiteral("Select color"));
+    EXPECT_EQ(prompts.prompts().at(3).texts, QStringList{QStringLiteral("#ff0000ff")});
+    EXPECT_EQ(prompts.windCsvImportRequests(),
+              std::vector<UserPrompts::WindCsvImportSettings>{initial});
+    ASSERT_EQ(prompts.colorQuestions().size(), 1U);
+    EXPECT_EQ(prompts.colorQuestions().front().initial, QColor(0, 0, 255));
+}
+
+TEST_F(ScriptedUserPromptsTest, TheMilestoneFourQuestionsCancelWithoutAScript)
+{
+    ScriptedUserPrompts                  prompts;
+    UserPrompts::DeleteSimulationsAnswer deletion{.confirmed = true, .doNotAskAgain = true};
+    std::optional<QColor>                color = QColor(1, 2, 3);
+    UserPrompts::RunSimulationsAnswer    run{.cancelled = false, .allSuccessful = true};
+    EXPECT_NONFATAL_FAILURE(deletion = prompts.askDeleteSimulations(nullptr, 1),
+                            "unexpected DELETE_SIMULATIONS question");
+    EXPECT_NONFATAL_FAILURE(color = prompts.askColor(nullptr, QColor(), QString()),
+                            "unexpected COLOR question");
+    EXPECT_NONFATAL_FAILURE(run = prompts.runSimulations(nullptr, {}),
+                            "unexpected RUN_SIMULATIONS question");
+    EXPECT_EQ(deletion, UserPrompts::DeleteSimulationsAnswer{});
+    EXPECT_FALSE(color.has_value());
+    EXPECT_EQ(run, (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
+}
+
+/// A job's work that notes the name of the simulation it was submitted for.
+struct NoteTheRun
+{
+    std::vector<std::string>* ran;
+    std::string               name;
+
+    void operator()(const std::stop_token& /*stop*/) const { ran->push_back(name); }
+};
+
+/// The test's run of the simulations of a request: one job per simulation through the request's
+/// executor (as the run dialog's batch submits the run of a duplicate of each), whose work notes
+/// the simulation's name; all of them successful.
+struct RunThroughTheExecutor
+{
+    std::vector<std::string>* ran;
+
+    [[nodiscard]] UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
+    {
+        for (const std::shared_ptr<Simulation>& simulation : request.simulations)
+        {
+            static_cast<void>(request.executor->submit(
+                request.window, NoteTheRun{.ran = ran, .name = simulation->getName()}, {}));
+        }
+        return {.cancelled = false, .allSuccessful = true};
+    }
+};
+
+TEST_F(ScriptedUserPromptsTest, TheRunDialogIsAnsweredOrRunByTheTestsAction)
+{
+    const TestGuiServices                     services;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    InMemoryPreferences preferences;
+    const auto          first = std::make_shared<Simulation>(document->getRocket(), preferences);
+    first->setName("Simulation 1");
+    const auto second = std::make_shared<Simulation>(document->getRocket(), preferences);
+    second->setName("Simulation 2");
+    const QWidget                            window;
+    const UserPrompts::RunSimulationsRequest request{
+        .window      = &window,
+        .document    = document.get(),
+        .simulations = {first, second},
+        .executor    = services.services().simulationExecutor()};
+
+    ScriptedUserPrompts      prompts;
+    std::vector<std::string> ran;
+    prompts.answerRunSimulations({.cancelled = true, .allSuccessful = false});
+    prompts.answerRunSimulationsWith(RunThroughTheExecutor{.ran = &ran});
+    // Answered, without a run.
+    EXPECT_EQ(prompts.runSimulations(nullptr, request),
+              (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
+    EXPECT_TRUE(ran.empty());
+    // Run by the test's action, through the request's executor (the test services' runs at once).
+    EXPECT_EQ(prompts.runSimulations(nullptr, request),
+              (UserPrompts::RunSimulationsAnswer{.cancelled = false, .allSuccessful = true}));
+    EXPECT_EQ(ran, (std::vector<std::string>{"Simulation 1", "Simulation 2"}));
+    EXPECT_EQ(services.executor().submittedJobs().size(), 2U);
+
+    ASSERT_EQ(prompts.runSimulationsQuestions().size(), 2U);
+    const ScriptedUserPrompts::RunSimulationsQuestion& asked =
+        prompts.runSimulationsQuestions().front();
+    EXPECT_EQ(asked.simulationNames,
+              (QStringList{QStringLiteral("Simulation 1"), QStringLiteral("Simulation 2")}));
+    EXPECT_EQ(asked.window, &window);
+    EXPECT_EQ(asked.document, document.get());
+    EXPECT_EQ(asked.executor, &services.executor());
+    EXPECT_EQ(prompts.prompts().front().kind, Kind::RUN_SIMULATIONS);
+    EXPECT_EQ(prompts.prompts().front().texts, asked.simulationNames);
+}
+
+TEST_F(ScriptedUserPromptsTest, AMilestoneFourAnswerThatCannotBeUsedFailsTheTest)
+{
+    ScriptedUserPrompts prompts;
+    EXPECT_NONFATAL_FAILURE(prompts.answerRunSimulationsWith({}),
+                            "a scripted run dialog without an action");
+    UserPrompts::WindCsvImportSettings settings =
+        windSettings(QStringLiteral("altitude"), QStringLiteral(","));
+    settings.direction.unit = nullptr;
+    EXPECT_NONFATAL_FAILURE(prompts.answerWindCsvImportSettings(settings),
+                            "scripted wind CSV import settings with a column without a unit");
+    // The script's answers are still asked for.
+    static_cast<void>(prompts.runSimulations(nullptr, {}));
+    static_cast<void>(prompts.askWindCsvImportSettings(nullptr, settings));
 }
 
 TEST_F(ScriptedUserPromptsTest, AnUnscriptedQuestionFailsTheTestAndCancels)
