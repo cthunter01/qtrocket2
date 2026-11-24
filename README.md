@@ -76,7 +76,8 @@ Each workflow preset (`dev`, `dev-msvc`, `ci-gcc`, `ci-clang`, `ci-msvc`, `asan`
 configures, builds and tests in one command, and the `dist-*` ones also package. Separate steps:
 `cmake --preset <p>`, `cmake --build --preset <p>`, `ctest --preset <p>`.
 
-CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, `asan`, `tidy`), macOS
+CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, `asan`, and `tidy` in two jobs,
+the workflows `tidy-core` and `tidy-gui`, which build and test the core's and the GUI's halves), macOS
 (`ci-clang`) and Windows (`ci-msvc`), with the GUI: against the newest Qt on Linux (Arch Linux's packages) and Qt
 6.8.3, the oldest Qt supported, on macOS and Windows.
 

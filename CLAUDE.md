@@ -70,6 +70,8 @@ the workflow or create a tag only when the user asks.
     document makers), `tests/core/motor/TestMotorDatabase.h` (the bundled motors, `smallMotorDatabase()`,
     `estesA8Database()`), `tests/core/rocket/preset/TestPresetDatabase.h` (the bundled presets,
     `smallPresetDatabase()`) and `ExamplePresets.h`, `tests/core/simulation/FlightDifferences.h`,
+    `SimulationRunnerSupport.h` (held runs with safety nets, polling a runner) and `SimulationRunSupport.h`,
+    `tests/core/plot/SimulationPlotGoldens.h` (the plot goldens' reader, the GUI's plot tests too),
     `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h`, `RecordedOrkFiles.h` and
     `OpenRocketSaverTestMotors.h` in `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h` (with
     `GoldenGuiReference.h`, the GUI reference's scenario and records) and `GuiReferenceEnvironment.h`,
@@ -109,6 +111,7 @@ the workflow or create a tag only when the user asks.
   (`src/util/ExpressionParserTables.h` and its parity cases), `openrocket-fin-import/` (`tests/data/fin-images/`),
   `openrocket-motor-chooser/` (the core's pins of `motor/chooser/` and MotorCorrelation),
   `openrocket-collation/` (`src/util/JavaCollationTables.h`, JDK 17's en_US collator, and its pins),
+  `openrocket-plots/` (`tests/data/goldens/plots/`, the core's plot goldens; `generate.sh --check` compares),
   `openrocket-probes/` (probes whose output tests pin by hand, with what they printed)
 - `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy),
   `QtRocket_configure_qt_target()` and `QtRocket_automoc_follows_sources()`;
@@ -141,15 +144,18 @@ subsystem or area is added there too.
 - Errors: a recoverable failure (parsing, loading, I/O, the motor database, the command line) is a `Result<T>`
   (`std::expected<T, Error>`, `util/Error.h`). Loaders and savers return a `Result` and collect warnings; they never
   throw. A broken invariant is a programming error: a `BugError` (`util/BugError.h`, a `std::logic_error`) through
-  `QTROCKET_ASSERT`, `bug()` or `QTROCKET_UNREACHABLE()`, never caught by the core; never throw a plain
+  `QTROCKET_ASSERT`, `bug()` or `QTROCKET_UNREACHABLE()`, never caught by the core (but by `SimulationRun::run()`
+  and the `SimulationRunner`'s workers, which hand it to the owning thread as an `exception_ptr`); never throw a plain
   `std::logic_error`. A simulation abort is a `FlightEvent` (`SIM_ABORT`), and the `SimulationException` family
   (`simulation/exception/`) is the only exception that crosses the simulation loop
 - No owning raw pointers and no raw `new`/`delete`: the component tree owns its children with `std::unique_ptr`;
   observers hold raw pointers (the GUI's Qt objects: `makeChild()`, section GUI)
 - Threads: a `Rocket`, `OpenRocketDocument` or `Simulation` belongs to one thread. A simulation runs on another
   thread only as a `Simulation::duplicateForIndependentSimulation()` (made on the owning thread; it owns its copy
-  of the rocket) and hands its `FlightData` back by value; a loaded motor database is immutable and shared. After
-  a change to `simulation/` or to the rocket's copies, also run `cmake --workflow --preset tsan`
+  of the rocket) and hands its `FlightData` back by value: a `SimulationRun` (made on the owning thread, run on a
+  `SimulationRunner`'s worker) and `Simulation::adoptRun()` on the owning thread; a loaded motor database is
+  immutable and shared. After a change to `simulation/` or to the rocket's copies, also run
+  `cmake --workflow --preset tsan`
 - Port OpenRocket faithfully: read the Java source line by line, never work from memory. A ported JUnit test keeps
   its expectations and tolerances and names its Java original in a comment (`Port of ...`); never loosen or drop an
   assertion to make a test pass. A deliberate difference from OpenRocket is documented where it is made; one of the
