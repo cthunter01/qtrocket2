@@ -8,6 +8,7 @@
 #include <QPointer>
 
 #include "QtRocket/gui/binding/Binding.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/util/BugError.h"
 
 class QWidget;
@@ -32,11 +33,14 @@ class ComponentSelection;
 ///   OK, Close, a save and an undo: a button that takes no focus (macOS) leaves the edit pending,
 ///   where Java's focus loss would have committed it. What a commit throws is reported (Guard,
 ///   with the field's objectName()), and the next field commits all the same.
-/// - release() ends the scope: the connections kept are disconnected, the selection is released
-///   (ComponentSelection::release(): every binding of it drops each write a widget makes from
-///   then on, so the focus loss of a closing dialog's field reaches no component) and the bindings
-///   are let go. The dialog calls it before it goes and before its components can go without an
-///   event of the rocket; the destructor calls it too.
+/// - keepContext() keeps another context of the dialog's bindings until release() releases it: an
+///   ObjectSelection of the simulation options, a wind model or the preferences (a dialog whose
+///   bindings edit no component has a null selection and its object selections kept here).
+/// - release() ends the scope: the connections kept are disconnected, the selection and the
+///   contexts kept are released (BindingContext::release(): every binding of them drops each
+///   write a widget makes from then on, so the focus loss of a closing dialog's field reaches no
+///   component or object) and the bindings are let go. The dialog calls it before it goes and
+///   before its components or objects can go without an event; the destructor calls it too.
 ///
 /// The scope holds no component pointer of its own: the selection drops its pointers inside the
 /// TREE or UNDO change that ends it (ComponentSelection), and from then on commitAll() commits
@@ -86,6 +90,16 @@ public:
         checkNotReleased();
         m_bindings.push_back(binding);
         return binding;
+    }
+
+    /// Keeps @p context (an ObjectSelection of the dialog) until release(), which releases it
+    /// after the connections kept are disconnected; gives it back.
+    /// @throws BugError when @p context is null or the scope is released
+    template <std::derived_from<BindingContext> Context>
+    std::shared_ptr<Context> keepContext(std::shared_ptr<Context> context)
+    {
+        keepContextOf(context);
+        return context;
     }
 
     /// Keeps @p connection (a Signal's Connection or ScopedConnection) connected until release(),
@@ -140,12 +154,14 @@ private:
     };
 
     void checkNotReleased() const;
+    void keepContextOf(std::shared_ptr<BindingContext> context);
 
-    QPointer<QWidget>                     m_root;
-    std::shared_ptr<ComponentSelection>   m_selection;
-    std::vector<std::shared_ptr<Binding>> m_bindings;
-    std::vector<std::unique_ptr<Held>>    m_connections;
-    bool                                  m_released{false};
+    QPointer<QWidget>                            m_root;
+    std::shared_ptr<ComponentSelection>          m_selection;
+    std::vector<std::shared_ptr<BindingContext>> m_contexts;
+    std::vector<std::shared_ptr<Binding>>        m_bindings;
+    std::vector<std::unique_ptr<Held>>           m_connections;
+    bool                                         m_released{false};
 };
 
 }  // namespace QtRocket::Gui

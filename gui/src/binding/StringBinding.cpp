@@ -6,7 +6,7 @@
 #include <utility>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
@@ -14,12 +14,12 @@
 namespace QtRocket::Gui
 {
 
-StringBinding::StringBinding(std::shared_ptr<ComponentSelection> selection, StringSource source)
-  : Binding(std::move(selection)), m_source(std::move(source))
+StringBinding::StringBinding(std::shared_ptr<BindingContext> context, StringSource source)
+  : Binding(std::move(context)), m_source(std::move(source))
 {
-    if (getSelection() == nullptr)
+    if (getContext() == nullptr)
     {
-        bug("A binding of a property needs a component selection");
+        bug("A binding of a property needs a context: a component or object selection");
     }
     if (!m_source.isWritable())
     {
@@ -32,12 +32,12 @@ StringBinding::~StringBinding() = default;
 
 bool StringBinding::readState()
 {
-    const ComponentSelection& selection = *getSelection();
-    std::string               value     = m_source.getValue(selection);
-    const bool                enabled   = m_source.isEnabled(selection);
-    const bool                changed   = value != m_value || enabled != m_enabled;
-    m_value                             = std::move(value);
-    m_enabled                           = enabled;
+    const BindingContext& context = *getContext();
+    std::string           value   = m_source.getValue(context);
+    const bool            enabled = m_source.isEnabled(context);
+    const bool            changed = value != m_value || enabled != m_enabled;
+    m_value                       = std::move(value);
+    m_enabled                     = enabled;
     return changed;
 }
 
@@ -50,7 +50,7 @@ bool StringBinding::setText(std::string_view text)
     // The selection's event (or its own refresh) updates the cache and tells the listeners, one
     // of which may drop the last owner of this binding.
     const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-    m_source.set(*getSelection(), std::string(text));
+    m_source.set(*getContext(), std::string(text));
     return true;
 }
 

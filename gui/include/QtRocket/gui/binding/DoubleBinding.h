@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/util/Signal.h"
 
@@ -34,6 +34,10 @@ class SliderMapping;
 /// and the problem text, re-reads them once per event of the rocket and tells its listeners only
 /// when they, the current unit or a dynamic bound changed (Java's stateChanged() compares the
 /// value and the automatic state; its setValue() fires every time, which here the event does).
+///
+/// Over an ObjectSelection (a source of PropertySource::ofObject()), the main component and the
+/// selected components are its one object: the simulation options, a wind model or level, the
+/// preferences (Java: the same model of a ChangeSource that is no component).
 ///
 /// The current unit is the unit group's default unit when the binding is made, and changes for
 /// this binding alone (setCurrentUnit(): the unit selector); the default stays (Java: the same,
@@ -82,11 +86,12 @@ public:
         std::shared_ptr<DoubleBinding> maxBinding = nullptr;
     };
 
-    /// A binding of @p source on the components of @p selection, shown in @p units (which must
-    /// outlive it; the process-wide groups of unitGroup() do).
-    /// @throws BugError when @p selection is null, the multiplier is 0 or not finite, or the
-    ///         source cannot read the main component
-    DoubleBinding(std::shared_ptr<ComponentSelection> selection, DoubleSource source,
+    /// A binding of @p source over @p context, the components of a ComponentSelection or the object
+    /// of an ObjectSelection, shown in @p units (which must outlive it; the process-wide groups of
+    /// unitGroup() do).
+    /// @throws BugError when @p context is null, the multiplier is 0 or not finite, or the source
+    ///         cannot read the context's main component or object
+    DoubleBinding(std::shared_ptr<BindingContext> context, DoubleSource source,
                   const UnitGroup& units, Options options);
 
     /// A binding of its own value @p value (Java: DoubleModel(value, units, min, max)), with the

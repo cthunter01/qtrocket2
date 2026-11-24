@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
