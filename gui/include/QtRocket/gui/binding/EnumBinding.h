@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/util/BugError.h"
 
@@ -41,6 +41,10 @@ namespace QtRocket::Gui
 /// value and the enabled state, re-reads them once per event of the rocket and tells its
 /// listeners when they or the displayed values changed.
 ///
+/// Over an ObjectSelection (a source of PropertySource::ofObject()), the main component and the
+/// selected components are its one object: the simulation options, a wind model or level, the
+/// preferences (Java: the same model of a ChangeSource that is no component).
+///
 /// A binding without a selection holds a value of its own (Java: an EnumModel of an object that is
 /// no component: the flight configuration dialogs' event combo boxes edit the mount's motor
 /// configuration or a copy of a deployment or separation configuration): it is always valid and
@@ -68,19 +72,20 @@ template <class E>
 class EnumBinding final : public Binding
 {
 public:
-    /// A binding of @p source on the components of @p selection, offering @p values.
-    /// @throws BugError when @p selection is null, the source has no setter, or the source cannot
-    ///         read the main component
-    EnumBinding(std::shared_ptr<ComponentSelection> selection, EnumSource<E> source,
+    /// A binding of @p source over @p context, the components of a ComponentSelection or the object
+    /// of an ObjectSelection, offering @p values.
+    /// @throws BugError when @p context is null, the source has no setter, or the source cannot
+    ///         read the context's main component or object
+    EnumBinding(std::shared_ptr<BindingContext> context, EnumSource<E> source,
                 std::span<const E> values)
-      : Binding(std::move(selection)),
+      : Binding(std::move(context)),
         m_source(std::move(source)),
         m_values(values.begin(), values.end()),
         m_displayed(m_values)
     {
-        if (getSelection() == nullptr)
+        if (getContext() == nullptr)
         {
-            bug("A binding of a property needs a component selection");
+            bug("A binding of a property needs a context: a component or object selection");
         }
         if (!m_source->isWritable())
         {
@@ -129,7 +134,7 @@ public:
         // The selection's event (or its own refresh) updates the cache and tells the listeners,
         // one of which may drop the last owner of this binding.
         const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-        source.set(*getSelection(), value);
+        source.set(*getContext(), value);
         return true;
     }
 
@@ -199,13 +204,13 @@ protected:
         {
             return false;  // a binding of its own value has no selection to read
         }
-        const EnumSource<E>&      source    = *m_source;
-        const ComponentSelection& selection = *getSelection();
-        const E                   value     = source.getValue(selection);
-        const bool                enabled   = source.isEnabled(selection);
-        const bool                changed   = value != m_value || enabled != m_enabled;
-        m_value                             = value;
-        m_enabled                           = enabled;
+        const EnumSource<E>&  source  = *m_source;
+        const BindingContext& context = *getContext();
+        const E               value   = source.getValue(context);
+        const bool            enabled = source.isEnabled(context);
+        const bool            changed = value != m_value || enabled != m_enabled;
+        m_value                       = value;
+        m_enabled                     = enabled;
         return changed;
     }
 

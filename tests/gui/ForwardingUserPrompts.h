@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <span>
 
+#include <QColor>
 #include <QString>
 
 #include "QtRocket/gui/util/Guard.h"
@@ -113,6 +115,26 @@ public:
     {
         return m_delegate->choosePreset(parent, services, request);
     }
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
+                                                               std::size_t count) override
+    {
+        return m_delegate->askDeleteSimulations(parent, count);
+    }
+    [[nodiscard]] RunSimulationsAnswer runSimulations(QWidget*                     parent,
+                                                      const RunSimulationsRequest& request) override
+    {
+        return m_delegate->runSimulations(parent, request);
+    }
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* parent, const WindCsvImportSettings& initial) override
+    {
+        return m_delegate->askWindCsvImportSettings(parent, initial);
+    }
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* parent, const QColor& initial,
+                                                 const QString& title) override
+    {
+        return m_delegate->askColor(parent, initial, title);
+    }
     void showMessage(QWidget* parent, const Message& message) override
     {
         m_delegate->showMessage(parent, message);
@@ -139,11 +161,11 @@ private:
     UserPrompts* m_delegate;
 };
 
-/// @p services with the questions of @p prompts.
+/// @p services with the questions of @p prompts (GuiServices::withPrompts(): everything else of
+/// @p services, the simulations' services and the start's data included).
 [[nodiscard]] inline GuiServices withPrompts(const GuiServices& services, UserPrompts& prompts)
 {
-    return {services.preferences(), services.materials(),      services.motors(),
-            services.presets(),     services.loadingContext(), prompts};
+    return services.withPrompts(prompts);
 }
 
 }  // namespace QtRocket::Gui::Test

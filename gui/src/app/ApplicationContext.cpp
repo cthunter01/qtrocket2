@@ -1,6 +1,8 @@
 #include "QtRocket/gui/app/ApplicationContext.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -10,12 +12,17 @@
 #include <utility>
 #include <vector>
 
+#include <QObject>
+#include <QTimer>
+
 #include "QtRocket/file/motor/MotorDatabaseLoader.h"
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/app/MotorDatabaseMetadataIO.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialPreferences.h"
@@ -68,6 +75,86 @@ template <class ReadFiles>
     return readFiles(defaultDirectory.value_or(std::filesystem::path()));
 }
 
+/// The application's executor of the simulations until Milestone 4's adapter of the core's
+/// SimulationRunner replaces it: it runs nothing, and drops every job in the next turn of the
+/// event loop (its finished(DROPPED); never inside submit(), as SimulationExecutor's contract
+/// says). Nothing submits a job yet.
+class DroppingSimulationExecutor final : public SimulationExecutor
+{
+public:
+    [[nodiscard]] JobId submit(const QObject* window, Work /*work*/, Callbacks callbacks) override
+    {
+        const JobId job = ++m_lastJob;
+        m_pending.push_back({.id = job, .window = window, .callbacks = std::move(callbacks)});
+        if (m_pending.size() == 1)
+        {
+            // A queued call of the GUI thread to itself, which goes with m_turn.
+            QTimer::singleShot(0, &m_turn, [this] { dropPending(); });
+        }
+        return job;
+    }
+    // A cancelled job is dropped in the turn, as the others.
+    void cancel(JobId /*job*/) override { }
+    void cancelAll(const QObject* /*window*/) override { }
+    void abandon(JobId job) override
+    {
+        std::erase_if(m_pending, [job](const Job& pending) { return pending.id == job; });
+    }
+    void abandonAll(const QObject* window) override
+    {
+        std::erase_if(m_pending, [window](const Job& pending) { return pending.window == window; });
+    }
+    [[nodiscard]] bool isPending(JobId job) const override
+    {
+        return std::ranges::any_of(m_pending,
+                                   [job](const Job& pending) { return pending.id == job; });
+    }
+
+private:
+    /// A job until its turn.
+    struct Job
+    {
+        JobId          id{kNoJob};
+        const QObject* window{nullptr};
+        Callbacks      callbacks;
+    };
+
+    /// The turn: drops the pending jobs, oldest first, one at a time (a callback may submit or
+    /// abandon jobs meanwhile).
+    void dropPending()
+    {
+        while (!m_pending.empty())
+        {
+            const Job dropped = std::move(m_pending.front());
+            m_pending.pop_front();
+            if (dropped.callbacks.finished)
+            {
+                dropped.callbacks.finished(Ending::DROPPED);
+            }
+        }
+    }
+
+    JobId           m_lastJob{kNoJob};
+    std::deque<Job> m_pending;
+    /// The context of the turn, which goes with the executor (and the turn with it).
+    QObject m_turn;
+};
+
+/// The application's simulation dialogs until Milestone 4's settings and plot dialogs replace
+/// them: they open nothing. Nothing asks for them yet.
+class NoSimulationDialogs final : public SimulationDialogs
+{
+public:
+    void editSimulations(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                         const EditRequest& /*request*/) override
+    {
+    }
+    void plotSimulation(QWidget* /*parent*/, std::shared_ptr<Simulation> /*simulation*/,
+                        const SimulationPlotConfiguration& /*configuration*/) override
+    {
+    }
+};
+
 /// The problem of the database @p database with the file @p file and the message of @p error.
 [[nodiscard]] UserPrompts::DatabaseProblem databaseProblem(UserPrompts::DatabaseKind    database,
                                                            const std::filesystem::path& file,
@@ -85,6 +172,8 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     m_prompts(nonNull(std::move(prompts))),
     m_motorFinder(m_motors),
     m_extensions(SimulationExtensionRegistry::bundled()),
+    m_simulationExecutor(std::make_unique<DroppingSimulationExecutor>()),
+    m_simulationDialogs(std::make_unique<NoSimulationDialogs>()),
     m_services(*m_preferences, m_materials, m_motors, m_presets, m_loadingContext, *m_prompts)
 {
     // SwingStartup.runInEDT(): the default units before any window.
@@ -104,6 +193,10 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     m_loadingContext.setPreferences(m_preferences.get());
     m_loadingContext.setComponentPresetDatabase(&m_presets);
     m_loadingContext.setSimulationExtensionRegistry(&m_extensions);
+    // Step 10.
+    m_services.setSimulationExecutor(m_simulationExecutor.get());
+    m_services.setPlotDefaults(&m_plotDefaults);
+    m_services.setSimulationDialogs(m_simulationDialogs.get());
 }
 
 ApplicationContext::~ApplicationContext() = default;

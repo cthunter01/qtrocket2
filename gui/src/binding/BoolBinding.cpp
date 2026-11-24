@@ -6,19 +6,19 @@
 #include <utility>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
 {
 
-BoolBinding::BoolBinding(std::shared_ptr<ComponentSelection> selection, BoolSource source)
-  : Binding(std::move(selection)), m_source(std::move(source))
+BoolBinding::BoolBinding(std::shared_ptr<BindingContext> context, BoolSource source)
+  : Binding(std::move(context)), m_source(std::move(source))
 {
-    if (getSelection() == nullptr)
+    if (getContext() == nullptr)
     {
-        bug("A binding of a property needs a component selection");
+        bug("A binding of a property needs a context: a component or object selection");
     }
     if (!m_source->isWritable())
     {
@@ -45,13 +45,13 @@ bool BoolBinding::readState()
     {
         return false;  // a binding of its own value has no selection to read
     }
-    const BoolSource&         source    = *m_source;
-    const ComponentSelection& selection = *getSelection();
-    const bool                value     = source.getValue(selection);
-    const bool                enabled   = source.isEnabled(selection);
-    const bool                changed   = value != m_value || enabled != m_enabled;
-    m_value                             = value;
-    m_enabled                           = enabled;
+    const BoolSource&     source  = *m_source;
+    const BindingContext& context = *getContext();
+    const bool            value   = source.getValue(context);
+    const bool            enabled = source.isEnabled(context);
+    const bool            changed = value != m_value || enabled != m_enabled;
+    m_value                       = value;
+    m_enabled                     = enabled;
     return changed;
 }
 
@@ -75,7 +75,7 @@ void BoolBinding::setValue(bool value)
     // The selection's event (or its own refresh) updates the cache and tells the listeners, one
     // of which may drop the last owner of this binding.
     const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-    source.set(*getSelection(), value);
+    source.set(*getContext(), value);
 }
 
 bool BoolBinding::setChecked(bool checked)

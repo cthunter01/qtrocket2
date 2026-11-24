@@ -27,6 +27,7 @@
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/IntBinding.h"
+#include "QtRocket/gui/binding/ObjectSelection.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/gui/binding/StringBinding.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -37,6 +38,8 @@
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/SimulationOptionsInterface.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Signal.h"
@@ -327,6 +330,88 @@ TEST_F(BindingScopeTest, AScopeWithoutSelectionCommitsItsOwnValues)
     EXPECT_FALSE(scope.isReleased());
     scope.release();
     EXPECT_TRUE(scope.isReleased());
+}
+
+/// The launch rod's length of the simulation options (SimulationConditionsPanel's).
+[[nodiscard]] DoubleSource launchRodLength()
+{
+    return DoubleSource::ofObject<SimulationOptionsInterface>({
+        .get =
+            [](const SimulationOptionsInterface& options) { return options.getLaunchRodLength(); },
+        .set = [](SimulationOptionsInterface& options,
+                  double                      length) { options.setLaunchRodLength(length); },
+    });
+}
+
+TEST_F(BindingScopeTest, KeepsAContextUntilReleaseReleasesIt)
+{
+    // A dialog whose bindings edit an object (the simulation options), not components.
+    SimulationOptions                      options;
+    QWidget                                root;
+    BindingScope                           scope(root, nullptr);
+    const std::shared_ptr<ObjectSelection> context =
+        scope.keepContext(ObjectSelection::make<SimulationOptionsInterface>(options));
+    const auto length = scope.make<DoubleBinding>(
+        context, launchRodLength(), unitGroup(UnitGroupId::LENGTH), DoubleBinding::Options{});
+    EXPECT_THROW(std::ignore = scope.keepContext(std::shared_ptr<ObjectSelection>()), BugError);
+    length->setValue(1.25);
+    EXPECT_DOUBLE_EQ(options.getLaunchRodLength(), 1.25);
+
+    scope.release();
+    EXPECT_FALSE(context->isValid());
+    EXPECT_FALSE(length->isValid());
+    EXPECT_FALSE(length->commitText("2"));
+    EXPECT_DOUBLE_EQ(options.getLaunchRodLength(), 1.25);
+    EXPECT_TRUE(options.changed().empty());
+    EXPECT_THROW(
+        std::ignore = scope.keepContext(ObjectSelection::make<SimulationOptionsInterface>(options)),
+        BugError);
+}
+
+TEST_F(BindingScopeTest, AClosingDialogsFocusLossReachesNoDestroyedObject)
+{
+    // The options go after the dialog released its scope: the focus loss of the edited field
+    // while the dialog goes reaches nothing (a heap-use-after-free under ASan otherwise).
+    auto                                   options = std::make_unique<SimulationOptions>();
+    auto                                   dialog  = std::make_unique<QDialog>();
+    auto                                   scope = std::make_unique<BindingScope>(*dialog, nullptr);
+    const std::shared_ptr<ObjectSelection> context =
+        scope->keepContext(ObjectSelection::make<SimulationOptionsInterface>(*options));
+    auto* length = makeChild<UnitSpinBox>(
+        dialog.get(),
+        scope->make<DoubleBinding>(context, launchRodLength(), unitGroup(UnitGroupId::LENGTH),
+                                   DoubleBinding::Options{}));
+    auto* other = makeChild<QLineEdit>(dialog.get());
+    ASSERT_TRUE(showActiveWith(*dialog, {length, other}));
+    typeInto(*length, QStringLiteral("45"));
+    scope->release();
+    options.reset();
+    scope.reset();
+    dialog.reset();
+    EXPECT_FALSE(context->isValid());
+}
+
+TEST_F(BindingScopeTest, AnObjectThatGoesEndsTheBindingsOfIt)
+{
+    // Without a release: the options' signal goes with them, and the field's commit is dropped.
+    auto                                   options = std::make_unique<SimulationOptions>();
+    QDialog                                dialog;
+    BindingScope                           scope(dialog, nullptr);
+    const std::shared_ptr<ObjectSelection> context =
+        scope.keepContext(ObjectSelection::make<SimulationOptionsInterface>(*options));
+    auto* length =
+        makeChild<UnitSpinBox>(&dialog, scope.make<DoubleBinding>(context, launchRodLength(),
+                                                                  unitGroup(UnitGroupId::LENGTH),
+                                                                  DoubleBinding::Options{}));
+    auto* other = makeChild<QLineEdit>(&dialog);
+    ASSERT_TRUE(showActiveWith(dialog, {length, other}));
+    typeInto(*length, QStringLiteral("45"));
+    options.reset();
+    EXPECT_FALSE(context->isValid());
+    EXPECT_FALSE(scope.commitAll());
+    other->setFocus();  // the focus loss: dropped
+    scope.release();
+    dialog.hide();
 }
 
 TEST_F(BindingScopeTest, AScopeWhoseRootWentCommitsNothing)

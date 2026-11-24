@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <QAction>
+#include <QColor>
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
@@ -41,6 +42,7 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -233,10 +235,11 @@ struct CountSavings
     void operator()(const DocumentChangeEvent& /*event*/) const { ++*count; }
 };
 
-/// FileHelper.forceExtension(@p file, "ork").
+/// FileHelper.forceExtension(@p file, "ork"), which the design files get (util/FileNames: its
+/// own tests are FileNamesTests').
 [[nodiscard]] std::filesystem::path forceOrk(const std::filesystem::path& file)
 {
-    return DocumentFileOperations::forceExtension(file, QStringLiteral("ork"));
+    return FileNames::forceExtension(file, QStringLiteral("ork"));
 }
 
 /// Whether @p components holds a component.
@@ -248,42 +251,6 @@ struct NotEmpty
 };
 
 // ------------------------------------------------------------------ the texts and rules
-
-TEST_F(DocumentFileOperationsTest, ForcesTheExtensionAsFileHelperDoes)
-{
-    // FileHelper.forceExtension(file, "ork"), the Java probe's FORCE lines (/d is the directory).
-    const std::filesystem::path& d = directory().path();
-    EXPECT_EQ(forceOrk(d / "x"), d / "x.ork");
-    EXPECT_EQ(forceOrk(d / "x.ork"), d / "x.ork");
-    EXPECT_EQ(forceOrk(d / "x.ORK"), d / "x.ORK");
-    EXPECT_EQ(forceOrk(d / "x.Ork"), d / "x.Ork");
-    EXPECT_EQ(forceOrk(d / "x.ork.gz"), d / "x.ork.gz.ork");
-    EXPECT_EQ(forceOrk(d / "x.ORK.GZ"), d / "x.ORK.GZ.ork");
-    EXPECT_EQ(forceOrk(d / "x.v2"), d / "x.v2.ork");
-    EXPECT_EQ(forceOrk(d / ".ork"), d / ".ork.ork");
-    EXPECT_EQ(forceOrk(d / "x."), d / "x..ork");
-    EXPECT_EQ(forceOrk(d / "x..ork"), d / "x..ork");
-    EXPECT_EQ(forceOrk(d / ".hidden"), d / ".hidden.ork");
-    EXPECT_EQ(forceOrk(d / "x.rkt"), d / "x.rkt.ork");
-    EXPECT_EQ(forceOrk(d / "x.orkk"), d / "x.orkk.ork");
-    EXPECT_EQ(forceOrk(d / "x .ork"), d / "x .ork");
-    EXPECT_EQ(forceOrk(d / "a.b.c"), d / "a.b.c.ork");
-    // Java lowercases the extension in Locale.ENGLISH: the Kelvin sign is a 'k'; the dotted
-    // capital I is not an 'o'.
-    const std::filesystem::path kelvin = d / QtStrings::toPath(QStringLiteral(u"x.or\u212A"));
-    EXPECT_EQ(forceOrk(kelvin), kelvin);
-    EXPECT_EQ(forceOrk(d / QtStrings::toPath(QStringLiteral(u"x.\u0130RK"))),
-              d / QtStrings::toPath(QStringLiteral(u"x.\u0130RK.ork")));
-    EXPECT_EQ(forceOrk(d / QtStrings::toPath(QStringLiteral(u"\u00E9t\u00E9.ork"))),
-              d / QtStrings::toPath(QStringLiteral(u"\u00E9t\u00E9.ork")));
-    // A dot in the directory is no extension; an extension given with its dot is added as it is.
-    EXPECT_EQ(forceOrk(d / "d.dir" / "x"), d / "d.dir" / "x.ork");
-    EXPECT_EQ(DocumentFileOperations::forceExtension(d / "x", QStringLiteral(".ork")), d / "x.ork");
-    // A relative file: unchanged with the extension, else made absolute as Java's
-    // File.getAbsolutePath() makes it.
-    EXPECT_EQ(forceOrk("x.ork"), std::filesystem::path("x.ork"));
-    EXPECT_EQ(forceOrk("x"), std::filesystem::current_path() / "x.ork");
-}
 
 TEST_F(DocumentFileOperationsTest, TheFiltersAreTheDesignsAndAllFiles)
 {
@@ -1109,6 +1076,26 @@ public:
                                             const PresetRequest& /*request*/) override
     {
         return {};
+    }
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget* /*parent*/,
+                                                               std::size_t /*count*/) override
+    {
+        return {};
+    }
+    [[nodiscard]] RunSimulationsAnswer runSimulations(
+        QWidget* /*parent*/, const RunSimulationsRequest& /*request*/) override
+    {
+        return {};
+    }
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* /*parent*/, const WindCsvImportSettings& /*initial*/) override
+    {
+        return std::nullopt;
+    }
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* /*parent*/, const QColor& /*initial*/,
+                                                 const QString& /*title*/) override
+    {
+        return std::nullopt;
     }
     void showMessage(QWidget* /*parent*/, const Message& /*message*/) override { }
     void showWarnings(QWidget* /*parent*/, const WarningsMessage& /*message*/) override { }

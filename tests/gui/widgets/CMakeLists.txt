@@ -3,16 +3,25 @@
 target_sources(QtRocket_gui_tests PRIVATE
     BindingScopeTests.cpp
     BoolCheckBoxTests.cpp
+    CollapsiblePanelTests.cpp
+    ColorChooserButtonTests.cpp
     ConfigurationComboBoxTests.cpp
+    CsvExportPanelTests.cpp
+    CsvOptionPanelTests.cpp
+    DataTypeComboBoxTests.cpp
     DescriptionAreaTests.cpp
     DropdownButtonTests.cpp
     EnumComboBoxTests.cpp
     FieldEnablingTests.cpp
+    FieldSeparatorComboBoxTests.cpp
+    FieldValidatorTests.cpp
     FlowLayoutTests.cpp
+    GroupedSearchPopupTests.cpp
     HtmlLabelTests.cpp
     IconButtonTests.cpp
     IconToggleButtonTests.cpp
     IntSpinBoxTests.cpp
+    LineStyleComboBoxTests.cpp
     MaterialComboBoxTests.cpp
     number_field_tests.cpp
     PresetComboBoxTests.cpp

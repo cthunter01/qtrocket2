@@ -13,7 +13,13 @@ namespace QtRocket::Gui
 {
 
 /// OpenRocket's own colours (the OR.* keys of its UITheme) that the GUI paints with: the figure,
-/// the carets, the fin editor, the tree's muted text, the icons' colours. OpenRocket takes them
+/// the carets, the fin editor, the tree's muted text, the icons' colours, and from Milestone 4
+/// the simulations' (ROW_LIGHTER for the CSV export panel's alternate rows; ROW_DARKER,
+/// TABLE_FLASH and TABLE_SELECTION for the wind levels' table with ROW_LIGHTER; the design view's
+/// flight data in FLIGHTDATA_TEXT_ACTIVE and _INACTIVE; the status colours ERROR, WARNING and
+/// TEXT through util/SimulationStatusColors; ICONS_PLAY, ICONS_PLOT and ICONS_WARNING_* for
+/// util/Icons; ICONS_EXPORT, OR.icons.export, is FILE_EXPORT's, whose icon comes later: the
+/// simulation table's export icon, SIM_TABLE_EXPORT, draws in ICONS_DEFAULT). OpenRocket takes them
 /// from its FlatLaf theme (themes/FlatLightLaf.properties, FlatDarculaLaf.properties); QtRocket
 /// follows the platform's style and its light or dark palette instead (the theme selector is
 /// Milestone 5), so it takes the light theme's values on a light palette and the dark theme's on
@@ -56,6 +62,12 @@ public:
         WARNING,
         ERROR,
         DARK_ERROR,
+        ROW_LIGHTER,
+        ROW_DARKER,
+        TABLE_FLASH,
+        TABLE_SELECTION,
+        FLIGHTDATA_TEXT_ACTIVE,
+        FLIGHTDATA_TEXT_INACTIVE,
         MULTI_COMP_EDIT,
         MOTOR_BORDER,
         MOTOR_FILL,
@@ -72,11 +84,16 @@ public:
         RULER,
         ICONS_DEFAULT,
         ICONS_TINT_COLOR,
+        ICONS_PLAY,
         ICONS_HELP,
+        ICONS_WARNING_LOW,
+        ICONS_WARNING_NORMAL,
+        ICONS_WARNING_HIGH,
         ICONS_OVERRIDE,
         ICONS_OVERRIDE_SUBCOMPONENT,
         ICONS_LOCKED,
         ICONS_DELETE,
+        ICONS_PLOT,
         ICONS_PLUS,
         ICONS_DUPLICATE,
         ICONS_PENCIL,
@@ -84,6 +101,7 @@ public:
         ICONS_ZOOM_OUT,
         ICONS_ZOOM_FIT,
         ICONS_IMPORT,
+        ICONS_EXPORT,
         ICONS_MOVE_UP,
         ICONS_MOVE_DOWN,
         ICONS_UNDO,
@@ -110,6 +128,12 @@ public:
         Key::WARNING,
         Key::ERROR,
         Key::DARK_ERROR,
+        Key::ROW_LIGHTER,
+        Key::ROW_DARKER,
+        Key::TABLE_FLASH,
+        Key::TABLE_SELECTION,
+        Key::FLIGHTDATA_TEXT_ACTIVE,
+        Key::FLIGHTDATA_TEXT_INACTIVE,
         Key::MULTI_COMP_EDIT,
         Key::MOTOR_BORDER,
         Key::MOTOR_FILL,
@@ -126,11 +150,16 @@ public:
         Key::RULER,
         Key::ICONS_DEFAULT,
         Key::ICONS_TINT_COLOR,
+        Key::ICONS_PLAY,
         Key::ICONS_HELP,
+        Key::ICONS_WARNING_LOW,
+        Key::ICONS_WARNING_NORMAL,
+        Key::ICONS_WARNING_HIGH,
         Key::ICONS_OVERRIDE,
         Key::ICONS_OVERRIDE_SUBCOMPONENT,
         Key::ICONS_LOCKED,
         Key::ICONS_DELETE,
+        Key::ICONS_PLOT,
         Key::ICONS_PLUS,
         Key::ICONS_DUPLICATE,
         Key::ICONS_PENCIL,
@@ -138,6 +167,7 @@ public:
         Key::ICONS_ZOOM_OUT,
         Key::ICONS_ZOOM_FIT,
         Key::ICONS_IMPORT,
+        Key::ICONS_EXPORT,
         Key::ICONS_MOVE_UP,
         Key::ICONS_MOVE_DOWN,
         Key::ICONS_UNDO,

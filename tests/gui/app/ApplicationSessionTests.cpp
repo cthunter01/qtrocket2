@@ -45,6 +45,7 @@
 #include "QtRocket/gui/main/RecentFiles.h"
 #include "QtRocket/gui/main/RecentFilesMenu.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -122,10 +123,12 @@ protected:
         std::unique_ptr<UserPrompts> prompts, Gui::Test::ScriptedUserPrompts& scripted,
         const DataPaths& dataPaths = DataPaths::forApplication())
     {
-        m_prompts = &scripted;
-        return std::make_unique<ApplicationContext>(
-            std::make_unique<SettingsPreferences>(preferencesFile()), dataPaths,
-            std::move(prompts));
+        m_prompts        = &scripted;
+        auto preferences = std::make_unique<SettingsPreferences>(preferencesFile());
+        // No window runs a simulation on its own (GuiTestSupport.h).
+        preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
+        return std::make_unique<ApplicationContext>(std::move(preferences), dataPaths,
+                                                    std::move(prompts));
     }
 
     /// Writes the preference "Open last design file on startup" as @p autoOpenLastDesign and

@@ -15,6 +15,8 @@
 #include <QApplication>
 #include <QChar>
 #include <QCheckBox>
+#include <QColor>
+#include <QColorDialog>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -62,6 +64,7 @@
 #include "QtRocket/gui/dialogs/SeparationSelectionDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
+#include "QtRocket/gui/util/CsvOptionValues.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -537,6 +540,194 @@ TEST_F(WidgetUserPromptsTest, AsksWhetherToUndoAddingAComponentOrToDiscardThePre
     EXPECT_EQ(preferences.check, QStringLiteral("Don't ask me again"));
 }
 
+TEST_F(WidgetUserPromptsTest, AsksWhetherToDiscardTheChangesToASimulationOrToUndoAddingIt)
+{
+    // SimulationConfigDialog.createCancelOperationContent(): YES_NO_OPTION, WARNING_MESSAGE.
+    OptionQuestion changes;
+    EXPECT_TRUE(askToDiscard(UserPrompts::DiscardQuestion::SIMULATION_CHANGES,
+                             AnswerOption{.standard = QDialogButtonBox::Yes,
+                                          .text     = QString(),
+                                          .tick     = true,
+                                          .seen     = &changes})
+                    .doNotAskAgain);
+    EXPECT_EQ(changes.objectName, QStringLiteral("discardChangesQuestion"));
+    EXPECT_EQ(changes.title, QStringLiteral("Cancel operation"));
+    EXPECT_EQ(changes.lines,
+              QStringList{QStringLiteral("<html>Are you sure you want to <b>discard</b> your "
+                                         "<b>changes</b> to this simulation?</html>")});
+    EXPECT_EQ(changes.options, optionTexts(QDialogButtonBox::Yes, QDialogButtonBox::No));
+    EXPECT_EQ(changes.check, QStringLiteral("Don't ask me again"));
+    EXPECT_TRUE(changes.icon);
+
+    OptionQuestion added;
+    EXPECT_FALSE(
+        askToDiscard(
+            UserPrompts::DiscardQuestion::SIMULATION_ADDITION,
+            AnswerOption{
+                .standard = QDialogButtonBox::No, .text = QString(), .tick = false, .seen = &added})
+            .discard);
+    EXPECT_EQ(added.title, QStringLiteral("Cancel operation"));
+    EXPECT_EQ(added.lines, QStringList{QStringLiteral("<html>Are you sure you want to <b>undo "
+                                                      "adding</b> this simulation?</html>")});
+}
+
+TEST_F(WidgetUserPromptsTest, AsksWhetherToDeleteTheSimulations)
+{
+    WidgetUserPrompts                    prompts;
+    OptionQuestion                       seen;
+    UserPrompts::DeleteSimulationsAnswer answer;
+    {
+        const Gui::Test::NextModalDialog choose(AnswerOption{
+            .standard = QDialogButtonBox::Ok, .text = QString(), .tick = true, .seen = &seen});
+        answer = prompts.askDeleteSimulations(nullptr, 2);
+    }
+    EXPECT_TRUE(answer.confirmed);
+    EXPECT_TRUE(answer.doNotAskAgain);
+    // SimulationPanel.verifyDeleteSimulation(): OK_CANCEL_OPTION, WARNING_MESSAGE, the message
+    // with an empty line under it, then the box and the note.
+    EXPECT_EQ(seen.objectName, QStringLiteral("deleteSimulationsQuestion"));
+    EXPECT_EQ(seen.title, QStringLiteral("Delete simulations"));
+    EXPECT_EQ(seen.lines,
+              (QStringList{QStringLiteral("Delete the selected simulations?"), QString()}));
+    EXPECT_EQ(seen.options, optionTexts(QDialogButtonBox::Ok, QDialogButtonBox::Cancel));
+    EXPECT_EQ(seen.initial, optionText(QDialogButtonBox::Ok));
+    EXPECT_TRUE(seen.icon);
+    EXPECT_EQ(seen.check, QStringLiteral("Do not ask me again"));
+    EXPECT_EQ(seen.note,
+              QStringLiteral("You can change the default operation in the preferences."));
+
+    {
+        const Gui::Test::NextModalDialog cancel(AnswerOption{.standard = QDialogButtonBox::Cancel,
+                                                             .text     = QString(),
+                                                             .tick     = false,
+                                                             .seen     = nullptr});
+        EXPECT_EQ(
+            prompts.askDeleteSimulations(nullptr, 1),
+            (UserPrompts::DeleteSimulationsAnswer{.confirmed = false, .doNotAskAgain = false}));
+    }
+    // Closing it deletes nothing; the box is told whatever the answer.
+    const Gui::Test::NextModalDialog close(AnswerOption{
+        .standard = QDialogButtonBox::NoButton, .text = QString(), .tick = true, .seen = nullptr});
+    EXPECT_EQ(prompts.askDeleteSimulations(nullptr, 1),
+              (UserPrompts::DeleteSimulationsAnswer{.confirmed = false, .doNotAskAgain = true}));
+}
+
+/// What the colour dialog looked like.
+struct ColorQuestion
+{
+    QString objectName;
+    QString title;
+    QColor  initial;
+    bool    qtDialog = false;
+    bool    alpha    = false;
+};
+
+/// What the colour dialog's user does.
+enum class ColorAction
+{
+    /// Chooses the answer's colour and presses OK.
+    CHOOSE,
+    /// Presses OK without touching anything.
+    ACCEPT,
+    /// Presses Cancel.
+    CANCEL,
+};
+
+/// Records the colour dialog and answers it as @p action says (CHOOSE: with @p color).
+struct AnswerColor
+{
+    ColorAction    action;
+    QColor         color;
+    ColorQuestion* seen;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<QColorDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            seen->objectName = dialog->objectName();
+            seen->title      = dialog->windowTitle();
+            seen->initial    = dialog->currentColor();
+            seen->qtDialog   = dialog->testOption(QColorDialog::DontUseNativeDialog);
+            seen->alpha      = dialog->testOption(QColorDialog::ShowAlphaChannel);
+        }
+        switch (action)
+        {
+            case ColorAction::CHOOSE:
+                dialog->setCurrentColor(color);
+                dialog->accept();
+                return;
+            case ColorAction::ACCEPT:
+                dialog->accept();
+                return;
+            case ColorAction::CANCEL:
+                dialog->reject();
+                return;
+        }
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, AsksForAColourInQtsOwnDialog)
+{
+    // ColorChooserButton: JColorChooser.createDialog(button, "Select color", true, ...), the
+    // button's colour to start with; Java's chooser has a transparency slider.
+    WidgetUserPrompts     prompts;
+    ColorQuestion         seen;
+    std::optional<QColor> chosen;
+    {
+        const Gui::Test::NextModalDialog choose(AnswerColor{
+            .action = ColorAction::CHOOSE, .color = QColor(10, 20, 30, 40), .seen = &seen});
+        chosen = prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color"));
+    }
+    EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
+    EXPECT_EQ(seen.objectName, QStringLiteral("colorDialog"));
+    EXPECT_EQ(seen.title, QStringLiteral("Select color"));
+    EXPECT_EQ(seen.initial, QColor(1, 2, 3));
+    EXPECT_TRUE(seen.qtDialog);
+    EXPECT_TRUE(seen.alpha);
+
+    // Cancel and the close button choose nothing.
+    const Gui::Test::NextModalDialog cancel(
+        AnswerColor{.action = ColorAction::CANCEL, .color = QColor(), .seen = nullptr});
+    EXPECT_EQ(prompts.askColor(nullptr, QColor(1, 2, 3), QStringLiteral("Select color")),
+              std::nullopt);
+}
+
+TEST_F(WidgetUserPromptsTest, AnUntouchedColourDialogKeepsTheColourWithItsAlpha)
+{
+    // Java's chooser starts at the button's colour (chooser.setColor(originalColor)), its alpha
+    // included, so OK without a change changes nothing. QColorDialog makes the colour it is
+    // given opaque while ShowAlphaChannel is off (and, with a native dialog, which the offscreen
+    // platform has not, starts its own widgets at white): the options come first.
+    WidgetUserPrompts     prompts;
+    ColorQuestion         seen;
+    std::optional<QColor> chosen;
+    {
+        const Gui::Test::NextModalDialog accept(
+            AnswerColor{.action = ColorAction::ACCEPT, .color = QColor(), .seen = &seen});
+        chosen = prompts.askColor(nullptr, QColor(10, 20, 30, 40), QStringLiteral("Select color"));
+    }
+    EXPECT_EQ(seen.initial, QColor(10, 20, 30, 40));
+    EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
+}
+
+TEST_F(WidgetUserPromptsTest, TheQuestionsWhoseDialogsComeLaterCancelWithoutADialog)
+{
+    // Milestone 4's run dialog, CSV import settings and the table export's CSV options are not
+    // there yet: their questions cancel at once (a dialog would wait here for an answer that never
+    // comes).
+    WidgetUserPrompts prompts;
+    EXPECT_EQ(prompts.runSimulations(nullptr, {}),
+              (UserPrompts::RunSimulationsAnswer{.cancelled = true, .allSuccessful = false}));
+    EXPECT_EQ(prompts.askWindCsvImportSettings(nullptr, {}), std::nullopt);
+    UserPrompts::SaveFileRequest tableExport;
+    tableExport.title      = QStringLiteral("Save as CSV file");
+    tableExport.fileName   = QStringLiteral("Rocket.csv");
+    tableExport.csvOptions = CsvOptionValues{};
+    EXPECT_FALSE(prompts.askSaveFile(nullptr, tableExport).has_value());
+}
+
 TEST_F(WidgetUserPromptsTest, AsksWhetherToOverwriteAFile)
 {
     // FileHelper.confirmWrite() (the Java probe FileOperationsProbe: EXISTS).
@@ -943,6 +1134,28 @@ TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
     }
     EXPECT_EQ(seen.selectedFilter, QStringLiteral("All Files (*)"));
     EXPECT_EQ(seen.acceptLabel, QStringLiteral("Add"));
+}
+
+TEST_F(WidgetFileDialogTest, AnOpenDialogSelectsTheFileAskedFor)
+{
+    // The aerodynamic lookup's "Load from file...": JFileChooser.setSelectedFile() of the table's
+    // current file, in its directory.
+    WidgetUserPrompts                          prompts;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::OpenFileAnswer> answer;
+    {
+        const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("a.ork"), .seen = &seen});
+        UserPrompts::OpenFileRequest     request;
+        request.title       = QStringLiteral("Select CSV file");
+        request.nameFilters = {QStringLiteral("CSV files (*.csv *.txt *.dat)"),
+                               QStringLiteral("All Files (*)")};
+        request.directory   = directory().path();
+        request.fileName    = QStringLiteral("a.ork");
+        answer              = prompts.askOpenFiles(nullptr, request);
+    }
+    ASSERT_EQ(seen.proposed.size(), 1);
+    EXPECT_EQ(QtStrings::toPath(seen.proposed.front()).filename(), "a.ork");
+    EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("a.ork")));
 }
 
 TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)

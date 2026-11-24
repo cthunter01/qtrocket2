@@ -8,6 +8,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/widgets/IntSpinBox.h"
@@ -66,6 +67,16 @@ void BindingScope::checkNotReleased() const
     }
 }
 
+void BindingScope::keepContextOf(std::shared_ptr<BindingContext> context)
+{
+    if (context == nullptr)
+    {
+        bug("A binding scope keeps contexts, not null");
+    }
+    checkNotReleased();
+    m_contexts.push_back(std::move(context));
+}
+
 bool BindingScope::isReleased() const noexcept
 {
     return m_released || (m_selection != nullptr && !m_selection->isValid());
@@ -107,6 +118,11 @@ void BindingScope::release() noexcept
     {
         m_selection->release();
     }
+    for (const std::shared_ptr<BindingContext>& context : m_contexts)
+    {
+        context->release();
+    }
+    m_contexts.clear();
     m_bindings.clear();
 }
 

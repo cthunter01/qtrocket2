@@ -6,6 +6,7 @@
 #include <span>
 #include <vector>
 
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/util/Signal.h"
 
@@ -101,22 +102,15 @@ namespace QtRocket::Gui
 /// the last owner while it is being told (a dialog that closes on Phase::INVALIDATED): the
 /// selection keeps itself alive until it has told every listener. Not copyable or movable (the
 /// rocket's slot refers to it); GUI thread only, like the rocket.
-class ComponentSelection : public std::enable_shared_from_this<ComponentSelection>
+///
+/// The bindings' context for components (BindingContext; ObjectSelection is the one for an object
+/// that is no component): Phase and PhaseSignal are BindingContext's, and Phase::INVALIDATED means
+/// that the components are gone (a TREE or UNDO change).
+// NOLINTNEXTLINE(misc-multiple-inheritance): enable_shared_from_this carries the keep-alive
+class ComponentSelection : public BindingContext,
+                           public std::enable_shared_from_this<ComponentSelection>
 {
 public:
-    /// What a listener is told (see the class comment).
-    enum class Phase
-    {
-        /// Re-read the cached state from the components; tell nobody yet.
-        READ,
-        /// Every binding has read: tell the widgets what changed.
-        NOTIFY,
-        /// The components are gone (a TREE or UNDO change): show nothing.
-        INVALIDATED,
-    };
-
-    using PhaseSignal = Signal<Phase>;
-
     /// The selection of @p main and the other selected components @p others. An entry of
     /// @p others that is @p main or repeats an earlier one is left out (Java's addConfigListener()
     /// refuses the same).
@@ -125,7 +119,7 @@ public:
     explicit ComponentSelection(RocketComponent&                  main,
                                 std::span<RocketComponent* const> others = {});
 
-    ~ComponentSelection();
+    ~ComponentSelection() override;
     ComponentSelection(const ComponentSelection&)            = delete;
     ComponentSelection& operator=(const ComponentSelection&) = delete;
     ComponentSelection(ComponentSelection&&)                 = delete;
@@ -133,7 +127,7 @@ public:
 
     /// False once a TREE or UNDO change has reached the selection, the rocket has gone or reset
     /// its listeners, or release() ended it.
-    [[nodiscard]] bool isValid() const noexcept;
+    [[nodiscard]] bool isValid() const noexcept override;
 
     /// The component the fields show (Java: the dialog's component).
     /// @throws BugError when the selection is invalid
@@ -195,10 +189,10 @@ public:
     /// Refreshes the bindings (Phase::READ, then Phase::NOTIFY), as an event of the rocket does:
     /// for a change that fires no event (a preference a getter reads, say). Nothing happens once
     /// the selection is invalid.
-    void refresh();
+    void refresh() override;
 
     /// Adds a listener of the phases (the bindings; see the class comment).
-    PhaseSignal::Connection addListener(PhaseSignal::Slot slot);
+    PhaseSignal::Connection addListener(PhaseSignal::Slot slot) override;
 
     /// Ends the selection on purpose, before its components can go (a dialog that closes:
     /// widgets/BindingScope::release()): it lets go of the components and the rocket as a TREE or
@@ -206,7 +200,7 @@ public:
     /// dialog goes. Its bindings are invalid from then on and drop every write a widget makes (the
     /// focus loss of a closing dialog's field, which then reaches no component). Nothing happens
     /// when the selection is invalid already.
-    void release() noexcept;
+    void release() noexcept override;
 
 private:
     void componentChanged(const ComponentChangeEvent& event);

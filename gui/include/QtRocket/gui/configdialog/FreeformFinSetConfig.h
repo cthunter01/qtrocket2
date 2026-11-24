@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <memory>
-#include <string_view>
 
 #include <QObject>
 #include <QPoint>
@@ -199,10 +198,6 @@ public:
     /// Writes @p model's FinPointTableModel::csvText() as UTF-8 to @p file.
     [[nodiscard]] static Result<void> writeCsvFile(const FinPointTableModel&    model,
                                                    const std::filesystem::path& file);
-    /// @p file with ".<extension>" appended unless its name ends with that extension, ignoring
-    /// case (FileHelper.forceExtension()); a name that starts with its only dot has none.
-    [[nodiscard]] static std::filesystem::path forceExtension(const std::filesystem::path& file,
-                                                              std::string_view extension);
 
     /// The table's right and middle buttons (see the class comment), and the figure's mouse once
     /// the panel is released.

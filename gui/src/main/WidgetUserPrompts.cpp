@@ -1,6 +1,7 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -11,6 +12,8 @@
 #include <QAction>
 #include <QChar>
 #include <QCheckBox>
+#include <QColor>
+#include <QColorDialog>
 #include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -252,6 +255,11 @@ void addDescription(QFileDialog& dialog, const QString& description)
                                                                       : request.selectedNameFilter);
     }
     chooser.setDirectory(startDirectory(request.directory));
+    if (!request.fileName.isEmpty())
+    {
+        // JFileChooser.setSelectedFile(): the file selected in the directory.
+        chooser.selectFile(request.fileName);
+    }
     if (!request.approveButtonText.isEmpty())
     {
         chooser.setLabelText(QFileDialog::Accept, request.approveButtonText);
@@ -531,6 +539,24 @@ struct DiscardTexts
                                                  "preference changes</b>?</html>"),
                 //: SimulationConfigDialog.CancelOperation.checkbox.dontAskAgain
                 .doNotAskAgain = WidgetUserPrompts::tr("Don't ask me again")};
+        case UserPrompts::DiscardQuestion::SIMULATION_CHANGES:
+            return {
+                //: SimulationConfigDialog.CancelOperation.title
+                .title = WidgetUserPrompts::tr("Cancel operation"),
+                //: SimulationConfigDialog.CancelOperation.msg.discardChanges
+                .message = WidgetUserPrompts::tr("<html>Are you sure you want to <b>discard</b> "
+                                                 "your <b>changes</b> to this simulation?</html>"),
+                //: SimulationConfigDialog.CancelOperation.checkbox.dontAskAgain
+                .doNotAskAgain = WidgetUserPrompts::tr("Don't ask me again")};
+        case UserPrompts::DiscardQuestion::SIMULATION_ADDITION:
+            return {
+                //: SimulationConfigDialog.CancelOperation.title
+                .title = WidgetUserPrompts::tr("Cancel operation"),
+                //: SimulationConfigDialog.CancelOperation.msg.undoAdd
+                .message = WidgetUserPrompts::tr(
+                    "<html>Are you sure you want to <b>undo adding</b> this simulation?</html>"),
+                //: SimulationConfigDialog.CancelOperation.checkbox.dontAskAgain
+                .doNotAskAgain = WidgetUserPrompts::tr("Don't ask me again")};
     }
     QTROCKET_UNREACHABLE();
 }
@@ -716,6 +742,12 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
 std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
     QWidget* parent, const SaveFileRequest& request)
 {
+    if (request.csvOptions.has_value())
+    {
+        // The table export's options dialog, asked after the file, is not there yet: the save
+        // is cancelled before its file dialog (see the class comment).
+        return std::nullopt;
+    }
     const QPointer<QWidget>       guard(parent);
     std::optional<SaveFileAnswer> chosen = askLegalFileToSave(parent, request);
     if (!chosen.has_value())
@@ -824,6 +856,87 @@ UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget*             p
                                                           const PresetRequest& request)
 {
     return ComponentPresetChooserDialog::choose(parent, services, request);
+}
+
+UserPrompts::DeleteSimulationsAnswer WidgetUserPrompts::askDeleteSimulations(QWidget* parent,
+                                                                             std::size_t /*count*/)
+{
+    // SimulationPanel.verifyDeleteSimulation(): JOptionPane.showConfirmDialog(OK_CANCEL_OPTION,
+    // WARNING_MESSAGE) of the message, an empty line, and the panel of the check box and the
+    // note; the text is the same for one simulation and for several.
+    ModalDialog<OptionDialog> dialog(parent, OptionDialog::MessageType::WARNING,
+                                     //: simpanel.dlg.lbl.DeleteSim3
+                                     tr("Delete simulations"));
+    OptionDialog&             asking = *dialog.get();
+    asking.setObjectName(QStringLiteral("deleteSimulationsQuestion"));
+    //: simpanel.dlg.lbl.DeleteSim1
+    asking.addMessageLine(tr("Delete the selected simulations?"));
+    asking.addMessageLine(QString());
+    //: simpanel.checkbox.donotask
+    auto* check = makeChild<QCheckBox>(asking.messageArea(), tr("Do not ask me again"));
+    check->setObjectName(QStringLiteral("doNotAskAgain"));
+    asking.addMessageWidget(check);
+    auto* note = makeChild<StyledLabel>(
+        asking.messageArea(),
+        //: simpanel.lbl.defpref
+        tr("You can change the default operation in the preferences."), kNoteSize);
+    note->setObjectName(QStringLiteral("note"));
+    asking.addMessageWidget(note);
+    QPushButton* const ok = asking.addOption(QDialogButtonBox::Ok);
+    asking.addOption(QDialogButtonBox::Cancel);
+    asking.setInitialOption(ok);
+    dialog.exec();
+
+    const OptionDialog* const answered = dialog.get();
+    if (answered == nullptr)
+    {
+        return {};
+    }
+    return {.confirmed = answered->chosenOption() == ok, .doNotAskAgain = check->isChecked()};
+}
+
+UserPrompts::RunSimulationsAnswer WidgetUserPrompts::runSimulations(
+    QWidget* /*parent*/, const RunSimulationsRequest& /*request*/)
+{
+    // The run dialog (SimulationRunDialog) is not there yet: nothing runs (see the class
+    // comment).
+    return {.cancelled = true, .allSuccessful = false};
+}
+
+std::optional<UserPrompts::WindCsvImportSettings> WidgetUserPrompts::askWindCsvImportSettings(
+    QWidget* /*parent*/, const WindCsvImportSettings& /*initial*/)
+{
+    // CSVImportSettingsDialog is not there yet: cancelled (see the class comment).
+    return std::nullopt;
+}
+
+std::optional<QColor> WidgetUserPrompts::askColor(QWidget* parent, const QColor& initial,
+                                                  const QString& title)
+{
+    // JColorChooser.createDialog(button, "Select color", true, chooser, ...): modal, the chooser's
+    // colour to start with (chooser.setColor(originalColor)), its alpha included.
+    ModalDialog<QColorDialog> dialog(parent);
+    QColorDialog&             chooser = *dialog.get();
+    chooser.setObjectName(QStringLiteral("colorDialog"));
+    // The options before the colour, which Qt 6.8's QColorDialog would lose otherwise: made with
+    // a colour, it hands it to the platform's native dialog where there is one (macOS, the GTK
+    // and KDE themes) and builds its own widgets only when DontUseNativeDialog is set, starting
+    // them at white; and while ShowAlphaChannel is off, it makes the colour opaque. Offscreen
+    // there is no native dialog, so the tests see only the second.
+    chooser.setOption(QColorDialog::DontUseNativeDialog, true);
+    chooser.setOption(QColorDialog::ShowAlphaChannel, true);
+    chooser.setCurrentColor(initial);
+    chooser.setWindowTitle(title);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return std::nullopt;
+    }
+    const QColorDialog* const answered = dialog.get();
+    if (answered == nullptr)
+    {
+        return std::nullopt;
+    }
+    return answered->selectedColor();
 }
 
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)

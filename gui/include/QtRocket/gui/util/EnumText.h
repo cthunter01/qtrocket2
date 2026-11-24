@@ -6,6 +6,11 @@
 
 #include <QString>
 
+namespace QtRocket
+{
+class FlightDataType;
+}  // namespace QtRocket
+
 /// The text a core enum shows in the GUI. Each enum of the core that OpenRocket shows by a
 /// translated name has two functions found by argument-dependent lookup: displayKey(value), the
 /// key of OpenRocket's messages.properties ("MassComponent.Altimeter"), and displayName(value),
@@ -37,5 +42,12 @@ template <DisplayedEnum Enum>
 {
     return translatedEnumText(displayKey(value), displayName(value));
 }
+
+/// The name of @p type as the GUI shows it (OpenRocket: FlightDataType.toString(), its name, which
+/// is trans.get() of its key for a built-in type): a built-in type's English name (getName())
+/// through the application's translators with its key (getDisplayKey()) as an enum's text is
+/// translated, and the name as it was given of any other type (a custom expression's, a
+/// simulation extension's, a type a design file named), which no translator knows.
+[[nodiscard]] QString flightDataTypeText(const FlightDataType& type);
 
 }  // namespace QtRocket::Gui

@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/util/Signal.h"
 
@@ -29,12 +30,14 @@ private:
 
 }  // namespace
 
-Binding::Binding(std::shared_ptr<ComponentSelection> selection) : m_selection(std::move(selection))
+Binding::Binding(std::shared_ptr<BindingContext> context)
+  : m_context(std::move(context)),
+    m_selection(std::dynamic_pointer_cast<ComponentSelection>(m_context))
 {
-    if (m_selection != nullptr)
+    if (m_context != nullptr)
     {
-        m_selectionConnection = m_selection->addListener(
-            [this](ComponentSelection::Phase phase) { selectionChanged(phase); });
+        m_contextConnection =
+            m_context->addListener([this](BindingContext::Phase phase) { contextChanged(phase); });
     }
 }
 
@@ -42,7 +45,7 @@ Binding::~Binding() = default;
 
 bool Binding::isValid() const noexcept
 {
-    return m_selection == nullptr || m_selection->isValid();
+    return m_context == nullptr || m_context->isValid();
 }
 
 Signal<>::Connection Binding::addChangeListener(Signal<>::Slot slot)
@@ -58,24 +61,24 @@ void Binding::fireChanged()
     m_changed.emit();
 }
 
-void Binding::selectionChanged(ComponentSelection::Phase phase)
+void Binding::contextChanged(BindingContext::Phase phase)
 {
     switch (phase)
     {
-        case ComponentSelection::Phase::READ:
+        case BindingContext::Phase::READ:
             if (readState())
             {
                 m_changePending = true;
             }
             break;
-        case ComponentSelection::Phase::NOTIFY:
+        case BindingContext::Phase::NOTIFY:
             if (m_changePending)
             {
                 m_changePending = false;
                 fireChanged();
             }
             break;
-        case ComponentSelection::Phase::INVALIDATED:
+        case BindingContext::Phase::INVALIDATED:
             m_changePending = false;
             fireChanged();
             break;

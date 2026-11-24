@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <span>
 
 #include <QChar>
+#include <QColor>
 #include <QCoreApplication>
 #include <QString>
 #include <QStringList>
@@ -83,6 +85,19 @@ class GuiServices;
 ///
 /// Milestone 3's value dialogs, motor chooser (MotorChooserDialog, one per window) and parts
 /// library (ComponentPresetChooserDialog) answer their questions.
+///
+/// Milestone 4's: askDeleteSimulations() is SimulationPanel.verifyDeleteSimulation()'s "Delete
+/// simulations" (a warning with OK and Cancel, "Do not ask me again" and, 2 points smaller, "You
+/// can change the default operation in the preferences."; its box is answered whatever the
+/// answer), askDiscardChanges() for a simulation SimulationConfigDialog's "Cancel operation",
+/// askColor() ColorChooserButton's colour dialog (Qt's own QColorDialog, "colorDialog", with the
+/// alpha channel: Java's JColorChooser has a transparency slider; Qt's dialog, not the platform's,
+/// as Swing's chooser is no platform dialog and macOS's colour panel is no modal question), and an
+/// open dialog selects the request's file. The other questions of Milestone 4 are not shown yet:
+/// they answer their cancelling answer at once, without a dialog, until the parts of Milestone 4
+/// that own their dialogs fill them in (runSimulations(): the run dialog, which runs nothing yet;
+/// askWindCsvImportSettings(): CSVImportSettingsDialog; a save with CSV options, which is
+/// cancelled before its file dialog: the table export's options dialog). Nothing asks them yet.
 ///
 /// Each dialog is made for its question (ModalDialog), and so is the menu of a file or a
 /// directory, so that it survives its parent being destroyed while it is open: the question then
@@ -171,9 +186,17 @@ public:
     [[nodiscard]] std::optional<MotorChoice> chooseMotor(
         QWidget* parent, const GuiServices& services, const MotorMount& mount,
         const FlightConfigurationId& configurationId) override;
-    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
-                                            const PresetRequest& request) override;
-    void                       showMessage(QWidget* parent, const Message& message) override;
+    [[nodiscard]] PresetAnswer            choosePreset(QWidget* parent, const GuiServices& services,
+                                                       const PresetRequest& request) override;
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
+                                                               std::size_t count) override;
+    [[nodiscard]] RunSimulationsAnswer    runSimulations(
+        QWidget* parent, const RunSimulationsRequest& request) override;
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* parent, const WindCsvImportSettings& initial) override;
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* parent, const QColor& initial,
+                                                 const QString& title) override;
+    void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
     void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override;

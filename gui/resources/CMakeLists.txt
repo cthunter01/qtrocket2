@@ -11,8 +11,11 @@ qt_add_resources(QtRocket_gui "gui_resources"
     icons/actions/arrow-big-down-dash.svg
     icons/actions/arrow-big-up-dash.svg
     icons/actions/ban.svg
+    icons/actions/bookmark-check.svg
     icons/actions/cd-override.svg
     icons/actions/cg-override.svg
+    icons/actions/chart-spline.svg
+    icons/actions/circle-alert-filled.svg
     icons/actions/circle-check.svg
     icons/actions/circle-x.svg
     icons/actions/clipboard-paste.svg
@@ -26,22 +29,28 @@ qt_add_resources(QtRocket_gui "gui_resources"
     icons/actions/file-info.svg
     icons/actions/file-plus-corner.svg
     icons/actions/file.svg
+    icons/actions/import.svg
+    icons/actions/info-filled.svg
     icons/actions/info.svg
     icons/actions/lock-open.svg
     icons/actions/lock.svg
     icons/actions/magnet-click.svg
     icons/actions/magnet-filled.svg
     icons/actions/move.svg
+    icons/actions/play-filled.svg
     icons/actions/power.svg
     icons/actions/redo.svg
+    icons/actions/refresh-ccw.svg
     icons/actions/rename.svg
     icons/actions/rotate-cw.svg
     icons/actions/ruler-dimension-line.svg
     icons/actions/save-as.svg
     icons/actions/save.svg
     icons/actions/scissors.svg
+    icons/actions/sheet.svg
     icons/actions/square-pen.svg
     icons/actions/trash.svg
+    icons/actions/triangle-alert-filled.svg
     icons/actions/undo.svg
     icons/actions/weight.svg
     icons/actions/zoom-fit.svg
@@ -122,4 +131,23 @@ qt_add_resources(QtRocket_gui "gui_resources"
     icons/components/tubecoupler-small.png
     icons/components/tubefin-large.png
     icons/components/tubefin-small.png
+    icons/events/event-apogee.png
+    icons/events/event-burnout.png
+    icons/events/event-ejection-charge.png
+    icons/events/event-exception.png
+    icons/events/event-ground-hit.png
+    icons/events/event-ignition.png
+    icons/events/event-launch.png
+    icons/events/event-launchrod.png
+    icons/events/event-liftoff.png
+    icons/events/event-recovery-device-deployment.png
+    icons/events/event-simulation-end.png
+    icons/events/event-stage-separation.png
+    icons/events/event-tumble.png
+    icons/status/refresh.png
+    icons/status/sim_cantrun.png
+    icons/status/tick.png
+    icons/status/warning_high.png
+    icons/status/warning_low.png
+    icons/status/warning_normal.png
 )

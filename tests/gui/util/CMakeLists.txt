@@ -6,15 +6,20 @@ target_sources(QtRocket_gui_tests PRIVATE
     ComponentIconsTests.cpp
     CustomFinImporterTests.cpp
     EnumTextTests.cpp
+    FileNamesTests.cpp
     FinImportReport.cpp
     GuardTests.cpp
     GuiServicesTests.cpp
     icon_resources_tests.cpp
     IconsTests.cpp
     MakeChildTests.cpp
+    MemoryPlotDefaultsTests.cpp
     MenuTextTests.cpp
     QtStringsTests.cpp
+    SimulationIconsTests.cpp
+    SimulationStatusColorsTests.cpp
     SvgIconEngineTests.cpp
     TableSortKeysTests.cpp
     ThemeColorsTests.cpp
+    WaitCursorTests.cpp
 )

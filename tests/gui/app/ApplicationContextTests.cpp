@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -13,7 +14,9 @@
 #include <vector>
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QTextDocument>
@@ -29,7 +32,10 @@
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/GuiServices.h"
+#include "QtRocket/gui/util/MemoryPlotDefaults.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialPreferences.h"
@@ -152,6 +158,58 @@ TEST_F(ApplicationContextTest, TheServicesAreTheContextsObjects)
     // QSettings gives its file with forward slashes on every platform.
     EXPECT_EQ(QDir::fromNativeSeparators(context.preferences().fileName()),
               QDir::fromNativeSeparators(preferencesFile()));
+}
+
+/// A job's finished() that notes how it ended.
+struct NoteEnding
+{
+    std::optional<SimulationExecutor::Ending>* ending;
+
+    void operator()(SimulationExecutor::Ending ended) const { *ending = ended; }
+};
+
+/// A job's work that notes that it ran.
+struct NoteWork
+{
+    bool* ran;
+
+    void operator()(const std::stop_token& /*stop*/) const { *ran = true; }
+};
+
+TEST_F(ApplicationContextTest, TheServicesHaveTheSimulationsServices)
+{
+    ApplicationContext& context  = makeContext();
+    const GuiServices&  services = context.services();
+    EXPECT_EQ(services.simulationExecutor(), &context.simulationExecutor());
+    EXPECT_EQ(services.plotDefaults(), &context.plotDefaults());
+    EXPECT_EQ(services.simulationDialogs(), &context.simulationDialogs());
+    EXPECT_EQ(context.plotDefaults().lastPlotted(), nullptr);
+
+    // Until the runner adapter of Milestone 4 comes, the executor runs nothing: a job is dropped
+    // in the next turn of the event loop, never inside submit().
+    SimulationExecutor&                       executor = context.simulationExecutor();
+    std::optional<SimulationExecutor::Ending> ending;
+    bool                                      ran = false;
+    const SimulationExecutor::JobId           job =
+        executor.submit(nullptr, NoteWork{.ran = &ran},
+                        {.progressed = {}, .finished = NoteEnding{.ending = &ending}});
+    EXPECT_NE(job, SimulationExecutor::kNoJob);
+    EXPECT_FALSE(ending.has_value());
+    EXPECT_TRUE(executor.isPending(job));
+    // An abandoned job is dropped without a callback.
+    const QObject                             window;
+    std::optional<SimulationExecutor::Ending> abandonedEnding;
+    const SimulationExecutor::JobId           abandoned =
+        executor.submit(&window, NoteWork{.ran = &ran},
+                        {.progressed = {}, .finished = NoteEnding{.ending = &abandonedEnding}});
+    executor.abandonAll(&window);
+    EXPECT_FALSE(executor.isPending(abandoned));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(ending,
+              std::optional<SimulationExecutor::Ending>(SimulationExecutor::Ending::DROPPED));
+    EXPECT_FALSE(abandonedEnding.has_value());
+    EXPECT_FALSE(ran);
+    EXPECT_FALSE(executor.isPending(job));
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)

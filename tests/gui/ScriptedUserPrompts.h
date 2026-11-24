@@ -10,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 #include <QtContainerFwd>
@@ -19,6 +20,7 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/util/Uuid.h"
 
+class QObject;
 class QWidget;
 
 namespace QtRocket
@@ -30,6 +32,7 @@ class OpenRocketDocument;
 namespace QtRocket::Gui
 {
 class GuiServices;
+class SimulationExecutor;
 }  // namespace QtRocket::Gui
 
 namespace QtRocket::Gui::Test
@@ -47,6 +50,14 @@ namespace QtRocket::Gui::Test
 /// clicks before the answer), the motor chooser (a motor, or nullopt for Cancel) and the parts
 /// library (a preset, none, or closed without a choice); the database load problems are a
 /// message. Their requests are kept as values (the motor chooser's mount by its name and id).
+///
+/// The questions of Milestone 4 too: the deletion of simulations (an answer), the CSV import
+/// settings and the colour (a value, or nullopt for Cancel), and the run dialog, which the script
+/// answers with how it ended, without running anything (answerRunSimulations()), or with an action
+/// of the test that is given the request, so that it can run the simulations through the
+/// request's executor (answerRunSimulationsWith(); the run dialog's batch of Milestone 4 does it
+/// for the double then). Their requests are kept as values (the simulations of a run by their
+/// names).
 class ScriptedUserPrompts final : public UserPrompts
 {
 public:
@@ -74,6 +85,10 @@ public:
         MOTOR,
         PRESET,
         DATABASE_PROBLEMS,
+        DELETE_SIMULATIONS,
+        RUN_SIMULATIONS,
+        WIND_CSV_IMPORT_SETTINGS,
+        COLOR,
     };
 
     /// One question or message, as the code under test asked it.
@@ -98,6 +113,28 @@ public:
         QString               mountName;
         Uuid                  mountId;
         FlightConfigurationId configurationId;
+    };
+
+    /// A question of runSimulations(), as it was asked: the simulations by their names (so that
+    /// nothing keeps them), the window, the document and the executor, only to compare.
+    struct RunSimulationsQuestion
+    {
+        QStringList               simulationNames;
+        const QObject*            window   = nullptr;
+        const OpenRocketDocument* document = nullptr;
+        const SimulationExecutor* executor = nullptr;
+    };
+
+    /// What runSimulations() does with the request when the script says so: the test's own run
+    /// of the simulations (through the request's executor), which answers how it ended.
+    using RunSimulationsAction =
+        std::function<RunSimulationsAnswer(QWidget* parent, const RunSimulationsRequest& request)>;
+
+    /// A question of askColor(), as it was asked.
+    struct ColorQuestion
+    {
+        QColor  initial;
+        QString title;
     };
 
     ScriptedUserPrompts() = default;
@@ -132,6 +169,16 @@ public:
     void answerMotor(std::optional<MotorChoice> answer);
     /// A CHOSEN answer needs a preset and the others none (a test failure otherwise).
     void answerPreset(PresetAnswer answer);
+    void answerDeleteSimulations(DeleteSimulationsAnswer answer);
+    /// The run dialog ends as @p answer says, and nothing runs.
+    void answerRunSimulations(RunSimulationsAnswer answer);
+    /// The run dialog is @p action (not empty: a test failure otherwise), with the question's
+    /// parent and request; it answers what @p action returns.
+    void answerRunSimulationsWith(RunSimulationsAction action);
+    /// nullopt answers Cancel; settings need a unit in each column (a test failure otherwise).
+    void answerWindCsvImportSettings(std::optional<WindCsvImportSettings> answer);
+    /// nullopt answers Cancel.
+    void answerColor(std::optional<QColor> answer);
 
     /// Every question and message so far, in order.
     [[nodiscard]] const std::vector<Prompt>& prompts() const noexcept { return m_prompts; }
@@ -169,6 +216,20 @@ public:
     [[nodiscard]] const std::vector<DatabaseProblem>& databaseProblems() const noexcept
     {
         return m_databaseProblems;
+    }
+    /// The requests of the Milestone 4 questions so far, each kind in order.
+    [[nodiscard]] const std::vector<RunSimulationsQuestion>& runSimulationsQuestions()
+        const noexcept
+    {
+        return m_runSimulationsQuestions;
+    }
+    [[nodiscard]] const std::vector<WindCsvImportSettings>& windCsvImportRequests() const noexcept
+    {
+        return m_windCsvImportRequests;
+    }
+    [[nodiscard]] const std::vector<ColorQuestion>& colorQuestions() const noexcept
+    {
+        return m_colorQuestions;
     }
     /// The answers of the script not asked for yet.
     [[nodiscard]] std::size_t unusedAnswers() const noexcept { return m_script.size(); }
@@ -217,7 +278,22 @@ public:
     /// CLOSED.
     [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
                                             const PresetRequest& request) override;
-    void                       showMessage(QWidget* parent, const Message& message) override;
+    /// Recorded with the count as the text; the cancelling answer neither confirms nor ticks.
+    [[nodiscard]] DeleteSimulationsAnswer askDeleteSimulations(QWidget*    parent,
+                                                               std::size_t count) override;
+    /// Recorded with the simulations' names as the texts; the cancelling answer is a cancelled
+    /// batch, and nothing runs.
+    [[nodiscard]] RunSimulationsAnswer runSimulations(
+        QWidget* parent, const RunSimulationsRequest& request) override;
+    /// Recorded with the header row ("true", "false"), the separator and the four columns' names
+    /// as the texts; the cancelling answer is nullopt.
+    [[nodiscard]] std::optional<WindCsvImportSettings> askWindCsvImportSettings(
+        QWidget* parent, const WindCsvImportSettings& initial) override;
+    /// Recorded with the title as the title and the initial colour (QColor::name(HexArgb)) as the
+    /// text; the cancelling answer is nullopt.
+    [[nodiscard]] std::optional<QColor> askColor(QWidget* parent, const QColor& initial,
+                                                 const QString& title) override;
+    void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     /// Recorded with the lines, then the errors, then the warnings as the texts.
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
@@ -240,11 +316,21 @@ private:
         QStringList               saveAsDefault;
     };
 
-    using Answer = std::variant<
-        InsertPositionAnswer, DiscardAnswer, SaveChangesAnswer, bool, std::optional<bool>,
-        std::optional<OpenFileAnswer>, std::optional<SaveFileAnswer>, DesignInformationEdit,
-        InternalErrorAnswer, std::optional<IgnitionChoice>, std::optional<DeploymentChoice>,
-        std::optional<SeparationChoice>, RenameScript, std::optional<MotorChoice>, PresetAnswer>;
+    /// A scripted run dialog: the test's action, or without one the answer.
+    struct RunScript
+    {
+        RunSimulationsAnswer answer;
+        RunSimulationsAction action;
+    };
+
+    using Answer =
+        std::variant<InsertPositionAnswer, DiscardAnswer, SaveChangesAnswer, bool,
+                     std::optional<bool>, std::optional<OpenFileAnswer>,
+                     std::optional<SaveFileAnswer>, DesignInformationEdit, InternalErrorAnswer,
+                     std::optional<IgnitionChoice>, std::optional<DeploymentChoice>,
+                     std::optional<SeparationChoice>, RenameScript, std::optional<MotorChoice>,
+                     PresetAnswer, DeleteSimulationsAnswer, RunScript,
+                     std::optional<WindCsvImportSettings>, std::optional<QColor>>;
 
     struct Scripted
     {
@@ -259,16 +345,19 @@ private:
     template <class T>
     [[nodiscard]] T next(Prompt prompt, T cancel);
 
-    std::deque<Scripted>           m_script;
-    std::vector<Prompt>            m_prompts;
-    std::vector<OpenFileRequest>   m_openFileRequests;
-    std::vector<SaveFileRequest>   m_saveFileRequests;
-    std::vector<IgnitionRequest>   m_ignitionRequests;
-    std::vector<DeploymentRequest> m_deploymentRequests;
-    std::vector<SeparationRequest> m_separationRequests;
-    std::vector<MotorQuestion>     m_motorQuestions;
-    std::vector<PresetRequest>     m_presetRequests;
-    std::vector<DatabaseProblem>   m_databaseProblems;
+    std::deque<Scripted>                m_script;
+    std::vector<Prompt>                 m_prompts;
+    std::vector<OpenFileRequest>        m_openFileRequests;
+    std::vector<SaveFileRequest>        m_saveFileRequests;
+    std::vector<IgnitionRequest>        m_ignitionRequests;
+    std::vector<DeploymentRequest>      m_deploymentRequests;
+    std::vector<SeparationRequest>      m_separationRequests;
+    std::vector<MotorQuestion>          m_motorQuestions;
+    std::vector<PresetRequest>          m_presetRequests;
+    std::vector<DatabaseProblem>        m_databaseProblems;
+    std::vector<RunSimulationsQuestion> m_runSimulationsQuestions;
+    std::vector<WindCsvImportSettings>  m_windCsvImportRequests;
+    std::vector<ColorQuestion>          m_colorQuestions;
 };
 
 }  // namespace QtRocket::Gui::Test

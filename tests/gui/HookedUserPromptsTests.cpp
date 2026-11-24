@@ -4,6 +4,7 @@
 #include <optional>
 #include <vector>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 
@@ -66,6 +67,27 @@ TEST_F(HookedUserPromptsTest, RunsTheHookOnceBeforeTheNextMessage)
     ASSERT_EQ(prompts.scripted().prompts().size(), 3U);
     EXPECT_EQ(prompts.scripted().prompts().at(1).kind, Kind::DATABASE_PROBLEMS);
     EXPECT_EQ(prompts.scripted().prompts().at(2).kind, Kind::MESSAGE);
+}
+
+TEST_F(HookedUserPromptsTest, AsksTheMilestoneFourQuestionsWithoutTheHook)
+{
+    HookedUserPrompts prompts;
+    int               hooked   = 0;
+    std::size_t       recorded = 0;
+    prompts.beforeNextMessage(
+        CountingHook{.prompts = &prompts, .calls = &hooked, .recorded = &recorded});
+    prompts.scripted().answerDeleteSimulations({.confirmed = false, .doNotAskAgain = true});
+    prompts.scripted().answerRunSimulations({.cancelled = true, .allSuccessful = false});
+    prompts.scripted().answerWindCsvImportSettings(std::nullopt);
+    prompts.scripted().answerColor(std::nullopt);
+    EXPECT_TRUE(prompts.askDeleteSimulations(nullptr, 1).doNotAskAgain);
+    EXPECT_TRUE(prompts.runSimulations(nullptr, {}).cancelled);
+    EXPECT_FALSE(prompts.askWindCsvImportSettings(nullptr, {}).has_value());
+    EXPECT_FALSE(prompts.askColor(nullptr, QColor(), QString()).has_value());
+    EXPECT_EQ(hooked, 0);
+    ASSERT_EQ(prompts.scripted().prompts().size(), 4U);
+    EXPECT_EQ(prompts.scripted().prompts().at(1).kind, Kind::RUN_SIMULATIONS);
+    EXPECT_EQ(prompts.scripted().prompts().at(3).kind, Kind::COLOR);
 }
 
 }  // namespace

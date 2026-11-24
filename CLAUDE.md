@@ -19,7 +19,8 @@ Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
   the source tree: the layers, QtTest's macros), `-LE golden` (everything else)
 - The tool: `build/clang-debug/bin/QtRocket_cli info "data/examples/A simple model rocket.ork"` (and `--help`); the
   GUI: `build/clang-debug/bin/QtRocket [file...]`
-- Before finishing a change, also run `cmake --workflow --preset tidy` (clang-tidy, warnings are errors),
+- Before finishing a change, also run `cmake --workflow --preset tidy` (clang-tidy, warnings are errors; CI runs it
+  in two jobs, the workflows `tidy-core`, without the label `gui`, and `tidy-gui`, the label `gui`),
   `cmake --workflow --preset asan` (AddressSanitizer + UBSan) and `cmake --workflow --preset ci-gcc` (GCC Release,
   warnings are errors), then CI's clang-tidy and clang-format (section clang-tidy). Run one preset at a time (two
   runs in one build directory corrupt ninja's log), send the output to a log file and grep it: the test suite
@@ -77,7 +78,9 @@ the workflow or create a tag only when the user asks.
   - GUI (`tests/gui/`, namespace `QtRocket::Gui::Test`): `GuiTestSupport.h` (the fixture `GuiTest`),
     `ExpectedQtMessage.h`, `ScriptedUserPrompts.h`, `HookedUserPrompts.h`, `ForwardingUserPrompts.h` (a base for a
     double that overrides one question), `NextModalDialog.h` (for the widget prompts and the dialogs themselves),
-    `TestGuiServices.h`, `RecordingGuardHook.h`, `ScopedApplicationPalette.h`; in the areas
+    `TestGuiServices.h`, `ManualSimulationExecutor.h` (the tests' `SimulationExecutor`: a job runs on the GUI
+    thread in the next turn of the event loop, when the test says, or never), `RecordingSimulationDialogs.h`,
+    `RecordingGuardHook.h`, `ScopedApplicationPalette.h`; in the areas
     `configdialog/ConfigDialogTestSupport.h` (the fixture `ConfigDialogTest`), `dialogs/PreferencesPageTranscript.h`
     (`chooseItem()`), `main/FileMenusTestSupport.h`, `widgets/WidgetTestSupport.h` (focus, typing, the wheel),
     `figure/RecordingPaintDevice.h` (what is painted, without pixels), `FigureMouse.h`, `tree/TreeViewMouse.h`,
@@ -115,7 +118,8 @@ the workflow or create a tag only when the user asks.
 ## Layers
 The subsystems of `QtRocket_core`, in the order of `src/CMakeLists.txt`; each includes only those before it:
 `util` → `unit` → `logging` → `preferences` → `material` → `motor` → `rocket` → `models` → `mass` → `aero` →
-`simulation` → `document` → `file` → `figure` (the Qt-free 2D figure geometry). `cli/` sits on top of the core, and
+`simulation` → `document` → `file` → `figure` (the Qt-free 2D figure geometry) → `plot` (the Qt-free model of the
+simulation plots: axes, presets, series, events). `cli/` sits on top of the core, and
 so does the GUI (its own order: section GUI). So `rocket/` never includes `aero/`, `mass/` or `simulation/`,
 `simulation/` never includes `document/`, and `document/` never includes `file/`. The comment in
 `src/CMakeLists.txt` explains where this order differs from OpenRocket's packages. The test `lint.layers`
@@ -170,10 +174,27 @@ Qt 6 Widgets, Qt 6.8 or newer (Core, Gui, Widgets, Svg; Test for the tests). The
 with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the CLI alone.
 - Areas of `gui/`, in include order (each includes only those before it, and any subsystem of the core):
   `util` → `settings` → `binding` → `widgets` → `plot` → `tree` → `figure` → `configdialog` → `dialogs` →
-  `flightconfig` → `main` → `app`, with `gui/main.cpp` on top. `binding/` is Qt-free (no Qt header, no other area);
-  a lower area reaches a higher one only through signals or injected interfaces; the GUI never includes
-  `QtRocket/cli/`. Namespace `QtRocket::Gui` (test helpers `QtRocket::Gui::Test`),
+  `flightconfig` → `simulation` (the Simulations tab) → `main` → `app`, with `gui/main.cpp` on top. `binding/` is
+  Qt-free (no Qt header, no other area); a lower area reaches a higher one only through signals or injected
+  interfaces; the GUI never includes `QtRocket/cli/`. A subdirectory belongs to its area: `dialogs/motor/`,
+  `dialogs/preset/`, `dialogs/simulation/` (the simulation settings, wind, lookup, run and export dialogs) and
+  `dialogs/plot/` are `dialogs`, so they never include the area `simulation` (the core's `QtRocket/simulation/`
+  any area may). Namespace `QtRocket::Gui` (test helpers `QtRocket::Gui::Test`),
   `#include "QtRocket/gui/util/MakeChild.h"`
+- Threads (simulations, from Milestone 4): no `QThreadPool`, `QtConcurrent` or `QFuture`, and no data in a queued
+  functor sent from a worker (TSan cannot see the locking inside an uninstrumented Qt). Runs go through the core's
+  `SimulationRunner` (`std::jthread`s, a mutex mailbox per job); the GUI thread polls the mailboxes (a `QTimer`) and
+  adopts a result there, only while its simulation is still in the document and the job is current. A worker never
+  touches a Qt object, `Guard`, or a `Simulation`, `Rocket` or document it does not own; destructors cancel and join.
+  The GUI submits through `util/SimulationExecutor` (`GuiServices`): no callback comes from inside `submit()`, and a
+  window (`abandonAll()`) or an object of shorter life (`abandon()`) abandons its jobs before the objects their
+  callbacks capture go
+- Shared widgets and helpers (reuse, never duplicate): `binding/ObjectSelection` (a binding over any object with a
+  change `Signal`, `PropertySource::ofObject`), `widgets/FieldValidator` (a field's warnings and errors; its popup
+  is a child of the window, never a `QToolTip`), `widgets/CollapsiblePanel`, `widgets/GroupedSearchPopup` (the
+  grouped, searchable popup of `MaterialComboBox` and `DataTypeComboBox`), `widgets/UnitSelector` over a bare
+  `UnitGroup`, `util/FileNames` (`forceExtension()`, the CSV and All Files filters), `util/WaitCursor`, and
+  `util/EnumText`'s `flightDataTypeText()` (a flight data type's shown name)
 - rocketplot: only `plot/` includes it, as `<rocketplot/X.h>` (`lint.layers`, which also refuses a quoted
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text

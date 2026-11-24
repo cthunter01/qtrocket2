@@ -5,7 +5,7 @@
 #include <string_view>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 
 namespace QtRocket::Gui
@@ -24,6 +24,10 @@ namespace QtRocket::Gui
 /// component), unless it is value() already. The binding caches the text and the enabled state,
 /// re-reads them once per event of the rocket and tells its listeners when they changed.
 ///
+/// Over an ObjectSelection (a source of PropertySource::ofObject()), the main component and the
+/// selected components are its one object: the simulation options, a wind model or level, the
+/// preferences (Java: the same model of a ChangeSource that is no component).
+///
 /// Deviations from OpenRocket: setText() is a widget write, dropped while the binding notifies
 /// and once the selection is invalid (Java's listener has no such guard, and a closing dialog's
 /// focus loss reaches the component). A source without a setter is a BugError, as is a source
@@ -31,10 +35,11 @@ namespace QtRocket::Gui
 class StringBinding final : public Binding
 {
 public:
-    /// A binding of @p source on the components of @p selection.
-    /// @throws BugError when @p selection is null, the source has no setter, or the source cannot
-    ///         read the main component
-    StringBinding(std::shared_ptr<ComponentSelection> selection, StringSource source);
+    /// A binding of @p source over @p context, the components of a ComponentSelection or the object
+    /// of an ObjectSelection.
+    /// @throws BugError when @p context is null, the source has no setter, or the source cannot
+    ///         read the context's main component or object
+    StringBinding(std::shared_ptr<BindingContext> context, StringSource source);
 
     ~StringBinding() override;
     StringBinding(const StringBinding&)            = delete;

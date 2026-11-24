@@ -49,16 +49,20 @@ program.
 The GUI (the program QtRocket, gui/; not yet part of the release archives) uses Qt 6 (https://www.qt.io), the
 modules Core, Gui, Widgets and Svg of the Qt installation it is built with (the tests also Test): Copyright (C)
 The Qt Company Ltd. and other contributors, GNU Lesser General Public License version 3 (also available under the
-GNU General Public License version 2 or 3). Its plots are drawn by rocketplot 0.6.0
+GNU General Public License version 2 or 3). Its plots are drawn by rocketplot 0.7.0
 (https://github.com/cthunter01/rocketplot), which it contains (built from source with it,
 cmake/Dependencies.cmake; without the library's optional math font): Copyright (c) 2026 Travis Hunter. MIT License
 (below). It contains icons copied from OpenRocket (gui/resources/icons/, whose README.md lists the files):
 
-- OpenRocket's component icons, window icons and its own icons in Lucide's style: part of OpenRocket, GNU General
-  Public License version 3 or later, as above.
+- OpenRocket's component icons, window icons, its own icons in Lucide's style and the simulations' status and
+  flight event icons: part of OpenRocket, GNU General Public License version 3 or later, as above.
 - Icons of Lucide (https://lucide.dev), some of them as OpenRocket edited them: Copyright (c) 2026 Lucide Icons
   and Contributors. ISC License (below). The Lucide icons derived from Feather (https://feathericons.com) are
   also Copyright (c) 2013-present Cole Bemis, MIT License (below).
+- The flight event icon gui/resources/icons/events/event-simulation-end.png, which OpenRocket takes from the
+  famfamfam Silk icon set (http://www.famfamfam.com/lab/icons/silk/; OpenRocket's pix/eventicons/copyright.txt):
+  Copyright (c) Mark James. Licensed under the Creative Commons Attribution 2.5 License
+  (https://creativecommons.org/licenses/by/2.5/).
 
 MIT License (pugixml, fast_float, rocketplot, Feather; the copyright lines are above):
 

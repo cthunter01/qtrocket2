@@ -1,11 +1,14 @@
 #include "ScriptedUserPrompts.h"
 
+#include <cstddef>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
 #include <utility>
 
+#include <QColor>
 #include <QString>
 #include <QStringList>
 #include <QtContainerFwd>
@@ -23,6 +26,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui::Test
@@ -53,6 +57,10 @@ namespace
             return QStringLiteral("COMPONENT_ADDITION");
         case UserPrompts::DiscardQuestion::PREFERENCE_CHANGES:
             return QStringLiteral("PREFERENCE_CHANGES");
+        case UserPrompts::DiscardQuestion::SIMULATION_CHANGES:
+            return QStringLiteral("SIMULATION_CHANGES");
+        case UserPrompts::DiscardQuestion::SIMULATION_ADDITION:
+            return QStringLiteral("SIMULATION_ADDITION");
     }
     QTROCKET_UNREACHABLE();
 }
@@ -194,6 +202,14 @@ std::string_view ScriptedUserPrompts::kindName(Kind kind)
             return "PRESET";
         case Kind::DATABASE_PROBLEMS:
             return "DATABASE_PROBLEMS";
+        case Kind::DELETE_SIMULATIONS:
+            return "DELETE_SIMULATIONS";
+        case Kind::RUN_SIMULATIONS:
+            return "RUN_SIMULATIONS";
+        case Kind::WIND_CSV_IMPORT_SETTINGS:
+            return "WIND_CSV_IMPORT_SETTINGS";
+        case Kind::COLOR:
+            return "COLOR";
     }
     QTROCKET_UNREACHABLE();
 }
@@ -312,6 +328,44 @@ void ScriptedUserPrompts::answerPreset(PresetAnswer answer)
                       << " a preset";
     }
     script(Kind::PRESET, Answer(std::in_place_type<PresetAnswer>, std::move(answer)));
+}
+
+void ScriptedUserPrompts::answerDeleteSimulations(DeleteSimulationsAnswer answer)
+{
+    script(Kind::DELETE_SIMULATIONS, Answer(std::in_place_type<DeleteSimulationsAnswer>, answer));
+}
+
+void ScriptedUserPrompts::answerRunSimulations(RunSimulationsAnswer answer)
+{
+    script(Kind::RUN_SIMULATIONS,
+           Answer(std::in_place_type<RunScript>, RunScript{.answer = answer, .action = {}}));
+}
+
+void ScriptedUserPrompts::answerRunSimulationsWith(RunSimulationsAction action)
+{
+    if (!action)
+    {
+        ADD_FAILURE() << "a scripted run dialog without an action";
+    }
+    script(Kind::RUN_SIMULATIONS, Answer(std::in_place_type<RunScript>,
+                                         RunScript{.answer = {}, .action = std::move(action)}));
+}
+
+void ScriptedUserPrompts::answerWindCsvImportSettings(std::optional<WindCsvImportSettings> answer)
+{
+    if (answer.has_value() &&
+        (answer->altitude.unit == nullptr || answer->speed.unit == nullptr ||
+         answer->direction.unit == nullptr || answer->standardDeviation.unit == nullptr))
+    {
+        ADD_FAILURE() << "scripted wind CSV import settings with a column without a unit";
+    }
+    script(Kind::WIND_CSV_IMPORT_SETTINGS,
+           Answer(std::in_place_type<std::optional<WindCsvImportSettings>>, std::move(answer)));
+}
+
+void ScriptedUserPrompts::answerColor(std::optional<QColor> answer)
+{
+    script(Kind::COLOR, Answer(std::in_place_type<std::optional<QColor>>, answer));
 }
 
 UserPrompts::InsertPositionAnswer ScriptedUserPrompts::askInsertPosition(
@@ -473,6 +527,52 @@ UserPrompts::PresetAnswer ScriptedUserPrompts::choosePreset(QWidget* /*parent*/,
                             diameterText(request.foreDiameter), diameterText(request.aftDiameter),
                             booleanText(request.flippedNoseCone)}),
                 PresetAnswer{});
+}
+
+UserPrompts::DeleteSimulationsAnswer ScriptedUserPrompts::askDeleteSimulations(QWidget* /*parent*/,
+                                                                               std::size_t count)
+{
+    return next(makePrompt(Kind::DELETE_SIMULATIONS, {}, {QString::number(count)}),
+                DeleteSimulationsAnswer{});
+}
+
+UserPrompts::RunSimulationsAnswer ScriptedUserPrompts::runSimulations(
+    QWidget* parent, const RunSimulationsRequest& request)
+{
+    RunSimulationsQuestion question{.simulationNames = {},
+                                    .window          = request.window,
+                                    .document        = request.document,
+                                    .executor        = request.executor};
+    for (const std::shared_ptr<Simulation>& simulation : request.simulations)
+    {
+        question.simulationNames.append(simulation == nullptr
+                                            ? QStringLiteral("<none>")
+                                            : QtStrings::fromUtf8(simulation->getName()));
+    }
+    m_runSimulationsQuestions.push_back(question);
+    const RunScript run =
+        next(makePrompt(Kind::RUN_SIMULATIONS, {}, question.simulationNames),
+             RunScript{.answer = {.cancelled = true, .allSuccessful = false}, .action = {}});
+    return run.action ? run.action(parent, request) : run.answer;
+}
+
+std::optional<UserPrompts::WindCsvImportSettings> ScriptedUserPrompts::askWindCsvImportSettings(
+    QWidget* /*parent*/, const WindCsvImportSettings& initial)
+{
+    m_windCsvImportRequests.push_back(initial);
+    return next(
+        makePrompt(Kind::WIND_CSV_IMPORT_SETTINGS, {},
+                   {booleanText(initial.hasHeader), initial.separator, initial.altitude.name,
+                    initial.speed.name, initial.direction.name, initial.standardDeviation.name}),
+        std::optional<WindCsvImportSettings>());
+}
+
+std::optional<QColor> ScriptedUserPrompts::askColor(QWidget* /*parent*/, const QColor& initial,
+                                                    const QString& title)
+{
+    m_colorQuestions.push_back({.initial = initial, .title = title});
+    return next(makePrompt(Kind::COLOR, title, {initial.name(QColor::HexArgb)}),
+                std::optional<QColor>());
 }
 
 void ScriptedUserPrompts::showMessage(QWidget* /*parent*/, const Message& message)

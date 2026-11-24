@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/util/Signal.h"
 
@@ -22,6 +22,10 @@ namespace QtRocket::Gui
 /// state is the source's isEnabled (Java: the optional is<Name>Enabled(), which only
 /// Transition::isClippedEnabled() provides among the dialogs: "Clipped" is enabled for the shapes
 /// that can be clipped).
+///
+/// Over an ObjectSelection (a source of PropertySource::ofObject()), the main component and the
+/// selected components are its one object: the simulation options, a wind model or level, the
+/// preferences (Java: the same model of a ChangeSource that is no component).
 ///
 /// The check box writes with setChecked() (Java: actionPerformed()): dropped while the binding
 /// notifies (a check box refreshing itself) and once the selection is invalid, and nothing when
@@ -53,10 +57,11 @@ public:
     /// invalid.
     using FollowerSignal = Signal<std::optional<bool>>;
 
-    /// A binding of @p source on the components of @p selection.
-    /// @throws BugError when @p selection is null, the source has no setter, or the source cannot
-    ///         read the main component
-    BoolBinding(std::shared_ptr<ComponentSelection> selection, BoolSource source);
+    /// A binding of @p source over @p context, the components of a ComponentSelection or the object
+    /// of an ObjectSelection.
+    /// @throws BugError when @p context is null, the source has no setter, or the source cannot
+    ///         read the context's main component or object
+    BoolBinding(std::shared_ptr<BindingContext> context, BoolSource source);
 
     /// A binding of its own value @p value (Java: BooleanModel(initialValue)).
     explicit BoolBinding(bool value);

@@ -1,11 +1,13 @@
 #include "HookedUserPrompts.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <optional>
 #include <span>
 #include <utility>
 
+#include <QColor>
 #include <QString>
 
 #include "QtRocket/gui/util/Guard.h"
@@ -112,6 +114,30 @@ UserPrompts::PresetAnswer HookedUserPrompts::choosePreset(QWidget*             p
                                                           const PresetRequest& request)
 {
     return m_scripted.choosePreset(parent, services, request);
+}
+
+UserPrompts::DeleteSimulationsAnswer HookedUserPrompts::askDeleteSimulations(QWidget*    parent,
+                                                                             std::size_t count)
+{
+    return m_scripted.askDeleteSimulations(parent, count);
+}
+
+UserPrompts::RunSimulationsAnswer HookedUserPrompts::runSimulations(
+    QWidget* parent, const RunSimulationsRequest& request)
+{
+    return m_scripted.runSimulations(parent, request);
+}
+
+std::optional<UserPrompts::WindCsvImportSettings> HookedUserPrompts::askWindCsvImportSettings(
+    QWidget* parent, const WindCsvImportSettings& initial)
+{
+    return m_scripted.askWindCsvImportSettings(parent, initial);
+}
+
+std::optional<QColor> HookedUserPrompts::askColor(QWidget* parent, const QColor& initial,
+                                                  const QString& title)
+{
+    return m_scripted.askColor(parent, initial, title);
 }
 
 void HookedUserPrompts::showMessage(QWidget* parent, const Message& message)

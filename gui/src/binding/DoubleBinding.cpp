@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
 #include "QtRocket/unit/Unit.h"
@@ -45,9 +45,9 @@ void checkStep(std::optional<double> fixedStep)
 
 }  // namespace
 
-DoubleBinding::DoubleBinding(std::shared_ptr<ComponentSelection> selection, DoubleSource source,
+DoubleBinding::DoubleBinding(std::shared_ptr<BindingContext> context, DoubleSource source,
                              const UnitGroup& units, Options options)
-  : Binding(std::move(selection)),
+  : Binding(std::move(context)),
     m_source(std::move(source)),
     m_units(&units),
     m_unit(&units.getDefaultUnit()),
@@ -60,9 +60,9 @@ DoubleBinding::DoubleBinding(std::shared_ptr<ComponentSelection> selection, Doub
     m_lastMin(0),
     m_lastMax(0)
 {
-    if (getSelection() == nullptr)
+    if (getContext() == nullptr)
     {
-        bug("A binding of a property needs a component selection");
+        bug("A binding of a property needs a context: a component or object selection");
     }
     if (!std::isfinite(m_multiplier) || m_multiplier == 0)
     {
@@ -109,18 +109,18 @@ bool DoubleBinding::readState()
     {
         return false;  // a binding of its own value has no selection to read
     }
-    const DoubleSource&       source    = *m_source;
-    const ComponentSelection& selection = *getSelection();
-    const Result<double>      read      = source.get(selection);
-    const double              value =
+    const DoubleSource&   source  = *m_source;
+    const BindingContext& context = *getContext();
+    const Result<double>  read    = source.get(context);
+    const double          value =
         read.has_value() ? *read * m_multiplier : std::numeric_limits<double>::quiet_NaN();
     std::optional<std::string> problem;
     if (!read.has_value())
     {
         problem = read.error().message;
     }
-    const bool automatic = source.isAutomatic(selection);
-    const bool enabled   = source.isEnabled(selection);
+    const bool automatic = source.isAutomatic(context);
+    const bool enabled   = source.isEnabled(context);
 
     const bool changed = !sameValue(value, m_value) || automatic != m_automatic ||
                          enabled != m_enabled || problem != m_problem;
@@ -171,7 +171,7 @@ void DoubleBinding::setValue(double value)
     // The selection's event (or its own refresh) updates the cache and tells the listeners, one
     // of which may drop the last owner of this binding.
     const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-    source.set(*getSelection(), clamped / m_multiplier);
+    source.set(*getContext(), clamped / m_multiplier);
 }
 
 bool DoubleBinding::isWritable() const noexcept
@@ -208,7 +208,7 @@ void DoubleBinding::setAutomatic(bool automatic)
         return;
     }
     const std::shared_ptr<Binding> keepAlive = weak_from_this().lock();
-    source.setAutomatic(*getSelection(), automatic);
+    source.setAutomatic(*getContext(), automatic);
 }
 
 // ------------------------------------------------------------------------------------ units

@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "QtRocket/gui/binding/Binding.h"
-#include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/binding/BindingContext.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 
 namespace QtRocket::Gui
@@ -20,6 +20,10 @@ namespace QtRocket::Gui
 /// it is the main component's value already (Java calls the setter every time; the main's setter
 /// forwards it to the others). The binding caches the value and the enabled state, re-reads them
 /// once per event of the rocket and tells its listeners when they changed.
+///
+/// Over an ObjectSelection (a source of PropertySource::ofObject()), the main component and the
+/// selected components are its one object: the simulation options, a wind model or level, the
+/// preferences (Java: the same model of a ChangeSource that is no component).
 ///
 /// The spin box: nextValue() is the value plus one and previousValue() the value minus one,
 /// nothing at the maximum and the minimum (Java: null), so that a value beyond a bound (a file's
@@ -41,12 +45,13 @@ namespace QtRocket::Gui
 class IntBinding final : public Binding
 {
 public:
-    /// A binding of @p source on the components of @p selection, bounded by [@p min, @p max]
-    /// (Java: IntegerModel(source, name, min, max); the defaults are Integer.MIN_VALUE and
-    /// Integer.MAX_VALUE, as its shorter constructors).
-    /// @throws BugError when @p selection is null, the source has no setter, @p min > @p max, or
-    ///         the source cannot read the main component
-    IntBinding(std::shared_ptr<ComponentSelection> selection, IntSource source,
+    /// A binding of @p source over @p context, the components of a ComponentSelection or the object
+    /// of an ObjectSelection, bounded by [@p min, @p max] (Java: IntegerModel(source, name, min,
+    /// max); the defaults are Integer.MIN_VALUE and Integer.MAX_VALUE, as its shorter
+    /// constructors).
+    /// @throws BugError when @p context is null, the source has no setter, @p min > @p max, or the
+    ///         source cannot read the context's main component or object
+    IntBinding(std::shared_ptr<BindingContext> context, IntSource source,
                int min = std::numeric_limits<int>::min(),
                int max = std::numeric_limits<int>::max());
 

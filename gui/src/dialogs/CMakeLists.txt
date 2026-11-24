@@ -31,3 +31,9 @@ add_subdirectory(motor)
 
 # The parts library (dialogs/preset/).
 add_subdirectory(preset)
+
+# The simulations' dialogs (dialogs/simulation/).
+add_subdirectory(simulation)
+
+# The plot dialog and the plot tab's panels (dialogs/plot/).
+add_subdirectory(plot)

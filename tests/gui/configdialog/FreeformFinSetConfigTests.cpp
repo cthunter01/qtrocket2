@@ -445,22 +445,6 @@ TEST_F(FreeformFinSetConfigTest, ShowsAFailedExport)
     EXPECT_EQ(services.prompts().prompts().back().title, QStringLiteral("Error writing file"));
 }
 
-TEST_F(FreeformFinSetConfigTest, ForcesTheCsvExtension)
-{
-    // FileHelper.forceExtension(): unless the name ends with ".csv" (ignoring case).
-    EXPECT_EQ(FreeformFinSetConfig::forceExtension(pathFromUtf8("dir/fin"), "csv"),
-              pathFromUtf8("dir/fin.csv"));
-    EXPECT_EQ(FreeformFinSetConfig::forceExtension(pathFromUtf8("dir/fin.CSV"), "csv"),
-              pathFromUtf8("dir/fin.CSV"));
-    EXPECT_EQ(FreeformFinSetConfig::forceExtension(pathFromUtf8("dir/a.b.csv"), "csv"),
-              pathFromUtf8("dir/a.b.csv"));
-    EXPECT_EQ(FreeformFinSetConfig::forceExtension(pathFromUtf8("dir/fin.txt"), "csv"),
-              pathFromUtf8("dir/fin.txt.csv"));
-    // A name that starts with its only dot has no extension.
-    EXPECT_EQ(FreeformFinSetConfig::forceExtension(pathFromUtf8("dir/.csv"), "csv"),
-              pathFromUtf8("dir/.csv.csv"));
-}
-
 /// CustomFinImport.description.
 constexpr const char* kImportDescription =
     "The image will be converted internally to black and white image (black for the fin), so "
