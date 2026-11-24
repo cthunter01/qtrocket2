@@ -97,14 +97,16 @@ SimulationRunner::JobId SimulationRunner::submit(
     {
         bug("A job of a simulation runner needs a run");
     }
-    if (run->getOutcome() != SimulationRun::Outcome::NOT_RUN)
-    {
-        bug("A simulation run that has run cannot be submitted");
-    }
+    // Before the outcome is read: the run of a live job is its worker's, which may be writing
+    // the outcome (see the thread contract).
     if (std::ranges::any_of(m_jobs,
                             [&run](const std::unique_ptr<Job>& job) { return job->run == run; }))
     {
         bug("A simulation run is the run of one job");
+    }
+    if (run->getOutcome() != SimulationRun::Outcome::NOT_RUN)
+    {
+        bug("A simulation run that has run cannot be submitted");
     }
     if (std::ranges::any_of(extraListeners,
                             [](const std::shared_ptr<SimulationListener>& listener) {
@@ -112,6 +114,19 @@ SimulationRunner::JobId SimulationRunner::submit(
                             }))
     {
         bug("An extra listener of a job is null");
+    }
+    // A listener of a live job is its worker's: two workers would call it at the same time, and
+    // a sample listener would hand the samples of one job to the news of the other.
+    if (sampler != nullptr && isListenerOfAJob(*sampler))
+    {
+        bug("A sample listener is the listener of one job");
+    }
+    if (std::ranges::any_of(extraListeners,
+                            [this](const std::shared_ptr<SimulationListener>& listener) {
+                                return isListenerOfAJob(*listener);
+                            }))
+    {
+        bug("An extra listener is the listener of one job");
     }
     if (!stopSource.stop_possible())
     {
@@ -276,6 +291,16 @@ SimulationRunner::Job* SimulationRunner::findJob(JobId id) const
     return found != m_jobs.end() ? found->get() : nullptr;
 }
 
+bool SimulationRunner::isListenerOfAJob(const SimulationListener& listener) const
+{
+    return std::ranges::any_of(m_jobs, [&listener](const std::unique_ptr<Job>& job) {
+        return std::ranges::any_of(job->listeners,
+                                   [&listener](const std::shared_ptr<SimulationListener>& own) {
+                                       return own.get() == &listener;
+                                   });
+    });
+}
+
 void SimulationRunner::startThread()
 {
     if (m_threads.size() >= m_threadCount)
@@ -362,7 +387,8 @@ void SimulationRunner::endUnrun(Job& job)
     // The run has not run (submit() made sure, and no thread took the job). With a stop that is
     // requested, run() ends it CANCELLED at once. A stop of its own: the job's stop source may
     // be the source of other jobs too, which go on.
-    const std::stop_source stopped;
+    // NOLINTNEXTLINE(misc-const-correctness): request_stop() is non-const outside libstdc++
+    std::stop_source stopped;
     stopped.request_stop();
     job.run->run(stopped.get_token());
     const std::scoped_lock lock(job.mutex);

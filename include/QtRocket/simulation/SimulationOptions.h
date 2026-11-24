@@ -141,6 +141,16 @@ public:
     /// above sea level the rod points into the wind of the level at the launch site's altitude
     /// above the ground (a site at 1000 m MSL: the wind 1000 m up), not into the wind the rocket
     /// leaves the rod in.
+    ///
+    /// The fix also reaches what is stored of this getter, which both writes as in Java: the
+    /// <launchroddirection> of a saved design (SimulationSaver, OpenRocketSaver.java:349) and
+    /// the rod direction preference of DefaultSimulationOptionFactory::saveDefault(). For a
+    /// launch into a multi-level AGL wind at a site above sea level they hold the ground wind's
+    /// direction where OpenRocket stores the wind's at the launch altitude (probe F: 90 deg
+    /// where OpenRocket writes 180 deg); every other design is saved as OpenRocket saves it.
+    /// OpenRocket ignores the stored direction while the rod points into the wind; once the user
+    /// turns that off, the rod of the design read back takes the stored direction, which for a
+    /// design QtRocket saved is the ground wind's (in both programs).
     [[nodiscard]] double getLaunchRodDirection() const override;
     /// Stores the direction reduced to 0 ... 2 pi and emits changed(), unless the reduced
     /// direction equals the stored one. The stored direction only shows when not launching into

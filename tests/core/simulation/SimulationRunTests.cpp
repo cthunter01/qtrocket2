@@ -26,6 +26,7 @@
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/exception/SimulationCalculationException.h"
+#include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
@@ -64,6 +65,7 @@ using QtRocket::ProgressListener;
 using QtRocket::Rocket;
 using QtRocket::Simulation;
 using QtRocket::SimulationCalculationException;
+using QtRocket::SimulationCancelledException;
 using QtRocket::SimulationException;
 using QtRocket::SimulationExtension;
 using QtRocket::SimulationListener;
@@ -206,6 +208,7 @@ enum class Failure
     CALCULATION_NO_BRANCH,    ///< SimulationCalculationException without a branch
     BUG,                      ///< BugError("a listener with a bug")
     OTHER_EXCEPTION,          ///< std::runtime_error("not a simulation exception")
+    CANCELLATION,             ///< SimulationCancelledException("the listener cancelled the run")
 };
 
 /// A listener that fails the run at its first step.
@@ -229,6 +232,8 @@ public:
                 QtRocket::bug("a listener with a bug");
             case Failure::OTHER_EXCEPTION:
                 throw std::runtime_error("not a simulation exception");
+            case Failure::CANCELLATION:
+                throw SimulationCancelledException("the listener cancelled the run");
         }
     }
 
@@ -606,6 +611,7 @@ TEST(SimulationRun, ACancelledRunLeavesTheSimulationWithTheResultsItHad)
     run.run(source->get_token(), listeners);
 
     EXPECT_EQ(run.getOutcome(), Outcome::CANCELLED);
+    EXPECT_TRUE(run.wasStopped());
     const QtRocket::Error error = errorOfRun(run);
     EXPECT_EQ(error.code, ErrorCode::CANCELLED);
     EXPECT_EQ(error.message, "The simulation was interrupted.");
@@ -640,6 +646,7 @@ TEST(SimulationRun, AStopRequestedBeforeTheRunRunsNothing)
     run.run(source->get_token(), listeners);
 
     EXPECT_EQ(run.getOutcome(), Outcome::CANCELLED);
+    EXPECT_TRUE(run.wasStopped());
     const QtRocket::Error error = errorOfRun(run);
     EXPECT_EQ(error.code, ErrorCode::CANCELLED);
     EXPECT_EQ(error.message, "The simulation was interrupted.");
@@ -648,6 +655,41 @@ TEST(SimulationRun, AStopRequestedBeforeTheRunRunsNothing)
     EXPECT_EQ(run.getDuplicate().getStoredStatus(), Status::NOT_SIMULATED);
     EXPECT_FALSE(run.adoptInto(a.simulation));
     EXPECT_EQ(a.simulation.getStoredStatus(), Status::NOT_SIMULATED);
+}
+
+// Bug 40 is the user's cancel only: a run that a listener (or an extension) cancels with a
+// SimulationCancelledException of its own, while no stop was requested through the token, is
+// recorded as Java's finally block records it (SimulationRunDialog.java:447-452 shows nothing for
+// it, Simulation.java:557-570 records the partial flight as up to date): it replaces the results
+// the simulation had.
+TEST(SimulationRun, ARunThatCancelsItselfIsAdoptedAsJavaRecordsIt)
+{
+    AlphaSimulation a;
+    SimulationRun   first(a.simulation);
+    runFreely(first);
+    ASSERT_TRUE(first.adoptInto(a.simulation));
+    lengthenTheRod(a.simulation);
+    ASSERT_EQ(a.simulation.getStatus(), Status::OUTDATED);
+    const ChangeCounter events(a.simulation.changed());
+
+    SimulationRun run(a.simulation);
+    runFailing(run, Failure::CANCELLATION);
+
+    EXPECT_EQ(run.getOutcome(), Outcome::CANCELLED);
+    EXPECT_FALSE(run.wasStopped());
+    const QtRocket::Error error = errorOfRun(run);
+    EXPECT_EQ(error.code, ErrorCode::CANCELLED);
+    EXPECT_EQ(error.message, "the listener cancelled the run");
+    EXPECT_EQ(run.getException(), nullptr);
+    EXPECT_TRUE(run.isAdoptable());
+
+    ASSERT_TRUE(run.adoptInto(a.simulation));
+
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_EQ(a.simulation.getStatus(), Status::UPTODATE);
+    EXPECT_EQ(a.simulation.getSimulatedData(), run.getDuplicate().getSimulatedData());
+    EXPECT_NE(a.simulation.getSimulatedData(), first.getDuplicate().getSimulatedData());
+    EXPECT_EQ(simulatedRodLength(a.simulation), simulatedRodLength(run.getDuplicate()));
 }
 
 // ================================================================================== failures

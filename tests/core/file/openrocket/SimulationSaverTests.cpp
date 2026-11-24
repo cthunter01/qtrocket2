@@ -39,6 +39,7 @@
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/GravityModelType.h"
+#include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/WindModel.h"
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
@@ -2169,6 +2170,56 @@ TEST(SimulationSaver, WritesTheEffectiveLaunchRodDirection)
     EXPECT_EQ(elementOf(saveOf(*design.document, false).text, "<launchroddirection>",
                         "</launchroddirection>"),
               std::format("        <launchroddirection>{}</launchroddirection>\n", effective));
+}
+
+/// The <launchroddirection> that a save of @p design without the data writes, in degrees; NaN,
+/// and a failure of the test, when it writes none that reads as a number.
+[[nodiscard]] double savedLaunchRodDirection(const OneSimulation& design)
+{
+    constexpr std::string_view kOpen  = "<launchroddirection>";
+    constexpr std::string_view kClose = "</launchroddirection>";
+    const std::string element = elementOf(saveOf(*design.document, false).text, kOpen, kClose);
+    const std::size_t open    = element.find(kOpen);
+    const std::size_t close   = element.find(kClose);
+    if (open == std::string::npos || close == std::string::npos)
+    {
+        ADD_FAILURE() << "no <launchroddirection> was written";
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const std::string_view text =
+        std::string_view(element).substr(open + kOpen.size(), close - open - kOpen.size());
+    const std::optional<double> degrees = Strings::javaParseDouble(text);
+    if (!degrees.has_value())
+    {
+        ADD_FAILURE() << "<launchroddirection> is not a number: " << text;
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return *degrees;
+}
+
+// OpenRocket bug 39, fixed (SimulationOptions::getLaunchRodDirection()), as the saved design
+// sees it: launched into a multi-level wind whose levels are above the ground (AGL), from a site
+// at 1000 m, the rod points into the wind at the ground, 90 degrees, and that is what
+// <launchroddirection> holds, where OpenRocket writes the direction of the level 1000 m above
+// the ground, 180.0 (the probe F of the settings dialog's scouting). With the same levels above
+// sea level (MSL) the direction is the level's at 1000 m, as OpenRocket writes it. The
+// directions go through atan2, so they are compared within a tolerance.
+TEST(SimulationSaver, WritesTheGroundWindDirectionOfALaunchIntoAWindAboveTheGround)
+{
+    const OneSimulation                     design;
+    SimulationOptions&                      o    = design.simulation->getOptions();
+    QtRocket::MultiLevelPinkNoiseWindModel& wind = o.getMultiLevelWindModel();
+    wind.clearLevels();
+    ASSERT_TRUE(wind.addWindLevel(0.0, 5.0, std::numbers::pi / 2, 0.0).has_value());
+    ASSERT_TRUE(wind.addWindLevel(1000.0, 5.0, std::numbers::pi, 0.0).has_value());
+    wind.setAltitudeReference(QtRocket::WindModel::AltitudeReference::AGL);
+    o.setWindModelType(QtRocket::WindModelType::MULTI_LEVEL);
+    o.setLaunchIntoWind(true);
+    o.setLaunchAltitude(1000.0);
+
+    EXPECT_NEAR(savedLaunchRodDirection(design), 90.0, 1e-9);
+    wind.setAltitudeReference(QtRocket::WindModel::AltitudeReference::MSL);
+    EXPECT_NEAR(savedLaunchRodDirection(design), 180.0, 1e-9);
 }
 
 // A column of a type of its own (a custom expression's) is written by its name, its save key,

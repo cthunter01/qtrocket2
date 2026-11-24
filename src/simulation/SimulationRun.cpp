@@ -52,6 +52,7 @@ void SimulationRun::run(const std::stop_token&                               sto
     {
         // Java: SimulationWorker.doInBackground() of a worker that is cancelled already.
         m_outcome = Outcome::CANCELLED;
+        m_stopped = true;
         m_error   = errorOf(ErrorCode::CANCELLED, "The simulation was interrupted.");
         return;
     }
@@ -77,6 +78,9 @@ void SimulationRun::run(const std::stop_token&                               sto
         {
             m_outcome = Outcome::CANCELLED;
             m_error   = result.error();
+            // The user's cancel (bug 40), unless a listener or an extension cancelled the run
+            // of its own while no stop was requested: Java records that run as any other.
+            m_stopped = stopToken.stop_requested();
         }
         else
         {
@@ -97,7 +101,7 @@ void SimulationRun::run(const std::stop_token&                               sto
 
 bool SimulationRun::isAdoptable() const noexcept
 {
-    return m_recorded && m_outcome != Outcome::NOT_RUN && m_outcome != Outcome::CANCELLED;
+    return m_recorded && m_outcome != Outcome::NOT_RUN && !m_stopped;
 }
 
 bool SimulationRun::adoptInto(Simulation& simulation) const

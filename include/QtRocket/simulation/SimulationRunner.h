@@ -33,8 +33,9 @@ class SimulationRun;
 /// runs with: a RunSampleListener for the progress (Java: the worker's
 /// SimulationProgressListener), then the extra listeners (M7: the custom expressions), then the
 /// InterruptListener that SimulationRun::run() adds for the job's stop token (Java: the
-/// worker's CancelListener), in Java's order (InteractiveSimulationWorker.getExtraListeners()
-/// and SimulationWorker.doInBackground()). The jobs start in the order they were submitted
+/// worker's CancelListener, which is not a system listener; see SimulationRun's deviations), in
+/// Java's order (InteractiveSimulationWorker.getExtraListeners() and
+/// SimulationWorker.doInBackground()). The jobs start in the order they were submitted
 /// (FIFO), each on the first free thread; at most getThreadCount() run at the same time, by
 /// default max(1, std::thread::hardware_concurrency()) (Java: availableProcessors(), which is
 /// never less than 1). The threads are started as the jobs come, one more for each job
@@ -63,12 +64,13 @@ class SimulationRun;
 ///   reaches the dialog, which counts it as done). poll() reports it like any job that ended.
 /// The runner adopts nothing: the caller adopts what it wants on the owning thread
 /// (SimulationRun::adoptInto(), after it checked that the simulation the run was made from is
-/// still in its document and that the job is still wanted). A cancelled run is never adoptable
-/// (OpenRocket bug 40, see SimulationRun).
+/// still in its document and that the job is still wanted). A run cancelled through its stop
+/// (every cancel above) is never adoptable (OpenRocket bug 40, see SimulationRun).
 ///
 /// THE THREAD CONTRACT.
 /// - The runner belongs to the thread that made it (the owning thread: the GUI's, a test's):
-///   every member function is called there (else a BugError), and so is the destructor.
+///   every member function is called there (else a BugError), and so is the destructor (which
+///   cannot check it: a runner destroyed on another thread is undefined behaviour).
 /// - A job's SimulationRun, its RunSampleListener and its extra listeners are the job's from
 ///   submit() until poll() reports the job ENDED: the owning thread does not touch them in
 ///   between (the sample listener's takeSamples() aside, which poll() calls; do not call it
@@ -82,6 +84,11 @@ class SimulationRun;
 ///   made from but the preference store, which is thread-safe (see
 ///   Simulation::duplicateForIndependentSimulation()), so the owning thread may change the
 ///   design, the simulations and the preferences while jobs run.
+/// - What a running job refers to outlives the runner: the preference store of every submitted
+///   run (the worker reads it during the run and when the run records itself, to describe the
+///   flight configuration) and whatever an extra listener refers to must be destroyed after the
+///   runner, whose destructor joins the threads first. A runner that is a member (the
+///   application's) is declared after the preferences, so that it is destroyed before them.
 /// - Nothing leaves a worker: SimulationRun::run() carries what the simulation throws, and the
 ///   worker catches anything that left run() itself into the news' exception (an exception
 ///   that leaves the function of a std::jthread is std::terminate()). The owning thread reports
@@ -114,6 +121,8 @@ class SimulationRun;
 ///   the event thread at once, while the worker thread still runs to its next step.
 /// - The threads are the runner's, not the process's: two runners have two pools (Java's pool
 ///   is static and shared by every run dialog).
+/// - A stop also ends the nested run of an optimum coast time (the InterruptListener is a
+///   system listener, Java's CancelListener is not; see SimulationRun's deviations).
 /// Not copyable and not movable.
 class SimulationRunner
 {
@@ -199,9 +208,12 @@ public:
     /// them that run when one is cancelled). The job starts when a thread is free (a new one is
     /// started while fewer than getThreadCount() are). From now on the run and the listeners are
     /// the job's (see the thread contract).
-    /// @throws BugError when @p run is null, has run, or is the run of a job of this runner
-    ///         that poll() has not reported ENDED, when an extra listener is null, or when
-    ///         @p stopSource has no stop state (std::nostopstate)
+    /// @throws BugError when @p run is null, is the run of a job of this runner that poll() has
+    ///         not reported ENDED (a live job), or has run; when an extra listener is null; when
+    ///         @p sampler or an extra listener is a listener of a live job (the sample listener
+    ///         or an extra listener of another job); or when @p stopSource has no stop state
+    ///         (std::nostopstate). The live jobs are checked first: the run and the listeners of
+    ///         a live job are its worker's, and nothing of them is read.
     /// @throws std::system_error when no thread can be started and none is (the job is not
     ///         queued then)
     JobId submit(std::shared_ptr<SimulationRun> run, GroupId group = GroupId{.value = 0},
@@ -247,6 +259,10 @@ private:
 
     /// The job @p id, or null.
     [[nodiscard]] Job* findJob(JobId id) const;
+
+    /// Whether @p listener is a listener of a job that poll() has not reported ENDED (its
+    /// address is compared; the listener is not touched).
+    [[nodiscard]] bool isListenerOfAJob(const SimulationListener& listener) const;
 
     /// Starts one more thread while fewer than m_threadCount are started.
     void startThread();

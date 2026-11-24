@@ -41,10 +41,13 @@ class SimulationListener;
 /// The outcome (getOutcome()):
 /// - SUCCEEDED: simulate() succeeded. A flight that aborted (a SIM_ABORT event) succeeded too:
 ///   the simulation's status becomes ABORTED, and Java's run dialog shows nothing for it.
-/// - CANCELLED: a stop was requested through the token, before the run (nothing runs, as Java's
-///   SimulationWorker.doInBackground() does not simulate a worker that is cancelled already) or
-///   during it (an InterruptListener, after a step). getError() is ErrorCode::CANCELLED, "The
-///   simulation was interrupted."; Java's run dialog shows nothing.
+/// - CANCELLED: the run was cancelled. Mostly a stop was requested through the token
+///   (wasStopped()), before the run (nothing runs, as Java's SimulationWorker.doInBackground()
+///   does not simulate a worker that is cancelled already) or during it (an InterruptListener,
+///   after a step): getError() is ErrorCode::CANCELLED, "The simulation was interrupted.".
+///   Otherwise a listener or an extension of the run threw a SimulationCancelledException of
+///   its own while no stop was requested: getError() is ErrorCode::CANCELLED with its message.
+///   Java's run dialog shows nothing for either.
 /// - FAILED: simulate() failed with another Error (getError()): a SimulationException of the
 ///   run (an extension that cannot run, a listener's, a calculation that went wrong, when
 ///   getCalculationBranchName() names the branch the exception names), an input that is not
@@ -68,9 +71,14 @@ class SimulationListener;
 ///   UPTODATE with the data the run got to (with an EXCEPTION event at the end), or without
 ///   data when nothing ran (a refused input);
 /// - after EXCEPTION, as Java records it too, when the duplicate got to record its run;
-/// - never after CANCELLED (OpenRocket bug 40: Java's finally block records the partial flight
-///   of a cancelled run as up to date, and the results the simulation had are lost; here the
+/// - never after a CANCELLED run whose stop was requested through the token (wasStopped(): the
+///   user's cancel; OpenRocket bug 40: Java's finally block records the partial flight of a
+///   cancelled run as up to date, and the results the simulation had are lost; here the
 ///   simulation keeps them, with its status);
+/// - after a CANCELLED run that cancelled itself (a SimulationCancelledException of a listener
+///   or an extension while no stop was requested; nothing of M4 throws one but the
+///   InterruptListener), as Java records it: the partial flight, up to date. Bug 40 is the
+///   user's cancel only;
 /// - never for a refused (imported) simulation. Java's simulate() refuses to run it, and its
 ///   finally block then drops the imported data all the same and calls the simulation up to
 ///   date without data; here it keeps them, with its status. (A bug found while porting: it
@@ -83,9 +91,23 @@ class SimulationListener;
 /// mutex the two threads share). The duplicate shares nothing with the simulation it was made
 /// from but the preference store, which is thread-safe (see
 /// Simulation::duplicateForIndependentSimulation()), so the owning thread may change the
-/// simulation, its rocket and the preferences while run() runs. The run holds no reference to
-/// the simulation: adoptInto() takes it as an argument, and whoever calls it makes sure that it
-/// is the simulation the run was made from and that it is still wanted (in its document).
+/// simulation, its rocket and the preferences while run() runs. The preference store must
+/// outlive run(): the run reads it while it simulates and when the duplicate records the run
+/// (the description of the flight configuration), so whoever runs it on another thread joins
+/// that thread (a SimulationRunner: is destroyed) before the store goes. The run holds no
+/// reference to the simulation: adoptInto() takes it as an argument, and whoever calls it makes
+/// sure that it is the simulation the run was made from and that it is still wanted (in its
+/// document).
+///
+/// Deviations from OpenRocket:
+/// - The stop is watched by an InterruptListener (Java's listener of the design view's flight
+///   estimate, swing RocketPanel.java:1781, InterruptListener.INSTANCE), which is a system
+///   listener, where Java's run dialog cancels with its worker's CancelListener
+///   (SimulationWorker.java), which is not. BasicEventSimulationEngine::computeCoastTime() keeps
+///   only the system listeners for its nested run of the optimum coast time, so a stop here
+///   also ends that nested run (after its current step), where Java notices it only at the main
+///   run's next step, after the nested run. The outcome is CANCELLED either way, and a
+///   cancelled run is not adopted (bug 40), so only how soon the cancel takes effect differs.
 ///
 /// Not copyable and not movable: the duplicate is the run's (a run that is handed around is
 /// held by a smart pointer).
@@ -97,7 +119,7 @@ public:
     {
         NOT_RUN,    ///< run() has not been called
         SUCCEEDED,  ///< simulate() succeeded (an aborted flight included)
-        CANCELLED,  ///< a stop was requested through the token
+        CANCELLED,  ///< cancelled: by a stop through the token (wasStopped()), or by itself
         FAILED,     ///< simulate() failed, or the simulation was refused
         EXCEPTION,  ///< an exception left simulate()
     };
@@ -120,11 +142,11 @@ public:
     /// Runs the duplicate, on any thread, and sets the outcome: Simulation::simulate(
     /// @p stopToken, @p extraListeners) of the duplicate, so with an InterruptListener for
     /// @p stopToken after @p extraListeners (Java: the worker's CancelListener after
-    /// getExtraListeners()). Nothing runs when a stop was requested already (CANCELLED) or the
-    /// simulation was refused (FAILED, "Cannot simulate imported simulation.", Java's text), in
-    /// that order, as in Java. @p extraListeners are the very objects (see SimulationListener,
-    /// "Clones", for what they see of the run); they are called on this thread. Nothing that
-    /// happens in the run leaves run(): an exception becomes the outcome EXCEPTION.
+    /// getExtraListeners(); see the deviations). Nothing runs when a stop was requested already
+    /// (CANCELLED) or the simulation was refused (FAILED, "Cannot simulate imported simulation.",
+    /// Java's text), in that order, as in Java. @p extraListeners are the very objects (see
+    /// SimulationListener, "Clones", for what they see of the run); they are called on this thread.
+    /// Nothing that happens in the run leaves run(): an exception becomes the outcome EXCEPTION.
     /// @throws BugError when the run has been run before (nothing else is done then)
     void run(const std::stop_token&                               stopToken,
              std::span<const std::shared_ptr<SimulationListener>> extraListeners = {});
@@ -150,6 +172,11 @@ public:
     /// The exception of an EXCEPTION run; null for the other outcomes.
     [[nodiscard]] const std::exception_ptr& getException() const noexcept { return m_exception; }
 
+    /// Whether the run is CANCELLED because a stop was requested through the token of run()
+    /// (the user's cancel, before or during the run), rather than by a SimulationCancelledException
+    /// of its own while no stop was requested. Such a run is never adopted (bug 40).
+    [[nodiscard]] bool wasStopped() const noexcept { return m_stopped; }
+
     /// Whether the simulation was refused: it was imported (its stored status was EXTERNAL when
     /// the run was prepared), and run() fails without running it.
     [[nodiscard]] bool isRefused() const noexcept { return m_refused; }
@@ -164,8 +191,8 @@ public:
     [[nodiscard]] Simulation&       getDuplicate() noexcept { return *m_duplicate; }
     [[nodiscard]] const Simulation& getDuplicate() const noexcept { return *m_duplicate; }
 
-    /// Whether adoptInto() adopts the run (see the class comment): it has run, was not
-    /// cancelled, and the duplicate recorded its run (which a refused simulation and some
+    /// Whether adoptInto() adopts the run (see the class comment): it has run, was not stopped
+    /// (wasStopped()), and the duplicate recorded its run (which a refused simulation and some
     /// exceptions never get to).
     [[nodiscard]] bool isAdoptable() const noexcept;
 
@@ -180,7 +207,9 @@ private:
     ModId                       m_modIdAtDuplication;
     bool                        m_refused;
     /// Whether the duplicate recorded its run (Simulation::simulate()'s bookkeeping).
-    bool                       m_recorded{false};
+    bool m_recorded{false};
+    /// Whether the run is CANCELLED by a stop through the token (wasStopped()).
+    bool                       m_stopped{false};
     Outcome                    m_outcome{Outcome::NOT_RUN};
     std::optional<Error>       m_error;
     std::optional<std::string> m_calculationBranchName;

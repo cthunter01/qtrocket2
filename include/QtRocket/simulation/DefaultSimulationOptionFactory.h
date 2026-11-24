@@ -71,7 +71,9 @@ public:
     [[nodiscard]] SimulationOptions getDefault() const;
 
     /// Stores the launch conditions of @p newDefaults as the launch preferences, the ones
-    /// getDefault() reads. The random seed is not stored.
+    /// getDefault() reads. The random seed is not stored. The rod direction stored is the
+    /// effective one (SimulationOptions::getLaunchRodDirection()), as in Java, so for a launch
+    /// into a multi-level AGL wind it is the ground wind's (bug 39, see there).
     void saveDefault(const SimulationOptions& newDefaults) const;
 
 private:

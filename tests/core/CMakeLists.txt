@@ -543,9 +543,16 @@ include(GoogleTest)
 # 5 s default.
 # The golden tests (every suite whose name contains "Golden", mostly in the *_golden_tests.cpp files) carry the ctest
 # label "golden", so that `ctest -L golden` re-runs them after a change to the physics or the file formats.
-gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*")
+# The suites that run simulations on threads of their own and hold them at gates carry a TIMEOUT (each takes seconds,
+# about ten under ASan): a defect that breaks the cancel of a held run fails such a test instead of hanging the run.
+# Their safety nets (simulation/SimulationRunnerSupport.h) give up well within it.
+set(QTROCKET_THREADED_SUITES "SimulationRunner.*:SimulationThreading.*:RunSampleListener.*")
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "-*Golden*.*:${QTROCKET_THREADED_SUITES}")
 gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
     PROPERTIES LABELS golden)
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "${QTROCKET_THREADED_SUITES}" PROPERTIES TIMEOUT 600)
 
 # QtRocket_cli run as a program, for its exit codes and its output (tests/core/cli/CMakeLists.txt).
 add_subdirectory(cli)

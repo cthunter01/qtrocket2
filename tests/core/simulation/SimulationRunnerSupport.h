@@ -6,13 +6,16 @@
 // threads, which wait by spinning on atomics (as HeldRunSupport.h's do) until the test's thread
 // lets them go on or the job's stop is requested: every hold watches the token of the stop
 // source the job was submitted with, so a cancel (and a runner's destructor) always ends it.
-// No sleeps and no timing assertions: the only clock is the safety net of the test's waits,
-// which only a defect reaches and which makes the test fail instead of hang. For the tests of
-// the runner and for the GUI's tests of what drives one. Test-only.
+// No sleeps and no timing assertions: the only clocks are the safety nets of the test's waits
+// and of the holds, which only a defect reaches and which make the test fail instead of hang
+// (also when the defect breaks the stop itself). For the tests of the runner and for the GUI's
+// tests of what drives one. Test-only.
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -36,10 +39,23 @@ namespace QtRocket::Test
 /// jobs one after the other, a run that never ends) gets here.
 inline constexpr std::chrono::seconds kRunnerSafetyNet{120};
 
+/// How long a hold (a StepGate, a StepMeeting) waits at most before it lets its run go on by
+/// itself: a safety net for a defect that breaks the stop itself (a cancel that requests no
+/// stop), which would hold the run, and so the test's recovery or a runner's destructor, for
+/// good. Longer than kRunnerSafetyNet, so that the test's wait gives up (and fails the test)
+/// first; the run then ends as it ends unheld, and the test fails on what it expected of it.
+inline constexpr std::chrono::seconds kHoldSafetyNet{150};
+
+/// Whether a hold that began at @p start has waited for longer than kHoldSafetyNet.
+[[nodiscard]] inline bool holdHasExpired(std::chrono::steady_clock::time_point start)
+{
+    return std::chrono::steady_clock::now() - start > kHoldSafetyNet;
+}
+
 /// Holds a run after its step number step() (counted over every branch: the clones of the
-/// listener share the count) until the test's thread releases it or the job's stop is requested.
-/// The run then goes on: after a stop request, the InterruptListener after the extra listeners
-/// cancels it in that same step.
+/// listener share the count) until the test's thread releases it or the job's stop is requested
+/// (or, after a defect, kHoldSafetyNet has passed). The run then goes on: after a stop request,
+/// the InterruptListener after the extra listeners cancels it in that same step.
 class StepGate
 {
 public:
@@ -60,7 +76,9 @@ public:
                     return;
                 }
                 state->reached.store(true);
-                while (!state->released.load() && !stopToken.stop_requested())
+                const auto start = std::chrono::steady_clock::now();
+                while (!state->released.load() && !stopToken.stop_requested() &&
+                       !holdHasExpired(start))
                 {
                     std::this_thread::yield();
                 }
@@ -93,8 +111,8 @@ private:
 /// Several runs that meet after their step number step(): each waits there until every one of
 /// them has arrived, so none can go on before all are at that step at the same time. With runs
 /// that are run one after the other, the first waits for good: it then gives up when its job's
-/// stop is requested (a cancel of the test's safety net), or when the test's thread abandons
-/// the meeting.
+/// stop is requested (a cancel of the test's safety net), when the test's thread abandons the
+/// meeting, or (after a defect that breaks the stop) when kHoldSafetyNet has passed.
 class StepMeeting
 {
 public:
@@ -113,9 +131,11 @@ public:
                     return;
                 }
                 state->arrived.fetch_add(1);
+                const auto start = std::chrono::steady_clock::now();
                 while (state->arrived.load() < state->parties)
                 {
-                    if (state->abandoned.load() || stopToken.stop_requested())
+                    if (state->abandoned.load() || stopToken.stop_requested() ||
+                        holdHasExpired(start))
                     {
                         state->gaveUp.fetch_add(1);
                         return;
@@ -171,7 +191,9 @@ public:
 
     /// Polls until @p done holds. When the safety net is reached first, the test fails, every
     /// job is cancelled, and the runner is polled until its jobs have ended (every hold of this
-    /// header gives up on a cancel), so that the test ends. Returns whether @p done held.
+    /// header gives up on a cancel, or after kHoldSafetyNet when the cancel is broken), so that
+    /// the test ends. Returns whether @p done held. When even that does not end the jobs, the
+    /// test's process is aborted (a failure, never a hang).
     bool pollUntil(const std::function<bool()>& done)
     {
         const auto giveUp = std::chrono::steady_clock::now() + kRunnerSafetyNet;
@@ -190,8 +212,15 @@ public:
         }
         ADD_FAILURE() << "the runner did not get there: its jobs are cancelled";
         m_runner->cancelAll();
+        const auto abandon = std::chrono::steady_clock::now() + kHoldSafetyNet + kRunnerSafetyNet;
         while (m_runner->isBusy())
         {
+            if (std::chrono::steady_clock::now() > abandon)
+            {
+                ADD_FAILURE() << "the cancelled jobs of the runner do not end: the test aborts";
+                static_cast<void>(std::fflush(stdout));
+                std::abort();
+            }
             pollOnce();
             std::this_thread::yield();
         }

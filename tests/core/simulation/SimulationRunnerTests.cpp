@@ -380,6 +380,32 @@ private:
     return bugText([&] { runner.submit(run, {}, nullptr, extraListeners, stop); });
 }
 
+/// The message of the BugError that submit() of @p run with the sample listener @p sampler
+/// throws; "<none>" when it takes the job.
+[[nodiscard]] std::string samplerRefusal(SimulationRunner&                         runner,
+                                         const std::shared_ptr<SimulationRun>&     run,
+                                         const std::shared_ptr<RunSampleListener>& sampler)
+{
+    return bugText([&] { runner.submit(run, {}, sampler); });
+}
+
+/// Waits, without polling (the runner then forgets no job), until @p job of @p runner has
+/// ended; false, and a failure of the test, when the safety net is reached first.
+[[nodiscard]] bool waitUnpolledUntilEnded(const SimulationRunner& runner, JobId job)
+{
+    const auto giveUp = std::chrono::steady_clock::now() + QtRocket::Test::kRunnerSafetyNet;
+    while (runner.getState(job) != JobState::ENDED)
+    {
+        if (std::chrono::steady_clock::now() > giveUp)
+        {
+            ADD_FAILURE() << "job " << job.value << " did not end";
+            return false;
+        }
+        std::this_thread::yield();
+    }
+    return true;
+}
+
 /// The message of the BugError that @p body throws on a thread of its own; "<none>" without one.
 [[nodiscard]] std::string bugTextOnAnotherThread(const std::function<void()>& body)
 {
@@ -615,6 +641,7 @@ TEST(SimulationRunner, ARunningJobThatIsCancelledEndsCancelledAndIsNotAdopted)
     EXPECT_TRUE(poller.pollUntilIdle());
 
     EXPECT_EQ(cancelled->getOutcome(), Outcome::CANCELLED);
+    EXPECT_TRUE(cancelled->wasStopped());
     EXPECT_EQ(errorCode(*cancelled), ErrorCode::CANCELLED);
     EXPECT_EQ(errorMessage(*cancelled), "The simulation was interrupted.");
     EXPECT_EQ(gate.steps(), kStepsBeforeTheGate) << "it ended in the step the stop came in";
@@ -637,16 +664,18 @@ TEST(SimulationRunner, AJobCanBeCancelledThroughItsStopSource)
     const Alphas                         a;
     const std::shared_ptr<SimulationRun> run = runOf(a.first);
     const StepGate                       gate(kStepsBeforeTheGate);
-    const std::stop_source               stop;
-    SimulationRunner                     runner(1);
-    RunnerPoller                         poller(runner);
+    // Held through a pointer: request_stop() is a const member in libstdc++ only.
+    const auto       stop = std::make_shared<std::stop_source>();
+    SimulationRunner runner(1);
+    RunnerPoller     poller(runner);
 
-    const JobId job = runner.submit(run, {}, nullptr, heldAt(gate, stop), stop);
+    const JobId job = runner.submit(run, {}, nullptr, heldAt(gate, *stop), *stop);
     ASSERT_TRUE(poller.pollUntilReached(gate));
-    stop.request_stop();
+    stop->request_stop();
     EXPECT_TRUE(poller.pollUntilEnded(job));
 
     EXPECT_EQ(run->getOutcome(), Outcome::CANCELLED);
+    EXPECT_TRUE(run->wasStopped());
     EXPECT_EQ(rowsOf(*run), static_cast<std::size_t>(kStepsBeforeTheGate));
 }
 
@@ -774,6 +803,7 @@ TEST(SimulationRunner, CancellingAGroupStopsItsRunningJobsAndPurgesItsQueuedOnes
     const JobId queuedJob = runner.submit(queued, window);
     EXPECT_EQ(runner.getState(queuedJob), JobState::QUEUED);
     runner.cancelGroup(window);
+    EXPECT_EQ(runner.getState(queuedJob), JobState::ENDED) << "purged at once";
     EXPECT_FALSE(otherStop.stop_requested());
     otherGate.release();
     EXPECT_TRUE(poller.pollUntilIdle());
@@ -797,15 +827,99 @@ TEST(SimulationRunner, CancellingAllCancelsEveryJob)
     RunnerPoller                         poller(runner);
 
     runner.submit(running, runner.newGroup(), nullptr, heldAt(gate, stop), stop);
-    runner.submit(queued, runner.newGroup());
+    const JobId queuedJob = runner.submit(queued, runner.newGroup());
     ASSERT_TRUE(poller.pollUntilReached(gate));
     runner.cancelAll();
+    EXPECT_EQ(runner.getState(queuedJob), JobState::ENDED) << "taken from the queue at once";
     EXPECT_TRUE(poller.pollUntilIdle());
 
     EXPECT_EQ(running->getOutcome(), Outcome::CANCELLED);
     EXPECT_EQ(rowsOf(*running), static_cast<std::size_t>(kStepsBeforeTheGate));
     EXPECT_EQ(queued->getOutcome(), Outcome::CANCELLED);
     EXPECT_EQ(queued->getDuplicate().getSimulatedData(), nullptr);
+}
+
+// cancelGroup() takes the queued jobs of its group from the queue at once (purge(), not a stop
+// request that a job would see only when a thread takes it): while a job of another group holds
+// the only thread, the queued job has ended when cancelGroup() returns.
+TEST(SimulationRunner, ACancelOfAGroupPurgesItsQueuedJobsAtOnce)
+{
+    const Alphas                         a;
+    const std::shared_ptr<SimulationRun> other  = runOf(a.first);
+    const std::shared_ptr<SimulationRun> queued = runOf(a.second);
+    const StepGate                       gate(kStepsBeforeTheMeeting);
+    const std::stop_source               otherStop;
+    SimulationRunner                     runner(1);
+    RunnerPoller                         poller(runner);
+    const GroupId                        window      = runner.newGroup();
+    const GroupId                        otherWindow = runner.newGroup();
+
+    runner.submit(other, otherWindow, nullptr, heldAt(gate, otherStop), otherStop);
+    const JobId queuedJob = runner.submit(queued, window);
+    ASSERT_TRUE(poller.pollUntilReached(gate));
+    runner.cancelGroup(window);
+    EXPECT_EQ(runner.getState(queuedJob), JobState::ENDED);
+    poller.pollOnce();
+
+    EXPECT_EQ(statesOf(poller.newsOf(queuedJob)), "ENDED");
+    EXPECT_EQ(queued->getOutcome(), Outcome::CANCELLED);
+    EXPECT_TRUE(queued->wasStopped());
+    EXPECT_FALSE(otherStop.stop_requested());
+    gate.release();
+    EXPECT_TRUE(poller.pollUntilIdle());
+    EXPECT_EQ(other->getOutcome(), Outcome::SUCCEEDED);
+}
+
+// A queued job that is cancelled ends without a stop request through its stop source: a running
+// job that shares the source goes on (the class comment: "not through the job's stop source,
+// which other jobs may share").
+TEST(SimulationRunner, ACancelOfAQueuedJobLeavesAStopSourceThatJobsShareAlone)
+{
+    const Alphas                         a;
+    const std::shared_ptr<SimulationRun> running = runOf(a.first);
+    const std::shared_ptr<SimulationRun> queued  = runOf(a.second);
+    const StepGate                       gate(kStepsBeforeTheMeeting);
+    const std::stop_source               shared;
+    SimulationRunner                     runner(1);
+    RunnerPoller                         poller(runner);
+
+    runner.submit(running, {}, nullptr, heldAt(gate, shared), shared);
+    const JobId queuedJob = runner.submit(queued, {}, nullptr, {}, shared);
+    ASSERT_TRUE(poller.pollUntilReached(gate));
+    runner.cancel(queuedJob);
+    EXPECT_EQ(runner.getState(queuedJob), JobState::ENDED);
+    EXPECT_FALSE(shared.stop_requested());
+    gate.release();
+    EXPECT_TRUE(poller.pollUntilIdle());
+
+    EXPECT_EQ(queued->getOutcome(), Outcome::CANCELLED);
+    EXPECT_EQ(running->getOutcome(), Outcome::SUCCEEDED);
+}
+
+// A cancel of a job that has ended, before poll() reported it, requests no stop through its stop
+// source ("Nothing for a job that has ended"): a running job that shares the source goes on.
+TEST(SimulationRunner, ACancelOfAJobThatEndedUnreportedLeavesAStopSourceThatJobsShareAlone)
+{
+    const Alphas                         a;
+    const std::shared_ptr<SimulationRun> running = runOf(a.first);
+    const std::shared_ptr<SimulationRun> ended   = runOf(a.second);
+    const StepGate                       gate(kStepsBeforeTheMeeting);
+    const std::stop_source               shared;
+    SimulationRunner                     runner(2);
+    RunnerPoller                         poller(runner);
+
+    runner.submit(running, {}, nullptr, heldAt(gate, shared), shared);
+    ASSERT_TRUE(poller.pollUntilReached(gate));
+    const JobId endedJob = runner.submit(ended, {}, nullptr, {}, shared);
+    ASSERT_TRUE(waitUnpolledUntilEnded(runner, endedJob));
+    runner.cancel(endedJob);
+    EXPECT_FALSE(shared.stop_requested());
+    gate.release();
+    EXPECT_TRUE(poller.pollUntilIdle());
+
+    EXPECT_EQ(endingNewsCount(poller, endedJob), 1);
+    EXPECT_EQ(ended->getOutcome(), Outcome::SUCCEEDED);
+    EXPECT_EQ(running->getOutcome(), Outcome::SUCCEEDED);
 }
 
 // A cancel of a job the runner does not know, or no longer knows, does nothing.
@@ -1154,12 +1268,14 @@ TEST(SimulationRunner, SubmitRefusesWhatCannotBeAJob)
     const Alphas                         a;
     const std::shared_ptr<SimulationRun> ran = runOf(a.first);
     ran->run(std::stop_token{});
-    const std::shared_ptr<SimulationRun> held = runOf(a.first);
-    const StepGate                       gate(kStepsBeforeTheMeeting);
-    const std::stop_source               stop;
-    SimulationRunner                     runner(1);
-    RunnerPoller                         poller(runner);
-    const JobId job = runner.submit(held, {}, nullptr, heldAt(gate, stop), stop);
+    const std::shared_ptr<SimulationRun>     held    = runOf(a.first);
+    const std::shared_ptr<RunSampleListener> sampler = everyStepSampler();
+    const StepGate                           gate(kStepsBeforeTheMeeting);
+    const std::stop_source                   stop;
+    const Listeners                          heldListeners = heldAt(gate, stop);
+    SimulationRunner                         runner(1);
+    RunnerPoller                             poller(runner);
+    const JobId job = runner.submit(held, {}, sampler, heldListeners, stop);
 
     EXPECT_EQ(submitRefusal(runner, nullptr), "A job of a simulation runner needs a run");
     EXPECT_EQ(submitRefusal(runner, ran), "A simulation run that has run cannot be submitted");
@@ -1168,11 +1284,41 @@ TEST(SimulationRunner, SubmitRefusesWhatCannotBeAJob)
               "An extra listener of a job is null");
     EXPECT_EQ(submitRefusal(runner, runOf(a.second), {}, std::stop_source(std::nostopstate)),
               "A job needs a stop source that can stop it");
+    // The listeners of a live job are its worker's.
+    EXPECT_EQ(samplerRefusal(runner, runOf(a.second), sampler),
+              "A sample listener is the listener of one job");
+    EXPECT_EQ(submitRefusal(runner, runOf(a.second), heldListeners),
+              "An extra listener is the listener of one job");
+    EXPECT_EQ(submitRefusal(runner, runOf(a.second), {sampler}),
+              "An extra listener is the listener of one job");
 
     gate.release();
     EXPECT_TRUE(poller.pollUntilIdle());
     EXPECT_EQ(endingsOf(poller.news()), idsText({job})) << "nothing else was queued";
     EXPECT_EQ(held->getOutcome(), Outcome::SUCCEEDED);
+
+    // Once the job was reported ENDED, its listeners are the owning thread's again.
+    const std::shared_ptr<SimulationRun> next = runOf(a.second);
+    EXPECT_TRUE(poller.pollUntilEnded(runner.submit(next, {}, sampler)));
+    EXPECT_EQ(next->getOutcome(), Outcome::SUCCEEDED);
+}
+
+// The run of a job that runs is refused before anything of it is read: its worker may be
+// writing its outcome (under the tsan preset, a read of the outcome before the refusal is a
+// data race with the end of the run).
+TEST(SimulationRunner, TheRunOfARunningJobIsRefusedWithoutBeingRead)
+{
+    const Alphas                         a;
+    const std::shared_ptr<SimulationRun> run = runOf(a.first);
+    SimulationRunner                     runner(1);
+    RunnerPoller                         poller(runner);
+
+    const JobId job = runner.submit(run);
+    EXPECT_EQ(submitRefusal(runner, run), "A simulation run is the run of one job");
+    EXPECT_TRUE(poller.pollUntilIdle());
+
+    EXPECT_EQ(endingsOf(poller.news()), idsText({job}));
+    EXPECT_EQ(run->getOutcome(), Outcome::SUCCEEDED);
 }
 
 // The runner belongs to the thread that made it.
