@@ -49,7 +49,7 @@ def unescape(field):
         c = field[i]
         if c == "\\" and i + 1 < len(field):
             n = field[i + 1]
-            out.append({"\\": "\\", "t": "\t", "n": "\n"}.get(n, "\\" + n))
+            out.append({"\\": "\\", "t": "\t", "n": "\n", "r": "\r"}.get(n, "\\" + n))
             i += 2
         else:
             out.append(c)
@@ -112,7 +112,8 @@ def read_transcript(path):
     plot = None
     meta = None
     ended = False
-    with open(path, encoding="utf-8") as transcript:
+    # newline="\n": a record ends at a line feed alone (the probe escapes every other line break).
+    with open(path, encoding="utf-8", newline="\n") as transcript:
         for raw in transcript:
             fields = [unescape(f) for f in raw.rstrip("\n").split("\t")]
             tag, args = fields[0], fields[1:]
@@ -136,11 +137,13 @@ def read_transcript(path):
             elif tag == "PLOT":
                 plot = {"preset": int(args[0]), "presetName": args[1], "name": args[2],
                         "domain": [args[3], args[4]], "rows": [], "candidates": [],
-                        "series": [], "toolTips": [], "groups": {}, "icons": []}
+                        "series": [], "toolTips": [], "groups": {}, "icons": [], "nanExtremes": []}
                 simulation["plots"].append(plot)
             elif tag == "ROW":
                 plot["rows"].append({"type": args[1], "unit": args[2], "axis": int(args[3]),
                                      "color": args[4], "lineStyle": args[5]})
+            elif tag == "NAN-EXTREME":
+                plot["nanExtremes"].append({"row": int(args[0]), "type": args[1]})
             elif tag == "EVENTS":
                 plot["events"] = args[0].split(",") if args[0] else []
             elif tag == "AUTO":
@@ -234,6 +237,14 @@ def check(simulations, presets):
                 fail(here + ": a row has an appearance")
             if plot["events"] != preset["events"]:
                 fail(here + ": the panel changed the preset's events")
+            # Bug 46: the probe does not replay QtRocket's fix (a branch's NaN extremes ignored), so a row whose
+            # extremes are NaN in some branches and not in others would get OpenRocket's NaN range.
+            for extreme in plot["nanExtremes"]:
+                fail("{}: row {} ({}) has NaN extremes in some branches and not in others, where OpenRocket's range "
+                     "is not QtRocket's (bug 46, not replayed)".format(here, extreme["row"], extreme["type"]))
+            # The panel's colour indices are unwrapped (computeDefaultPlotColors() before the palette's modulo).
+            if any(not isinstance(c, int) for c in plot["panelColors"]):
+                fail(here + ": a panel colour is not an index of the palette")
             if plot["auto"]["axes"] != plot["filled"]["axes"]:
                 fail(here + ": the filled configuration's axes are not the automatic ones")
             # Bug 45: OpenRocket's own values are recorded only where its common zero gave a candidate an

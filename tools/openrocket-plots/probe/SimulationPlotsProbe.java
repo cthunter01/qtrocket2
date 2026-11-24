@@ -81,12 +81,14 @@ import probe.DeterministicUuids;
  * M4's bug 45 (a right axis of -Infinity when the left range starts or ends at exactly zero and the right one spans
  * zero) is fixed as QtRocket fixes it: every configuration is a {@link CommonZeroFixedConfiguration}, which skips the
  * common zero when it would give an infinite bound; where that changes what OpenRocket computes, the probe also
- * prints OpenRocket's own choice, ranges and candidates (the lines JAVA-AUTO, JAVA-FILLED and JAVA-GOODNESS).
+ * prints OpenRocket's own choice, ranges and candidates (the lines JAVA-AUTO, JAVA-FILLED and JAVA-GOODNESS). M4's bug
+ * 46 (a branch without values of a row's type makes OpenRocket drop the row's range) is not replayed: the probe prints
+ * NAN-EXTREME where it would change a range, which the generator refuses (no stored simulation has such a branch).
  * Everything else is OpenRocket's own code. Every double is printed with Double.toHexString; a tool tip with a value
  * whose digits could depend on the libm is marked "risky" (see risky()).
  * <p>
- * Output: one record per line, its fields separated by tabs, a field's backslash, tab and line end escaped as \\, \t
- * and \n. gen_simulation_plots.py turns it into tests/data/goldens/plots/*.json.
+ * Output: one record per line, its fields separated by tabs, a field's backslash, tab, line feed and carriage return
+ * escaped as \\, \t, \n and \r. gen_simulation_plots.py turns it into tests/data/goldens/plots/*.json.
  * <p>
  * Arguments: the design files, in the order to print them. System properties: qtrocket.repo (the QtRocket checkout:
  * data/motors/initial_motors.db is read).
@@ -123,7 +125,7 @@ public class SimulationPlotsProbe {
 		if (s == null) {
 			return "\\0";
 		}
-		return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n");
+		return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r");
 	}
 
 	static void line(String tag, Object... fields) {
@@ -220,6 +222,7 @@ public class SimulationPlotsProbe {
 			}
 		}
 		line("EVENTS", join(events));
+		nanExtremes(config, branches);
 
 		// The automatic axes, scored on the first branch, and every candidate's goodness in the order
 		// recursiveFillAutoAxes() scores them (the first automatic row the most significant, 0 before 1).
@@ -235,11 +238,7 @@ public class SimulationPlotsProbe {
 		@SuppressWarnings("unchecked")
 		Map<Integer, Color> panelColors = (Map<Integer, Color>) colors.invoke(panel);
 		configurationField.set(panel, javaConfig);
-		List<String> pc = new ArrayList<>();
-		for (int i = 0; i < config.getDataCount(); i++) {
-			pc.add(colorIndex(panelColors.get(i)));
-		}
-		line("PANEL-COLORS", pc.toArray());
+		line("PANEL-COLORS", panelColorIndices(config, main, branches.size(), panelColors).toArray());
 
 		SimulationPlot plot = SimulationPlot.create(sim, config, false);
 		SimulationPlotConfiguration filled = (SimulationPlotConfiguration) plot.filledConfig;
@@ -316,16 +315,74 @@ public class SimulationPlotsProbe {
 		return String.format("#%02x%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue(), c.getAlpha());
 	}
 
-	static String colorIndex(Color c) {
-		if (c == null) {
-			return "-";
+	/**
+	 * The index of the palette colour the panel shows for each row of @p config: computeDefaultPlotColors()'s
+	 * arithmetic replayed (the rows of the left axis, then those of the right one, each axis after the previous one's
+	 * rows times the branch count), before Util.getPlotColor() wraps it to the palette's 10 colours, as QtRocket's
+	 * SimulationPlotModel::computeDefaultColorIndices() gives it. Each index is checked against the colour the panel
+	 * computed (@p panelColors).
+	 */
+	static List<String> panelColorIndices(SimulationPlotConfiguration config, FlightDataBranch main, int branchCount,
+			Map<Integer, Color> panelColors) {
+		SimulationPlotConfiguration filled = config.fillAutoAxes(main);
+		int safeBranchCount = Math.max(branchCount, 1);
+		int[] indices = new int[filled.getDataCount()];
+		int cumulativeSeriesCount = 0;
+		for (int axis = 0; axis < 2; axis++) {
+			int relativeIndex = 0;
+			for (int i = 0; i < filled.getDataCount(); i++) {
+				int rowAxis = filled.getAxis(i);
+				if (rowAxis < 0 || rowAxis >= 2) {
+					rowAxis = 0;
+				}
+				if (rowAxis == axis) {
+					indices[i] = cumulativeSeriesCount + relativeIndex;
+					relativeIndex++;
+				}
+			}
+			cumulativeSeriesCount += relativeIndex * safeBranchCount;
 		}
-		for (int i = 0; i < 10; i++) {
-			if (Util.getPlotColor(i).equals(c)) {
-				return String.valueOf(i);
+		List<String> out = new ArrayList<>();
+		for (int i = 0; i < config.getDataCount(); i++) {
+			Color shown = panelColors.get(i);
+			if (shown == null || !Util.getPlotColor(indices[i]).equals(shown)) {
+				throw new IllegalStateException("the panel's colour of row " + i + " is not the palette's colour "
+						+ indices[i] + ": " + (shown == null ? "none" : color(shown)));
+			}
+			out.add(String.valueOf(indices[i]));
+		}
+		return out;
+	}
+
+	/**
+	 * Prints NAN-EXTREME for each row of @p config whose extremes over the branches fitAxes() combines (the first
+	 * branch, and every other one with points) are NaN in some of them and not in others: a branch without the row's
+	 * type, or whose values of it are all NaN. There OpenRocket's Math.min and Math.max make the row's range NaN and
+	 * drop it from its axis (M4's bug 46), which QtRocket's fix does not; the probe does not replay that fix, so
+	 * gen_simulation_plots.py refuses such a plot.
+	 */
+	static void nanExtremes(SimulationPlotConfiguration config, List<FlightDataBranch> branches) {
+		for (int i = 0; i < config.getDataCount(); i++) {
+			FlightDataType type = config.getType(i);
+			boolean nan = false;
+			boolean value = false;
+			for (int b = 0; b < branches.size(); b++) {
+				FlightDataBranch branch = branches.get(b);
+				if (b > 0 && branch.getLength() == 0) {
+					continue;
+				}
+				for (double extreme : new double[] { branch.getMinimum(type), branch.getMaximum(type) }) {
+					if (Double.isNaN(extreme)) {
+						nan = true;
+					} else {
+						value = true;
+					}
+				}
+			}
+			if (nan && value) {
+				line("NAN-EXTREME", i, type.getName());
 			}
 		}
-		return color(c);
 	}
 
 	// ---------------------------------------------------------------------------------------------

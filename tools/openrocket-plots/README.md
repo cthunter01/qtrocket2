@@ -29,7 +29,10 @@ stored data, and for every preset, it
 - prints the automatic axes `fillAutoAxes()` chooses on the first branch, with the ranges it fitted them to, and
   every candidate it scores (the automatic rows on the left or the right axis, the first automatic row the most
   significant, the left axis first), with its goodness and ranges;
-- prints the colour the panel shows for each row (`computeDefaultPlotColors()`);
+- prints the colour the panel shows for each row as the index of the palette colour (`computeDefaultPlotColors()`'s
+  arithmetic replayed, before `Util.getPlotColor()` wraps it to the palette's 10 colours, as
+  `SimulationPlotModel::computeDefaultColorIndices()` gives it; each index is checked against the colour the panel
+  computed);
 - makes the plot as the plot dialog does (`SimulationPlot.create()`, before `setShowEvents()` draws anything) and
   prints the filled configuration's ranges over every branch, the titles, the domain axis (label and range), the
   y axes (labels, ranges and series), the series (name, axis, branch, row, unit, number of points, a digest of the
@@ -65,6 +68,10 @@ with OpenRocket's own code:
   (`panelColors`).
 - Bug 43 (the domain axis loses its label when the event lines widen it): the probe reads the domain axis before
   the events are drawn; the widened range is replayed.
+- Bug 46 is not replayed: a branch without values of a row's type (no column of it, or only NaN) has NaN extremes,
+  which make OpenRocket's `Math.min` and `Math.max` drop the row's range, while QtRocket ignores them. The probe
+  prints `NAN-EXTREME` for a row whose extremes are NaN in some of the branches `fitAxes()` combines and not in
+  others, and the generator refuses it. No stored simulation of the examples has such a branch.
 
 ### Digests
 
@@ -111,8 +118,10 @@ not know (Simulation extensions 2, "Roll control + air-start"), three branches o
 
 The generator checks what the tests rely on: the panel kept every preset as it is (no row dropped, no
 appearance), the filled configuration's axes are the automatic ones, no candidate's range is infinite after
-bug 45's fix, OpenRocket's own choice differs only where bug 45 gave a candidate an infinite bound, and no tool tip
-depends on the libm.
+bug 45's fix, OpenRocket's own choice differs only where bug 45 gave a candidate an infinite bound, no row's range
+is one bug 46 changes, every panel colour is a palette index, and no tool tip depends on the libm. The probe
+escapes a backslash, tab, line feed and carriage return in what it prints, so a name with a line break stays one
+record.
 
 ## Running
 

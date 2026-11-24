@@ -96,9 +96,10 @@ class Unit;
 ///   points but where bug 46 leaves some out).
 /// - The sample whose stages name an icon's tool tip is the first one nearest to the group's time
 ///   (Java: the first sample of the value of the nearest one, which is the same sample).
-/// - A branch without a time column has no icons and its tool tips no time (Java fails there,
-///   NullPointerException).
-/// Kept as Java: a tool tip's time is the stored value in seconds, shown with the name of the
+/// - A branch without a time column has no icons (Java's plotIconMarkers() fails there: its
+///   LinearInterpolator gets no times, NullPointerException).
+/// Kept as Java: the readout tool tips of a branch without a time column leave the time line out
+/// (getToolTip()); a tool tip's time is the stored value in seconds, shown with the name of the
 /// time's default unit (a time unit other than s, which the user can choose, shows the seconds
 /// under its name); the multi-stage names compare the point's index with the index of a later
 /// branch's separation in that later branch's data.
@@ -379,7 +380,9 @@ public:
     /// of fillAutoAxes() on the first branch, the rows of the left axis get 0, 1, ... in order and
     /// those of the right axis follow the left rows' series, (number of left rows) x (number of
     /// branches) + 0, 1, ... Without a branch, row i gets i (the panel's fallback). The model's
-    /// series and legend take these (bugs 42 and 48).
+    /// series and legend take these (bugs 42 and 48). The indices are not wrapped to the palette:
+    /// the colour of index i is the palette's i modulo its 10 colours (the GUI's
+    /// PlotColors::plotColor(), Java's Util.getPlotColor()).
     [[nodiscard]] static std::vector<int> computeDefaultColorIndices(
         const SimulationPlotConfiguration& configuration, const FlightData& data);
 

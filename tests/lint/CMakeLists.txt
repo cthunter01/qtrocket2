@@ -50,7 +50,8 @@ function(lint_plant_test tree lint)
 endfunction()
 
 # Every rule kept, with figure/ in the core (above file/) and plot/ (above figure/), rocketplot in plot/, the areas
-# plot/ and flightconfig/ in their places, and words that only look like violations.
+# plot/ and flightconfig/ in their places (the GUI's plot/ also including the core's plot/), and words that only look
+# like violations.
 lint_plant(clean-tree src/figure/Shapes.cpp "#include \"QtRocket/file/GeneralRocketLoader.h\"")
 lint_plant(clean-tree src/plot/PlotModel.cpp
     "#include \"QtRocket/figure/Shapes.h\"\n#include \"QtRocket/simulation/Simulation.h\"")
@@ -73,6 +74,8 @@ lint_plant(clean-tree gui/include/QtRocket/gui/plot/ThrustCurvePlot.h
     "#include <rocketplot/PlotWidget.h>\n#include \"QtRocket/gui/widgets/UnitSpinBox.h\"")
 lint_plant(clean-tree gui/src/plot/ThrustCurvePlot.cpp
     "#include <rocketplot/text.h>\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/plot/SimulationPlot.cpp
+    "#include <rocketplot/PlotWidget.h>\n#include \"QtRocket/plot/SimulationPlotModel.h\"")
 lint_plant(clean-tree gui/src/tree/ComponentTreeModel.cpp "#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
 lint_plant(clean-tree gui/src/flightconfig/MotorConfigurationPanel.cpp
     "#include \"QtRocket/gui/dialogs/IgnitionSelectionDialog.h\"\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
@@ -126,6 +129,9 @@ lint_plant_test(rocketplot-in-the-application layers "gui/main\\.cpp:1: <rocketp
 lint_plant(rocketplot-in-core src/motor/ThrustCurve.cpp "#include <rocketplot/text.h>")
 lint_plant_test(rocketplot-in-core layers
     "src/motor/ThrustCurve\\.cpp:1: the core includes rocketplot's header <rocketplot/text\\.h>")
+lint_plant(rocketplot-in-core-plot src/plot/SimulationPlotModel.cpp "#include <rocketplot/text.h>")
+lint_plant_test(rocketplot-in-core-plot layers
+    "src/plot/SimulationPlotModel\\.cpp:1: the core includes rocketplot's header <rocketplot/text\\.h>")
 lint_plant(quoted-rocketplot gui/src/plot/ThrustCurvePlot.cpp "#include \"rocketplot/PlotWidget.h\"")
 lint_plant_test(quoted-rocketplot layers
     "gui/src/plot/ThrustCurvePlot\\.cpp:1: \"rocketplot/PlotWidget\\.h\": a quoted include is")

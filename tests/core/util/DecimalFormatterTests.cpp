@@ -128,8 +128,9 @@ void expectDfPin(const DfPin& pin)
 
 TEST(DecimalFormatter, TwoDecimalsAsThePlotsToolTipsShowThem)
 {
-    // (Values away from the powers of ten that pow() and log10() decide: their last bits differ
-    // between libraries.)
+    // (Values whose log10(1 / |value|) is far from an integer, and far from the bounds
+    // pow(0.1, decimals - 1): at a power of ten the digit count rests on the last bit of log10(),
+    // which differs between libms. The probe's 1e-5, whose inverse is one ulp below 1e5, is one.)
     for (const DfPin& pin : {
              DfPin(12.34, 2, false, "#0.##", 0, 2, "12.34"),
              DfPin(123.456, 2, false, "#0.##", 0, 2, "123.46"),
@@ -141,7 +142,7 @@ TEST(DecimalFormatter, TwoDecimalsAsThePlotsToolTipsShowThem)
              DfPin(9.999E-4, 2, false, "#0.#####", 0, 5, "0.001"),
              DfPin(2.6E-4, 2, false, "#0.#####", 0, 5, "0.00026"),
              DfPin(-2.599E-4, 2, false, "#0.#####", 0, 5, "-0.00026"),
-             DfPin(1.0E-5, 2, false, "#0.#######", 0, 7, "0.00001"),
+             DfPin(1.5E-5, 2, false, "#0.######", 0, 6, "0.000015"),
              DfPin(-0.00345, 2, false, "#0.####", 0, 4, "-0.0034"),
              DfPin(25.625, 2, false, "#0.##", 0, 2, "25.62"),
              DfPin(0.125, 2, false, "#0.##", 0, 2, "0.12"),
@@ -167,6 +168,7 @@ TEST(DecimalFormatter, DisplayedZerosHaveNoIntegerZero)
              DfPin(0.125, 3, true, "#.000", 3, 3, ".125"),
              DfPin(12.34, 3, true, "#.000", 3, 3, "12.340"),
              DfPin(2.6E-4, 3, true, "#.000000", 6, 6, ".000260"),
+             DfPin(1.5E-5, 3, true, "#.0000000", 7, 7, ".0000150"),
          })
     {
         expectDfPin(pin);
@@ -179,7 +181,7 @@ TEST(DecimalFormatter, OtherDecimals)
              DfPin(123.456, 3, false, "#0.###", 0, 3, "123.456"),
              DfPin(0.00345, 3, false, "#0.#####", 0, 5, "0.00345"),
              DfPin(0.05, 3, false, "#0.###", 0, 3, "0.05"),
-             DfPin(1.0E-5, 3, false, "#0.########", 0, 8, "0.00001"),
+             DfPin(1.5E-5, 3, false, "#0.#######", 0, 7, "0.000015"),
              DfPin(12.34, -1, false, "#", 0, 0, "12"),
              DfPin(0.00345, -1, true, "#", 0, 0, "0"),
              DfPin(0.5, 0, false, "#", 0, 0, "0"),
@@ -199,12 +201,20 @@ TEST(DecimalFormatter, OtherDecimals)
 
 TEST(DecimalFormatter, TheSmallestNormalValuesGetTheirDigits)
 {
-    // 1e-308: floor(log10(1e308)) = 308 more decimals.
-    const DecimalFormat format = DecimalFormatter::df(1.0E-308, 2, false);
-    EXPECT_EQ(format.getMaximumFractionDigits(), 310);
-    EXPECT_EQ(format.toPattern(), "#0." + std::string(310, '#'));
-    EXPECT_EQ(DecimalFormatter::df(2.2250738585072014E-308, 3, true).getMaximumFractionDigits(),
-              310);
+    // 3e-308: floor(log10(1 / 3e-308)) = floor(307.52...) = 307 more decimals. (Not the probe's
+    // 1e-308, a subnormal whose inverse's log10 is 308 plus 5e-18, which a libm one ulp low floors
+    // to 307.)
+    const DecimalFormat format = DecimalFormatter::df(3.0E-308, 2, false);
+    EXPECT_EQ(format.getMaximumFractionDigits(), 309);
+    EXPECT_EQ(format.toPattern(), "#0." + std::string(309, '#'));
+    EXPECT_EQ(format.format(3.0E-308), "0." + std::string(307, '0') + "3");
+    EXPECT_EQ(DecimalFormatter::format(3.0E-308, 3, true), "." + std::string(307, '0') + "300");
+    // DBL_MIN, the smallest normal double: log10(1 / DBL_MIN) = 307.65...
+    const DecimalFormat smallest = DecimalFormatter::df(2.2250738585072014E-308, 3, true);
+    EXPECT_EQ(smallest.getMaximumFractionDigits(), 310);
+    EXPECT_EQ(smallest.format(2.2250738585072014E-308), "." + std::string(307, '0') + "223");
+    EXPECT_EQ(DecimalFormatter::format(2.2250738585072014E-308, 2, false),
+              "0." + std::string(307, '0') + "22");
 }
 
 TEST(DecimalFormatter, ASubnormalValueWhoseInverseOverflowsGetsTheMostDigits)

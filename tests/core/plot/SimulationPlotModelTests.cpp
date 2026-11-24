@@ -292,6 +292,30 @@ TEST(SimulationPlotModel, EachRowHasTheColourThePanelShows)
     EXPECT_EQ(model.getLegend().at(1).lineStyle, LineStyle::DOTTED);
 }
 
+TEST(SimulationPlotModel, TheColourIndicesAreNotWrappedToThePalette)
+{
+    // The right row follows 4 left rows x 3 branches: 12, which the palette of 10 colours wraps
+    // (Java's Util.getPlotColor(), the GUI's PlotColors::plotColor()), not the model.
+    const DefaultUnitsGuard   units;
+    const std::vector<double> times{0, 1};
+    const std::vector<Column> columns{
+        Column(Id::TYPE_ALTITUDE, {0, 1}), Column(Id::TYPE_VELOCITY_Z, {0, 2}),
+        Column(Id::TYPE_ACCELERATION_Z, {0, 3}), Column(Id::TYPE_POSITION_X, {0, 4}),
+        Column(Id::TYPE_POSITION_Y, {0, 5})};
+    const auto data = flightData({makeBranch("A", times, columns), makeBranch("B", times, columns),
+                                  makeBranch("C", times, columns)});
+    const SimulationPlotConfiguration config = configuration(
+        Id::TYPE_TIME, {RowSpec(Id::TYPE_ALTITUDE, 0), RowSpec(Id::TYPE_VELOCITY_Z, 0),
+                        RowSpec(Id::TYPE_ACCELERATION_Z, 0), RowSpec(Id::TYPE_POSITION_X, 0),
+                        RowSpec(Id::TYPE_POSITION_Y, 1)});
+    const Model model("Simulation", data, config);
+
+    EXPECT_EQ(Model::computeDefaultColorIndices(config, *data), (std::vector<int>{0, 1, 2, 3, 12}));
+    EXPECT_EQ(seriesColors(model),
+              (std::vector<int>{0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 12, 12, 12}));
+    EXPECT_EQ(model.getLegend().at(4).colorIndex, 12);
+}
+
 TEST(SimulationPlotModel, AnEmptyBranchMisalignsNeitherTheLegendNorTheColours)
 {
     // Bug 48: an empty branch has no series; Java's stepping by the branch count then pairs the
@@ -559,6 +583,51 @@ TEST(SimulationPlotModel, ToolTipsAreOpenRocketsHtml)
                          configuration(Id::TYPE_TIME, {RowSpec(Id::TYPE_ALTITUDE, 0)}));
     EXPECT_EQ(overTime.getToolTip(0, 1).toHtml(),
               "<html><b><i>Altitude (m)</i></b><br>Altitude: 12.35 m<br>Time: 1.5 s<br></html>");
+}
+
+/// A sustainer with times, east positions and altitudes, and a booster with east positions and
+/// altitudes but no time column, each with an apogee.
+[[nodiscard]] std::shared_ptr<const FlightData> aBranchWithoutTimes()
+{
+    const auto booster = std::make_shared<FlightDataBranch>(
+        "Booster",
+        std::vector<const FlightDataType*>{&type(Id::TYPE_POSITION_X), &type(Id::TYPE_ALTITUDE)});
+    const std::array<std::pair<double, double>, 3> points{{{0, 0}, {1, 3}, {2, 1}}};
+    for (const auto& [east, altitude] : points)
+    {
+        booster->addPoint();
+        booster->setValue(type(Id::TYPE_POSITION_X), east);
+        booster->setValue(type(Id::TYPE_ALTITUDE), altitude);
+    }
+    booster->addEvent(FlightEvent(Event::APOGEE, 1));
+    return flightData(
+        {makeBranch("Sustainer", {0, 1, 2},
+                    {Column(Id::TYPE_POSITION_X, {0, 2, 4}), Column(Id::TYPE_ALTITUDE, {0, 10, 5})},
+                    {FlightEvent(Event::APOGEE, 1)}),
+         booster});
+}
+
+TEST(SimulationPlotModel, ABranchWithoutTimesHasNoIconsAndNoTimeInItsToolTips)
+{
+    // Java's readout tool tip leaves the time line out there too (Plot.java reads no time when
+    // the branch has none); its plotIconMarkers() fails (a LinearInterpolator without times).
+    const DefaultUnitsGuard units;
+    const Model             model(
+        "Simulation", aBranchWithoutTimes(),
+        configuration(Id::TYPE_POSITION_X, {RowSpec(Id::TYPE_ALTITUDE, 0)}, {Event::APOGEE}));
+
+    ASSERT_EQ(model.getSeries().size(), 2U);
+    EXPECT_EQ(model.getSeries()[1].branch, 1U);
+    EXPECT_TRUE(model.getIconMarkers(1).empty());
+    EXPECT_EQ(model.getIconMarkers(0).size(), 1U);
+    EXPECT_EQ(model.getIconMarkers().size(), 1U);
+
+    const Model::ToolTip toolTip = model.getToolTip(1, 1);
+    EXPECT_FALSE(toolTip.time.has_value());
+    EXPECT_EQ(toolTip.toHtml(),
+              "<html><b><i>Booster: Altitude (m)</i></b><br>Altitude: 3 "
+              "m<br>Position East of launch: 1 m<br></html>");
+    EXPECT_TRUE(model.getToolTip(0, 1).time.has_value());
 }
 
 TEST(SimulationPlotModel, AToolTipsWarningsComeBeforeItsEvents)

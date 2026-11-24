@@ -78,7 +78,8 @@ import org.jfree.data.xy.XYSeriesCollection;
  * (data/motors/initial_motors.db), headless:
  * <ul>
  * <li>DecimalFormat.toPattern() and the digit counts of the patterns QtRocket's DecimalFormat reads;</li>
- * <li>DecimalFormatter.df() for values about the powers of ten, signs, zeros and the special values, also the
+ * <li>DecimalFormatter.df() for values about the powers of ten (whose digit counts rest on log10()'s last bit, which
+ * differs between libms) and away from them (the ones the tests pin), signs, zeros and the special values, also the
  * subnormal values for which it throws;</li>
  * <li>Util.generateSeriesLabels() for lists of branch names, also one for which it throws;</li>
  * <li>SwingPreferences' default plot appearances: what setDefaultPlotAppearance() stores in the node
@@ -142,8 +143,8 @@ public class PlotModelProbe {
 	static void decimalFormatter() {
 		double[] values = { 12.34, 8.0, -8.75, 123.456, 8.5, 0.00345, 0.0, -0.0, 0.1, 0.09999999999999999, 0.099,
 				0.05, 0.010000000000000002, 0.01, 0.009999999999999998, 0.001, 9.999E-4, 2.6E-4, -2.599E-4, 1.0E-5,
-				-0.00345, 25.625, 0.125, 1234567.891, 1.0E-300, 1.0E-308, 2.2250738585072014E-308, 1.0E-310, 4.9E-324,
-				Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY };
+				1.5E-5, -0.00345, 25.625, 0.125, 1234567.891, 1.0E-300, 1.0E-308, 3.0E-308, 2.2250738585072014E-308,
+				1.0E-310, 4.9E-324, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY };
 		for (int decimals : new int[] { 2, 3 }) {
 			for (boolean zeros : new boolean[] { false, true }) {
 				for (double v : values) {
