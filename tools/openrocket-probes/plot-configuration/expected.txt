@@ -1,0 +1,162 @@
+UNITS distance 'm' velocity 'm/s' acceleration 'm/s²' time 's'
+FIT flat axes=[0] | left [5.94{0x1.7c28f5c28f5c3p2}, 8.06{0x1.01eb851eb851fp3}] right [NaN{NaN}, NaN{NaN}]
+FIT single-point axes=[0] | left [5.94{0x1.7c28f5c28f5c3p2}, 8.06{0x1.01eb851eb851fp3}] right [NaN{NaN}, NaN{NaN}]
+FIT margins axes=[0] | left [9.7{0x1.3666666666666p3}, 20.3{0x1.44ccccccccccdp4}] right [NaN{NaN}, NaN{NaN}]
+FIT zero-near-low axes=[0] | left [0.0{0x0.0p0}, 12.3{0x1.899999999999ap3}] right [NaN{NaN}, NaN{NaN}]
+FIT zero-just-in axes=[0] | left [0.0{0x0.0p0}, 13.700000000000001{0x1.b666666666667p3}] right [NaN{NaN}, NaN{NaN}]
+FIT zero-just-out axes=[0] | left [3.2{0x1.999999999999ap1}, 13.8{0x1.b99999999999ap3}] right [NaN{NaN}, NaN{NaN}]
+FIT zero-near-high axes=[0] | left [-12.3{-0x1.899999999999ap3}, 0.0{0x0.0p0}] right [NaN{NaN}, NaN{NaN}]
+FIT spans-zero axes=[0] | left [-3.3{-0x1.a666666666666p1}, 7.3{0x1.d333333333333p2}] right [NaN{NaN}, NaN{NaN}]
+FIT flat-zero axes=[0] | left [-1.06{-0x1.0f5c28f5c28f6p0}, 1.06{0x1.0f5c28f5c28f6p0}] right [NaN{NaN}, NaN{NaN}]
+FIT tiny axes=[0] | left [-1.0599999{-0x1.0f5c27484365bp0}, 1.060000100000001{0x1.0f5c2aa341b95p0}] right [NaN{NaN}, NaN{NaN}]
+FIT right-only axes=[1] | left [NaN{NaN}, NaN{NaN}] right [9.7{0x1.3666666666666p3}, 20.3{0x1.44ccccccccccdp4}]
+FIT in-feet axes=[0] | left [31.824146981627297{0x1.fd2fb4bed2fb5p4}, 66.60104986876641{0x1.0a67799de677ap6}] right [NaN{NaN}, NaN{NaN}]
+FIT branches axes=[0] | left [-7.55{-0x1.e333333333333p2}, 82.55{0x1.4a33333333333p6}] right [NaN{NaN}, NaN{NaN}]
+FIT branch-0-empty axes=[0] | left [NaN{NaN}, NaN{NaN}] right [NaN{NaN}, NaN{NaN}]
+FIT other-branch-without-type axes=[0] | left [NaN{NaN}, NaN{NaN}] right [NaN{NaN}, NaN{NaN}]
+FIT main-branch-without-type axes=[0] | left [NaN{NaN}, NaN{NaN}] right [NaN{NaN}, NaN{NaN}]
+FIT nan-column axes=[0] | left [NaN{NaN}, NaN{NaN}] right [NaN{NaN}, NaN{NaN}]
+FIT common-zero-lowers-right-min axes=[0 1] | left [-11.2{-0x1.6666666666666p3}, 31.2{0x1.f333333333333p4}] right [-36.9851282051282{-0x1.27e18ae57b247p5}, 103.03{0x1.9c1eb851eb852p6}]
+FIT common-zero-raises-right-max axes=[0 1] | left [-4.029999999999999{-0x1.01eb851eb851ep2}, 103.03{0x1.9c1eb851eb852p6}] right [-11.2{-0x1.6666666666666p3}, 286.33647642679904{0x1.1e562351b0fa1p8}]
+FIT common-zero-equal axes=[0 1] | left [-11.2{-0x1.6666666666666p3}, 31.2{0x1.f333333333333p4}] right [-11.2{-0x1.6666666666666p3}, 31.2{0x1.f333333333333p4}]
+FIT no-common-zero-right-positive axes=[0 1] | left [-11.2{-0x1.6666666666666p3}, 31.2{0x1.f333333333333p4}] right [48.5{0x1.84p5}, 101.5{0x1.96p6}]
+FIT left-starts-at-zero axes=[0 1] | left [0.0{0x0.0p0}, 102.85{0x1.9b66666666666p6}] right [-Infinity{-Infinity}, 10.6{0x1.5333333333333p3}]
+FIT left-ends-at-zero axes=[0 1] | left [-102.85{-0x1.9b66666666666p6}, 0.0{0x0.0p0}] right [-Infinity{-Infinity}, 10.6{0x1.5333333333333p3}]
+FIT right-starts-at-zero axes=[0 1] | left [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}] right [-102.85{-0x1.9b66666666666p6}, 102.85{0x1.9b66666666666p6}]
+AUTO vertical-motion rows=[0 -1 -1]
+  CANDIDATE [0 0 0] goodness=254.73819299406614{0x1.fd79f46e9f4dp7} | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [0 0 1] goodness=293.71689698822547{0x1.25b7868f9f078p8} | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [-12.597604790419165{-0x1.931f9414d9106p3}, 31.4{0x1.f666666666666p4}]
+  CANDIDATE [0 1 0] goodness=231.9177546157083{0x1.cfd5e3eed870cp7} | left [-13.919{-0x1.bd6872b020c4ap3}, 131.619{0x1.073ced916872bp7}] right [-50.94{-0x1.97851eb851eb8p5}, 481.6920655219484{0x1.e1b12b34bf752p8}]
+  CANDIDATE [0 1 1] goodness=178.37031416456875{0x1.64bd99d17423p7} | left [-3.8249999999999997{-0x1.e999999999999p1}, 131.325{0x1.06a6666666666p7}] right [-50.94{-0x1.97851eb851eb8p5}, 1748.9399999999996{0x1.b53c28f5c28f4p10}]
+  CHOSEN [0 0 1] | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [-12.597604790419165{-0x1.931f9414d9106p3}, 31.4{0x1.f666666666666p4}] | class=LoggedConfiguration source still [0 -1 -1]
+AUTO all-auto rows=[-1 -1 -1]
+  CANDIDATE [0 0 0] goodness=254.73819299406614{0x1.fd79f46e9f4dp7} | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [0 0 1] goodness=293.71689698822547{0x1.25b7868f9f078p8} | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [-12.597604790419165{-0x1.931f9414d9106p3}, 31.4{0x1.f666666666666p4}]
+  CANDIDATE [0 1 0] goodness=231.9177546157083{0x1.cfd5e3eed870cp7} | left [-13.919{-0x1.bd6872b020c4ap3}, 131.619{0x1.073ced916872bp7}] right [-50.94{-0x1.97851eb851eb8p5}, 481.6920655219484{0x1.e1b12b34bf752p8}]
+  CANDIDATE [0 1 1] goodness=178.37031416456875{0x1.64bd99d17423p7} | left [-3.8249999999999997{-0x1.e999999999999p1}, 131.325{0x1.06a6666666666p7}] right [-50.94{-0x1.97851eb851eb8p5}, 1748.9399999999996{0x1.b53c28f5c28f4p10}]
+  CANDIDATE [1 0 0] goodness=271.5225771070281{0x1.0f85c79d0052fp8} | left [-50.94{-0x1.97851eb851eb8p5}, 52.94{0x1.a7851eb851eb8p5}] right [-126.36372308273515{-0x1.f97473d2e4975p6}, 131.325{0x1.06a6666666666p7}]
+  CANDIDATE [1 0 1] goodness=248.74550333573387{0x1.f17db29cfc126p7} | left [-50.94{-0x1.97851eb851eb8p5}, 52.94{0x1.a7851eb851eb8p5}] right [-126.64661616924819{-0x1.fa96228c8ff17p6}, 131.619{0x1.073ced916872bp7}]
+  CANDIDATE [1 1 0] goodness=287.0209112407035{0x1.1f055a7066f0cp8} | left [-11.0{-0x1.6p3}, 31.4{0x1.f666666666666p4}] right [-53.265{-0x1.aa1eb851eb852p5}, 152.04736363636363{0x1.3018400bea672p7}]
+  CANDIDATE [1 1 1] goodness=251.73819299406614{0x1.f779f46e9f4dp7} | left [NaN{NaN}, NaN{NaN}] right [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}]
+  CHOSEN [0 0 1] | left [-53.265{-0x1.aa1eb851eb852p5}, 132.765{0x1.0987ae147ae14p7}] right [-12.597604790419165{-0x1.931f9414d9106p3}, 31.4{0x1.f666666666666p4}] | class=LoggedConfiguration source still [-1 -1 -1]
+AUTO one-auto rows=[-1]
+  CANDIDATE [0] goodness=150.1285862357264{0x1.2c41d60e1a524p7} | left [-3.8249999999999997{-0x1.e999999999999p1}, 131.325{0x1.06a6666666666p7}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [1] goodness=147.1285862357264{0x1.2641d60e1a524p7} | left [NaN{NaN}, NaN{NaN}] right [-3.8249999999999997{-0x1.e999999999999p1}, 131.325{0x1.06a6666666666p7}]
+  CHOSEN [0] | left [-3.8249999999999997{-0x1.e999999999999p1}, 131.325{0x1.06a6666666666p7}] right [NaN{NaN}, NaN{NaN}] | class=LoggedConfiguration source still [-1]
+AUTO none-auto rows=[0 1 0]
+  CANDIDATE [0 1 0] goodness=231.9177546157083{0x1.cfd5e3eed870cp7} | left [-13.919{-0x1.bd6872b020c4ap3}, 131.619{0x1.073ced916872bp7}] right [-50.94{-0x1.97851eb851eb8p5}, 481.6920655219484{0x1.e1b12b34bf752p8}]
+  CHOSEN [0 1 0] | left [-13.919{-0x1.bd6872b020c4ap3}, 131.619{0x1.073ced916872bp7}] right [-50.94{-0x1.97851eb851eb8p5}, 481.6920655219484{0x1.e1b12b34bf752p8}] | class=LoggedConfiguration source still [0 1 0]
+AUTO flat-row rows=[-1 -1]
+  CANDIDATE [0 0] goodness=150.1285862357264{0x1.2c41d60e1a524p7} | left [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [0 1] goodness=98.12858623572642{0x1.8883ac1c34a49p6} | left [1.94{0x1.f0a3d70a3d70ap0}, 4.06{0x1.03d70a3d70a3dp2}] right [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}]
+  CANDIDATE [1 0] goodness=99.12858623572642{0x1.8c83ac1c34a49p6} | left [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}] right [1.94{0x1.f0a3d70a3d70ap0}, 4.06{0x1.03d70a3d70a3dp2}]
+  CANDIDATE [1 1] goodness=147.1285862357264{0x1.2641d60e1a524p7} | left [NaN{NaN}, NaN{NaN}] right [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}]
+  CHOSEN [0 0] | left [-10.6{-0x1.5333333333333p3}, 10.6{0x1.5333333333333p3}] right [NaN{NaN}, NaN{NaN}] | class=LoggedConfiguration source still [-1 -1]
+AUTO left-starts-at-zero rows=[0 -1]
+  CANDIDATE [0 0] goodness=184.67934273383275{0x1.715bd2cf912c8p7} | left [-13.3{-0x1.a99999999999ap3}, 103.3{0x1.9d33333333333p6}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [0 1] goodness=139.10802543107718{0x1.16374f1bfb39cp7} | left [0.0{0x0.0p0}, 102.85{0x1.9b66666666666p6}] right [-Infinity{-Infinity}, 10.6{0x1.5333333333333p3}]
+  CHOSEN [0 0] | left [-13.3{-0x1.a99999999999ap3}, 103.3{0x1.9d33333333333p6}] right [NaN{NaN}, NaN{NaN}] | class=LoggedConfiguration source still [0 -1]
+AUTO missing-type rows=[-1 -1]
+  CANDIDATE [0 0] goodness=150.1285862357264{0x1.2c41d60e1a524p7} | left [-0.3{-0x1.3333333333333p-2}, 10.3{0x1.499999999999ap3}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [0 1] goodness=148.1285862357264{0x1.2841d60e1a524p7} | left [NaN{NaN}, NaN{NaN}] right [-0.3{-0x1.3333333333333p-2}, 10.3{0x1.499999999999ap3}]
+  CANDIDATE [1 0] goodness=149.1285862357264{0x1.2a41d60e1a524p7} | left [-0.3{-0x1.3333333333333p-2}, 10.3{0x1.499999999999ap3}] right [NaN{NaN}, NaN{NaN}]
+  CANDIDATE [1 1] goodness=147.1285862357264{0x1.2641d60e1a524p7} | left [NaN{NaN}, NaN{NaN}] right [-0.3{-0x1.3333333333333p-2}, 10.3{0x1.499999999999ap3}]
+  CHOSEN [0 0] | left [-0.3{-0x1.3333333333333p-2}, 10.3{0x1.499999999999ap3}] right [NaN{NaN}, NaN{NaN}] | class=LoggedConfiguration source still [-1 -1]
+SCORED constant rows=[-1 -1]
+  SCORED [0 0] goodness=5.0{0x1.4p2}
+  SCORED [0 1] goodness=5.0{0x1.4p2}
+  SCORED [1 0] goodness=5.0{0x1.4p2}
+  SCORED [1 1] goodness=5.0{0x1.4p2}
+  CHOSEN [0 0] | left [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}] right [NaN{NaN}, NaN{NaN}]
+SCORED all-nan rows=[-1 -1]
+  SCORED [0 0] goodness=NaN{NaN}
+  SCORED [0 1] goodness=NaN{NaN}
+  SCORED [1 0] goodness=NaN{NaN}
+  SCORED [1 1] goodness=NaN{NaN}
+  CHOSEN [0 0] | left [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}] right [NaN{NaN}, NaN{NaN}]
+SCORED non-finite rows=[-1 -1]
+  SCORED [0 0] goodness=NaN{NaN}
+  SCORED [0 1] goodness=3.0{0x1.8p1}
+  SCORED [1 0] goodness=Infinity{Infinity}
+  SCORED [1 1] goodness=3.0{0x1.8p1}
+  CHOSEN [0 1] | left [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}] right [NaN{NaN}, NaN{NaN}]
+SCORED first-nan-later-best rows=[-1 -1]
+  SCORED [0 0] goodness=NaN{NaN}
+  SCORED [0 1] goodness=-Infinity{-Infinity}
+  SCORED [1 0] goodness=-Infinity{-Infinity}
+  SCORED [1 1] goodness=7.0{0x1.cp2}
+  CHOSEN [1 1] | left [NaN{NaN}, NaN{NaN}] right [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}]
+SCORED last-best rows=[-1 -1 -1]
+  SCORED [0 0 0] goodness=1.0{0x1.0p0}
+  SCORED [0 0 1] goodness=1.0{0x1.0p0}
+  SCORED [0 1 0] goodness=1.0{0x1.0p0}
+  SCORED [0 1 1] goodness=1.0{0x1.0p0}
+  SCORED [1 0 0] goodness=1.0{0x1.0p0}
+  SCORED [1 0 1] goodness=1.0{0x1.0p0}
+  SCORED [1 1 0] goodness=1.0{0x1.0p0}
+  SCORED [1 1 1] goodness=2.0{0x1.0p1}
+  CHOSEN [1 1 1] | left [NaN{NaN}, NaN{NaN}] right [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}]
+SCORED negative rows=[-1 -1]
+  SCORED [0 0] goodness=-2.0{-0x1.0p1}
+  SCORED [0 1] goodness=-2.0{-0x1.0p1}
+  SCORED [1 0] goodness=-1.0{-0x1.0p0}
+  SCORED [1 1] goodness=-2.0{-0x1.0p1}
+  CHOSEN [1 0] | left [NaN{NaN}, NaN{NaN}] right [0.97{0x1.f0a3d70a3d70ap-1}, 2.03{0x1.03d70a3d70a3dp1}]
+EMPTY fillAutoAxes: IndexOutOfBoundsException: Index 0 out of bounds for length 0
+EMPTY fitAxes(no branches): left [NaN{NaN}, NaN{NaN}] right [NaN{NaN}, NaN{NaN}]
+EDITS new: domain=Time 's' rows=0 events=[]
+EDITS same group: Position East of launch 'ft'
+EDITS other group: Vertical velocity 'm/s'
+EDITS domain time step: Simulation time step 's' group same=false
+EDITS domain mach: Mach number '​'
+EDITS domain same group: Position East of launch 'ft'
+EDITS resetUnits: domain 'ft' row 'm/s'
+EDITS setPlotDataAxis(2): IllegalArgumentException: Axis index too large
+EDITS setPlotDataAxis(-2): axis=-2
+EDITS unit of another group: IllegalArgumentException
+SHARE clone(): source has LAUNCH=false
+SHARE cloneConfiguration(): source has APOGEE=true
+SHARE fillAutoAxes(): source has GROUND_HIT=true
+PRESET "Vertical motion vs. time" domain=Time 's'
+  ROW 0 Altitude 'm' axis=0 color=null style=SOLID
+  ROW 1 Vertical velocity 'm/s' axis=-1 color=null style=SOLID
+  ROW 2 Vertical acceleration 'm/s²' axis=-1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Total motion vs. time" domain=Time 's'
+  ROW 0 Altitude 'm' axis=0 color=null style=SOLID
+  ROW 1 Total velocity 'm/s' axis=-1 color=null style=SOLID
+  ROW 2 Total acceleration 'm/s²' axis=-1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Flight side profile" domain=Position East of launch 'm'
+  ROW 0 Altitude 'm' axis=-1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Ground track" domain=Position East of launch 'm'
+  ROW 0 Position North of launch 'm' axis=0 color=null style=SOLID
+  ROW 1 Altitude 'm' axis=1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Stability vs. time" domain=Time 's'
+  ROW 0 Stability margin calibers '​' axis=0 color=null style=SOLID
+  ROW 1 CP location 'cm' axis=1 color=null style=SOLID
+  ROW 2 CG location 'cm' axis=1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Drag coefficients vs. Mach number" domain=Mach number '​'
+  ROW 0 Drag coefficient (CD) '​' axis=0 color=null style=SOLID
+  ROW 1 Friction drag coefficient (CD_friction) '​' axis=0 color=null style=SOLID
+  ROW 2 Base drag coefficient (CD_base) '​' axis=0 color=null style=SOLID
+  ROW 3 Pressure drag coefficient (CD_pressure) '​' axis=0 color=null style=SOLID
+  EVENTS SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Roll characteristics" domain=Time 's'
+  ROW 0 Roll rate (Z) '°/s' axis=0 color=null style=SOLID
+  ROW 1 Roll moment coefficient '​' axis=1 color=null style=SOLID
+  ROW 2 Roll forcing coefficient '​' axis=1 color=null style=SOLID
+  ROW 3 Roll damping coefficient '​' axis=1 color=null style=SOLID
+  EVENTS IGNITION LAUNCHROD BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Angle of attack and orientation vs. time" domain=Time 's'
+  ROW 0 Angle of attack '°' axis=0 color=null style=SOLID
+  ROW 1 Lateral orientation (azimuth) '°' axis=-1 color=null style=SOLID
+  ROW 2 Vertical orientation (zenith) '°' axis=-1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION
+PRESET "Simulation time step and computation time" domain=Time 's'
+  ROW 0 Simulation time step 's' axis=-1 color=null style=SOLID
+  ROW 1 Computation time 's' axis=-1 color=null style=SOLID
+  EVENTS IGNITION BURNOUT STAGE_SEPARATION APOGEE RECOVERY_DEVICE_DEPLOYMENT GROUND_HIT TUMBLE SIM_WARN SIM_ABORT EXCEPTION

@@ -483,6 +483,9 @@ add_executable(QtRocket_core_tests
     figure/TransitionShapesTests.cpp
     figure/TubeFinSetShapesTests.cpp
     figure/TubeShapesTests.cpp
+    plot/PlotAxisBoundsTests.cpp
+    plot/PlotConfigurationTests.cpp
+    plot/SimulationPlotConfigurationTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
