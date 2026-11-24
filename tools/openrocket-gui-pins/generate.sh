@@ -7,7 +7,8 @@
 #
 # The families (all of them when none is named):
 #   figure-paint       tests/gui/figure/RocketFigurePaintPins.h
-#   rocket-info        tests/gui/figure/RocketInfoPins.h
+#   rocket-info        tests/gui/figure/RocketInfoPins.h and tests/data/goldens/gui/rocket-info/flight-blocks.json
+#                      (the overlay's flight block for each design of OpenDesignsExitGolden)
 #   ribbon             tests/gui/widgets/RibbonPins.h
 #   rocket-panel       tests/gui/figure/RocketPanelPins.h (the probe runs under xvfb-run)
 #   preferences        tests/gui/dialogs/PreferencesPagePins.h
@@ -335,9 +336,19 @@ for family in "${families[@]}"; do
         ;;
     rocket-info)
         run_probe "${family}" RocketInfoProbe headless "${examples}"
-        file=tests/gui/figure/RocketInfoPins.h
+        info=tests/gui/figure/RocketInfoPins.h
         python3 -I "${here}/${family}/gen_rocket_info_pins.py" "${work}/RocketInfoProbe.txt" \
-            "$(generated "${file}")" "${commit}"
+            "$(generated "${info}")" "${commit}"
+        finish "${info}"
+        # The flight block of the overlay for each design of OpenDesignsExitGolden (the open-designs family's list),
+        # with the six presets of the example designs from the bundled presets' directory, and the probe's own
+        # states. A JSON document, written whole (nothing to copy first).
+        python3 -I "${here}/open-designs/designs.py" "${repo}" > "${work}/rocket-info-designs.txt"
+        run_probe "${family}" RocketInfoFlightProbe headless "${work}/rocket-info-designs.txt" \
+            "${repo}/data/components"
+        file=tests/data/goldens/gui/rocket-info/flight-blocks.json
+        python3 -I "${here}/${family}/gen_rocket_info_flight_pins.py" "${work}/RocketInfoFlightProbe.txt" \
+            "${out}/$(basename "${file}")" "${commit}"
         ;;
     ribbon)
         run_probe "${family}" RibbonProbe headless "${examples}"

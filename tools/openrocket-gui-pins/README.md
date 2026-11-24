@@ -8,7 +8,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | Family | Table | Probe | Generator | Read by |
 |---|---|---|---|---|
 | `figure-paint` | `tests/gui/figure/RocketFigurePaintPins.h` | `FigurePaintProbe` | `gen_rocket_figure_paint_pins.py` | `rocket_figure_paint_golden_tests.cpp` |
-| `rocket-info` | `tests/gui/figure/RocketInfoPins.h` | `RocketInfoProbe` | `gen_rocket_info_pins.py` | `rocket_info_golden_tests.cpp` |
+| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` (through `RocketInfoFlightPins.h`) |
 | `ribbon` | `tests/gui/widgets/RibbonPins.h` | `RibbonProbe` | `gen_ribbon_pins.py` | `ribbon_golden_tests.cpp` |
 | `rocket-panel` | `tests/gui/figure/RocketPanelPins.h` | `RocketPanelProbe` | `gen_rocket_panel_pins.py` | `rocket_panel_golden_tests.cpp` |
 | `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp` |
@@ -54,7 +54,20 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   stages, tube fins, `TestRockets.makeBeta` and a new design.
 - `rocket-info`: `RocketInfoContextHelper.computePhysics()` and `RocketInfo.paint()` (the overlay of the
   design view) on the 16 examples, the 13 test rockets and a few designs of its own: every text with its
-  font, colour and row, the carets, CG and CP, the warnings.
+  font, colour and row, the carets, CG and CP, the warnings. Its second probe, `RocketInfoFlightProbe`
+  (Milestone 4, run 2, part G2), pins the overlay's flight block (`RocketInfo.drawFlightInformation()`) for
+  each design of `OpenDesignsExitGolden` (the open-designs family's `designs.py`, loaded as
+  `OpenDesignsTabProbe` loads them: the seven synthetic motors for the test rockets' re-saves, the six presets
+  of the example designs, `MotorNameColumn` false) and seven states of its own (a simple design calculating,
+  after a failed run, without flight data, in imperial units; the aborted stored flight of the coverage
+  re-save with its configuration selected, calculating and not): the state `RocketPanel.updateExtras()` gives
+  the overlay when the design is opened with the estimate on and `AutoRunSimulations` off, replayed line by
+  line without starting the worker (which simulations `updateSims(false)` and `updateSims(true)` would run,
+  calculating or not, the shown simulation), every simulation's status and maxima, and the texts of the block
+  after those of a paint without flight data, each with its font, colour, row above the bottom one and column
+  (the left margin or the values' column), which do not depend on the font. No fresh flight: the four
+  designs whose estimate would run show their stored values, dimmed. The generator writes JSON
+  (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, the design files relative to the repository).
 - `ribbon`: `StageSelector` and `ConfigurationComboBox`, made as `RocketPanel` makes them, on the 16
   examples, the 13 test rockets and five designs of its own: the stage buttons (text, state, tooltip), each
   enabled button clicked twice on a fresh design, every configuration picked, with the rocket's events and

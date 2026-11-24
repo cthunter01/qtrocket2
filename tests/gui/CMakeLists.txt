@@ -62,7 +62,8 @@ set_property(DIRECTORY PROPERTY LABELS gui)
 # The suites that run simulations on threads of their own (the application's executor, the run dialog over it) carry
 # a TIMEOUT, as the core's threaded suites do (tests/core/CMakeLists.txt): their waits have safety nets, and a defect
 # that breaks them fails the test instead of hanging ctest.
-set(QTROCKET_GUI_THREADED_SUITES "PollingSimulationExecutorTest.*:SimulationRunDialogThreadsTest.*")
+set(QTROCKET_GUI_THREADED_SUITES
+    "BackgroundSimulationThreadsTest.*:PollingSimulationExecutorTest.*:SimulationRunDialogThreadsTest.*")
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
     TEST_FILTER "-*Golden*.*:WidgetFileDialogTest.*:${QTROCKET_GUI_THREADED_SUITES}"
     PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)

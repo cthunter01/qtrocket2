@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -204,6 +205,30 @@ void expectWarningLine(const Item& line, double rowFromBottom, double widest, co
         << textOf(line);
 }
 
+/// The font of @p role among @p fonts.
+[[nodiscard]] const QFont& fontOfRole(const RocketInfo::Fonts& fonts, Item::FontRole role)
+{
+    switch (role)
+    {
+        case Item::FontRole::SMALL:
+            return fonts.small;
+        case Item::FontRole::BOLD:
+            return fonts.bold;
+        case Item::FontRole::REGULAR:
+            break;
+    }
+    return fonts.regular;
+}
+
+/// Whether the text record @p record draws in the font of the text item @p item.
+void expectFontPainted(const RecordedPaint& record, const Item& item,
+                       const RocketInfo::Fonts& fonts)
+{
+    const QFont& font = fontOfRole(fonts, item.font);
+    EXPECT_EQ(record.font.pointSizeF(), font.pointSizeF()) << textOf(item);
+    EXPECT_EQ(record.font.bold(), font.bold()) << textOf(item);
+}
+
 /// Whether the text record @p record draws the text item @p item.
 void expectTextPainted(const RecordedPaint& record, const Item& item,
                        const RocketInfo::Fonts& fonts)
@@ -214,8 +239,7 @@ void expectTextPainted(const RecordedPaint& record, const Item& item,
     EXPECT_NEAR(drawnAt.x(), item.position.x(), kTextPositionTolerance) << textOf(item);
     EXPECT_NEAR(drawnAt.y(), item.position.y(), kTextPositionTolerance) << textOf(item);
     EXPECT_EQ(record.pen.color(), item.colour);
-    const QFont& font = item.font == Item::FontRole::SMALL ? fonts.small : fonts.regular;
-    EXPECT_EQ(record.font.pointSizeF(), font.pointSizeF());
+    expectFontPainted(record, item, fonts);
 }
 
 /// Whether @p record fills the caret item @p item: a mark of radius 7 / 1.7 about its position,
@@ -548,6 +572,186 @@ TEST_F(RocketInfoTest, ACustomTextColourReplacesAllButTheWarnings)
               ThemeColors::color(ThemeColors::Key::TEXT));
 }
 
+/// The values of a flight block: 316.583 m, 95.282 m/s at Mach 0.281, 191.302 m/s\u00B2.
+[[nodiscard]] RocketInfo::FlightSummary someFlight()
+{
+    return {.maxAltitude     = 316.583,
+            .maxVelocity     = 95.282,
+            .maxMachNumber   = 0.281,
+            .maxAcceleration = 191.302};
+}
+
+/// The flight block's items of @p items: those after the @p before items of the rest.
+[[nodiscard]] std::vector<Item> flightItems(const std::vector<Item>& items, std::size_t before)
+{
+    return {items.begin() + static_cast<std::ptrdiff_t>(before), items.end()};
+}
+
+/// Whether @p item stands @p rowFromBottom lines above the bottom row at @p x.
+void expectAt(const Item& item, double x, double rowFromBottom, const Frame& frame)
+{
+    EXPECT_NEAR(item.position.x(), x, kTolerance) << textOf(item);
+    EXPECT_NEAR(item.position.y(), frame.y2 - (rowFromBottom * frame.line), kTolerance)
+        << textOf(item);
+}
+
+/// Whether the eight @p items are the labels and values @p texts of a flight block: in the
+/// regular font, the labels at the left margin on the bottom four rows, the values on the same
+/// rows 10 pixels right of the widest label.
+void expectFlightBlock(const std::vector<Item>& items, const std::vector<std::string>& texts,
+                       const Frame& frame)
+{
+    ASSERT_EQ(items.size(), texts.size());
+    const double widest =
+        std::max({items.at(0).width, items.at(1).width, items.at(2).width, items.at(3).width});
+    for (std::size_t index = 0; index < items.size(); ++index)
+    {
+        const Item& item = items.at(index);
+        EXPECT_EQ(textOf(item), texts.at(index));
+        EXPECT_EQ(item.font, Item::FontRole::REGULAR);
+        const double x = index < 4 ? frame.x1 : frame.x1 + widest + RocketInfo::kFlightValueGap;
+        expectAt(item, x, static_cast<double>(3 - (index % 4)), frame);
+    }
+}
+
+/// Whether every item of @p items from @p first on is in @p colour.
+void expectColoured(const std::vector<Item>& items, const QColor& colour, std::size_t first = 0)
+{
+    for (std::size_t index = first; index < items.size(); ++index)
+    {
+        EXPECT_EQ(items.at(index).colour, colour) << textOf(items.at(index));
+    }
+}
+
+/// The items of the AlphaInfo overlay without flight data.
+constexpr std::size_t kAlphaItems = 13;
+
+TEST_F(RocketInfoTest, HasNoFlightBlockWithoutFlightData)
+{
+    // Java: flightData null (the estimate off), not calculating: nothing at the bottom left.
+    const AlphaLayout layout;
+    EXPECT_FALSE(layout.overlay.info.flightData().has_value());
+    EXPECT_FALSE(layout.overlay.info.isCalculatingData());
+    EXPECT_FALSE(layout.overlay.info.abortedStatus().has_value());
+    EXPECT_EQ(layout.items.size(), kAlphaItems);
+}
+
+TEST_F(RocketInfoTest, TakesTheConfigurationsName)
+{
+    // drawFlightData()'s configuration.getName(), with the overlay's preferences.
+    const AlphaInfo overlay;
+    EXPECT_EQ(QtStrings::toUtf8(overlay.info.configurationName()),
+              configurationWithMotors(*overlay.alpha.rocket).getName(overlay.preferences));
+}
+
+TEST_F(RocketInfoTest, LaysOutTheFlightBlockAtTheBottomLeft)
+{
+    // drawFlightData(): four labels at the left margin on the bottom rows, their values 10 pixels
+    // right of the widest label, in the default units, in FLIGHTDATA_TEXT_ACTIVE.
+    AlphaLayout layout;
+    RocketInfo& info = layout.overlay.info;
+    info.setFlightData(someFlight());
+    const std::vector<Item> items =
+        flightItems(info.layout(kVisible, layout.ui, &layout.device), kAlphaItems);
+    ASSERT_EQ(items.size(), 8U);
+    const std::vector<std::string> texts{"Flight configuration: ",
+                                         "Apogee: ",
+                                         "Max. velocity: ",
+                                         "Max. acceleration: ",
+                                         QtStrings::toUtf8(info.configurationName()),
+                                         "317 m",
+                                         "95.3 m/s  (Mach 0.281)",
+                                         "191 m/s\u00B2"};
+    expectFlightBlock(items, texts, layout.frame);
+    expectColoured(items, ThemeColors::color(ThemeColors::Key::FLIGHTDATA_TEXT_ACTIVE));
+}
+
+TEST_F(RocketInfoTest, WritesNotAvailableForTheNumbersAFlightLacks)
+{
+    // FlightData.NaN_DATA: each NaN number is "N/A" (RocketInfo.apogeeValue, velocityValue,
+    // accelerationValue).
+    AlphaLayout layout;
+    RocketInfo& info = layout.overlay.info;
+    info.setFlightData(RocketInfo::FlightSummary::notAvailable());
+    std::vector<Item> items = flightItems(info.layout(kVisible, layout.ui, nullptr), kAlphaItems);
+    ASSERT_EQ(items.size(), 8U);
+    EXPECT_EQ(textOf(items.at(5)), "N/A");
+    EXPECT_EQ(textOf(items.at(6)), "N/A");
+    EXPECT_EQ(textOf(items.at(7)), "N/A");
+    // Only the apogee of a stored flight with no velocity column (the coverage re-save's).
+    info.setFlightData(RocketInfo::FlightSummary{
+        .maxAltitude = 2.25, .maxVelocity = kNaN, .maxMachNumber = kNaN, .maxAcceleration = kNaN});
+    items = flightItems(info.layout(kVisible, layout.ui, nullptr), kAlphaItems);
+    ASSERT_EQ(items.size(), 8U);
+    EXPECT_EQ(textOf(items.at(5)), "2.25 m");
+    EXPECT_EQ(textOf(items.at(6)), "N/A");
+}
+
+TEST_F(RocketInfoTest, DimsTheBlockAndSaysCalculatingAboveIt)
+{
+    // drawFlightInformation(): while calculating, the block in FLIGHTDATA_TEXT_INACTIVE and
+    // "Calculating..." in the text colour above it, or on the bottom row without a block.
+    AlphaLayout layout;
+    RocketInfo& info = layout.overlay.info;
+    info.setFlightData(someFlight());
+    info.setCalculatingData(true);
+    std::vector<Item> items =
+        flightItems(info.layout(kVisible, layout.ui, &layout.device), kAlphaItems);
+    ASSERT_EQ(items.size(), 9U);
+    expectColoured({items.begin(), items.begin() + 8},
+                   ThemeColors::color(ThemeColors::Key::FLIGHTDATA_TEXT_INACTIVE));
+    const Item& calculating = items.back();
+    EXPECT_EQ(calculating.text, QStringLiteral("Calculating\u2026"));
+    EXPECT_EQ(calculating.font, Item::FontRole::REGULAR);
+    EXPECT_EQ(calculating.colour, ThemeColors::color(ThemeColors::Key::TEXT));
+    expectAt(calculating, layout.frame.x1, 4, layout.frame);
+
+    info.setFlightData(std::nullopt);
+    items = flightItems(info.layout(kVisible, layout.ui, &layout.device), kAlphaItems);
+    ASSERT_EQ(items.size(), 1U);
+    expectAt(items.front(), layout.frame.x1, 0, layout.frame);
+}
+
+TEST_F(RocketInfoTest, ShowsAnAbortedStatusInBoldAboveTheBlock)
+{
+    // The status of an ABORTED simulation (RocketInfo.java:614-626): first, in the bold font and
+    // the status colour, a row above the block, which then is five rows high.
+    AlphaLayout layout;
+    RocketInfo& info = layout.overlay.info;
+    info.setFlightData(someFlight());
+    info.setAbortedStatus(QStringLiteral("Simulation Aborted: No motors ignited"));
+    info.setCalculatingData(true);
+    const std::vector<Item> items =
+        flightItems(info.layout(kVisible, layout.ui, &layout.device), kAlphaItems);
+    ASSERT_EQ(items.size(), 10U);
+    const Item& status = items.front();
+    EXPECT_EQ(status.text, QStringLiteral("Simulation Aborted: No motors ignited"));
+    EXPECT_EQ(status.font, Item::FontRole::BOLD);
+    EXPECT_EQ(status.colour, ThemeColors::color(ThemeColors::Key::ERROR));
+    expectAt(status, layout.frame.x1, 4, layout.frame);
+    expectAt(items.back(), layout.frame.x1, 5, layout.frame);
+    // No line without flight data.
+    info.setFlightData(std::nullopt);
+    EXPECT_EQ(info.layout(kVisible, layout.ui, &layout.device).size(), kAlphaItems + 1);
+}
+
+TEST_F(RocketInfoTest, ACustomTextColourReplacesTheFlightColoursButNotTheStatusColour)
+{
+    const ScopedApplicationPalette light(ScopedApplicationPalette::light());
+    AlphaInfo                      overlay;
+    RocketInfo&                    info = overlay.info;
+    info.setFlightData(someFlight());
+    info.setAbortedStatus(QStringLiteral("Simulation Aborted"));
+    info.setCalculatingData(true);
+    const QColor custom(10, 20, 30);
+    info.setCustomTextColor(custom);
+    const std::vector<Item> items =
+        flightItems(info.layout(kVisible, QApplication::font(), nullptr), kAlphaItems);
+    ASSERT_EQ(items.size(), 10U);
+    EXPECT_EQ(items.front().colour, ThemeColors::color(ThemeColors::Key::ERROR));
+    expectColoured(items, custom, 1);
+}
+
 TEST_F(RocketInfoTest, PaintsItsLayout)
 {
     const ScopedApplicationPalette light(ScopedApplicationPalette::light());
@@ -556,6 +760,10 @@ TEST_F(RocketInfoTest, PaintsItsLayout)
     WarningSet                     warnings;
     warnings.add(Warning::kDiameterDiscontinuity);
     info.setWarnings(warnings);
+    // The flight block too, with its bold status line.
+    info.setFlightData(someFlight());
+    info.setAbortedStatus(QStringLiteral("Simulation Aborted"));
+    info.setCalculatingData(true);
     RecordingPaintDevice device(QSize(1100, 800));
     const QFont          ui = QApplication::font();
     {

@@ -31,6 +31,7 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/figure/FigureView.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
 #include "QtRocket/gui/figure/DesignPhysics.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RulerUnitSelector.h"
@@ -114,7 +115,9 @@ RocketPanel::RocketPanel(OpenRocketDocument& document, Preferences& preferences,
     m_scrollArea(makeChild<ScaleScrollArea>(this, m_figure)),
     m_rulerUnit(RulerUnitSelector::install(*m_scrollArea)),
     m_physics(makeChild<DesignPhysics>(this, *m_figure, preferences)),
-    m_rotation(makeChild<ViewRotationControl>(this, *m_figure, preferences))
+    m_rotation(makeChild<ViewRotationControl>(this, *m_figure, preferences)),
+    // The flight part of updateExtras(): after the numbers, at each of their computations.
+    m_background(makeChild<BackgroundSimulation>(this, *m_physics, document, preferences))
 {
     setObjectName(QStringLiteral("rocketPanel"));
 
@@ -354,6 +357,11 @@ void RocketPanel::setHighlightedComponents(std::span<RocketComponent* const> com
 void RocketPanel::updateExtras()
 {
     m_physics->update();
+}
+
+void RocketPanel::setSimulationExecutor(SimulationExecutor* executor)
+{
+    m_background->setExecutor(executor, window());
 }
 
 void RocketPanel::updateFigures()

@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <QColor>
@@ -24,6 +25,7 @@ class QRect;
 namespace QtRocket
 {
 class FlightConfiguration;
+class FlightData;
 class Preferences;
 class Unit;
 }  // namespace QtRocket
@@ -45,7 +47,20 @@ namespace QtRocket::Gui
 ///   the angle of attack or the wind direction is set;
 /// - bottom right, in the error colour, when there are warnings: "Warning:" and a line per
 ///   warning, or "%1 warning(s)" when they are not shown (setShowWarnings()), centred on a
-///   common axis.
+///   common axis;
+/// - bottom left, the flight block (drawFlightInformation(), Milestone 4), when there is flight
+///   data (setFlightData(); none by default, Java's null): four rows from the bottom one up,
+///   "Flight configuration:", "Apogee:", "Max. velocity:" and "Max. acceleration:", each with a
+///   space, and their values in a column 10 pixels right of the widest label's visual width: the
+///   configuration's name (setCurrentConfig()), the apogee in the default distance unit, the
+///   velocity in the default velocity unit with "  (Mach " and the Mach number in the default
+///   coefficient unit and ")", the acceleration in the default acceleration unit, each "N/A" when
+///   it is NaN (FlightSummary::notAvailable(): Java's FlightData.NaN_DATA); in
+///   FLIGHTDATA_TEXT_ACTIVE, or FLIGHTDATA_TEXT_INACTIVE while a run computes new values
+///   (setCalculatingData(): the old values stay, dimmed); with the shown simulation's aborted
+///   status (setAbortedStatus()) above them, in the bold font and the status colour of ABORTED,
+///   when there is one; and, while calculating, "Calculating\u2026" in the text colour above all
+///   that (on the bottom row when there is no flight data).
 ///
 /// The layout is Java's, in the widget's pixels: a margin of kMargin pixels, rows one line apart
 /// (the regular font's line spacing plus its descent), the first row's baseline one line below
@@ -57,22 +72,30 @@ namespace QtRocket::Gui
 ///
 /// Fonts (fonts()): the UI font (the painter's, which the figure gives its own font) at the size
 /// S = max(8, floor(UI size) - 2 + 3 * RocketInfoFontSize), the small one at S - 1.5 and the bold
-/// one at S + 1.5 (the flight block's, Milestone 4), as SwingPreferences
+/// one at S + 1.5 (the flight block's status line), as SwingPreferences
 /// .getRocketInfoFontSize() computes it with the UI scale 1 (UIScale is the UI page's,
-/// Milestone 5). Colours: ThemeColors' TEXT, TEXT_DIM and ERROR, read at paint time; a custom
-/// text colour (setCustomTextColor(), the view settings of Milestone 5) replaces the first two.
+/// Milestone 5). Colours: ThemeColors' TEXT, TEXT_DIM, ERROR, FLIGHTDATA_TEXT_ACTIVE and
+/// FLIGHTDATA_TEXT_INACTIVE, read at paint time; a custom text colour (setCustomTextColor(), the
+/// view settings of Milestone 5) replaces all but the error colour of the warnings and of the
+/// status line.
+///
+/// What the flight block shows is the design view's to say (figure/BackgroundSimulation, Java's
+/// RocketPanel.updateExtras()): the overlay holds the numbers and the status text it was given,
+/// never a simulation.
 ///
 /// Deviations from OpenRocket:
 /// - The sizes are in the unit of the UI font: points when it has a point size (a pixel-sized
 ///   font counts 0.75 points per pixel), where Java's are Java2D units (pixels) of its bundled
 ///   Inter font. QtRocket draws in the platform's font, whose sizes are points.
-/// - setCurrentConfig() keeps the rocket's name and whether the configuration has motors, read
-///   then (Java reads them from the configuration at each paint), so that no configuration
-///   object is held: an undo replaces them all. The design view sets the configuration anew on
-///   every change of the rocket, as Java's does, so the same is shown.
-/// - No flight block ("Flight configuration:", "Apogee:", ...; "Calculating..."): it shows the
-///   background simulation of Milestone 4. What is shown is what OpenRocket shows with the
-///   preference "backgroundFlight" off.
+/// - setCurrentConfig() keeps the rocket's name, the configuration's name and whether the
+///   configuration has motors, read then (Java reads them from the configuration at each paint),
+///   so that no configuration object is held: an undo replaces them all. The design view sets the
+///   configuration anew on every change of the rocket and of the preferences, as Java's does, so
+///   the same is shown.
+/// - The flight block's simulation is not held either (Java: setSimulation(), whose status
+///   getStatus() reads at each paint): the design view gives the numbers (setFlightData()) and
+///   the aborted status's text (setAbortedStatus()) anew whenever the simulation, the rocket or
+///   the configuration changes.
 /// - Only paint(painter, scale, visible): Java's paint(g2, scale) throws.
 /// - The small and bold fonts are always S - 1.5 and S + 1.5. Java keeps its initial small 10 and
 ///   bold 13 when the first size it computes is 12, the size of its initial regular font
@@ -91,12 +114,31 @@ public:
     /// The smallest font size (SwingPreferences: Math.max(8, ...)).
     static constexpr double kMinimumFontSize = 8.0;
 
+    /// The pixels between the widest label of the flight block and its values (Java's literal 10).
+    static constexpr double kFlightValueGap = 10.0;
+
     /// The three fonts of the overlay (updateFontSizes()).
     struct Fonts
     {
         QFont regular;
         QFont small;
         QFont bold;
+    };
+
+    /// The numbers of the flight block: the maxima of a simulation's flight data (Java: the
+    /// FlightData RocketInfo holds).
+    struct FlightSummary
+    {
+        double maxAltitude{std::numeric_limits<double>::quiet_NaN()};
+        double maxVelocity{std::numeric_limits<double>::quiet_NaN()};
+        double maxMachNumber{std::numeric_limits<double>::quiet_NaN()};
+        double maxAcceleration{std::numeric_limits<double>::quiet_NaN()};
+
+        /// Every number NaN, each shown as "N/A" (Java: FlightData.NaN_DATA).
+        [[nodiscard]] static FlightSummary notAvailable() noexcept { return {}; }
+        /// The maxima of @p data (getMaxAltitude(), getMaxVelocity(), getMaxMachNumber(),
+        /// getMaxAcceleration()).
+        [[nodiscard]] static FlightSummary of(const FlightData& data) noexcept;
     };
 
     /// One thing paint() draws, where it draws it.
@@ -165,10 +207,32 @@ public:
     [[nodiscard]] double            aoa() const noexcept { return m_aoa; }
     [[nodiscard]] double            theta() const noexcept { return m_theta; }
     [[nodiscard]] double            mach() const noexcept { return m_mach; }
-    /// The rocket's name and whether the configuration has motors, as setCurrentConfig() read
+    /// The rocket's name, the configuration's name (FlightConfiguration::getName() with the
+    /// overlay's preferences) and whether the configuration has motors, as setCurrentConfig() read
     /// them.
     [[nodiscard]] const QString& rocketName() const noexcept { return m_rocketName; }
+    [[nodiscard]] const QString& configurationName() const noexcept { return m_configurationName; }
     [[nodiscard]] bool           hasMotors() const noexcept { return m_hasMotors; }
+
+    /// The numbers of the flight block; nullopt (the default) for no block (Java:
+    /// setFlightData(), null for none).
+    void setFlightData(const std::optional<FlightSummary>& data) noexcept { m_flightData = data; }
+    [[nodiscard]] const std::optional<FlightSummary>& flightData() const noexcept
+    {
+        return m_flightData;
+    }
+    /// Whether a run computes new values (setCalculatingData()): "Calculating\u2026" is shown and
+    /// the block is dimmed.
+    void setCalculatingData(bool calculating) noexcept { m_calculatingData = calculating; }
+    [[nodiscard]] bool isCalculatingData() const noexcept { return m_calculatingData; }
+    /// The status line over the flight block: the text of the shown simulation's status when it
+    /// is ABORTED (Java: removeHTMLTags(simulation.getStatusDescription()), SimulationStatusText::
+    /// plainDescription()); nullopt (the default) for none. Shown only with flight data.
+    void setAbortedStatus(const std::optional<QString>& text) { m_abortedStatus = text; }
+    [[nodiscard]] const std::optional<QString>& abortedStatus() const noexcept
+    {
+        return m_abortedStatus;
+    }
 
     /// The mass with motors in @p unit, with the unit (getMassWithMotors(Unit)).
     [[nodiscard]] QString getMassWithMotors(const Unit& unit) const;
@@ -205,11 +269,19 @@ private:
     /// The colour of the texts and of the dim texts (getTextColor(), getDimTextColor()).
     [[nodiscard]] QColor textColor() const;
     [[nodiscard]] QColor dimTextColor() const;
+    /// The colour of the flight block (getFlightDataTextActiveColor(),
+    /// getFlightDataTextInactiveColor() while calculating).
+    [[nodiscard]] QColor flightDataTextColor() const;
+    /// The texts of the flight block (drawFlightData()'s labels and values).
+    struct FlightTexts;
+    /// The labels and values of the flight block of @p data.
+    [[nodiscard]] FlightTexts flightTexts(const FlightSummary& data) const;
 
     const Preferences*                             m_preferences;
     std::unique_ptr<UnitGroup::StabilityUnitGroup> m_stabilityUnits;
     std::unique_ptr<UnitGroup::StabilityUnitGroup> m_secondaryStabilityUnits;
     QString                                        m_rocketName;
+    QString                                        m_configurationName;
     bool                                           m_hasMotors{false};
     double                                         m_cg{0.0};
     double                                         m_cp{0.0};
@@ -223,6 +295,10 @@ private:
     WarningSet m_warnings;
     bool       m_showWarnings{true};
     QColor     m_customTextColor;
+    /// The flight block (see the class comment).
+    std::optional<FlightSummary> m_flightData;
+    bool                         m_calculatingData{false};
+    std::optional<QString>       m_abortedStatus;
     /// The carets drawn beside "CG:" and "CP:".
     CGCaret m_cgCaret{0.0, 0.0};
     CPCaret m_cpCaret{0.0, 0.0};
