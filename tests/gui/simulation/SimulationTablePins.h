@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include <gtest/gtest.h>
+
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket::Gui::Test
@@ -189,5 +191,17 @@ struct SimulationTablePins
 /// tests/data/goldens/gui/simulation-table/simulation-table.json, read and interpreted once per
 /// test process (or the Error of the read or of its interpretation).
 [[nodiscard]] const Result<SimulationTablePins>& simulationTablePins();
+
+/// simulationTablePins(), or null and a test failure when they cannot be read.
+[[nodiscard]] const SimulationTablePins* simulationTablePinsOrFail();
+
+/// The names of the pins' designs, in their order, for INSTANTIATE_TEST_SUITE_P (none when the
+/// pins cannot be read: SimulationTablePinsGolden fails then).
+[[nodiscard]] std::vector<std::string> simulationTablePinnedDesigns();
+
+/// The name of the tests of a design of simulationTablePinnedDesigns(): the design's name in the
+/// pins ("example_a_simple_model_rocket").
+[[nodiscard]] std::string simulationTablePinTestName(
+    const ::testing::TestParamInfo<std::string>& param);
 
 }  // namespace QtRocket::Gui::Test

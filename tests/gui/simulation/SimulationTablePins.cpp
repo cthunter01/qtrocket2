@@ -273,4 +273,34 @@ const Result<SimulationTablePins>& simulationTablePins()
     return kPins;
 }
 
+const SimulationTablePins* simulationTablePinsOrFail()
+{
+    const Result<SimulationTablePins>& loaded = simulationTablePins();
+    if (!loaded.has_value())
+    {
+        ADD_FAILURE() << loaded.error().toString();
+        return nullptr;
+    }
+    return &*loaded;
+}
+
+std::vector<std::string> simulationTablePinnedDesigns()
+{
+    std::vector<std::string>           names;
+    const Result<SimulationTablePins>& loaded = simulationTablePins();
+    if (loaded.has_value())
+    {
+        for (const SimulationTablePinDesign& design : loaded->designs)
+        {
+            names.push_back(design.name);
+        }
+    }
+    return names;
+}
+
+std::string simulationTablePinTestName(const ::testing::TestParamInfo<std::string>& param)
+{
+    return param.param;
+}
+
 }  // namespace QtRocket::Gui::Test

@@ -46,7 +46,6 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/unit/Value.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Error.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationStatusSupport.h"
 #include "simulation/SimulationTablePins.h"
@@ -73,13 +72,7 @@ using Status                = Simulation::Status;
 /// The pins, or a test failure.
 [[nodiscard]] const Gui::Test::SimulationTablePins* pins()
 {
-    const Result<Gui::Test::SimulationTablePins>& loaded = Gui::Test::simulationTablePins();
-    if (!loaded.has_value())
-    {
-        ADD_FAILURE() << loaded.error().toString();
-        return nullptr;
-    }
-    return &*loaded;
+    return Gui::Test::simulationTablePinsOrFail();
 }
 
 /// An Estes Alpha III whose selected configuration is the first test configuration (a C6).

@@ -47,7 +47,6 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
-#include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/simulation/SimulationWarningsDelegate.h"
 #include "QtRocket/gui/util/Icons.h"
@@ -72,9 +71,8 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
-#include "QtRocket/util/Error.h"
-#include "goldens/GoldenExamples.h"
 #include "simulation/SimulationTablePins.h"
+#include "simulation/SimulationTableTestSupport.h"
 #include "unit/DefaultUnitsGuard.h"
 
 namespace QtRocket::Gui
@@ -89,30 +87,16 @@ using Status                   = Simulation::Status;
 using SortKey                  = TableSortKeys::SortKey;
 using SortOrder                = TableSortKeys::SortOrder;
 
-/// The preferences of the examples' loads (DesignFileEnvironment: a motor by its common name, as
-/// the pins' probe has it).
+/// The preferences of the examples' loads (Test::simulationExamplePreferences()).
 [[nodiscard]] const Preferences& examplePreferences()
 {
-    return QtRocket::Test::goldenExampleEnvironment().preferences();
+    return Gui::Test::simulationExamplePreferences();
 }
 
-/// The example design whose file in data/examples is @p file, as loaded; null (and a test
-/// failure) when it cannot be loaded.
+/// The example design whose file in data/examples is @p file (Test::loadSimulationExample()).
 [[nodiscard]] std::unique_ptr<OpenRocketDocument> loadExample(std::string_view file)
 {
-    const QtRocket::Test::GoldenExample* example = QtRocket::Test::findGoldenExample(file);
-    if (example == nullptr)
-    {
-        ADD_FAILURE() << "no example " << file;
-        return nullptr;
-    }
-    Result<LoadedDocument> loaded = QtRocket::Test::loadGoldenExample(*example);
-    if (!loaded.has_value())
-    {
-        ADD_FAILURE() << loaded.error().toString();
-        return nullptr;
-    }
-    return std::move(loaded->document);
+    return Gui::Test::loadSimulationExample(file);
 }
 
 /// A document and its simulations table, under QAbstractItemModelTester (the document outlives
@@ -503,13 +487,7 @@ TEST_F(SimulationTableModelTest, ShowsTheSortArrowOfThePrimaryKeyOnItsHeader)
 /// The pins, or a test failure.
 [[nodiscard]] const Gui::Test::SimulationTablePins* pins()
 {
-    const Result<Gui::Test::SimulationTablePins>& loaded = Gui::Test::simulationTablePins();
-    if (!loaded.has_value())
-    {
-        ADD_FAILURE() << loaded.error().toString();
-        return nullptr;
-    }
-    return &*loaded;
+    return Gui::Test::simulationTablePinsOrFail();
 }
 
 /// What OpenRocket's WarningsBox shows for the counts of the cell at @p index: the delegate's
@@ -708,22 +686,6 @@ TEST(SimulationTablePinsGolden, HaveThemeColorsLightColoursInTheTooltips)
     EXPECT_EQ(table->colors.at("info"), lightHex(ThemeColors::Key::INFO));
 }
 
-/// The names of the pins' designs (none when they cannot be read: ComeFromTheGoldensOpenRocket
-/// fails then).
-[[nodiscard]] std::vector<std::string> pinnedDesigns()
-{
-    std::vector<std::string>                      names;
-    const Result<Gui::Test::SimulationTablePins>& loaded = Gui::Test::simulationTablePins();
-    if (loaded.has_value())
-    {
-        for (const Gui::Test::SimulationTablePinDesign& design : loaded->designs)
-        {
-            names.push_back(design.name);
-        }
-    }
-    return names;
-}
-
 class SimulationTableModelGolden : public Gui::Test::GuiTest,
                                    public ::testing::WithParamInterface<std::string>
 {
@@ -775,14 +737,9 @@ TEST_P(SimulationTableModelGolden, SortsEachColumnAsOpenRocket)
     expectOrders(*table, pin->orders);
 }
 
-/// The name of a design's tests: the design's name in the pins ("example_a_simple_model_rocket").
-[[nodiscard]] std::string designTestName(const ::testing::TestParamInfo<std::string>& param)
-{
-    return param.param;
-}
-
-INSTANTIATE_TEST_SUITE_P(Designs, SimulationTableModelGolden, ::testing::ValuesIn(pinnedDesigns()),
-                         designTestName);
+INSTANTIATE_TEST_SUITE_P(Designs, SimulationTableModelGolden,
+                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedDesigns()),
+                         Gui::Test::simulationTablePinTestName);
 
 // ------------------------------------------------------------------------------ the scenarios
 

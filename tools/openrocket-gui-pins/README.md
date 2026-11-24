@@ -24,7 +24,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
-| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json` | `SimulationTableProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`) | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp` |
+| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -313,7 +313,17 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   keep the model's order, under `openRocket:warnings`) and the Copy whose statuses OpenRocket pairs with the
   lines by position (bug 25: QtRocket's pairs each line with its own simulation; OpenRocket's own under
   `openRocketCopy`). The table is JSON (one design, scenario or row per line), read once per test process by
-  `tests/gui/simulation/SimulationTablePins.h`.
+  `tests/gui/simulation/SimulationTablePins.h`. Its second probe, `SimulationTableViewProbe`, has no table: on
+  real `SimulationPanel`s (under `xvfb-run`, with `SimulationTableProbe`'s bootstrap, never shown) it prints the
+  column chooser's steps (its `ColumnVisibilityController`'s private `toggleColumn()` and
+  `saveHiddenColumnsToApplicationPreferences()`, called by reflection as the menu's items call them, on new and
+  loaded designs with and without stored choices, moved columns, every column hidden, one column left: the
+  document preference `simulation.table.hiddenColumns`, the application preference read from its
+  `java.util.prefs` node, since `SwingPreferences.getString()` stores the default it is given, the saved state,
+  the hidden ids and the view's columns) and its menus (`createMenu()`), the table's key bindings and what its
+  Enter and Shift+Enter do (`selectNextRowCell`, `selectPreviousRowCell` run through the action maps from
+  selections made with `changeSelection()`), and the sort keys after mouse events dispatched to the header. The
+  tests pin its whole transcript by hand (`SimulationColumnVisibilityTests.cpp`, `SimulationTableViewTests.cpp`).
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -411,6 +421,11 @@ lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-
 `PlotWidgetsProbe` (`plot-widgets`) has no table either: the four tests above pin its whole transcript by hand,
 and its `hand-pinned.txt` is that transcript.
 
+`SimulationTableViewProbe` (`simulation-table`; its other probe, `SimulationTableProbe`, writes the family's
+JSON table) has no table either: `SimulationColumnVisibilityTests.cpp` pins its COLS and MENU lines and
+`SimulationTableViewTests.cpp` its BIND, KEY and HEADER lines, by hand, and the family's `hand-pinned.txt` is its
+whole transcript.
+
 `PresetGuiProbe`, `ConfigPresetRowProbe` and `PresetShownProbe` (`preset-chooser`; its other probe,
 `PresetChooserProbe`, writes `PresetChooserPins.h`) have no table: the tests pin their whole transcripts by hand
 (`TableUiPreferencesTests.cpp` the `TableUiProbe` part, `PresetBindingTests.cpp` the `PresetModelProbe` part,
@@ -467,7 +482,8 @@ no UUID); three runs gave the same transcript.
 `simulation-table` (Milestone 4) reseeds from the design's name before each design, from the scenario's before
 each scenario (a new simulation and a new design draw UUIDs; the transcript names a configuration id by its first
 8 characters, all of them the files'); its one fresh flight's values are not in the table. Two runs gave the same
-table.
+table. Its `SimulationTableViewProbe` reseeds from the design's file name before each load and before each new
+design (it prints no UUID); two runs gave the same transcript.
 
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
@@ -538,7 +554,8 @@ byte for byte the same).
 Milestone 4's run 2, part T1, added `simulation-table` (from the M4 sim-tab scout's `SimTabProbe`: its table and
 status scenarios, taking a list of designs, seeded, the scenarios' runs moved to the one simulation tests may run,
 QtRocket's answers for bugs 23 and 25 beside OpenRocket's), the first family whose table is JSON
-(`tests/data/goldens/gui/`) rather than a C++ header.
+(`tests/data/goldens/gui/`) rather than a C++ header. Part T2 added its `SimulationTableViewProbe` (the column
+chooser, the keys and the header of the table view; pinned by hand).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

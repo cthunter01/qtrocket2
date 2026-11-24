@@ -37,8 +37,9 @@
 #                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
 #                      see README.md)
 #   simulation-table   tests/data/goldens/gui/simulation-table/simulation-table.json (the simulations table of
-#                      the sixteen examples and a new design, two status scenarios and a Copy; the probe runs
-#                      under xvfb-run)
+#                      the sixteen examples and a new design, two status scenarios and a Copy), and the values
+#                      tests/gui/simulation/SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp
+#                      pin by hand (checked only, see README.md; both probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -496,6 +497,11 @@ for family in "${families[@]}"; do
         continue
         ;;
     simulation-table)
+        # The table view's column chooser, keys and header on OpenRocket's SimulationPanel (its RocketActions
+        # need a toolkit, as below): the tests pin the whole transcript by hand.
+        run_probe "${family}" SimulationTableViewProbe xvfb "${repo}/data/components" "${examples}"
+        check_hand_pins "${family}" SimulationTableViewProbe \
+            "SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp"
         # The sixteen examples of OpenDesignsExitGolden's designs (open-designs/designs.py, its kind "example"),
         # in its order; OpenRocket's SimulationPanel makes RocketActions, whose key strokes ask the toolkit for
         # the menu shortcut key, which a headless AWT refuses (no window is shown). The six presets of the
