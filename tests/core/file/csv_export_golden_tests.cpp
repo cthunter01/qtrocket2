@@ -7,19 +7,22 @@
 // tools/openrocket-goldens/src/main/java/info/qtrocket/goldens/CsvExportDumper.java (see the
 // README there and tests/data/csv/README.md): every field of the branch in the order of its
 // getTypes(), each in the default unit of its group, with the options of the export dialog or
-// one of four other sets of options. Here the example is loaded as the golden harness loads it
-// (goldenExampleEnvironment(), loadGoldenExample(): as loaded, not settled; the stored data does
-// not depend on either), the same branch exported with the same options, and the text compared
-// with the fixture's, gunzipped.
+// one of six other sets of options and units. Here the example is loaded as the golden harness
+// loads it (goldenExampleEnvironment(), loadGoldenExample(): as loaded, not settled; the stored
+// data does not depend on either), the same branch exported with the same options and units, and
+// the text compared with the fixture's, gunzipped.
 //
-// Between them the nine fixtures hold: the layouts of the comments (simulation, field and event
+// Between them the eleven fixtures hold: the layouts of the comments (simulation, field and event
 // comments each on and off, the line of the comment starter alone), the separators ",", ";",
-// " " and a tab, the comment starters "#", "%", ";" and "//", 0, 3, 6 and 15 decimals with and
-// without the exponential notation, a branch of a booster and the third branch of a three-stage
-// flight, the warnings of a simulation (with sources), a SIM_WARN event, the zero-width space of
-// a dimensionless unit, the column of a simulation extension, and the order of events at the
-// same time whose sources are known by their ids only (the events of a loaded flight are
-// detached, see CsvExport).
+// " ", a tab, "|" and the multi-character "<->", the comment starters "#", "%", ";", "//", "!!"
+// and the empty one, 0, 2, 3, 6 and 15 decimals with and without the exponential notation, the
+// last unit of every unit group (the export dialog lets a user choose any unit of a group: for 39
+// of the 58 fields the last is not the default, among them an offset unit, degrees Fahrenheit,
+// and the negating units of south latitude and west longitude), a branch of a booster and the third
+// branch of a three-stage flight, the warnings of a simulation (with sources), a SIM_WARN event,
+// the zero-width space of a dimensionless unit, the column of a simulation extension, and the
+// order of events at the same time whose sources are known by their ids only (the events of a
+// loaded flight are detached, see CsvExport).
 
 #include <algorithm>
 #include <cstddef>
@@ -28,6 +31,7 @@
 #include <format>
 #include <memory>
 #include <set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -44,6 +48,7 @@
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/Unit.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
@@ -55,7 +60,16 @@ namespace QtRocket::Test
 namespace
 {
 
-/// One fixture: the branch of a simulation of an example, exported with options.
+/// The unit of its group that each field of a fixture is exported in (CsvExportDumper's Units).
+enum class FixtureUnits
+{
+    /// The default unit of the group, the one OpenRocket's export dialog starts with.
+    DEFAULT,
+    /// The last unit of the group.
+    LAST,
+};
+
+/// One fixture: the branch of a simulation of an example, exported with options and units.
 struct CsvFixture
 {
     /// The name of the file in tests/data/csv.
@@ -68,6 +82,8 @@ struct CsvFixture
     std::size_t branch{0};
     /// The options of the export.
     CsvExport::Options options{};
+    /// The units of the fields.
+    FixtureUnits units{FixtureUnits::DEFAULT};
 };
 
 /// The options of CsvExportDumper's VARIANTS, in its order.
@@ -103,6 +119,13 @@ struct CsvFixture
         {.file    = "tube-fin-rocket_sim00_branch0_variant4.csv.gz",
          .example = tubeFin,
          .options = variant(",", 3, true, "//", true, true, false)},
+        {.file    = "tube-fin-rocket_sim00_branch0_variant5.csv.gz",
+         .example = tubeFin,
+         .options = variant("|", 2, false, "!!", true, true, true),
+         .units   = FixtureUnits::LAST},
+        {.file    = "tube-fin-rocket_sim00_branch0_variant6.csv.gz",
+         .example = tubeFin,
+         .options = variant("<->", 0, false, "", true, true, true)},
         {.file    = "two-stage-high-power-rocket_sim00_branch1.csv.gz",
          .example = "Two stage high power rocket.ork",
          .branch  = 1},
@@ -167,6 +190,24 @@ struct CsvFixture
                        expected.size(), actual.size(), lineAround(expected), lineAround(actual));
 }
 
+/// The unit of each of @p fields that @p choice names, in order.
+[[nodiscard]] std::vector<const Unit*> fixtureUnits(std::span<const FlightDataType* const> fields,
+                                                    FixtureUnits                           choice)
+{
+    if (choice == FixtureUnits::DEFAULT)
+    {
+        return CsvExport::defaultUnits(fields);
+    }
+    std::vector<const Unit*> units;
+    units.reserve(fields.size());
+    for (const FlightDataType* field : fields)
+    {
+        const UnitGroup& group = field->getUnitGroup();
+        units.push_back(&group.getUnit(group.getUnitCount() - 1));
+    }
+    return units;
+}
+
 /// Exports the branch of @p fixture from @p loaded and compares it with the fixture.
 void compareFixture(const LoadedDocument& loaded, const CsvFixture& fixture)
 {
@@ -182,7 +223,7 @@ void compareFixture(const LoadedDocument& loaded, const CsvFixture& fixture)
     ASSERT_LT(fixture.branch, data->getBranchCount());
     const FlightDataBranch&                  branch = data->getBranch(fixture.branch);
     const std::vector<const FlightDataType*> fields = branch.getTypes();
-    const std::vector<const Unit*>           units  = CsvExport::defaultUnits(fields);
+    const std::vector<const Unit*>           units  = fixtureUnits(fields, fixture.units);
 
     std::ostringstream out;
     const Result<void> exported =
@@ -255,7 +296,7 @@ TEST(CsvExportGolden, StoredBranchesOfTheExamplesAreExportedAsOpenRocketExportsT
 TEST(CsvExportGolden, EveryFixtureIsCompared)
 {
     EXPECT_EQ(fixtureFiles(), listedFiles());
-    EXPECT_EQ(listedFiles().size(), 9U);
+    EXPECT_EQ(listedFiles().size(), 11U);
 }
 
 }  // namespace
