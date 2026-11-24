@@ -10,6 +10,10 @@ namespace
 {
 
 using QtRocket::altitudeReferenceFromString;
+using QtRocket::description;
+using QtRocket::descriptionKey;
+using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::kAllWindModelTypes;
 using QtRocket::toStringValue;
 using QtRocket::WindModel;
@@ -66,6 +70,21 @@ TEST(WindModelType, SpellingsParseBack)
         EXPECT_EQ(windModelTypeFromString(toStringValue(type)), type);
         EXPECT_EQ(windModelTypeFromString(toString(type)), type);
     }
+}
+
+TEST(WindModelType, DisplayKeysAndNamesAreTheWindModelRadioButtons)
+{
+    // OpenRocket shows the types as the simulation dialog's radio buttons, with their tooltips.
+    EXPECT_EQ(displayKey(WindModelType::AVERAGE), "simedtdlg.radio.AverageWind");
+    EXPECT_EQ(displayKey(WindModelType::MULTI_LEVEL), "simedtdlg.radio.MultiLevelWind");
+    EXPECT_EQ(displayName(WindModelType::AVERAGE), "Average");
+    EXPECT_EQ(displayName(WindModelType::MULTI_LEVEL), "Multi-level");
+    EXPECT_EQ(descriptionKey(WindModelType::AVERAGE), "simedtdlg.radio.AverageWind.ttip");
+    EXPECT_EQ(descriptionKey(WindModelType::MULTI_LEVEL), "simedtdlg.radio.MultiLevelWind.ttip");
+    EXPECT_EQ(description(WindModelType::AVERAGE),
+              "Model the wind as pink noise from the average wind speed and standard deviation.");
+    EXPECT_EQ(description(WindModelType::MULTI_LEVEL),
+              "Model the wind using speed and direction entries at various altitude levels.");
 }
 
 TEST(WindModelType, AltitudeReferenceOrkSpellings)

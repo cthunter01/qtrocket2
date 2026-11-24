@@ -7,5 +7,6 @@ target_sources(QtRocket_core PRIVATE
     MotorChooserInput.cpp
     OpenRocketDocument.cpp
     OpenRocketDocumentFactory.cpp
+    SimulationCopy.cpp
     StorageOptions.cpp
 )

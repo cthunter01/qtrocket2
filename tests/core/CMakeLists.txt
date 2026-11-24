@@ -289,6 +289,7 @@ add_executable(QtRocket_core_tests
     simulation/GroundStepperTests.cpp
     simulation/LandingDispersionSettingsTests.cpp
     simulation/launch_site_air_tests.cpp
+    simulation/LaunchPreferencesTests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
     simulation/nan_flight_tests.cpp
@@ -298,11 +299,14 @@ add_executable(QtRocket_core_tests
     simulation/Rk4SimulationStepperTests.cpp
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp
+    simulation/RunSampleListenerTests.cpp
+    simulation/RunSampleTests.cpp
     simulation/simulation_branch_listener_tests.cpp
     simulation/simulation_input_validation_tests.cpp
     simulation/simulation_lookup_invalidation_tests.cpp
     simulation/simulation_row_bound_tests.cpp
     simulation/simulation_threading_tests.cpp
+    simulation/SimulationBatchCompletionTests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp
@@ -310,6 +314,9 @@ add_executable(QtRocket_core_tests
     simulation/SimulationListenerHelperTests.cpp
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
+    simulation/SimulationProgressEstimatorTests.cpp
+    simulation/SimulationRunnerTests.cpp
+    simulation/SimulationRunTests.cpp
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
     simulation/SimulationTests.cpp
@@ -331,6 +338,8 @@ add_executable(QtRocket_core_tests
     document/open_rocket_document_unresolved_preset_tests.cpp
     document/OpenRocketDocumentFactoryTests.cpp
     document/OpenRocketDocumentTests.cpp
+    document/simulation_options_undo_tests.cpp
+    document/SimulationCopyTests.cpp
     document/StorageOptionsTests.cpp
     document/test_documents_tests.cpp
     file/csv_export_golden_tests.cpp
@@ -534,9 +543,16 @@ include(GoogleTest)
 # 5 s default.
 # The golden tests (every suite whose name contains "Golden", mostly in the *_golden_tests.cpp files) carry the ctest
 # label "golden", so that `ctest -L golden` re-runs them after a change to the physics or the file formats.
-gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*")
+# The suites that run simulations on threads of their own and hold them at gates carry a TIMEOUT (each takes seconds,
+# about ten under ASan): a defect that breaks the cancel of a held run fails such a test instead of hanging the run.
+# Their safety nets (simulation/SimulationRunnerSupport.h) give up well within it.
+set(QTROCKET_THREADED_SUITES "SimulationRunner.*:SimulationThreading.*:RunSampleListener.*")
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "-*Golden*.*:${QTROCKET_THREADED_SUITES}")
 gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
     PROPERTIES LABELS golden)
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "${QTROCKET_THREADED_SUITES}" PROPERTIES TIMEOUT 600)
 
 # QtRocket_cli run as a program, for its exit codes and its output (tests/core/cli/CMakeLists.txt).
 add_subdirectory(cli)

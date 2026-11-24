@@ -21,9 +21,11 @@ class PinkNoiseWindModel;
 ///
 /// Deviation: in OpenRocket ApplicationPreferences implements this interface too, which lets
 /// DefaultSimulationOptionFactory copy between the preferences and a simulation's options with
-/// one routine. Preferences does not implement it here (preferences/ sits below models/ and
-/// simulation/, and keeps the wind as plain values, not as a PinkNoiseWindModel), so the factory
-/// spells both directions out.
+/// one routine, and the Launch preference page edit the preferences with the panel of a
+/// simulation's launch conditions. Preferences does not implement it here (preferences/ sits
+/// below models/ and simulation/, and keeps the wind as plain values, not as a
+/// PinkNoiseWindModel): the factory spells both directions out, and LaunchPreferences is the
+/// preferences as an implementation of this interface, for the panel.
 class SimulationOptionsInterface
 {
 public:

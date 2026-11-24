@@ -86,9 +86,9 @@ class WarningSet;
 /// Change events (Java: ChangeSource; addChangeListener()/removeChangeListener() are
 /// changed().connect()/disconnect()): changed() is emitted by setFlightConfigurationId(),
 /// setName() and setLandingDispersionSettings() when they change something, by syncModId(),
-/// setPlotAppearance() and simulate() always, and whenever the options emit theirs (Java: the
-/// ConditionListener), except for the options of a copy() or a cloneForUndo(), which Java
-/// leaves without that listener.
+/// setPlotAppearance(), setPlotAppearances(), simulate() and adoptRun() always, and whenever the
+/// options emit theirs (Java: the ConditionListener), except for the options of a copy() or a
+/// cloneForUndo(), which Java leaves without that listener.
 ///
 /// Copies, with exactly what Java's Object.clone() shares: a copy(), a clone() and a
 /// cloneForUndo() refer to the same rocket and document, share the plot appearances with the
@@ -102,7 +102,9 @@ class WarningSet;
 /// SafetyMutex, which is not ported). Simulations of one design that must run at the same time
 /// each run on a duplicateForIndependentSimulation(). What such duplicates still share with
 /// the simulation they were made from, and with each other, is the preference store, which is
-/// thread-safe: the thread that owns the store may write to it while they run.
+/// thread-safe: the thread that owns the store may write to it while they run. A run made that
+/// way comes back to the simulation through adoptRun(), on the thread that owns it
+/// (SimulationRun does the three steps: duplicate, run, adopt).
 ///
 /// Deviations from OpenRocket:
 /// - simulate() returns a Result where Java throws: see there.
@@ -506,6 +508,38 @@ public:
         const std::stop_token&                               stopToken,
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 
+    /// Takes over the record of a run that @p run, a duplicateForIndependentSimulation() of this
+    /// simulation, has made (an addition, for SimulationRun::adoptInto(), which calls it): on the
+    /// thread that owns this simulation, after the run has ended. Java has no such step: its
+    /// run dialog and its background estimate run the document's own simulation on a worker
+    /// thread, whose simulate() records the run there.
+    ///
+    /// What is recorded is what simulate() records (Java's finally block, Simulation.java:
+    /// 557-570), in its order:
+    /// - the simulated conditions become a copy of @p run's (the options the duplicate ran
+    ///   with, Java's options.clone() at the end of the run);
+    /// - the configuration description becomes @p run's (the name of the flight configuration
+    ///   as the duplicate's copy of the rocket had it);
+    /// - the simulated modification id becomes @p modIdAtDuplication: the modification id that
+    ///   this simulation's flight configuration had when @p run was made from it
+    ///   (SimulationRun::getModIdAtDuplication()). Java reads the id from the live
+    ///   configuration at the end of the run. When @p run simulated another flight configuration
+    ///   than this simulation's (setFlightConfigurationId() was called since), it becomes
+    ///   ModId::invalid() instead, whatever @p modIdAtDuplication is: two configurations that
+    ///   nothing has changed both have the id ModId::zero(), so their ids do not tell them apart;
+    /// - the simulated data become @p run's (shared, not copied: the duplicate is done with
+    ///   them; null when its run got no data);
+    /// - the status becomes UPTODATE, and changed() is emitted.
+    /// So a change of the design or of the options made while the duplicate ran leaves this
+    /// simulation OUTDATED (getStatus()): the record is that of the design and the options as
+    /// they were when the run started, and getStatus() compares them with the current ones.
+    /// Java, which reads the modification id when its run ends, calls the data of such a run up
+    /// to date. Nothing else changes: the name, the configuration id, the options, the
+    /// extensions and the plot appearances stay this simulation's.
+    /// @throws BugError when @p run is this simulation, or has not recorded a run (it has no
+    ///         simulated conditions: it was never simulated)
+    void adoptRun(const Simulation& run, ModId modIdAtDuplication);
+
     // ------------------------------------------------------------ what was simulated
 
     /// The conditions used in the previous simulation, or null if the simulation has not been
@@ -557,7 +591,9 @@ public:
     /// plot appearances (shared, see the class comment), copies of the options and of the
     /// landing dispersion settings and clones of the extensions, and nothing simulated: the
     /// status NOT_SIMULATED, no simulated conditions, description or data. As in Java, a
-    /// change of the copy's options does not emit the copy's changed().
+    /// change of the copy's options does not emit the copy's changed(). The application's
+    /// clipboard keeps a document/SimulationCopy instead, which refers to neither the rocket nor
+    /// the document.
     [[nodiscard]] std::unique_ptr<Simulation> copy() const;
 
     /// clone(true).
@@ -589,6 +625,9 @@ public:
     /// @p newRocket), conditions (copyConditionsFrom() onto the new simulation's default
     /// options), landing dispersion settings, configuration description, clones of the
     /// extensions and copies of the plot appearances. @p newRocket must outlive the duplicate.
+    /// The document stays this simulation's, as in Java, where it is the duplicate's change
+    /// listener (OpenRocket bug 22 for a paste into another document); a paste goes through
+    /// document/SimulationCopy, whose simulations belong to the document they are pasted into.
     [[nodiscard]] std::unique_ptr<Simulation> duplicateSimulation(Rocket& newRocket) const;
 
     /// A deep copy of this simulation for a run of its own: a not yet simulated simulation of a
@@ -640,11 +679,20 @@ public:
     /// A copy of the plot appearances, by symbol.
     [[nodiscard]] std::map<std::string, PlotAppearance> getPlotAppearances() const;
 
+    /// Replaces the plot appearances by those of @p appearances that are not empty, by symbol,
+    /// and emits changed() (an addition: Java's private setPlotAppearancesInternal(), which only
+    /// its constructor calls). For document/SimulationCopy, whose pasted simulations take the
+    /// appearances of the copy.
+    void setPlotAppearances(const std::map<std::string, PlotAppearance>& appearances);
+
 protected:
     /// Emits changed().
     void fireChangeEvent() const { m_changed.emit(); }
 
 private:
+    /// SimulationRun runs its duplicate through simulateForRun().
+    friend class SimulationRun;
+
     /// What the constructors of a new simulation share: the flight configuration id of the
     /// rocket's selected configuration, and the options' change listener.
     void initialize();
@@ -652,11 +700,30 @@ private:
     /// Makes a change of the options emit changed() (Java: the ConditionListener).
     void connectConditionListener();
 
+    /// simulate(@p stopToken, @p additionalListeners), which also tells the name of the flight
+    /// data branch of a SimulationCalculationException that ended the run: @p calculationBranch
+    /// becomes that name when the exception names a branch, else nullopt. Java's run dialog
+    /// names the branch in its message (SimulationRunDialog.java:455-466: "An error occurred
+    /// during simulation branch \"<name>\""); here simulate() turns the exception into an
+    /// Error, which has no room for it.
+    [[nodiscard]] Result<void> simulateForRun(
+        const std::stop_token&                               stopToken,
+        std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
+        std::optional<std::string>&                          calculationBranch);
+
+    /// simulate(@p additionalListeners), with simulateForRun()'s @p calculationBranch when it
+    /// is not null.
+    [[nodiscard]] Result<void> simulateNamingBranch(
+        std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
+        std::optional<std::string>*                          calculationBranch);
+
     /// The part of simulate() that Java's try block holds: everything up to and including the
-    /// engine's run. @p flightData receives what the engine produced.
+    /// engine's run. @p flightData receives what the engine produced; @p calculationBranch, when
+    /// it is not null, the name of the branch of a SimulationCalculationException (see
+    /// simulateForRun()).
     [[nodiscard]] Result<void> runSimulation(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
-        std::shared_ptr<FlightData>&                         flightData);
+        std::shared_ptr<FlightData>& flightData, std::optional<std::string>* calculationBranch);
 
     /// Java's finally block of simulate(): records what was simulated (see simulate()).
     void recordSimulation(std::shared_ptr<FlightData> flightData);
@@ -714,10 +781,21 @@ private:
 /// The constant's name, e.g. "NOT_SIMULATED" (Java: Status.name()).
 [[nodiscard]] std::string_view name(Simulation::Status status) noexcept;
 
+/// The key of the status's name in OpenRocket's messages.properties,
+/// "Simulation.Status.<name>", e.g. "Simulation.Status.NOT_SIMULATED" (Java translates it in
+/// the constant's constructor). With displayName() the GUI shows the status by its translated
+/// text (EnumText).
+[[nodiscard]] std::string_view displayKey(Simulation::Status status) noexcept;
+
 /// The English name of the status (Java: Status.toString(), the text of
 /// Simulation.Status.<name>), e.g. "Not Simulated Yet". ABORTED keeps OpenRocket's markup,
 /// "<i><b>ABORTED</b></i>".
 [[nodiscard]] std::string_view displayName(Simulation::Status status) noexcept;
+
+/// The key of the status's description in OpenRocket's messages.properties,
+/// "Simulation.Status.Description.<name>", e.g. "Simulation.Status.Description.UPTODATE": the
+/// key of description(), whose text is its English one.
+[[nodiscard]] std::string_view descriptionKey(Simulation::Status status) noexcept;
 
 /// The English description of the status (the text of Simulation.Status.Description.<name>),
 /// with OpenRocket's markup, e.g. "<i>Up to date</i>".

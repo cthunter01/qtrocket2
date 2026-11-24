@@ -175,23 +175,6 @@ void copyIfDifferent(T& field, const T& source, bool& isChanged)
     }
 }
 
-/// GeodeticComputationStrategy.toString(), its translated name: the English texts of the keys
-/// GeodeticComputationStrategy.<strategy>.name.
-[[nodiscard]] std::string_view geodeticComputationName(
-    GeodeticComputationStrategy strategy) noexcept
-{
-    switch (strategy)
-    {
-        case GeodeticComputationStrategy::FLAT:
-            return "Flat Earth";
-        case GeodeticComputationStrategy::SPHERICAL:
-            return "Spherical approximation";
-        case GeodeticComputationStrategy::WGS84:
-            return "WGS84 ellipsoid";
-    }
-    return "Spherical approximation";  // not reached: the switch covers every strategy
-}
-
 /// The gravity model of toSimulationConditions(): a new model of @p type (Java:
 /// IllegalArgumentException for an unknown type, which an enum class does not have).
 [[nodiscard]] std::shared_ptr<const GravityModel> makeGravityModel(GravityModelType type,
@@ -343,12 +326,18 @@ double SimulationOptions::getLaunchRodDirection() const
         }
         else
         {
+            // Bug 39 (see the header): the wind at the launch site, the ground for levels above
+            // the ground. Java asks for the wind at m_launchAltitude whatever the reference.
+            const double siteAltitude = m_multiLevelPinkNoiseWindModel->getAltitudeReference() ==
+                                                WindModel::AltitudeReference::AGL
+                                            ? 0.0
+                                            : m_launchAltitude;
             // Asked of a copy, which has the same levels and seeds and random sources of its
             // own: the wind at time 0 depends on nothing else, so this is the direction Java gets
             // from the model itself, and the getter writes nothing. (Java's getter restarts the
             // model's random sources, which changes none of the winds the model gives later.)
             windDirection = MultiLevelPinkNoiseWindModel(*m_multiLevelPinkNoiseWindModel)
-                                .getWindDirection(0, m_launchAltitude);
+                                .getWindDirection(0, siteAltitude);
         }
         return MathUtil::reduce2Pi(windDirection);
     }
@@ -946,7 +935,12 @@ bool SimulationOptions::operator==(const SimulationOptions& other) const noexcep
            MathUtil::equals(m_recoveryDrogueMainLowSpeedWarning,
                             other.m_recoveryDrogueMainLowSpeedWarning) &&
            m_randomSeedFixed == other.m_randomSeedFixed &&
-           (!m_randomSeedFixed || m_randomSeed == other.m_randomSeed);
+           (!m_randomSeedFixed || m_randomSeed == other.m_randomSeed) &&
+           // Bug 29 (not in Java's equals(), see the header): what changes a flight counts too.
+           m_launchIntoWind == other.m_launchIntoWind && m_useIsa == other.m_useIsa &&
+           m_geodeticComputation == other.m_geodeticComputation &&
+           m_dragLookupCsvPath == other.m_dragLookupCsvPath &&
+           m_stabilityLookupCsvPath == other.m_stabilityLookupCsvPath;
 }
 
 Result<SimulationConditions> SimulationOptions::toSimulationConditions() const
@@ -1025,8 +1019,8 @@ std::string SimulationOptions::toString() const
     text += std::format("    launchAltitude:  {}\n", fixed(m_launchAltitude));
     text += std::format("    launchLatitude:  {}\n", fixed(m_launchLatitude));
     text += std::format("    launchLongitude:  {}\n", fixed(m_launchLongitude));
-    text += std::format("    geodeticComputation:  {}\n",
-                        geodeticComputationName(m_geodeticComputation));
+    // Java: GeodeticComputationStrategy.toString(), its translated name, in English.
+    text += std::format("    geodeticComputation:  {}\n", displayName(m_geodeticComputation));
     text += std::format("    useISA:  {}\n", m_useIsa);
     text += std::format("    launchTemperature:  {}\n", fixed(m_launchTemperature));
     text += std::format("    launchPressure:  {}\n", fixed(m_launchPressure));

@@ -81,6 +81,10 @@ class SimulationConditions;
 ///   direction is the same (the wind at time 0 depends on the levels and their seeds only), and
 ///   the const members of the options write nothing: they may be called from several threads
 ///   at once while no thread changes the options.
+/// - operator== also compares the launch-into-wind flag, the ISA flag, the geodetic computation
+///   and the lookup paths (OpenRocket bug 29, see there).
+/// - getLaunchRodDirection() of a launch into a multi-level wind whose levels are above the
+///   ground (AGL) asks for the wind at the ground (OpenRocket bug 39, see there).
 /// - toString() names the atmospheric model and the two wind models by their class only, where
 ///   Java prints Object.toString() with an identity hash, and it never fails (Java builds the
 ///   atmospheric model first, which throws for launch conditions the model refuses).
@@ -127,8 +131,26 @@ public:
 
     /// The direction of the launch rod. When launching into the wind it is the wind direction
     /// reduced to 0 ... 2 pi: the average wind model's direction, or with the multi-level model
-    /// the direction of its wind at time 0 and the launch altitude. Otherwise it is the stored
-    /// direction. Like every const member it only reads (see the class comment).
+    /// the direction of its wind at time 0 at the launch site: at the launch altitude when the
+    /// levels are above mean sea level (WindModel::AltitudeReference::MSL), at 0 m when they are
+    /// above the ground (AGL). Otherwise it is the stored direction. Like every const member it
+    /// only reads (see the class comment).
+    ///
+    /// Deviation (OpenRocket bug 39, fixed): Java asks the multi-level model for the wind at the
+    /// launch altitude whatever its altitude reference, so with AGL levels and a launch site
+    /// above sea level the rod points into the wind of the level at the launch site's altitude
+    /// above the ground (a site at 1000 m MSL: the wind 1000 m up), not into the wind the rocket
+    /// leaves the rod in.
+    ///
+    /// The fix also reaches what is stored of this getter, which both writes as in Java: the
+    /// <launchroddirection> of a saved design (SimulationSaver, OpenRocketSaver.java:349) and
+    /// the rod direction preference of DefaultSimulationOptionFactory::saveDefault(). For a
+    /// launch into a multi-level AGL wind at a site above sea level they hold the ground wind's
+    /// direction where OpenRocket stores the wind's at the launch altitude (probe F: 90 deg
+    /// where OpenRocket writes 180 deg); every other design is saved as OpenRocket saves it.
+    /// OpenRocket ignores the stored direction while the rod points into the wind; once the user
+    /// turns that off, the rod of the design read back takes the stored direction, which for a
+    /// design QtRocket saved is the ground wind's (in both programs).
     [[nodiscard]] double getLaunchRodDirection() const override;
     /// Stores the direction reduced to 0 ... 2 pi and emits changed(), unless the reduced
     /// direction equals the stored one. The stored direction only shows when not launching into
@@ -428,14 +450,25 @@ public:
     /// each other always differ: copying between them announces a change every time.
     void copyConditionsFrom(const SimulationOptions& src);
 
-    /// Java's equals(): the launch altitude, latitude, longitude, pressure, humidity and
-    /// temperature, the rod angle, direction and length, the maximum step angle, the time step,
-    /// the maximum time, the constant gravity and the four recovery thresholds agree within
-    /// MathUtil::equals (so never with a NaN), the stepper, the wind model type and the gravity
-    /// model type are the same, the lookup tables are the same objects, the wind models are
-    /// equal (with their seeds), and the fixed-seed flags are the same with, when fixed, the
-    /// same seed. The launch-into-wind flag, the ISA flag, the geodetic computation and the
-    /// lookup paths and rows do not count, as in Java.
+    /// Java's equals(), and what it leaves out: the launch altitude, latitude, longitude,
+    /// pressure, humidity and temperature, the rod angle, direction and length, the maximum step
+    /// angle, the time step, the maximum time, the constant gravity and the four recovery
+    /// thresholds agree within MathUtil::equals (so never with a NaN), the stepper, the wind
+    /// model type and the gravity model type are the same, the lookup tables are the same
+    /// objects, the wind models are equal (with their seeds), the fixed-seed flags are the same
+    /// with, when fixed, the same seed, and (bug 29) the launch-into-wind flag, the ISA flag,
+    /// the geodetic computation and the paths of the two lookup tables are the same. The CSV
+    /// rows of the lookup tables do not count, nor does a seed that is not fixed.
+    ///
+    /// Deviation (OpenRocket bug 29, fixed): Java's equals() ignores the launch-into-wind flag,
+    /// the ISA flag, the geodetic computation and the lookup paths, though each of them changes
+    /// a flight (the rod direction, the atmospheric model, the coordinates, the table a file
+    /// names). The equality decides whether a simulation's results are up to date
+    /// (Simulation::getStatus()) and whether a document differs from its undo state
+    /// (OpenRocketDocument's clean state), so in OpenRocket an edit of only these leaves stale
+    /// results "up to date", and the simulation dialog's Cancel, which undoes to the state of
+    /// the dialog's undo position, finds the document clean there and undoes the user's previous
+    /// change instead (a design edit made before the dialog opened is lost).
     [[nodiscard]] bool operator==(const SimulationOptions& other) const noexcept;
 
     /// Java's hashCode(): always 0.

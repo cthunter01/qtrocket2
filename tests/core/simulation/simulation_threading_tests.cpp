@@ -16,6 +16,7 @@
 #include <exception>
 #include <format>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stop_token>
@@ -45,6 +46,7 @@
 #include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/SimulationRun.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/simulation/listeners/ProgressListener.h"
@@ -53,6 +55,7 @@
 #include "QtRocket/util/ModId.h"
 #include "rocket/TestRockets.h"
 #include "simulation/FlightDifferences.h"
+#include "simulation/HeldRunSupport.h"
 #include "simulation/SimulationRunSupport.h"
 
 namespace
@@ -75,12 +78,15 @@ using QtRocket::Rocket;
 using QtRocket::Simulation;
 using QtRocket::SimulationListener;
 using QtRocket::SimulationOptions;
+using QtRocket::SimulationRun;
 using QtRocket::SimulationStatus;
 using QtRocket::SimulationStepperMethod;
 using QtRocket::WindModelType;
 using QtRocket::Test::addCoreFins;
 using QtRocket::Test::flightDifferences;
 using QtRocket::Test::JavaTestPreferences;
+using QtRocket::Test::kStepsBeforeTheHold;
+using QtRocket::Test::runHolding;
 using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
@@ -707,6 +713,156 @@ TEST(SimulationThreading, AStopRequestedFromAnotherThreadCancelsTheRunningSimula
 
     // The simulation next to it went on to the ground.
     EXPECT_EQ(copyProblem(bystander, *alone), "");
+}
+
+// ======================================================= a run handed back to its original
+
+/// The simulation the held runs are made from, and the flight it gives as it is now.
+struct RunOriginal
+{
+    JavaTestPreferences         preferences;
+    TestEstesAlphaIII           alpha;
+    Simulation                  simulation{*alpha.rocket, preferences.store};
+    std::unique_ptr<Simulation> alone;
+
+    RunOriginal()
+    {
+        simulation.setFlightConfigurationId(testFcid(0));
+        simulation.getOptions().setIsaAtmosphere(true);
+        simulation.getOptions().setTimeStep(0.05);
+        simulation.getOptions().setRandomSeed(1);
+        alone = simulation.duplicateForIndependentSimulation();
+        EXPECT_TRUE(alone->simulate().has_value());
+    }
+
+    /// What is wrong with the flight the simulation adopted, compared with the flight of the
+    /// simulation as it was made; "" when nothing is.
+    [[nodiscard]] std::string adoptedFlightProblem() const
+    {
+        if (simulation.getSimulatedData() == nullptr || alone->getSimulatedData() == nullptr)
+        {
+            return "no simulated data\n";
+        }
+        return flightDifferences(*alone->getSimulatedData(), *simulation.getSimulatedData());
+    }
+};
+
+/// The launch rod length of the simulated conditions of @p simulation; NaN, and a failure of the
+/// test, when it has none. (A plain value: GCC's -Wnull-dereference does not see an ASSERT_NE()
+/// of the pointer.)
+[[nodiscard]] double rodLengthOfTheRecord(const Simulation& simulation)
+{
+    const SimulationOptions* conditions = simulation.getSimulatedConditions();
+    if (conditions == nullptr)
+    {
+        ADD_FAILURE() << "the simulation has no simulated conditions";
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return conditions->getLaunchRodLength();
+}
+
+/// What a run held while @p edit changed its original came to, once the original adopted it:
+/// the status getStatus() finds, "" when the flight is the one of the original as it was made
+/// (else what differs), and whether the original recorded the modification id of the moment
+/// the run was made.
+struct EditedRun
+{
+    Simulation::Status status;
+    std::string        flightProblem;
+    bool               recordsTheIdOfThePreparation;
+};
+
+/// Prepares a run of @p original's simulation, runs it on another thread while @p edit changes
+/// what it was made from on this one, and hands it back.
+[[nodiscard]] EditedRun runEditedWhileHeld(RunOriginal& original, const std::function<void()>& edit)
+{
+    SimulationRun run(original.simulation);
+    const bool    reached = runHolding(run, std::stop_token{}, edit);
+    EXPECT_TRUE(reached) << "the run ended before the edit";
+    EXPECT_EQ(run.getOutcome(), SimulationRun::Outcome::SUCCEEDED);
+    EXPECT_TRUE(run.adoptInto(original.simulation));
+    return {.status                       = original.simulation.getStatus(),
+            .flightProblem                = original.adoptedFlightProblem(),
+            .recordsTheIdOfThePreparation = original.simulation.getSimulatedConfigurationModId() ==
+                                            run.getModIdAtDuplication()};
+}
+
+// A run of a duplicate is handed back to the simulation it was made from on the thread that owns
+// the simulation (SimulationRun::adoptInto()), and that thread may go on changing the design
+// while the run goes (what a user does while the design view's estimate runs in the background):
+// the run gives the flight of the design as it was when the run was made, and once the
+// simulation has adopted it, getStatus() finds it OUTDATED, because the modification id the
+// simulation records is the one of that moment (Java reads the id when the run ends, and calls
+// such a run up to date).
+TEST(SimulationThreading, ARunAdoptedAfterTheDesignWasChangedDuringItIsOutdated)
+{
+    RunOriginal     original;
+    const EditedRun edited = runEditedWhileHeld(original, [&original] {
+        original.alpha.body->setLength(original.alpha.body->getLength() + 0.05);
+        original.alpha.fins->setTipChord(original.alpha.fins->getTipChord() + 0.005);
+    });
+
+    EXPECT_EQ(edited.status, Simulation::Status::OUTDATED);
+    EXPECT_EQ(edited.flightProblem, "");
+    EXPECT_TRUE(edited.recordsTheIdOfThePreparation);
+}
+
+// The same for a change of the options: the record holds the options the run ran with.
+TEST(SimulationThreading, ARunAdoptedAfterTheOptionsWereChangedDuringItIsOutdated)
+{
+    RunOriginal     original;
+    const double    rodLength = original.simulation.getOptions().getLaunchRodLength();
+    const EditedRun edited    = runEditedWhileHeld(original, [&original, rodLength] {
+        original.simulation.getOptions().setLaunchRodLength(rodLength + 1.0);
+    });
+
+    EXPECT_EQ(edited.status, Simulation::Status::OUTDATED);
+    EXPECT_EQ(edited.flightProblem, "");
+    EXPECT_EQ(rodLengthOfTheRecord(original.simulation), rodLength);
+}
+
+// A change that is not functional (the names of the rocket and of the simulation) leaves the
+// adopted run up to date: the test of the two above is not vacuous.
+TEST(SimulationThreading, ARunAdoptedAfterANonFunctionalChangeDuringItIsUpToDate)
+{
+    RunOriginal     original;
+    const EditedRun edited = runEditedWhileHeld(original, [&original] {
+        original.alpha.rocket->setName("Renamed during the run");
+        original.simulation.setName("Renamed too");
+    });
+
+    EXPECT_EQ(edited.status, Simulation::Status::UPTODATE);
+    EXPECT_EQ(edited.flightProblem, "");
+    EXPECT_TRUE(edited.recordsTheIdOfThePreparation);
+    EXPECT_EQ(original.simulation.getName(), "Renamed too");
+}
+
+// A run cancelled from the thread that owns its simulation (the run dialog's Cancel) ends
+// CANCELLED and is not adopted: the simulation keeps the results it had (OpenRocket bug 40).
+TEST(SimulationThreading, ARunCancelledFromTheOwningThreadLeavesTheSimulationAsItWas)
+{
+    RunOriginal   original;
+    SimulationRun first(original.simulation);
+    first.run(std::stop_token{});
+    ASSERT_TRUE(first.adoptInto(original.simulation));
+    const std::shared_ptr<FlightData> results = original.simulation.getSimulatedData();
+
+    SimulationRun run(original.simulation);
+    // (Held through a pointer: a stop source must not be const, see system_listener_tests.cpp.)
+    const auto source = std::make_shared<std::stop_source>();
+    // The request comes from this thread while the run is held after its step; the interrupt
+    // listener, after the holding one, ends the run in that step.
+    const bool reached =
+        runHolding(run, source->get_token(), [&source] { source->request_stop(); });
+
+    ASSERT_TRUE(reached);
+    EXPECT_EQ(run.getOutcome(), SimulationRun::Outcome::CANCELLED);
+    ASSERT_NE(run.getDuplicate().getSimulatedData(), nullptr);
+    EXPECT_EQ(run.getDuplicate().getSimulatedData()->getBranch(0).getLength(),
+              static_cast<std::size_t>(kStepsBeforeTheHold));
+    EXPECT_FALSE(run.adoptInto(original.simulation));
+    EXPECT_EQ(original.simulation.getSimulatedData(), results);
+    EXPECT_EQ(original.simulation.getStatus(), Simulation::Status::UPTODATE);
 }
 
 }  // namespace

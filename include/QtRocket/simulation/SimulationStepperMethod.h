@@ -39,6 +39,24 @@ inline constexpr std::array<SimulationStepperMethod, 2> kAllSimulationStepperMet
 /// more accurate in some cases".
 [[nodiscard]] std::string_view getDescription(SimulationStepperMethod method) noexcept;
 
+/// The key of getName() in OpenRocket's messages.properties, "SimulationStepperMethod.RK4.name"
+/// or "SimulationStepperMethod.RK6.name" (Java translates it in getName()). With displayName()
+/// the GUI shows the method by its translated name (EnumText), as the simulation options panel
+/// shows it in its combo box.
+[[nodiscard]] std::string_view displayKey(SimulationStepperMethod method) noexcept;
+
+/// getName(), the English text of displayKey().
+[[nodiscard]] std::string_view displayName(SimulationStepperMethod method) noexcept;
+
+/// The key of getShortName(), "SimulationStepperMethod.RK4.shortName" or
+/// "SimulationStepperMethod.RK6.shortName": what the simulations table shows in its stepper
+/// column.
+[[nodiscard]] std::string_view shortNameKey(SimulationStepperMethod method) noexcept;
+
+/// The key of getDescription(), "SimulationStepperMethod.RK4.desc" or
+/// "SimulationStepperMethod.RK6.desc": the tooltip of the simulation options panel's combo box.
+[[nodiscard]] std::string_view descriptionKey(SimulationStepperMethod method) noexcept;
+
 /// Java's Enum.name(): "RK4" or "RK6", the preference spelling.
 [[nodiscard]] std::string_view simulationStepperMethodName(SimulationStepperMethod method) noexcept;
 

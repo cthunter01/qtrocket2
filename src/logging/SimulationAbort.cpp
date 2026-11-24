@@ -54,6 +54,40 @@ std::string_view causeText(SimulationAbort::Cause cause) noexcept
     return "";
 }
 
+std::string_view displayKey(SimulationAbort::Cause cause) noexcept
+{
+    using Cause = SimulationAbort::Cause;
+    switch (cause)
+    {
+        case Cause::NO_ACTIVE_STAGES:
+            return "SimulationAbort.noActiveStages";
+        case Cause::NO_MOTORS_DEFINED:
+            return "SimulationAbort.noMotorsDefined";
+        case Cause::NO_CONFIGURED_IGNITION:
+            return "SimulationAbort.noConfiguredIgnition";
+        case Cause::NO_MOTORS_FIRED:
+            return "SimulationAbort.noIgnition";
+        case Cause::NO_LIFTOFF:
+            return "SimulationAbort.noLiftOff";
+        case Cause::NO_CP:
+            return "SimulationAbort.noCP";
+        case Cause::ACTIVE_LENGTH_ZERO:
+            return "SimulationAbort.activeLengthZero";
+        case Cause::ACTIVE_MASS_ZERO:
+            return "SimulationAbort.activeMassZero";
+        case Cause::TUMBLE_UNDER_THRUST:
+            return "SimulationAbort.tumbleUnderThrust";
+        case Cause::DEPLOY_UNDER_THRUST:
+            return "SimulationAbort.deployUnderThrust";
+    }
+    return "";
+}
+
+std::string_view displayName(SimulationAbort::Cause cause) noexcept
+{
+    return causeText(cause);
+}
+
 std::string_view causeName(SimulationAbort::Cause cause) noexcept
 {
     using Cause = SimulationAbort::Cause;

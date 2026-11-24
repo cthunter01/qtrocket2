@@ -58,6 +58,15 @@ private:
 /// Message subclass). NO_LIFTOFF keeps OpenRocket's `<html>...<br>...</html>` markup.
 [[nodiscard]] std::string_view causeText(SimulationAbort::Cause cause) noexcept;
 
+/// The key of the cause's text in OpenRocket's messages.properties, e.g.
+/// "SimulationAbort.noActiveStages" (Java translates it in the constant's constructor). With
+/// displayName() the GUI shows a cause by its translated text (EnumText), wherever it names the
+/// cause of an abort.
+[[nodiscard]] std::string_view displayKey(SimulationAbort::Cause cause) noexcept;
+
+/// causeText(), the English text of displayKey().
+[[nodiscard]] std::string_view displayName(SimulationAbort::Cause cause) noexcept;
+
 /// The constant's name, e.g. "NO_ACTIVE_STAGES" (Java: Cause.name()). .ork files store it lower
 /// case without underscores ("noactivestages"); that is the file loader's business.
 [[nodiscard]] std::string_view causeName(SimulationAbort::Cause cause) noexcept;

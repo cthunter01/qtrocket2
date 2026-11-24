@@ -10,10 +10,14 @@
 namespace
 {
 
+using QtRocket::descriptionKey;
+using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::getDescription;
 using QtRocket::getName;
 using QtRocket::getShortName;
 using QtRocket::kAllSimulationStepperMethods;
+using QtRocket::shortNameKey;
 using QtRocket::SimulationStepperMethod;
 using QtRocket::simulationStepperMethodFromName;
 using QtRocket::simulationStepperMethodFromString;
@@ -46,6 +50,26 @@ TEST(SimulationStepperMethod, Descriptions)
     EXPECT_EQ(getDescription(SimulationStepperMethod::RK4), "6-DOF Runge-Kutta 4");
     EXPECT_EQ(getDescription(SimulationStepperMethod::RK6),
               "6-DOF Runge-Kutta 6: Slower than RK4, but more accurate in some cases");
+}
+
+TEST(SimulationStepperMethod, TheKeysOfTheTexts)
+{
+    // The keys of OpenRocket's messages.properties whose English texts getName(),
+    // getShortName() and getDescription() are.
+    EXPECT_EQ(displayKey(SimulationStepperMethod::RK4), "SimulationStepperMethod.RK4.name");
+    EXPECT_EQ(displayKey(SimulationStepperMethod::RK6), "SimulationStepperMethod.RK6.name");
+    EXPECT_EQ(shortNameKey(SimulationStepperMethod::RK4), "SimulationStepperMethod.RK4.shortName");
+    EXPECT_EQ(shortNameKey(SimulationStepperMethod::RK6), "SimulationStepperMethod.RK6.shortName");
+    EXPECT_EQ(descriptionKey(SimulationStepperMethod::RK4), "SimulationStepperMethod.RK4.desc");
+    EXPECT_EQ(descriptionKey(SimulationStepperMethod::RK6), "SimulationStepperMethod.RK6.desc");
+}
+
+TEST(SimulationStepperMethod, TheDisplayNameIsTheName)
+{
+    for (const SimulationStepperMethod method : kAllSimulationStepperMethods)
+    {
+        EXPECT_EQ(displayName(method), getName(method));
+    }
 }
 
 TEST(SimulationStepperMethod, EnumNamesAndOrkSpellings)

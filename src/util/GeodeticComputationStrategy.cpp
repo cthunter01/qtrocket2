@@ -386,6 +386,41 @@ std::string_view descriptionKey(GeodeticComputationStrategy strategy) noexcept
     return "GeodeticComputationStrategy.spherical.desc";
 }
 
+// The texts below are the English ones of OpenRocket's l10n/messages.properties, keys
+// GeodeticComputationStrategy.<strategy>.name and .desc (the two spaces of flat.desc are
+// OpenRocket's).
+
+std::string_view displayName(GeodeticComputationStrategy strategy) noexcept
+{
+    switch (strategy)
+    {
+        case GeodeticComputationStrategy::FLAT:
+            return "Flat Earth";
+        case GeodeticComputationStrategy::SPHERICAL:
+            return "Spherical approximation";
+        case GeodeticComputationStrategy::WGS84:
+            return "WGS84 ellipsoid";
+    }
+    return "Spherical approximation";
+}
+
+std::string_view description(GeodeticComputationStrategy strategy) noexcept
+{
+    switch (strategy)
+    {
+        case GeodeticComputationStrategy::FLAT:
+            return "Perform computations with a flat Earth approximation.  Sufficient for "
+                   "low-altitude flights.";
+        case GeodeticComputationStrategy::SPHERICAL:
+            return "<html>Perform geodetic computations assuming a spherical Earth. <br>This is "
+                   "sufficiently accurate for almost all purposes.";
+        case GeodeticComputationStrategy::WGS84:
+            return "<html>Perform geodetic computations on the WGS84 reference ellipsoid using "
+                   "Vincenty's method. <br>Slower and unnecessary in most cases.";
+    }
+    return "";
+}
+
 std::optional<GeodeticComputationStrategy> geodeticComputationStrategyFromString(
     std::string_view text) noexcept
 {

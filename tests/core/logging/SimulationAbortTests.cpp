@@ -20,6 +20,8 @@ using QtRocket::BugError;
 using QtRocket::causeFromName;
 using QtRocket::causeName;
 using QtRocket::causeText;
+using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::Message;
 using QtRocket::MessagePriority;
 using QtRocket::MessageSources;
@@ -57,6 +59,32 @@ TEST(SimulationAbort, EveryCauseHasItsNameAndText)
     expectCause(Cause::DEPLOY_UNDER_THRUST, "DEPLOY_UNDER_THRUST",
                 "Recovery system deployed while still under thrust");
     EXPECT_EQ(SimulationAbort::kAllCauses.size(), 10U);
+}
+
+TEST(SimulationAbort, EveryCauseHasTheKeyOfItsText)
+{
+    // The keys of OpenRocket's messages.properties that Cause's constructor translates.
+    EXPECT_EQ(displayKey(Cause::NO_ACTIVE_STAGES), "SimulationAbort.noActiveStages");
+    EXPECT_EQ(displayKey(Cause::NO_MOTORS_DEFINED), "SimulationAbort.noMotorsDefined");
+    EXPECT_EQ(displayKey(Cause::NO_CONFIGURED_IGNITION), "SimulationAbort.noConfiguredIgnition");
+    EXPECT_EQ(displayKey(Cause::NO_MOTORS_FIRED), "SimulationAbort.noIgnition");
+    EXPECT_EQ(displayKey(Cause::NO_LIFTOFF), "SimulationAbort.noLiftOff");
+    EXPECT_EQ(displayKey(Cause::NO_CP), "SimulationAbort.noCP");
+    EXPECT_EQ(displayKey(Cause::ACTIVE_LENGTH_ZERO), "SimulationAbort.activeLengthZero");
+    EXPECT_EQ(displayKey(Cause::ACTIVE_MASS_ZERO), "SimulationAbort.activeMassZero");
+    EXPECT_EQ(displayKey(Cause::TUMBLE_UNDER_THRUST), "SimulationAbort.tumbleUnderThrust");
+    EXPECT_EQ(displayKey(Cause::DEPLOY_UNDER_THRUST), "SimulationAbort.deployUnderThrust");
+}
+
+TEST(SimulationAbort, TheDisplayNameIsTheCauseText)
+{
+    std::set<std::string_view> keys;
+    for (const Cause cause : SimulationAbort::kAllCauses)
+    {
+        EXPECT_EQ(displayName(cause), causeText(cause));
+        keys.insert(displayKey(cause));
+    }
+    EXPECT_EQ(keys.size(), SimulationAbort::kAllCauses.size());
 }
 
 TEST(SimulationAbort, CausesHaveDistinctNamesAndTexts)
