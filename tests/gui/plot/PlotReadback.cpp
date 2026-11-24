@@ -6,18 +6,26 @@
 #include <format>
 #include <optional>
 #include <ostream>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include <QApplication>
 #include <QChar>
 #include <QColor>
+#include <QEvent>
 #include <QFile>
 #include <QIODevice>
+#include <QIcon>
+#include <QImage>
 #include <QList>
+#include <QMouseEvent>
 #include <QObject>
 #include <QPixmap>
+#include <QPoint>
 #include <QPointF>
 #include <QRectF>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QStringView>
@@ -29,10 +37,16 @@
 #include <QtTypes>
 
 #include <gtest/gtest.h>
+#include <rocketplot/Annotation.h>
 #include <rocketplot/Axis.h>
+#include <rocketplot/EventMarker.h>
+#include <rocketplot/IconAnnotation.h>
+#include <rocketplot/Legend.h>
 #include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
+#include <rocketplot/ReferenceLine.h>
 #include <rocketplot/Series.h>
+#include <rocketplot/TextAnnotation.h>
 
 #include "QtRocket/gui/util/QtStrings.h"
 #include "TestTempDir.h"
@@ -46,6 +60,79 @@ namespace
 /// How far (in pixels) a text may start outside a box and still count as in it, and how close two
 /// texts' baselines are on one row: SVG coordinates are written with a few decimals.
 constexpr double kTolerance = 0.5;
+
+/// The size iconImage() draws an icon at: OpenRocket's icons are 16 pixels square.
+constexpr QSize kIconSize(16, 16);
+
+/// The index of @p series in @p plot's series(), nullopt for none.
+[[nodiscard]] std::optional<std::size_t> seriesIndexOf(const rocketplot::PlotWidget& plot,
+                                                       const rocketplot::Series*     series)
+{
+    const QList<rocketplot::Series*> all = plot.series();
+    for (qsizetype i = 0; i < all.size(); ++i)
+    {
+        if (all.at(i) == series)
+        {
+            return static_cast<std::size_t>(i);
+        }
+    }
+    return std::nullopt;
+}
+
+/// "#aarrggbb" of @p color.
+[[nodiscard]] std::string colorText(const QColor& color)
+{
+    return QtStrings::toUtf8(color.name(QColor::HexArgb));
+}
+
+/// Adds the read-back of @p annotation to @p read, by its kind.
+void readAnnotation(const rocketplot::Annotation& annotation, AnnotationsReadback& read)
+{
+    if (const auto* const event = qobject_cast<const rocketplot::EventMarker*>(&annotation))
+    {
+        read.events.push_back({.x       = event->x(),
+                               .label   = event->label(),
+                               .color   = event->color(),
+                               .icon    = iconImage(event->icon()),
+                               .visible = event->isVisible()});
+    }
+    else if (const auto* const icon = qobject_cast<const rocketplot::IconAnnotation*>(&annotation))
+    {
+        std::vector<IconReadback>& icons = icon->icon().isNull() ? read.blankIcons : read.icons;
+        icons.push_back({.position            = icon->position(),
+                         .secondaryYAxis      = icon->isOnSecondaryYAxis(),
+                         .icon                = iconImage(icon->icon()),
+                         .toolTip             = icon->toolTip(),
+                         .visible             = icon->isVisible(),
+                         .includedInAutoscale = icon->isIncludedInAutoscale()});
+    }
+    else if (const auto* const text = qobject_cast<const rocketplot::TextAnnotation*>(&annotation))
+    {
+        read.texts.push_back({.position     = text->position(),
+                              .text         = text->text(),
+                              .color        = text->color(),
+                              .coordinates  = text->coordinates(),
+                              .alignment    = text->alignment(),
+                              .arrowVisible = text->isArrowVisible(),
+                              .frameVisible = text->isFrameVisible(),
+                              .visible      = text->isVisible()});
+    }
+    else if (const auto* const line = qobject_cast<const rocketplot::ReferenceLine*>(&annotation))
+    {
+        read.lines.push_back({.orientation    = line->orientation(),
+                              .value          = line->value(),
+                              .label          = line->label(),
+                              .color          = line->color(),
+                              .lineWidth      = line->lineWidth(),
+                              .lineStyle      = line->lineStyle(),
+                              .secondaryYAxis = line->isOnSecondaryYAxis(),
+                              .visible        = line->isVisible()});
+    }
+    else
+    {
+        ++read.others;
+    }
+}
 
 /// The transform an SVG "transform" attribute gives: QSvgGenerator writes
 /// "matrix(a,b,c,d,e,f)"; none for an empty one; nullopt for another form.
@@ -286,6 +373,72 @@ void PrintTo(const AxisReadback& axis, std::ostream* out)
         axis.autoscaleIncludesZero, axis.gridVisible, axis.tickLabelsVisible);
 }
 
+void PrintTo(const SeriesLineReadback& line, std::ostream* out)
+{
+    std::string dashes;
+    for (const qreal length : line.dashPattern)
+    {
+        dashes += std::format("{}{}", dashes.empty() ? "" : " ", length);
+    }
+    *out << std::format("{{secondary {}, dashes [{}], cap {}}}", line.secondaryYAxis, dashes,
+                        static_cast<int>(line.capStyle));
+}
+
+void PrintTo(const EventMarkerReadback& marker, std::ostream* out)
+{
+    *out << std::format("{{x {:a}, label \"{}\", color {}, icon {}, visible {}}}", marker.x,
+                        QtStrings::toUtf8(marker.label), colorText(marker.color),
+                        !marker.icon.isNull(), marker.visible);
+}
+
+void PrintTo(const IconReadback& icon, std::ostream* out)
+{
+    *out << std::format(
+        "{{({:a}, {:a}), secondary {}, icon {}, tool tip \"{}\", visible {}, autoscale {}}}",
+        icon.position.x(), icon.position.y(), icon.secondaryYAxis, !icon.icon.isNull(),
+        QtStrings::toUtf8(icon.toolTip), icon.visible, icon.includedInAutoscale);
+}
+
+void PrintTo(const TextReadback& text, std::ostream* out)
+{
+    *out << std::format(
+        "{{({:a}, {:a}), \"{}\", color {}, coordinates {}, alignment {}, arrow {}, frame {}, "
+        "visible {}}}",
+        text.position.x(), text.position.y(), QtStrings::toUtf8(text.text), colorText(text.color),
+        static_cast<int>(text.coordinates), static_cast<int>(text.alignment.toInt()),
+        text.arrowVisible, text.frameVisible, text.visible);
+}
+
+void PrintTo(const ReferenceLineReadback& line, std::ostream* out)
+{
+    *out << std::format(
+        "{{orientation {}, value {:a}, label \"{}\", color {}, width {}, style {}, secondary "
+        "{}, visible {}}}",
+        static_cast<int>(line.orientation), line.value, QtStrings::toUtf8(line.label),
+        colorText(line.color), line.lineWidth, static_cast<int>(line.lineStyle),
+        line.secondaryYAxis, line.visible);
+}
+
+void PrintTo(const LegendEntryReadback& entry, std::ostream* out)
+{
+    std::string indices;
+    for (const std::size_t index : entry.series)
+    {
+        indices += std::format("{}{}", indices.empty() ? "" : " ", index);
+    }
+    *out << std::format(R"({{"{}", group "{}", series [{}], visible {}}})",
+                        QtStrings::toUtf8(entry.name), QtStrings::toUtf8(entry.group), indices,
+                        entry.visible);
+}
+
+void PrintTo(const CrosshairReadback& crosshair, std::ostream* out)
+{
+    *out << std::format(
+        "{{series {}, point {}}}",
+        crosshair.series.has_value() ? std::format("{}", *crosshair.series) : std::string("none"),
+        crosshair.point.has_value() ? std::format("{}", *crosshair.point) : std::string("none"));
+}
+
 SeriesReadback readSeries(const rocketplot::Series& series)
 {
     SeriesReadback result{.name                 = series.name(),
@@ -350,10 +503,91 @@ AxisReadback readAxis(const rocketplot::Axis& axis)
 
 PlotReadback readPlot(const rocketplot::PlotWidget& plot)
 {
-    return {.title  = plot.title(),
-            .xAxis  = readAxis(*plot.xAxis()),
-            .yAxis  = readAxis(*plot.yAxis()),
-            .series = readAllSeries(plot)};
+    const QList<rocketplot::Series*> all         = plot.series();
+    const bool                       onSecondary = std::ranges::any_of(
+        all, [](const rocketplot::Series* series) { return series->isOnSecondaryYAxis(); });
+    return {.title       = plot.title(),
+            .xAxis       = readAxis(*plot.xAxis()),
+            .yAxis       = readAxis(*plot.yAxis()),
+            .series      = readAllSeries(plot),
+            .subtitle    = plot.subtitle(),
+            .yAxis2      = readAxis(*plot.yAxis2()),
+            .yAxis2Shown = plot.yAxis2()->isShown(onSecondary)};
+}
+
+SeriesLineReadback readSeriesLine(const rocketplot::Series& series)
+{
+    SeriesLineReadback result{
+        .secondaryYAxis = series.isOnSecondaryYAxis(), .dashPattern = {}, .capStyle = Qt::RoundCap};
+    if (const auto* const line = qobject_cast<const rocketplot::LineSeries*>(&series))
+    {
+        result.dashPattern = line->dashPattern();
+        result.capStyle    = line->capStyle();
+    }
+    return result;
+}
+
+QImage iconImage(const QIcon& icon)
+{
+    if (icon.isNull())
+    {
+        return {};
+    }
+    return icon.pixmap(kIconSize).toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+}
+
+AnnotationsReadback readAnnotations(const rocketplot::PlotWidget& plot)
+{
+    AnnotationsReadback                  read;
+    const QList<rocketplot::Annotation*> all = plot.annotations();
+    for (const rocketplot::Annotation* const annotation : all)
+    {
+        readAnnotation(*annotation, read);
+    }
+    return read;
+}
+
+std::vector<LegendEntryReadback> readLegend(const rocketplot::PlotWidget& plot)
+{
+    std::vector<LegendEntryReadback>       entries;
+    const QList<rocketplot::Legend::Entry> all = plot.legend()->entries();
+    for (const rocketplot::Legend::Entry& entry : all)
+    {
+        LegendEntryReadback read{
+            .name = entry.name, .group = entry.group, .series = {}, .visible = entry.visible};
+        for (const rocketplot::Series* const series : entry.series)
+        {
+            if (const std::optional<std::size_t> index = seriesIndexOf(plot, series))
+            {
+                read.series.push_back(*index);
+            }
+        }
+        entries.push_back(std::move(read));
+    }
+    return entries;
+}
+
+CrosshairReadback moveCrosshairTo(rocketplot::PlotWidget& plot, QPointF position)
+{
+    // Laid out and drawn at its size, so that the crosshair finds the points where they are drawn.
+    static_cast<void>(plot.grab());
+    QMouseEvent move(QEvent::MouseMove, position, plot.mapToGlobal(position), Qt::NoButton,
+                     Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(&plot, &move);
+    const std::optional<std::size_t> point = plot.crosshairIndex();
+    return {.series = seriesIndexOf(plot, plot.crosshairSeries()),
+            .point  = plot.crosshairSeries() != nullptr ? point : std::nullopt};
+}
+
+CrosshairReadback moveCrosshairToPoint(rocketplot::PlotWidget& plot, std::size_t series,
+                                       std::size_t point, QPointF offset)
+{
+    const QList<rocketplot::Series*> all    = plot.series();
+    const rocketplot::Series* const  target = all.at(static_cast<qsizetype>(series));
+    static_cast<void>(plot.grab());
+    const QPointF at =
+        plot.mapFromData(QPointF(target->x(point), target->y(point)), target->yAxis());
+    return moveCrosshairTo(plot, at + offset);
 }
 
 std::vector<SvgText> svgTexts(const rocketplot::PlotWidget& plot)

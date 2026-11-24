@@ -97,11 +97,12 @@ void doubleClickLeft(QWidget& widget, QPointF position)
               Qt::NoModifier);
 }
 
-/// Turns a mouse wheel (not a trackpad) one notch away from the user at @p position of @p widget.
-void turnWheel(QWidget& widget, QPointF position)
+/// Turns a mouse wheel (not a trackpad) one notch away from the user at @p position of @p widget,
+/// holding @p modifiers.
+void turnWheel(QWidget& widget, QPointF position, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 {
     QWheelEvent event(position, widget.mapToGlobal(position), QPoint(), QPoint(0, kWheelNotch),
-                      Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+                      Qt::NoButton, modifiers, Qt::NoScrollPhase, false);
     QApplication::sendEvent(&widget, &event);
 }
 
@@ -201,6 +202,54 @@ TEST_F(PlotInputBindingsTest, TheWheelZooms)
     turnWheel(plot, pointIn(plot.plotArea(), 0.5, 0.5));
     EXPECT_TRUE(isZoomedIn(plot.xAxis()->range(), x));
     EXPECT_TRUE(isZoomedIn(plot.yAxis()->range(), y));
+}
+
+// SimulationChart: a ChartPanel whose plots pan (Plot.java: setDomainPannable(true),
+// setRangePannable(true)) with its pan modifier, Ctrl; the plot dialog's help text names the
+// gestures ("ctrl-left click drag to pan", "ctrl-mouse wheel to zoom x axis only").
+TEST_F(PlotInputBindingsTest, TheSimulationChartPansWithCtrl)
+{
+    const rocketplot::InputBindings bindings = PlotInputBindings::simulationChart();
+    EXPECT_EQ(leftAction(bindings, Gesture::DRAG, Qt::ControlModifier), PlotAction::PAN);
+    // The rest as chartPanel().
+    EXPECT_EQ(leftAction(bindings, Gesture::DRAG), PlotAction::BOX_ZOOM);
+    EXPECT_EQ(leftAction(bindings, Gesture::DRAG, Qt::ShiftModifier), PlotAction::PAN);
+    EXPECT_EQ(leftAction(bindings, Gesture::DOUBLE_CLICK), PlotAction::RESET);
+    EXPECT_EQ(leftAction(bindings, Gesture::WHEEL), PlotAction::ZOOM);
+    EXPECT_EQ(bindings.action(Gesture::DRAG, Qt::RightButton, Qt::NoModifier), PlotAction::NONE);
+    EXPECT_EQ(bindings.bindings().size(), PlotInputBindings::chartPanel().bindings().size() + 1);
+}
+
+TEST_F(PlotInputBindingsTest, ACtrlDragPansASimulationChart)
+{
+    rocketplot::PlotWidget plot;
+    addLine(plot);
+    plot.setInputBindings(PlotInputBindings::simulationChart());
+    const rocketplot::Range x    = plot.xAxis()->range();
+    const QRectF            area = plot.plotArea();
+
+    dragLeft(plot, pointIn(area, 0.25, 0.5), pointIn(area, 0.75, 0.5), Qt::ControlModifier);
+    const rocketplot::Range panned = plot.xAxis()->range();
+    EXPECT_LT(panned.min, x.min);
+    EXPECT_NEAR(panned.span(), x.span(), x.span() * 1e-9);
+}
+
+// OpenRocket bug 47: SimulationChart's wheel handler tests the legacy modifiers against
+// CTRL_DOWN_MASK, which never matches, so Ctrl and the wheel zoom both axes there.
+TEST_F(PlotInputBindingsTest, CtrlAndTheWheelZoomTheXAxisAlone)
+{
+    rocketplot::PlotWidget plot;
+    addLine(plot);
+    plot.setInputBindings(PlotInputBindings::simulationChart());
+    EXPECT_EQ(leftAction(plot.inputBindings(), Gesture::WHEEL, Qt::ControlModifier),
+              PlotAction::ZOOM_X);
+    const rocketplot::Range x = plot.xAxis()->range();
+    const rocketplot::Range y = plot.yAxis()->range();
+
+    turnWheel(plot, pointIn(plot.plotArea(), 0.5, 0.5), Qt::ControlModifier);
+    EXPECT_TRUE(isZoomedIn(plot.xAxis()->range(), x));
+    EXPECT_EQ(plot.yAxis()->range().min, y.min);
+    EXPECT_EQ(plot.yAxis()->range().max, y.max);
 }
 
 TEST_F(PlotInputBindingsTest, APlotWithoutInteractionTakesNoGestureAndHasNoMenu)
