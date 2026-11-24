@@ -44,6 +44,58 @@ std::string_view toString(WindModelType type) noexcept
     return "average";  // not reached
 }
 
+// The texts below are the English ones of OpenRocket's l10n/messages.properties, keys
+// simedtdlg.radio.AverageWind and simedtdlg.radio.MultiLevelWind, each with its .ttip.
+
+std::string_view displayKey(WindModelType type) noexcept
+{
+    switch (type)
+    {
+        case WindModelType::AVERAGE:
+            return "simedtdlg.radio.AverageWind";
+        case WindModelType::MULTI_LEVEL:
+            return "simedtdlg.radio.MultiLevelWind";
+    }
+    return "simedtdlg.radio.AverageWind";  // not reached
+}
+
+std::string_view displayName(WindModelType type) noexcept
+{
+    switch (type)
+    {
+        case WindModelType::AVERAGE:
+            return "Average";
+        case WindModelType::MULTI_LEVEL:
+            return "Multi-level";
+    }
+    return "Average";  // not reached
+}
+
+std::string_view descriptionKey(WindModelType type) noexcept
+{
+    switch (type)
+    {
+        case WindModelType::AVERAGE:
+            return "simedtdlg.radio.AverageWind.ttip";
+        case WindModelType::MULTI_LEVEL:
+            return "simedtdlg.radio.MultiLevelWind.ttip";
+    }
+    return "simedtdlg.radio.AverageWind.ttip";  // not reached
+}
+
+std::string_view description(WindModelType type) noexcept
+{
+    switch (type)
+    {
+        case WindModelType::AVERAGE:
+            return "Model the wind as pink noise from the average wind speed and standard "
+                   "deviation.";
+        case WindModelType::MULTI_LEVEL:
+            return "Model the wind using speed and direction entries at various altitude levels.";
+    }
+    return "";  // not reached
+}
+
 std::optional<WindModelType> windModelTypeFromString(std::string_view text) noexcept
 {
     for (const WindModelType type : kAllWindModelTypes)

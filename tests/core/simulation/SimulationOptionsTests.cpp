@@ -644,6 +644,44 @@ TEST(SimulationOptions, LaunchIntoATurbulentMultiLevelWindIsTheDirectionTheModel
     EXPECT_EQ(events.count(), 0);
 }
 
+/// The options of probe F (sim-config scouting, WindOptionsProbe): a multi-level wind from the
+/// east (90 degrees) at 0 m and from the south (180 degrees) at 1000 m, 5 m/s each, launching
+/// into the wind from a site at 1000 m above sea level, the levels' reference @p reference.
+[[nodiscard]] SimulationOptions probeFOptions(WindModel::AltitudeReference reference)
+{
+    SimulationOptions options;
+    options.setWindModelType(WindModelType::MULTI_LEVEL);
+    MultiLevelPinkNoiseWindModel& wind = options.getMultiLevelWindModel();
+    wind.clearLevels();
+    addLevel(wind, 0, 5, std::numbers::pi / 2, 0.0);
+    addLevel(wind, 1000, 5, std::numbers::pi, 0.0);
+    wind.setAltitudeReference(reference);
+    options.setLaunchIntoWind(true);
+    options.setLaunchAltitude(1000);
+    return options;
+}
+
+TEST(SimulationOptions, LaunchIntoAMultiLevelWindAboveTheGroundTakesTheGroundWind)
+{
+    // Bug 39, fixed: the rod points into the wind at the launch site, which for levels above
+    // the ground (AGL) is the level at 0 m. OpenRocket's probe F printed "rod direction 180.0
+    // deg": Java asks for the wind at the launch altitude above sea level, 1000 m, and takes the
+    // 1000 m AGL level.
+    const SimulationOptions options = probeFOptions(WindModel::AltitudeReference::AGL);
+    EXPECT_TRUE(isJavaValue(std::numbers::pi / 2, options.getLaunchRodDirection()));
+    // The conditions of a run point the rod the same way.
+    const Result<SimulationConditions> conditions = options.toSimulationConditions();
+    ASSERT_TRUE(conditions.has_value());
+    EXPECT_TRUE(isJavaValue(std::numbers::pi / 2, conditions->getLaunchRodDirection()));
+}
+
+TEST(SimulationOptions, LaunchIntoAMultiLevelWindAboveSeaLevelTakesTheWindAtTheSiteAltitude)
+{
+    // Levels above sea level (MSL) are asked at the launch altitude, as in Java.
+    const SimulationOptions options = probeFOptions(WindModel::AltitudeReference::MSL);
+    EXPECT_TRUE(isJavaValue(std::numbers::pi, options.getLaunchRodDirection()));
+}
+
 TEST(SimulationOptions, GetWindModelFollowsTheType)
 {
     SimulationOptions        options;
@@ -2006,14 +2044,12 @@ void change(SimulationOptions& options, Field field)
         describe(src) == describe(dst));
 }
 
-/// copyCase() of an option that equals() compares.
+/// copyCase() of an option that equals() compares. Since bug 29 was fixed that is every option
+/// of Field: OpenRocket's equals() ignores the launch-into-wind flag, the geodetic computation and
+/// the ISA flag, whose cases OptionsProbe printed with "equalsBefore true" (the rest the same).
 constexpr std::string_view kCopied =
     "equalsBefore false copyEvents 1 again 0 equalsAfter true "
     "seedCopied true averageEvents 0 multiEvents 0 sameValues true";
-/// copyCase() of an option that equals() ignores.
-constexpr std::string_view kCopiedAndIgnoredByEquals =
-    "equalsBefore true copyEvents 1 again 0 equalsAfter true seedCopied true averageEvents 0 "
-    "multiEvents 0 sameValues true";
 
 /// Whether a copy of options whose @p field was changed holds every value of them, the seed
 /// included, and equals them.
@@ -2090,7 +2126,8 @@ TEST(SimulationOptions, CopyConditionsFromOfACopyChangesNothing)
 TEST(SimulationOptions, CopyConditionsFromTakesTheLaunchRod)
 {
     EXPECT_EQ(copyCase(Field::LAUNCH_ROD_LENGTH), kCopied);
-    EXPECT_EQ(copyCase(Field::LAUNCH_INTO_WIND), kCopiedAndIgnoredByEquals);
+    // Bug 29: compared here, ignored by OpenRocket's equals() (see kCopied).
+    EXPECT_EQ(copyCase(Field::LAUNCH_INTO_WIND), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_ROD_ANGLE), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_ROD_DIRECTION), kCopied);
 }
@@ -2113,8 +2150,9 @@ TEST(SimulationOptions, CopyConditionsFromTakesTheLaunchSiteAndAtmosphere)
     EXPECT_EQ(copyCase(Field::LAUNCH_ALTITUDE), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_LATITUDE), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_LONGITUDE), kCopied);
-    EXPECT_EQ(copyCase(Field::GEODETIC_COMPUTATION), kCopiedAndIgnoredByEquals);
-    EXPECT_EQ(copyCase(Field::USE_ISA), kCopiedAndIgnoredByEquals);
+    // Bug 29: compared here, ignored by OpenRocket's equals() (see kCopied).
+    EXPECT_EQ(copyCase(Field::GEODETIC_COMPUTATION), kCopied);
+    EXPECT_EQ(copyCase(Field::USE_ISA), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_TEMPERATURE), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_PRESSURE), kCopied);
     EXPECT_EQ(copyCase(Field::LAUNCH_HUMIDITY), kCopied);
@@ -2489,13 +2527,82 @@ TEST(SimulationOptions, EqualityComparesTheLookupTablesByIdentity)
     b.setDragLookup(lookupCsv(), parseTable(dragRows("2.0"), dragColumns()), dragRows("2.0"));
     EXPECT_FALSE(a == b);
     b.setDragLookup(lookupCsv(), a.getDragLookupTable(), std::nullopt);
-    // The rows and the path do not count.
+    // The rows do not count.
     EXPECT_TRUE(a == b);
+    // Bug 29: the path counts (in OpenRocket it does not: a == b).
     b.setDragLookup(std::nullopt, a.getDragLookupTable(), std::nullopt);
+    EXPECT_FALSE(a == b);
+    b.setDragLookup(lookupCsv(), a.getDragLookupTable(), std::nullopt);
     EXPECT_TRUE(a == b);
     b.setStabilityLookup(lookupCsv(), parseTable(stabilityRows("2.0"), stabilityColumns()),
                          stabilityRows("2.0"));
     EXPECT_FALSE(a == b);
+}
+
+/// Whether options and a copy of them still equal after @p edit changed the copy.
+[[nodiscard]] bool equalAfter(void (*edit)(SimulationOptions&))
+{
+    SimulationOptions original = lookupOptions("2.0");
+    original.setIsaAtmosphere(false);
+    SimulationOptions copy = original;
+    edit(copy);
+    return original == copy && copy == original;
+}
+
+// The edits of EqualityComparesWhatChangesAFlightThatOpenRocketIgnores.
+void launchBesideTheWind(SimulationOptions& options)
+{
+    options.setLaunchIntoWind(false);
+}
+void useTheIsa(SimulationOptions& options)
+{
+    options.setIsaAtmosphere(true);
+}
+void computeOnTheEllipsoid(SimulationOptions& options)
+{
+    options.setGeodeticComputation(GeodeticComputationStrategy::WGS84);
+}
+void moveTheDragTable(SimulationOptions& options)
+{
+    options.setDragLookup(std::filesystem::path("other-drag.csv"), options.getDragLookupTable(),
+                          options.getDragLookupCsvRows());
+}
+void moveTheStabilityTable(SimulationOptions& options)
+{
+    options.setStabilityLookup(std::filesystem::path("other-stability.csv"),
+                               options.getStabilityLookupTable(),
+                               options.getStabilityLookupCsvRows());
+}
+void dropTheDragRows(SimulationOptions& options)
+{
+    options.setDragLookup(options.getDragLookupCsvPath(), options.getDragLookupTable(),
+                          std::nullopt);
+}
+void drawAnotherSeed(SimulationOptions& options)
+{
+    options.setRandomSeed(otherSeed(options.getRandomSeed()));
+}
+void flattenAndRoundTheEarthAgain(SimulationOptions& options)
+{
+    options.setGeodeticComputation(GeodeticComputationStrategy::FLAT);
+    options.setGeodeticComputation(GeodeticComputationStrategy::SPHERICAL);
+}
+
+TEST(SimulationOptions, EqualityComparesWhatChangesAFlightThatOpenRocketIgnores)
+{
+    // Bug 29, fixed: OpenRocket's equals() is true after each of these edits (CancelUndoProbe:
+    // "equals after a geodetic change: true"), so such an edit leaves results up to date and
+    // the document clean.
+    EXPECT_FALSE(equalAfter(&launchBesideTheWind));
+    EXPECT_FALSE(equalAfter(&useTheIsa));
+    EXPECT_FALSE(equalAfter(&computeOnTheEllipsoid));
+    EXPECT_FALSE(equalAfter(&moveTheDragTable));
+    EXPECT_FALSE(equalAfter(&moveTheStabilityTable));
+    // The CSV rows alone and a seed that is not fixed still do not count.
+    EXPECT_TRUE(equalAfter(&dropTheDragRows));
+    EXPECT_TRUE(equalAfter(&drawAnotherSeed));
+    // An edit made and taken back.
+    EXPECT_TRUE(equalAfter(&flattenAndRoundTheEarthAgain));
 }
 
 TEST(SimulationOptions, OptionsWithANaNEqualNothing)

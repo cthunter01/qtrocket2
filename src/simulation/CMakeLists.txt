@@ -31,6 +31,7 @@ target_sources(QtRocket_core PRIVATE
     FlightEventActivation.cpp
     GroundStepper.cpp
     LandingDispersionSettings.cpp
+    LaunchPreferences.cpp
     listeners/AbstractSimulationListener.cpp
     listeners/ProgressListener.cpp
     listeners/RunSampleListener.cpp

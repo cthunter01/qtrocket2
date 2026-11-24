@@ -1099,6 +1099,13 @@ std::map<std::string, PlotAppearance> Simulation::getPlotAppearances() const
     return *m_plotAppearances;
 }
 
+void Simulation::setPlotAppearances(const std::map<std::string, PlotAppearance>& appearances)
+{
+    // No caller holds the simulation's own map (getPlotAppearances() hands out a copy), so the
+    // map that is cleared is never the one that is read.
+    setPlotAppearancesInternal(appearances, true);
+}
+
 void Simulation::setPlotAppearancesInternal(
     const std::map<std::string, PlotAppearance>& appearances, bool notify)
 {

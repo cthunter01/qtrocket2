@@ -289,6 +289,7 @@ add_executable(QtRocket_core_tests
     simulation/GroundStepperTests.cpp
     simulation/LandingDispersionSettingsTests.cpp
     simulation/launch_site_air_tests.cpp
+    simulation/LaunchPreferencesTests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
     simulation/nan_flight_tests.cpp
@@ -337,6 +338,8 @@ add_executable(QtRocket_core_tests
     document/open_rocket_document_unresolved_preset_tests.cpp
     document/OpenRocketDocumentFactoryTests.cpp
     document/OpenRocketDocumentTests.cpp
+    document/simulation_options_undo_tests.cpp
+    document/SimulationCopyTests.cpp
     document/StorageOptionsTests.cpp
     document/test_documents_tests.cpp
     file/csv_export_golden_tests.cpp

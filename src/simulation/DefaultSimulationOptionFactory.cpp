@@ -3,6 +3,7 @@
 #include "QtRocket/models/PinkNoiseWindModel.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 
 namespace QtRocket
 {
@@ -51,6 +52,17 @@ SimulationOptions DefaultSimulationOptionFactory::getDefault() const
         defaults.setRandomSeed(prefs.getRandomSeed());
         defaults.setRandomSeedFixed(true);
     }
+
+    // Bug 38 (not in Java, see the header): the Simulation page's geodetic computation and the
+    // Warnings page's three thresholds, read as the simulation dialog's "Reset to default"
+    // buttons of the options and warnings tabs read them (SimulationOptionsPanel.java:407-409,
+    // SimulationWarningsPanel.java:172-175).
+    defaults.setGeodeticComputation(
+        geodeticComputationStrategyFromString(prefs.getGeodeticComputationName())
+            .value_or(GeodeticComputationStrategy::SPHERICAL));
+    defaults.setRecoverySpeedWarning(prefs.getRecoverySpeedWarning());
+    defaults.setRecoveryDrogueMainHighSpeedWarning(prefs.getRecoveryDrogueMainHighSpeedWarning());
+    defaults.setRecoveryDrogueMainLowSpeedWarning(prefs.getRecoveryDrogueMainLowSpeedWarning());
     return defaults;
 }
 

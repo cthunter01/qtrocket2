@@ -47,6 +47,47 @@ std::string_view getDescription(SimulationStepperMethod method) noexcept
     return "6-DOF Runge-Kutta 4";  // not reached
 }
 
+std::string_view displayKey(SimulationStepperMethod method) noexcept
+{
+    switch (method)
+    {
+        case SimulationStepperMethod::RK4:
+            return "SimulationStepperMethod.RK4.name";
+        case SimulationStepperMethod::RK6:
+            return "SimulationStepperMethod.RK6.name";
+    }
+    return "SimulationStepperMethod.RK4.name";  // not reached
+}
+
+std::string_view displayName(SimulationStepperMethod method) noexcept
+{
+    return getName(method);
+}
+
+std::string_view shortNameKey(SimulationStepperMethod method) noexcept
+{
+    switch (method)
+    {
+        case SimulationStepperMethod::RK4:
+            return "SimulationStepperMethod.RK4.shortName";
+        case SimulationStepperMethod::RK6:
+            return "SimulationStepperMethod.RK6.shortName";
+    }
+    return "SimulationStepperMethod.RK4.shortName";  // not reached
+}
+
+std::string_view descriptionKey(SimulationStepperMethod method) noexcept
+{
+    switch (method)
+    {
+        case SimulationStepperMethod::RK4:
+            return "SimulationStepperMethod.RK4.desc";
+        case SimulationStepperMethod::RK6:
+            return "SimulationStepperMethod.RK6.desc";
+    }
+    return "SimulationStepperMethod.RK4.desc";  // not reached
+}
+
 std::string_view simulationStepperMethodName(SimulationStepperMethod method) noexcept
 {
     switch (method)

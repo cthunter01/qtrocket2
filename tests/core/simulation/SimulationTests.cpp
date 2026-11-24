@@ -50,6 +50,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Uuid.h"
@@ -74,6 +75,7 @@ using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
 using QtRocket::FlightEvent;
+using QtRocket::GeodeticComputationStrategy;
 using QtRocket::InMemoryPreferences;
 using QtRocket::LandingDispersionSettings;
 using QtRocket::LineStyle;
@@ -548,6 +550,32 @@ TEST(Simulation, WithPreferencesTheOptionsAreTheFactoryDefaults)
     EXPECT_EQ(other.getOptions().getTimeStep(), 0.02);
 }
 
+TEST(Simulation, ANewSimulationTakesThePreferencePagesGeodeticComputationAndThresholds)
+{
+    // Bug 38, fixed (DefaultSimulationOptionFactory::getDefault()): in OpenRocket a new
+    // simulation keeps SPHERICAL and the thresholds 20, 30.48 and 15.24 m/s whatever the
+    // Simulation and Warnings preference pages say (probe G: "geodetic=Spherical approximation").
+    InMemoryPreferences preferences;
+    preferences.setGeodeticComputationName("WGS84");
+    preferences.setRecoverySpeedWarning(25.0);
+    preferences.setRecoveryDrogueMainHighSpeedWarning(40.0);
+    preferences.setRecoveryDrogueMainLowSpeedWarning(10.0);
+    TestEstesAlphaIII        alpha;
+    const Simulation         sim(*alpha.rocket, preferences);
+    const SimulationOptions& options = sim.getOptions();
+    EXPECT_EQ(options.getGeodeticComputation(), GeodeticComputationStrategy::WGS84);
+    EXPECT_EQ(options.getRecoverySpeedWarning(), 25.0);
+    EXPECT_EQ(options.getRecoveryDrogueMainHighSpeedWarning(), 40.0);
+    EXPECT_EQ(options.getRecoveryDrogueMainLowSpeedWarning(), 10.0);
+    // A duplicate takes its source's settings, not the preferences'.
+    Simulation source(*alpha.rocket, preferences);
+    source.getOptions().setGeodeticComputation(GeodeticComputationStrategy::FLAT);
+    source.getOptions().setRecoverySpeedWarning(12.0);
+    const std::unique_ptr<Simulation> duplicate = source.duplicateSimulation(*alpha.rocket);
+    EXPECT_EQ(duplicate->getOptions().getGeodeticComputation(), GeodeticComputationStrategy::FLAT);
+    EXPECT_EQ(duplicate->getOptions().getRecoverySpeedWarning(), 12.0);
+}
+
 TEST(Simulation, SetFlightConfigurationIdCreatesTheConfigurationInTheRocket)
 {
     // "error id: IllegalArgumentException: Attempted to set the configuration to an error id.
@@ -637,11 +665,46 @@ TEST_P(SimulationUpToDateStatus, AChangedOptionMakesItOutdatedForGood)
 
 TEST_P(SimulationUpToDateStatus, AnOptionThatIsNotComparedChangesNothing)
 {
-    // "<status>: launchIntoWind toggled <status>": SimulationOptions' equality ignores it.
+    // A new random seed that is not fixed: SimulationOptions' equality ignores it.
+    // (StatusBranchProbe toggled launchIntoWind here, "<status>: launchIntoWind toggled
+    // <status>", which OpenRocket's equality ignores too; since bug 29 was fixed the flag counts,
+    // see AnOptionThatOpenRocketDoesNotCompareMakesItOutdated.)
     const SelectedAlpha               s;
     const std::unique_ptr<Simulation> l = loaded(s.rocket(), GetParam());
-    l->getOptions().setLaunchIntoWind(!l->getOptions().getLaunchIntoWind());
+    ASSERT_FALSE(l->getOptions().isRandomSeedFixed());
+    l->getOptions().setRandomSeed(l->getOptions().getRandomSeed() ^ 1);
     EXPECT_EQ(l->getStatus(), GetParam());
+}
+
+/// The status of a simulation of @p status after @p edit changed its options.
+[[nodiscard]] Status statusAfterOptionEdit(Status status, void (*edit)(SimulationOptions&))
+{
+    const SelectedAlpha               s;
+    const std::unique_ptr<Simulation> l = loaded(s.rocket(), status);
+    edit(l->getOptions());
+    return l->getStatus();
+}
+
+void toggleLaunchIntoWind(SimulationOptions& options)
+{
+    options.setLaunchIntoWind(!options.getLaunchIntoWind());
+}
+void toggleIsa(SimulationOptions& options)
+{
+    options.setIsaAtmosphere(!options.isIsaAtmosphere());
+}
+void computeOnAFlatEarth(SimulationOptions& options)
+{
+    options.setGeodeticComputation(GeodeticComputationStrategy::FLAT);
+}
+
+TEST_P(SimulationUpToDateStatus, AnOptionThatOpenRocketDoesNotCompareMakesItOutdated)
+{
+    // Bug 29, fixed: these change the flight, and OpenRocket's equality ignores them, so there
+    // the status stays (StatusBranchProbe: "<status>: launchIntoWind toggled <status>").
+    EXPECT_EQ(statusAfterOptionEdit(GetParam(), &toggleLaunchIntoWind), Status::OUTDATED);
+    EXPECT_EQ(statusAfterOptionEdit(GetParam(), &toggleIsa), Status::OUTDATED);
+    EXPECT_EQ(statusAfterOptionEdit(GetParam(), &computeOnAFlatEarth), Status::OUTDATED);
 }
 
 TEST_P(SimulationUpToDateStatus, AChangedRocketMakesItOutdated)

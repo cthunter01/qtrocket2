@@ -44,6 +44,19 @@ inline constexpr std::array<GravityModelType, 2> kAllGravityModelTypes{GravityMo
 /// "simedtdlg.GravityModel.WGS84.ttip" or "simedtdlg.GravityModel.Constant.ttip".
 [[nodiscard]] std::string_view tooltipKey(GravityModelType type) noexcept;
 
+/// The English text of tooltipKey(): "WGS84 ellipsoid gravity model (varies with latitude and
+/// altitude)" or "Constant gravity model (same value everywhere)".
+[[nodiscard]] std::string_view tooltip(GravityModelType type) noexcept;
+
+/// The key under which the GUI translates displayName() (EnumText): "GravityModelType.WGS" or
+/// "GravityModelType.CONSTANT". Not a key of OpenRocket's messages.properties: Java's combo boxes
+/// show toString(), the string value, untranslated. QtRocket's key lets a translation give the
+/// type a name of its own (in English the text is Java's).
+[[nodiscard]] std::string_view displayKey(GravityModelType type) noexcept;
+
+/// The name the GUI shows, the string value: "WGS" or "Constant" (toStringValue()).
+[[nodiscard]] std::string_view displayName(GravityModelType type) noexcept;
+
 /// Java's fromString(): the type whose string value equals @p text ignoring case as
 /// String.equalsIgnoreCase does (Strings::javaEqualsIgnoreCase; no trimming), so "wgs",
 /// "Constant" and the .ork spellings match. Anything else is nullopt, where Java throws

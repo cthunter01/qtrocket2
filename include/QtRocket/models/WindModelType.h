@@ -41,6 +41,24 @@ inline constexpr std::array<WindModelType, 2> kAllWindModelTypes{WindModelType::
 /// Java's toString() (see windModelTypeName()).
 [[nodiscard]] std::string_view toString(WindModelType type) noexcept;
 
+/// The translation key of the type's name in the GUI: "simedtdlg.radio.AverageWind" or
+/// "simedtdlg.radio.MultiLevelWind", the keys of the simulation dialog's wind model radio
+/// buttons, which is where OpenRocket shows the type by a name (the enum has no text of its
+/// own). With displayName() the GUI shows the type by its translated name (EnumText).
+[[nodiscard]] std::string_view displayKey(WindModelType type) noexcept;
+
+/// The English text of displayKey(): "Average" or "Multi-level".
+[[nodiscard]] std::string_view displayName(WindModelType type) noexcept;
+
+/// The translation key of the type's description, the radio button's tooltip:
+/// "simedtdlg.radio.AverageWind.ttip" or "simedtdlg.radio.MultiLevelWind.ttip".
+[[nodiscard]] std::string_view descriptionKey(WindModelType type) noexcept;
+
+/// The English text of descriptionKey(): "Model the wind as pink noise from the average wind
+/// speed and standard deviation." or "Model the wind using speed and direction entries at
+/// various altitude levels."
+[[nodiscard]] std::string_view description(WindModelType type) noexcept;
+
 /// Java's fromString(): the type whose string value equals @p text ignoring case as
 /// String.equalsIgnoreCase does (Strings::javaEqualsIgnoreCase; no trimming), so "average" and
 /// "MULTILEVEL" match. Anything else is nullopt, where Java throws IllegalArgumentException ("No

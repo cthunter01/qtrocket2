@@ -24,8 +24,10 @@ namespace
 using QtRocket::addCoordinate;
 using QtRocket::BugError;
 using QtRocket::Coordinate;
+using QtRocket::description;
 using QtRocket::descriptionKey;
 using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::ErrorCode;
 using QtRocket::GeodeticComputationStrategy;
 using QtRocket::geodeticComputationStrategyFromString;
@@ -254,6 +256,24 @@ TEST(GeodeticComputationStrategy, DisplayAndDescriptionKeys)
               "GeodeticComputationStrategy.spherical.desc");
     EXPECT_EQ(descriptionKey(GeodeticComputationStrategy::WGS84),
               "GeodeticComputationStrategy.wgs84.desc");
+}
+
+TEST(GeodeticComputationStrategy, DisplayNamesAndDescriptions)
+{
+    // The English texts of the keys in OpenRocket's messages.properties (Java's getName() and
+    // getDescription()); the two spaces of the flat description are OpenRocket's.
+    EXPECT_EQ(displayName(GeodeticComputationStrategy::FLAT), "Flat Earth");
+    EXPECT_EQ(displayName(GeodeticComputationStrategy::SPHERICAL), "Spherical approximation");
+    EXPECT_EQ(displayName(GeodeticComputationStrategy::WGS84), "WGS84 ellipsoid");
+    EXPECT_EQ(description(GeodeticComputationStrategy::FLAT),
+              "Perform computations with a flat Earth approximation.  Sufficient for low-altitude "
+              "flights.");
+    EXPECT_EQ(description(GeodeticComputationStrategy::SPHERICAL),
+              "<html>Perform geodetic computations assuming a spherical Earth. <br>This is "
+              "sufficiently accurate for almost all purposes.");
+    EXPECT_EQ(description(GeodeticComputationStrategy::WGS84),
+              "<html>Perform geodetic computations on the WGS84 reference ellipsoid using "
+              "Vincenty's method. <br>Slower and unnecessary in most cases.");
 }
 
 TEST(GeodeticComputationStrategy, FromStringRoundTrips)

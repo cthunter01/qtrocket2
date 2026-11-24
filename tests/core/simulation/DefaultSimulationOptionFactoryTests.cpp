@@ -459,14 +459,18 @@ TEST_F(DefaultSimulationOptionFactoryTest, GetDefaultKeepsWhatSimulationOptionsR
     EXPECT_EQ(describeLevels(defaults.getMultiLevelWindModel()), "[0, 6, 3.5, 1.5]");
     // Not launch conditions: these stay at SimulationOptions' constants, whatever is stored.
     EXPECT_EQ(defaults.getWindModelType(), WindModelType::AVERAGE);
-    EXPECT_EQ(defaults.getGeodeticComputation(), GeodeticComputationStrategy::SPHERICAL);
     EXPECT_EQ(defaults.getSimulationStepperMethodChoice(), SimulationStepperMethod::RK4);
-    EXPECT_EQ(defaults.getRecoverySpeedWarning(), 20.0);
     EXPECT_EQ(defaults.getDrogueLowSpeedWarning(), 3.048);
-    EXPECT_EQ(defaults.getRecoveryDrogueMainHighSpeedWarning(), 30.48);
-    EXPECT_EQ(defaults.getRecoveryDrogueMainLowSpeedWarning(), 15.24);
     EXPECT_FALSE(defaults.hasDragLookup());
     EXPECT_FALSE(defaults.hasStabilityLookup());
+    // Bug 38, fixed: the geodetic computation and the three thresholds of the preference pages
+    // are applied as well. OpenRocket's factory leaves SimulationOptions' constants (SPHERICAL,
+    // 20, 30.48 and 15.24 m/s) whatever is stored, which is what this test pinned before the fix
+    // (OptionsProbe.factory()).
+    EXPECT_EQ(defaults.getGeodeticComputation(), GeodeticComputationStrategy::WGS84);
+    EXPECT_EQ(defaults.getRecoverySpeedWarning(), 22.0);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainHighSpeedWarning(), 33.0);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainLowSpeedWarning(), 12.0);
 }
 
 TEST_F(DefaultSimulationOptionFactoryTest,
@@ -810,6 +814,78 @@ TEST(DefaultSimulationOptionFactory, TwoFactoriesOverOneStoreShareIt)
     SimulationOptions defaults = second.getDefault();
     defaults.setSimulationStepperMethodChoice(SimulationStepperMethod::RK6);
     EXPECT_EQ(preferences.getSimulationStepperMethodName(), "RK6");
+}
+
+// ------------------------------------------------------- bug 38: the preference pages' settings
+
+// The Simulation page's "Geodetic calculations" and the Warnings page's three thresholds reach
+// the defaults, as the dialog tabs' "Reset to default" buttons read them. OpenRocket's probe G
+// (sim-config scouting, WindOptionsProbe): a new simulation after the preferences geodetic
+// WGS84, gravity CONSTANT, time step 0.02 and stepper RK6 has "geodetic=Spherical approximation
+// gravity=Constant timeStep=0.02 stepper=6-DOF Runge-Kutta 4"; here the geodetic computation is
+// the preference's, and the rest is as in Java.
+TEST_F(DefaultSimulationOptionFactoryTest, GetDefaultTakesTheSimulationPageGeodeticComputation)
+{
+    m_preferences.setGeodeticComputationName("WGS84");
+    m_preferences.setGravityModelName("CONSTANT");
+    m_preferences.setTimeStep(0.02);
+    m_preferences.setSimulationStepperMethodName("RK6");
+
+    const SimulationOptions defaults = m_factory.getDefault();
+
+    EXPECT_EQ(defaults.getGeodeticComputation(), GeodeticComputationStrategy::WGS84);
+    EXPECT_EQ(defaults.getGravityModelType(), GravityModelType::CONSTANT);
+    EXPECT_EQ(defaults.getTimeStep(), 0.02);
+    // The stepper preference does not reach the defaults, as in Java (the options panel writes
+    // it, and SimulationOptions starts with RK4).
+    EXPECT_EQ(defaults.getSimulationStepperMethodChoice(), SimulationStepperMethod::RK4);
+
+    m_preferences.setGeodeticComputationName("FLAT");
+    EXPECT_EQ(m_factory.getDefault().getGeodeticComputation(), GeodeticComputationStrategy::FLAT);
+}
+
+TEST_F(DefaultSimulationOptionFactoryTest, GetDefaultTakesTheWarningsPageThresholds)
+{
+    m_preferences.setRecoverySpeedWarning(25.0);
+    m_preferences.setRecoveryDrogueMainHighSpeedWarning(40.0);
+    m_preferences.setRecoveryDrogueMainLowSpeedWarning(10.0);
+    // No page edits the drogue's low speed threshold, and the reset buttons do not read it.
+    m_preferences.setDrogueLowSpeedWarning(5.0);
+
+    const SimulationOptions defaults = m_factory.getDefault();
+
+    EXPECT_EQ(defaults.getRecoverySpeedWarning(), 25.0);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainHighSpeedWarning(), 40.0);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainLowSpeedWarning(), 10.0);
+    EXPECT_EQ(defaults.getDrogueLowSpeedWarning(), 3.048);
+}
+
+TEST_F(DefaultSimulationOptionFactoryTest, TheDefaultsOfAnEmptyStoreAreJavas)
+{
+    // The preferences' defaults are SimulationOptions' constants: an empty store gives what
+    // OpenRocket's factory gives.
+    const SimulationOptions defaults = m_factory.getDefault();
+    EXPECT_EQ(defaults.getGeodeticComputation(), GeodeticComputationStrategy::SPHERICAL);
+    EXPECT_EQ(defaults.getRecoverySpeedWarning(), 20.0);
+    EXPECT_EQ(defaults.getDrogueLowSpeedWarning(), 3.048);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainHighSpeedWarning(), 30.48);
+    EXPECT_EQ(defaults.getRecoveryDrogueMainLowSpeedWarning(), 15.24);
+    EXPECT_TRUE(m_preferences.empty());
+}
+
+TEST_F(DefaultSimulationOptionFactoryTest, SaveDefaultStillStoresNoneOfTheFour)
+{
+    // Only the dialog tabs' "Save as default" buttons store them.
+    SimulationOptions saved(m_preferences);
+    saved.setGeodeticComputation(GeodeticComputationStrategy::WGS84);
+    saved.setRecoverySpeedWarning(25.0);
+    saved.setRecoveryDrogueMainHighSpeedWarning(40.0);
+    saved.setRecoveryDrogueMainLowSpeedWarning(10.0);
+    m_factory.saveDefault(saved);
+    EXPECT_EQ(m_preferences.getGeodeticComputationName(), "SPHERICAL");
+    EXPECT_EQ(m_preferences.getRecoverySpeedWarning(), 20.0);
+    EXPECT_EQ(m_preferences.getRecoveryDrogueMainHighSpeedWarning(), 30.48);
+    EXPECT_EQ(m_preferences.getRecoveryDrogueMainLowSpeedWarning(), 15.24);
 }
 
 }  // namespace

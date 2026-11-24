@@ -18,8 +18,8 @@ class WorldCoordinate;
 ///
 /// OpenRocket writes each strategy as an enum constant with a body; here the enum is plain and
 /// the two computations are the free functions below. getName() / getDescription(), which look
-/// the translated texts up, become displayKey() / descriptionKey(); Enum.name() is name() and
-/// the .ork spelling is toString().
+/// the translated texts up, become displayKey() / descriptionKey() with their English texts
+/// displayName() / description(); Enum.name() is name() and the .ork spelling is toString().
 enum class GeodeticComputationStrategy
 {
     /// A flat Earth: addCoordinate() scales metres to degrees directly and the Coriolis
@@ -90,6 +90,16 @@ inline constexpr std::array<GeodeticComputationStrategy, 3> kAllGeodeticComputat
 /// The translation key of the strategy's description (Java's getDescription()), e.g.
 /// "GeodeticComputationStrategy.flat.desc".
 [[nodiscard]] std::string_view descriptionKey(GeodeticComputationStrategy strategy) noexcept;
+
+/// The English text of displayKey() (Java's getName() and toString() in English): "Flat Earth",
+/// "Spherical approximation" or "WGS84 ellipsoid". With displayKey() the GUI shows the strategy
+/// by its translated name (EnumText).
+[[nodiscard]] std::string_view displayName(GeodeticComputationStrategy strategy) noexcept;
+
+/// The English text of descriptionKey() (Java's getDescription() in English), with OpenRocket's
+/// markup, e.g. "<html>Perform geodetic computations assuming a spherical Earth. <br>This is
+/// sufficiently accurate for almost all purposes.".
+[[nodiscard]] std::string_view description(GeodeticComputationStrategy strategy) noexcept;
 
 /// The strategy whose name is @p text, trimmed and compared without regard to ASCII case (and
 /// with underscores removed from the enum name, as DocumentConfig.findEnum does for .ork files),

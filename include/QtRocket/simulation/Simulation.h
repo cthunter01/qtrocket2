@@ -86,9 +86,9 @@ class WarningSet;
 /// Change events (Java: ChangeSource; addChangeListener()/removeChangeListener() are
 /// changed().connect()/disconnect()): changed() is emitted by setFlightConfigurationId(),
 /// setName() and setLandingDispersionSettings() when they change something, by syncModId(),
-/// setPlotAppearance() and simulate() always, and whenever the options emit theirs (Java: the
-/// ConditionListener), except for the options of a copy() or a cloneForUndo(), which Java
-/// leaves without that listener.
+/// setPlotAppearance(), setPlotAppearances(), simulate() and adoptRun() always, and whenever the
+/// options emit theirs (Java: the ConditionListener), except for the options of a copy() or a
+/// cloneForUndo(), which Java leaves without that listener.
 ///
 /// Copies, with exactly what Java's Object.clone() shares: a copy(), a clone() and a
 /// cloneForUndo() refer to the same rocket and document, share the plot appearances with the
@@ -591,7 +591,9 @@ public:
     /// plot appearances (shared, see the class comment), copies of the options and of the
     /// landing dispersion settings and clones of the extensions, and nothing simulated: the
     /// status NOT_SIMULATED, no simulated conditions, description or data. As in Java, a
-    /// change of the copy's options does not emit the copy's changed().
+    /// change of the copy's options does not emit the copy's changed(). The application's
+    /// clipboard keeps a document/SimulationCopy instead, which refers to neither the rocket nor
+    /// the document.
     [[nodiscard]] std::unique_ptr<Simulation> copy() const;
 
     /// clone(true).
@@ -623,6 +625,9 @@ public:
     /// @p newRocket), conditions (copyConditionsFrom() onto the new simulation's default
     /// options), landing dispersion settings, configuration description, clones of the
     /// extensions and copies of the plot appearances. @p newRocket must outlive the duplicate.
+    /// The document stays this simulation's, as in Java, where it is the duplicate's change
+    /// listener (OpenRocket bug 22 for a paste into another document); a paste goes through
+    /// document/SimulationCopy, whose simulations belong to the document they are pasted into.
     [[nodiscard]] std::unique_ptr<Simulation> duplicateSimulation(Rocket& newRocket) const;
 
     /// A deep copy of this simulation for a run of its own: a not yet simulated simulation of a
@@ -673,6 +678,12 @@ public:
 
     /// A copy of the plot appearances, by symbol.
     [[nodiscard]] std::map<std::string, PlotAppearance> getPlotAppearances() const;
+
+    /// Replaces the plot appearances by those of @p appearances that are not empty, by symbol,
+    /// and emits changed() (an addition: Java's private setPlotAppearancesInternal(), which only
+    /// its constructor calls). For document/SimulationCopy, whose pasted simulations take the
+    /// appearances of the copy.
+    void setPlotAppearances(const std::map<std::string, PlotAppearance>& appearances);
 
 protected:
     /// Emits changed().

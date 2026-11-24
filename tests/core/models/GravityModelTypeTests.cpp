@@ -7,10 +7,13 @@
 namespace
 {
 
+using QtRocket::displayKey;
+using QtRocket::displayName;
 using QtRocket::GravityModelType;
 using QtRocket::gravityModelTypeFromString;
 using QtRocket::gravityModelTypeName;
 using QtRocket::kAllGravityModelTypes;
+using QtRocket::tooltip;
 using QtRocket::tooltipKey;
 using QtRocket::toStringValue;
 
@@ -64,6 +67,29 @@ TEST(GravityModelType, OrkSpellingsAndTooltipKeys)
     EXPECT_EQ(toString(GravityModelType::CONSTANT), "constant");
     EXPECT_EQ(tooltipKey(GravityModelType::WGS), "simedtdlg.GravityModel.WGS84.ttip");
     EXPECT_EQ(tooltipKey(GravityModelType::CONSTANT), "simedtdlg.GravityModel.Constant.ttip");
+}
+
+TEST(GravityModelType, TooltipTexts)
+{
+    // The English texts of the keys of tooltipKey() in OpenRocket's messages.properties.
+    EXPECT_EQ(tooltip(GravityModelType::WGS),
+              "WGS84 ellipsoid gravity model (varies with latitude and altitude)");
+    EXPECT_EQ(tooltip(GravityModelType::CONSTANT),
+              "Constant gravity model (same value everywhere)");
+}
+
+TEST(GravityModelType, DisplayKeysAndNames)
+{
+    // OpenRocket shows toString() untranslated; the key is QtRocket's own (no such key in
+    // messages.properties), the English name Java's.
+    EXPECT_EQ(displayKey(GravityModelType::WGS), "GravityModelType.WGS");
+    EXPECT_EQ(displayKey(GravityModelType::CONSTANT), "GravityModelType.CONSTANT");
+    EXPECT_EQ(displayName(GravityModelType::WGS), "WGS");
+    EXPECT_EQ(displayName(GravityModelType::CONSTANT), "Constant");
+    for (const GravityModelType type : kAllGravityModelTypes)
+    {
+        EXPECT_EQ(displayName(type), toStringValue(type));
+    }
 }
 
 TEST(GravityModelType, SpellingsParseBack)
