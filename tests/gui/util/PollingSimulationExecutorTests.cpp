@@ -1,5 +1,6 @@
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -27,6 +28,9 @@
 #include "QtRocket/simulation/RunSample.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationRun.h"
+#include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
+#include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/simulation/listeners/RunSampleListener.h"
 #include "QtRocket/util/BugError.h"
 #include "RecordingGuardHook.h"
@@ -134,26 +138,6 @@ struct NoteEnd
             .finished   = NoteEnd{.seen = &seen, .executor = &executor}};
 }
 
-/// A job's finished() that runs the event loop (as a modal message does) and notes whether the
-/// other job's end came meanwhile.
-struct RunTheEventLoop
-{
-    const Seen*                      other;
-    bool*                            otherEndedMeanwhile;
-    bool*                            polling;
-    const PollingSimulationExecutor* executor;
-
-    void operator()(const std::exception_ptr& /*exception*/) const
-    {
-        *polling = executor->isPolling();
-        for (int turn = 0; turn < 3; ++turn)
-        {
-            QCoreApplication::processEvents();
-        }
-        *otherEndedMeanwhile = other->ended;
-    }
-};
-
 /// A job's finished() that submits another job of @p flight, whose end it notes into @p next.
 struct SubmitAnother
 {
@@ -203,17 +187,76 @@ template <class... More>
     return waitFor([&executor] { return !executor.isPolling(); });
 }
 
+/// A listener that notes the end of its run (endSimulation(), on the run's thread); its clones
+/// share the note.
+class RunEndNote final : public CloneableSimulationListener<RunEndNote>
+{
+public:
+    void endSimulation(SimulationStatus& /*status*/,
+                       const SimulationException* /*exception*/) override
+    {
+        m_ended->store(true);
+    }
+
+    /// Whether the run has ended.
+    [[nodiscard]] bool ended() const noexcept { return m_ended->load(); }
+
+private:
+    std::shared_ptr<std::atomic<bool>> m_ended = std::make_shared<std::atomic<bool>>(false);
+};
+
+/// How long LetTheOtherEndMeanwhile gives the poll: five of its intervals. Only a defect (a poll
+/// that runs while a callback runs) hands the other job's end over in that time; a correct
+/// executor never does, however long it is.
+constexpr int kPollsMeanwhile =
+    static_cast<int>((5 * PollingSimulationExecutor::kPollInterval).count());
+
+/// What LetTheOtherEndMeanwhile saw inside the callback.
+struct Meanwhile
+{
+    bool pollingAtTheStart     = true;
+    bool otherRunEnded         = false;
+    bool pollingAfterTheSubmit = true;
+    bool otherEnded            = true;
+};
+
+/// The first job's finished() of NoOtherCallbackComesWhileOneRuns: it releases the gate that holds
+/// the other job, waits in the event loop (as a modal message does) until the other job's run is
+/// over on its thread, submits a third job of @p flight, then gives the poll five intervals to
+/// hand the other job's end over (it must not, while this callback runs), and notes it all.
+struct LetTheOtherEndMeanwhile
+{
+    PollingSimulationExecutor* executor;
+    const StepGate*            gate;
+    const RunEndNote*          otherRun;
+    const MotorlessFlight*     flight;
+    const Seen*                other;
+    Seen*                      third;
+    Meanwhile*                 meanwhile;
+
+    void operator()(const std::exception_ptr& /*exception*/) const
+    {
+        meanwhile->pollingAtTheStart = executor->isPolling();
+        gate->release();
+        meanwhile->otherRunEnded = waitFor([this] { return otherRun->ended(); });
+        static_cast<void>(executor->submit(nullptr, flight->newRun(), nullptr, {},
+                                           std::stop_source{}, noting(*third, *executor)));
+        meanwhile->pollingAfterTheSubmit = executor->isPolling();
+        meanwhile->otherEnded = QTest::qWaitFor([this] { return other->ended; }, kPollsMeanwhile);
+    }
+};
+
 TEST_F(PollingSimulationExecutorTest, RunsAJobOnAThreadOfItsRunnerAndReportsItsEndAtAPoll)
 {
-    PollingSimulationExecutor executor(2);
+    const MotorlessFlight                flight;
+    const std::shared_ptr<SimulationRun> run = flight.newRun();
+    PollingSimulationExecutor            executor(2);
     EXPECT_EQ(executor.threadCount(), 2U);
     EXPECT_EQ(executor.pollInterval(), PollingSimulationExecutor::kPollInterval);
     EXPECT_FALSE(executor.isPolling());
-    const MotorlessFlight                flight;
-    const std::shared_ptr<SimulationRun> run = flight.newRun();
-    Seen                                 seen;
-    const QObject                        window;
-    const JobId                          job =
+    Seen          seen;
+    const QObject window;
+    const JobId   job =
         executor.submit(&window, run, nullptr, {}, std::stop_source{}, noting(seen, executor));
     EXPECT_NE(job, SimulationExecutor::kNoJob);
     // Never inside submit(); the poll runs while the job is pending.
@@ -233,11 +276,11 @@ TEST_F(PollingSimulationExecutorTest, RunsAJobOnAThreadOfItsRunnerAndReportsItsE
 
 TEST_F(PollingSimulationExecutorTest, HandsOverTheSamplesOfAJobBeforeItsEnd)
 {
-    PollingSimulationExecutor            executor(1);
     const ExampleDesign                  design(ExampleDesign::kSimpleModelRocket);
     const std::shared_ptr<SimulationRun> run =
         std::make_shared<SimulationRun>(*design.simulation(0));
-    Seen seen;
+    PollingSimulationExecutor executor(1);
+    Seen                      seen;
     static_cast<void>(executor.submit(nullptr, run,
                                       std::make_shared<RunSampleListener>(frozenSampleClock()), {},
                                       std::stop_source{}, noting(seen, executor)));
@@ -253,14 +296,14 @@ TEST_F(PollingSimulationExecutorTest, HandsOverTheSamplesOfAJobBeforeItsEnd)
 TEST_F(PollingSimulationExecutorTest, ACancelledQueuedJobEndsCancelledWithoutRunning)
 {
     // One thread, held by the first job: the second waits until it is cancelled.
-    PollingSimulationExecutor            executor(1);
     const ExampleDesign                  design(ExampleDesign::kSimpleModelRocket);
     const MotorlessFlight                flight;
     const StepGate                       gate(3);
     const std::stop_source               heldStop;
     const std::shared_ptr<SimulationRun> held =
         std::make_shared<SimulationRun>(*design.simulation(0));
-    Seen heldSeen;
+    PollingSimulationExecutor executor(1);
+    Seen                      heldSeen;
     static_cast<void>(executor.submit(nullptr, held, nullptr, {gate.listener(heldStop.get_token())},
                                       heldStop, noting(heldSeen, executor)));
     const std::shared_ptr<SimulationRun> queued = flight.newRun();
@@ -281,13 +324,13 @@ TEST_F(PollingSimulationExecutorTest, ACancelledQueuedJobEndsCancelledWithoutRun
 
 TEST_F(PollingSimulationExecutorTest, ARunningJobThatIsCancelledEndsAfterItsStep)
 {
-    PollingSimulationExecutor            executor(1);
     const ExampleDesign                  design(ExampleDesign::kSimpleModelRocket);
     const StepGate                       gate(3);
     const std::stop_source               stop;
     const std::shared_ptr<SimulationRun> run =
         std::make_shared<SimulationRun>(*design.simulation(0));
-    Seen        seen;
+    PollingSimulationExecutor executor(1);
+    Seen                      seen;
     const JobId job = executor.submit(nullptr, run, nullptr, {gate.listener(stop.get_token())},
                                       stop, noting(seen, executor));
     EXPECT_TRUE(waitUntilReached(gate));
@@ -303,11 +346,11 @@ TEST_F(PollingSimulationExecutorTest, TwoJobsRunAtTheSameTime)
 {
     // Both runs meet at a step: neither goes on before both are there (a runner that ran them one
     // after the other would hold the first until the safety net).
-    PollingSimulationExecutor executor(2);
     const ExampleDesign       design(ExampleDesign::kSimpleModelRocket);
     const StepMeeting         meeting(2, 5);
     const std::stop_source    firstStop;
     const std::stop_source    secondStop;
+    PollingSimulationExecutor executor(2);
     Seen                      first;
     Seen                      second;
     static_cast<void>(executor.submit(
@@ -322,15 +365,15 @@ TEST_F(PollingSimulationExecutorTest, TwoJobsRunAtTheSameTime)
 
 TEST_F(PollingSimulationExecutorTest, AnAbandonedJobCallsNothing)
 {
-    PollingSimulationExecutor            executor(1);
     const ExampleDesign                  design(ExampleDesign::kSimpleModelRocket);
     const StepGate                       gate(3);
     const std::stop_source               stop;
     const std::shared_ptr<SimulationRun> run =
         std::make_shared<SimulationRun>(*design.simulation(0));
-    Seen          seen;
-    const QObject window;
-    const JobId   job =
+    PollingSimulationExecutor executor(1);
+    Seen                      seen;
+    const QObject             window;
+    const JobId               job =
         executor.submit(&window, run, std::make_shared<RunSampleListener>(),
                         {gate.listener(stop.get_token())}, stop, noting(seen, executor));
     EXPECT_TRUE(waitUntilReached(gate));
@@ -347,34 +390,44 @@ TEST_F(PollingSimulationExecutorTest, AnAbandonedJobCallsNothing)
 
 TEST_F(PollingSimulationExecutorTest, NoOtherCallbackComesWhileOneRuns)
 {
-    // The first job's end runs the event loop, as a modal message does; the second job, held
-    // until then, ends meanwhile on its thread, and its end comes only after the first's callback
-    // has returned: the poll is paused.
-    PollingSimulationExecutor executor(2);
+    // The first job's end runs the event loop, as a modal message does: it lets the second job,
+    // held at a gate until then, run to its end on its thread meanwhile, and submits a third job
+    // (which must not start the poll again); the second job's end comes only after the first's
+    // callback has returned (O-M4-15: the failures one at a time).
     const ExampleDesign       design(ExampleDesign::kSimpleModelRocket);
     const MotorlessFlight     flight;
+    const StepGate            gate(3);
+    const std::stop_source    otherStop;
+    const auto                otherRun = std::make_shared<RunEndNote>();
+    PollingSimulationExecutor executor(2);
     Seen                      other;
-    bool                      otherEndedMeanwhile = true;
-    bool                      polling             = true;
+    Seen                      third;
+    Meanwhile                 meanwhile;
     static_cast<void>(
         executor.submit(nullptr, flight.newRun(), nullptr, {}, std::stop_source{},
                         {.progressed = {},
-                         .finished   = RunTheEventLoop{.other               = &other,
-                                                       .otherEndedMeanwhile = &otherEndedMeanwhile,
-                                                       .polling             = &polling,
-                                                       .executor            = &executor}}));
-    static_cast<void>(executor.submit(nullptr,
-                                      std::make_shared<SimulationRun>(*design.simulation(0)),
-                                      nullptr, {}, std::stop_source{}, noting(other, executor)));
-    EXPECT_TRUE(waitForTheEnds(other));
-    EXPECT_FALSE(polling);
-    EXPECT_FALSE(otherEndedMeanwhile);
+                         .finished   = LetTheOtherEndMeanwhile{.executor  = &executor,
+                                                               .gate      = &gate,
+                                                               .otherRun  = otherRun.get(),
+                                                               .flight    = &flight,
+                                                               .other     = &other,
+                                                               .third     = &third,
+                                                               .meanwhile = &meanwhile}}));
+    static_cast<void>(executor.submit(
+        nullptr, std::make_shared<SimulationRun>(*design.simulation(0)), nullptr,
+        {gate.listener(otherStop.get_token()), otherRun}, otherStop, noting(other, executor)));
+    EXPECT_TRUE(waitForTheEnds(other, third));
+    EXPECT_FALSE(meanwhile.pollingAtTheStart);
+    EXPECT_TRUE(meanwhile.otherRunEnded);
+    EXPECT_FALSE(meanwhile.pollingAfterTheSubmit);
+    EXPECT_FALSE(meanwhile.otherEnded);
+    EXPECT_TRUE(waitUntilIdle(executor));
 }
 
 TEST_F(PollingSimulationExecutorTest, ACallbackMaySubmitAJob)
 {
-    PollingSimulationExecutor executor(1);
     const MotorlessFlight     flight;
+    PollingSimulationExecutor executor(1);
     Seen                      next;
     static_cast<void>(executor.submit(
         nullptr, flight.newRun(), nullptr, {}, std::stop_source{},
@@ -387,8 +440,8 @@ TEST_F(PollingSimulationExecutorTest, ACallbackMaySubmitAJob)
 TEST_F(PollingSimulationExecutorTest, ACallbackThatThrowsIsReportedAndThePollGoesOn)
 {
     const RecordingGuardHook  hook;
-    PollingSimulationExecutor executor(1);
     const MotorlessFlight     flight;
+    PollingSimulationExecutor executor(1);
     Seen                      after;
     static_cast<void>(executor.submit(nullptr, flight.newRun(), nullptr, {}, std::stop_source{},
                                       {.progressed = {}, .finished = Throwing{}}));
@@ -402,11 +455,11 @@ TEST_F(PollingSimulationExecutorTest, ACallbackThatThrowsIsReportedAndThePollGoe
 
 TEST_F(PollingSimulationExecutorTest, CancelAllCancelsTheJobsOfOneWindow)
 {
-    PollingSimulationExecutor            executor(1);
     const ExampleDesign                  design(ExampleDesign::kSimpleModelRocket);
     const MotorlessFlight                flight;
     const StepGate                       gate(3);
     const std::stop_source               stop;
+    PollingSimulationExecutor            executor(1);
     const QObject                        closing;
     const QObject                        other;
     Seen                                 held;

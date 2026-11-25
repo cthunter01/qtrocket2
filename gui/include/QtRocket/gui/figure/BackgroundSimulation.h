@@ -68,8 +68,9 @@ class DesignPhysics;
 /// started a debounce interval after it was asked for (Java's worker sleeps 300 ms first:
 /// debounceInterval(), kDebounceInterval by default, 0 in the tests): a SimulationRun of the
 /// document's simulation made on the GUI thread then (a duplicate, as the run dialog runs; no seed
-/// is drawn, as Java's background run draws none), with the GroundHitListener (each branch ends at
-/// its ground hit) and the extra listeners (setExtraListeners(): Milestone 7's custom
+/// is drawn, as Java's background run draws none), with a GroundHitListener of its own (each branch
+/// ends at its ground hit; Java shares its INSTANCE, which the executor refuses for two live jobs)
+/// and the extra listeners (setExtraListeners(): Milestone 7's custom
 /// expressions, a test's holds and failures). When a run ends (the executor's finished()):
 /// - it is adopted by its simulation (SimulationRun::adoptInto(): never a run that was stopped)
 ///   while the simulation is still in the document: Java's simulate() records the run in the
@@ -245,8 +246,9 @@ private:
     void requestStart();
     /// The debounce interval is over: the chain's next run is submitted.
     void startNext();
-    /// The executor's finished() of the running job.
-    void runFinished(const std::exception_ptr& exception);
+    /// The executor's finished() of the job of @p finished, which is handled only when it is the
+    /// current run (m_run).
+    void runFinished(const SimulationRun* finished, const std::exception_ptr& exception);
     /// The document changed: the overlay follows its simulations.
     void documentChanged(const DocumentChangeEvent& event);
     /// Gives the overlay what it shows now and repaints it.

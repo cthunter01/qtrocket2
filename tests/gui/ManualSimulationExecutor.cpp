@@ -117,7 +117,7 @@ SimulationExecutor::JobId ManualSimulationExecutor::submit(
     std::vector<std::shared_ptr<SimulationListener>> extraListeners, std::stop_source stopSource,
     Callbacks callbacks)
 {
-    checkSubmission(run.get(), stopSource, extraListeners);
+    checkSubmission(run.get(), sampler.get(), stopSource, extraListeners);
     const JobId id = ++m_lastJob;
     m_submitted.push_back({.id = id, .window = window});
     Job job;
@@ -188,9 +188,17 @@ void ManualSimulationExecutor::abandon(JobId job)
     {
         return;
     }
-    // Its callbacks go with it, here; its run never runs.
+    // Its callbacks go with it, here; its run never runs. Its listeners are a live job's until the
+    // next turn, as the core runner keeps an abandoned queued job until its next poll.
+    m_abandonedListeners.insert(m_abandonedListeners.end(), waiting->extraListeners.begin(),
+                                waiting->extraListeners.end());
+    if (waiting->sampler != nullptr)
+    {
+        m_abandonedListeners.push_back(waiting->sampler);
+    }
     m_waiting.erase(waiting);
     record(m_abandoned, job);
+    postTurn();
 }
 
 void ManualSimulationExecutor::abandonAll(const QObject* window)
@@ -215,6 +223,10 @@ bool ManualSimulationExecutor::runNext()
     {
         ADD_FAILURE() << "the manual simulation executor runs no job in its NEVER mode";
         return false;
+    }
+    if (m_delivering == 0)
+    {
+        releaseAbandonedListeners();
     }
     if (m_waiting.empty())
     {
@@ -352,6 +364,7 @@ void ManualSimulationExecutor::runTurn()
         m_turnDeferred = true;
         return;
     }
+    releaseAbandonedListeners();
     // One at a time, oldest first: a callback may submit, cancel or abandon jobs meanwhile.
     const auto due = [](const Job& job) { return job.ended || job.immediate; };
     for (auto found = std::ranges::find_if(m_waiting, due); found != m_waiting.end();
@@ -401,7 +414,7 @@ std::vector<SimulationExecutor::JobId> ManualSimulationExecutor::pendingJobsOf(
 }
 
 void ManualSimulationExecutor::checkSubmission(
-    const SimulationRun* run, const std::stop_source& stopSource,
+    const SimulationRun* run, const RunSampleListener* sampler, const std::stop_source& stopSource,
     const std::vector<std::shared_ptr<SimulationListener>>& extraListeners) const
 {
     if (run == nullptr)
@@ -429,6 +442,39 @@ void ManualSimulationExecutor::checkSubmission(
     {
         bug("A simulation job's extra listener is not null");
     }
+    // As the core runner: a listener of a live job is that job's.
+    if (sampler != nullptr && isListenerOfALiveJob(*sampler))
+    {
+        bug("A simulation job's sample listener is the listener of one job");
+    }
+    if (std::ranges::any_of(extraListeners,
+                            [this](const std::shared_ptr<SimulationListener>& listener) {
+                                return isListenerOfALiveJob(*listener);
+                            }))
+    {
+        bug("A simulation job's extra listener is the listener of one job");
+    }
+}
+
+bool ManualSimulationExecutor::isListenerOfALiveJob(const SimulationListener& listener) const
+{
+    const auto isIt = [&listener](const std::shared_ptr<SimulationListener>& own) {
+        return own.get() == &listener;
+    };
+    const auto hasIt = [&isIt, &listener](const Job& job) {
+        return job.sampler.get() == &listener || std::ranges::any_of(job.extraListeners, isIt);
+    };
+    // A running job whose run has ended is reporting its end: the core runner has forgotten it
+    // by then (its poll took the end). A waiting job is live, also one cancelled whose report
+    // waits.
+    return std::ranges::any_of(m_running,
+                               [&hasIt](const Job* job) { return !job->ended && hasIt(*job); }) ||
+           std::ranges::any_of(m_waiting, hasIt) || std::ranges::any_of(m_abandonedListeners, isIt);
+}
+
+void ManualSimulationExecutor::releaseAbandonedListeners() noexcept
+{
+    m_abandonedListeners.clear();
 }
 
 void ManualSimulationExecutor::requestStop(std::stop_source& source) noexcept

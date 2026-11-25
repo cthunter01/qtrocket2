@@ -3,12 +3,14 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <stop_token>
 #include <string>
 #include <vector>
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QLabel>
@@ -35,6 +37,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/dialogs/DetailDialog.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationBatch.h"
@@ -46,6 +49,7 @@
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
 #include "QtRocket/util/BugError.h"
+#include "RecordingGuardHook.h"
 #include "ScriptedUserPrompts.h"
 #include "SimulationRunTestSupport.h"
 #include "TestGuiServices.h"
@@ -597,6 +601,42 @@ TEST_F(SimulationRunDialogTest, TheDialogGoesWithItsParent)
     EXPECT_EQ(runs.first()->getSimulatedData(), stored);
 }
 
+/// A job's finished() that runs @p runs in a run dialog, which would wait for their callbacks
+/// while this one runs (a BugError).
+struct RunInADialog
+{
+    TestGuiServices*     services;
+    const TwoSimpleRuns* runs;
+
+    void operator()(const std::exception_ptr& /*exception*/) const
+    {
+        static_cast<void>(SimulationRunDialog::run(nullptr, services->prompts(),
+                                                   runs->request(services->executor())));
+    }
+};
+
+TEST_F(SimulationRunDialogTest, ItIsNotOpenedFromInsideACallbackOfTheExecutor)
+{
+    // No news of the runs would come while the callback runs (SimulationExecutor's pause): the
+    // dialog would never close. A BugError, which the executor reports through Guard; nothing
+    // runs.
+    const RecordingGuardHook          hook;
+    TestGuiServices                   services;
+    const TwoSimpleRuns               runs;
+    const std::shared_ptr<FlightData> stored = runs.first()->getSimulatedData();
+    static_cast<void>(services.executor().submit(
+        nullptr, std::make_shared<SimulationRun>(*runs.first()), nullptr, {}, std::stop_source{},
+        {.progressed = {}, .finished = RunInADialog{.services = &services, .runs = &runs}}));
+    QCoreApplication::processEvents();
+    ASSERT_EQ(hook.failures().size(), 1U);
+    EXPECT_EQ(hook.failures().front().kind, Guard::Failure::Kind::BUG);
+    EXPECT_TRUE(hook.failures().front().message.contains(
+        QStringLiteral("not opened from inside a callback of the simulation executor")));
+    EXPECT_EQ(services.executor().submittedJobs().size(), 1U);
+    EXPECT_EQ(runs.first()->getSimulatedData(), stored);
+    EXPECT_EQ(QApplication::activeModalWidget(), nullptr);
+}
+
 TEST_F(SimulationRunDialogTest, ARequestThatCannotRunIsABugError)
 {
     TestGuiServices     services;
@@ -648,15 +688,17 @@ TEST_F(SimulationRunDialogThreadsTest, TwoRunsGoAtOnceAndTheDialogsCancelStopsTh
     // cancelled": the application's executor (two threads) runs both runs of the dialog at the
     // same time (they meet at step 3), holds them at step 6, and the dialog's Cancel stops them;
     // both simulations keep their old results (bug 40) and the dialog closes.
-    PollingSimulationExecutor         executor(2);
     ScriptedUserPrompts               prompts;
     const TwoSimpleRuns               runs;
     const std::shared_ptr<FlightData> firstStored  = runs.first()->getSimulatedData();
     const std::shared_ptr<FlightData> secondStored = runs.second()->getSimulatedData();
     const StepMeeting                 meeting(2, 3);
     const std::array<StepGate, 2>     gates{StepGate(6), StepGate(6)};
-    bool                              held = false;
-    Answer                            answer{.cancelled = false, .allSuccessful = true};
+    // After what the runs refer to (the design, the holds): destroyed and joined first, also
+    // when the test fails with a run still going.
+    PollingSimulationExecutor executor(2);
+    bool                      held = false;
+    Answer                    answer{.cancelled = false, .allSuccessful = true};
     {
         const NextModalDialog cancel(CancelWhenBothAreHeld{.gates = &gates, .held = &held});
         answer = SimulationRunDialog::run(

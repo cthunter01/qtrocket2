@@ -109,6 +109,38 @@ JobId submitLogged(ManualSimulationExecutor& executor, const MotorlessSimulation
                             .finished   = LoggingFinish{.log = &log, .name = name, .run = run}});
 }
 
+/// Submits a run of @p simulation to @p executor with @p sampler and @p extraListeners, without
+/// callbacks.
+JobId submitWithListeners(ManualSimulationExecutor& executor, const MotorlessSimulation& simulation,
+                          std::shared_ptr<RunSampleListener>               sampler,
+                          std::vector<std::shared_ptr<SimulationListener>> extraListeners)
+{
+    return executor.submit(nullptr, simulation.newRun(), std::move(sampler),
+                           std::move(extraListeners), std::stop_source{}, {});
+}
+
+/// What a listener of a run does as it runs: it submits another job with @p listener (one of the
+/// running job's) and notes whether the executor refused it.
+struct SubmitWithTheRunsListener
+{
+    ManualSimulationExecutor*           executor;
+    const MotorlessSimulation*          simulation;
+    std::shared_ptr<SimulationListener> listener;
+    bool*                               refused;
+
+    void operator()() const
+    {
+        try
+        {
+            static_cast<void>(submitWithListeners(*executor, *simulation, nullptr, {listener}));
+        }
+        catch (const BugError&)
+        {
+            *refused = true;
+        }
+    }
+};
+
 /// A job's finished() that notes the job its caller had as its current one by then (as the
 /// design view's background estimate adopts only its current job's run).
 struct NoteTheCurrentJob
@@ -606,6 +638,62 @@ TEST_F(ManualSimulationExecutorTest, AJobThatCannotRunIsRefused)
                                                    std::stop_source{}, {})),
                  BugError);
     EXPECT_EQ(executor.submittedJobs().size(), 1U);
+}
+
+TEST_F(ManualSimulationExecutorTest, AListenerIsTheListenerOfOneLiveJob)
+{
+    // As the core runner refuses it: a sample or extra listener of a job that waits or runs,
+    // until the job's end is reported; an abandoned waiting job's until the next turn (the
+    // runner: until its next poll).
+    ManualSimulationExecutor                  executor(Mode::STEPPED);
+    const MotorlessSimulation                 simulation;
+    const auto                                sampler = std::make_shared<RunSampleListener>();
+    const std::shared_ptr<SimulationListener> extra   = std::make_shared<RunSampleListener>();
+    const JobId first = submitWithListeners(executor, simulation, sampler, {extra});
+    EXPECT_THROW(static_cast<void>(submitWithListeners(executor, simulation, sampler, {})),
+                 BugError);
+    EXPECT_THROW(static_cast<void>(submitWithListeners(executor, simulation, nullptr, {extra})),
+                 BugError);
+    EXPECT_THROW(static_cast<void>(submitWithListeners(executor, simulation, nullptr, {sampler})),
+                 BugError);
+    // Cancelled while it waits: live until its end is reported.
+    executor.cancel(first);
+    EXPECT_THROW(static_cast<void>(submitWithListeners(executor, simulation, nullptr, {extra})),
+                 BugError);
+    EXPECT_EQ(executor.runAll(), 1U);
+    const JobId second = submitWithListeners(executor, simulation, sampler, {extra});
+    EXPECT_NE(second, SimulationExecutor::kNoJob);
+    executor.abandon(second);
+    EXPECT_THROW(static_cast<void>(submitWithListeners(executor, simulation, sampler, {})),
+                 BugError);
+    QCoreApplication::processEvents();
+    EXPECT_NE(submitWithListeners(executor, simulation, sampler, {extra}),
+              SimulationExecutor::kNoJob);
+    EXPECT_EQ(executor.submittedJobs().size(), 3U);
+}
+
+TEST_F(ManualSimulationExecutorTest, ARunningJobsListenerIsItsOwnUntilItsEnd)
+{
+    // From inside the run (a listener of the test submits another job with the running job's
+    // listener): refused; once the job's finished() came, accepted.
+    const RecordingGuardHook  hook;
+    ManualSimulationExecutor  executor(Mode::STEPPED);
+    const ExampleDesign       design(ExampleDesign::kSimpleModelRocket);
+    const MotorlessSimulation simulation;
+    const auto                shared  = std::make_shared<RunSampleListener>();
+    bool                      refused = false;
+    static_cast<void>(executor.submit(
+        nullptr, std::make_shared<SimulationRun>(*design.simulation(0)), nullptr,
+        {shared, actionAtStep(1, SubmitWithTheRunsListener{.executor   = &executor,
+                                                           .simulation = &simulation,
+                                                           .listener   = shared,
+                                                           .refused    = &refused})},
+        std::stop_source{}, {}));
+    EXPECT_EQ(executor.runAll(), 1U);
+    EXPECT_TRUE(refused);
+    EXPECT_NE(submitWithListeners(executor, simulation, nullptr, {shared}),
+              SimulationExecutor::kNoJob);
+    EXPECT_TRUE(hook.failures().empty());
 }
 
 TEST_F(ManualSimulationExecutorTest, AModeChangeIsForTheJobsSubmittedAfterIt)

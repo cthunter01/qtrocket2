@@ -73,6 +73,12 @@ class GuiServices;
 ///   or a stage is chosen).
 /// The model's fixes of bugs 41, 42, 45, 46 and 48 show here as they are.
 ///
+/// While a stage is chosen, the series of the other stages stay hidden, whatever shows them:
+/// rocketplot's legend (U-M4-6: its entry of a row stands for the row's series of every stage,
+/// and a click, a double click or its menu shows them all) would show the other stages' curves
+/// under the stage chosen; its entry shows and hides the stage's own series (OpenRocket's legend
+/// only highlights them). Choosing a stage shows each of its series again, as Java's does.
+///
 /// Kept as Java: choosing a stage (setShowBranch()) draws that stage's events whether or not
 /// Show events is checked, and Show events (setShowEvents(true)) draws every stage's events
 /// whatever stage is chosen (SimulationPlotDialog calls the two without regard to each other).
@@ -163,6 +169,9 @@ private:
 
     /// Adds the model's series, axis labels and home ranges.
     void build();
+    /// Hides the series @p index again when it was shown while another stage is chosen (the
+    /// legend shows the series of every branch of its row).
+    void keepToTheShownBranch(std::size_t index);
     /// The home ranges, the domain's widened once event lines have been drawn (bug 43).
     void updateHomeRanges();
     /// drawDomainMarkers(@p branch): the event lines or icons of the branch, or of all.

@@ -299,34 +299,63 @@ void BackgroundSimulation::startNext()
         refreshOverlay();
         return;
     }
-    std::shared_ptr<Simulation> simulation = std::move(m_chain.front());
-    m_chain.pop_front();
-
     // Java's worker simulates the document's simulation with its own options (no seed is drawn),
     // with the InterruptListener (SimulationRun's, for the stop), the GroundHitListener and the
     // custom expressions.
-    auto             run = std::make_shared<SimulationRun>(*simulation);
-    std::stop_source stop;
-    std::vector<std::shared_ptr<SimulationListener>> listeners{GroundHitListener::instance()};
-    if (m_extraListeners)
+    const std::shared_ptr<Simulation>& simulation = m_chain.front();
+    std::shared_ptr<SimulationRun>     run;
+    SimulationExecutor::JobId          job = SimulationExecutor::kNoJob;
+    try
     {
-        std::vector<std::shared_ptr<SimulationListener>> extra = m_extraListeners(stop.get_token());
-        listeners.insert(listeners.end(), std::make_move_iterator(extra.begin()),
-                         std::make_move_iterator(extra.end()));
+        run = std::make_shared<SimulationRun>(*simulation);
+        std::stop_source stop;
+        // A GroundHitListener of the run's own (Java shares its INSTANCE): a listener is the
+        // listener of one live job (SimulationExecutor::submit()), and another window's estimate,
+        // or this one's run abandoned a moment ago and still running, may hold one.
+        std::vector<std::shared_ptr<SimulationListener>> listeners{
+            std::make_shared<GroundHitListener>()};
+        if (m_extraListeners)
+        {
+            std::vector<std::shared_ptr<SimulationListener>> extra =
+                m_extraListeners(stop.get_token());
+            listeners.insert(listeners.end(), std::make_move_iterator(extra.begin()),
+                             std::make_move_iterator(extra.end()));
+        }
+        // The run the callback is of: only the current one is handled (Java's
+        // `backgroundSimulationWorker != this`).
+        SimulationExecutor::Callbacks callbacks{
+            .progressed = nullptr,
+            .finished   = [this, current = run.get()](const std::exception_ptr& exception) {
+                runFinished(current, exception);
+            }};
+        // No callback comes from inside submit(): the job's id is known before.
+        job = m_executor->submit(m_window, run, nullptr, std::move(listeners), std::move(stop),
+                                 std::move(callbacks));
     }
-    SimulationExecutor::Callbacks callbacks{
-        .progressed = nullptr,
-        .finished   = [this](const std::exception_ptr& exception) { runFinished(exception); }};
-    // No callback comes from inside submit(): the job's id is known before.
-    m_job = m_executor->submit(m_window, run, nullptr, std::move(listeners), std::move(stop),
-                               std::move(callbacks));
-    m_run = std::move(run);
-    m_runningSimulation = std::move(simulation);
-    m_calculating       = true;
+    catch (...)
+    {
+        // A defect (the executor's BugError; Guard reports it: startNext() runs guarded): the
+        // estimate stops as after a failed run, and "Calculating..." does not stay.
+        m_chain.clear();
+        m_calculating = false;
+        refreshOverlay();
+        throw;
+    }
+    m_job               = job;
+    m_run               = std::move(run);
+    m_runningSimulation = std::move(m_chain.front());
+    m_chain.pop_front();
+    m_calculating = true;
 }
 
-void BackgroundSimulation::runFinished(const std::exception_ptr& exception)
+void BackgroundSimulation::runFinished(const SimulationRun*      finished,
+                                       const std::exception_ptr& exception)
 {
+    if (m_run == nullptr || finished != m_run.get())
+    {
+        // Not the current run's (no executor hands an abandoned job's end over).
+        return;
+    }
     const std::shared_ptr<SimulationRun> run        = std::move(m_run);
     const std::shared_ptr<Simulation>    simulation = std::move(m_runningSimulation);
     m_job                                           = SimulationExecutor::kNoJob;

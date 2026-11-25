@@ -44,6 +44,7 @@
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketInfo.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/SimulationBatch.h"
 #include "QtRocket/gui/util/SimulationExecutor.h"
@@ -58,6 +59,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
+#include "QtRocket/simulation/listeners/system/GroundHitListener.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Signal.h"
 #include "RecordingGuardHook.h"
@@ -65,6 +67,7 @@
 #include "SimulationRunTestSupport.h"
 #include "TestPaths.h"
 #include "file/DesignFileEnvironment.h"
+#include "simulation/SimulationRunnerSupport.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -266,6 +269,54 @@ private:
     return {failingRunListener(RunFailure::OTHER_EXCEPTION)};
 }
 
+/// The extra listeners of every run: one and the same listener, which the executor refuses for a
+/// second live job (SimulationExecutor::submit()).
+struct OneSharedListener
+{
+    std::shared_ptr<SimulationListener> listener;
+
+    [[nodiscard]] std::vector<std::shared_ptr<SimulationListener>> operator()(
+        const std::stop_token& /*stop*/) const
+    {
+        return {listener};
+    }
+};
+
+/// The extra listeners of a run of the threads test: the meeting of the two views' runs, watching
+/// the job's stop.
+struct MeetTheOtherView
+{
+    const QtRocket::Test::StepMeeting* meeting;
+
+    [[nodiscard]] std::vector<std::shared_ptr<SimulationListener>> operator()(
+        const std::stop_token& stop) const
+    {
+        return {meeting->listener(stop)};
+    }
+};
+
+/// Gives @p view's estimate the executor @p executor (the application's, on real threads) while
+/// it lives, and takes it away again (the view's run abandoned) when it goes. Declared after the
+/// executor, which is declared after the view: so the view abandons its job before the executor
+/// is destroyed, and the executor joins its threads before the view (the document, the preference
+/// store its run reads) goes (SimulationRunner: what a running job refers to outlives it).
+class ViewOnTheExecutor
+{
+public:
+    ViewOnTheExecutor(EstimateView& view, SimulationExecutor& executor) : m_view(&view)
+    {
+        view.background().setExecutor(&executor, &view.window());
+    }
+    ~ViewOnTheExecutor() { m_view->background().setExecutor(nullptr, nullptr); }
+    ViewOnTheExecutor(const ViewOnTheExecutor&)            = delete;
+    ViewOnTheExecutor& operator=(const ViewOnTheExecutor&) = delete;
+    ViewOnTheExecutor(ViewOnTheExecutor&&)                 = delete;
+    ViewOnTheExecutor& operator=(ViewOnTheExecutor&&)      = delete;
+
+private:
+    EstimateView* m_view;
+};
+
 /// The request's cancelBackgroundRuns of a design window: the estimate's cancelFor().
 struct CancelTheEstimate
 {
@@ -338,6 +389,105 @@ TEST_F(BackgroundSimulationTest, RunsTheSimulationThatIsNotUpToDateAndAdoptsItsR
     EXPECT_FALSE(view.info().isCalculatingData());
     EXPECT_EQ(view.background().job(), SimulationExecutor::kNoJob);
     EXPECT_TRUE(isSummaryOf(view.info().flightData(), *first->getSimulatedData()));
+}
+
+TEST_F(BackgroundSimulationTest, TheRunOfASimulationRemovedMeanwhileIsNotAdopted)
+{
+    // Adopted only while its simulation is still in the document (U-M4-2): the run of #1 ends
+    // after #1 left the document, which keeps its old data and status and hears nothing of it.
+    EstimateView                      view(simpleModelRocket());
+    const std::shared_ptr<Simulation> first = view.selectOutdatedFirstSimulation();
+    ASSERT_TRUE(view.waitForStart());
+    const std::shared_ptr<FlightData> old    = first->getSimulatedData();
+    const Simulation::Status          status = first->getStatus();
+    view.document().removeSimulation(*first);
+    view.document().setSaved(true);
+    const DocumentEvents events(view.document());
+    ASSERT_TRUE(view.executor().runNext());
+    EXPECT_EQ(first->getSimulatedData(), old);
+    EXPECT_EQ(first->getStatus(), status);
+    EXPECT_TRUE(events.events().empty());
+    EXPECT_TRUE(view.document().isSaved());
+    EXPECT_FALSE(view.background().isCalculating());
+    EXPECT_EQ(view.background().job(), SimulationExecutor::kNoJob);
+}
+
+TEST_F(BackgroundSimulationTest, ASimulationThatLeftTheDocumentBeforeItsTurnIsNotRun)
+{
+    // The auto-run's chain [#1, "Second"]: "Second" is removed while #1 runs, so its turn never
+    // comes (no job), and the estimate is no longer calculating.
+    EstimateView                      view(simpleModelRocket());
+    const std::shared_ptr<Simulation> first = view.simulation(0);
+    const std::shared_ptr<Simulation> second =
+        first->duplicateSimulation(view.document().getRocket());
+    second->setName("Second");
+    view.document().addSimulation(second);
+    view.preferences().setAutoRunSimulations(true);
+    view.background().setSimulationsTabSelected(true);
+    static_cast<void>(view.selectOutdatedFirstSimulation());
+    ASSERT_TRUE(view.waitForStart());
+    ASSERT_EQ(view.background().chain(), (std::vector<std::shared_ptr<Simulation>>{second}));
+    view.document().removeSimulation(*second);
+    ASSERT_TRUE(view.executor().runNext());
+    EXPECT_EQ(first->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_FALSE(view.waitForStart());
+    EXPECT_FALSE(view.background().isStartPending());
+    EXPECT_EQ(view.executor().submittedJobs().size(), 1U);
+    EXPECT_EQ(second->getSimulatedData(), nullptr);
+    EXPECT_FALSE(view.background().isCalculating());
+    EXPECT_FALSE(view.info().isCalculatingData());
+}
+
+TEST_F(BackgroundSimulationTest, TwoDesignViewsEstimateAtTheSameTimeOverOneExecutor)
+{
+    // The application's executor serves every window: two estimates are live at once, each run
+    // with a GroundHitListener of its own (a listener is one live job's; Java shares its
+    // INSTANCE).
+    ManualSimulationExecutor          executor(Mode::STEPPED);
+    EstimateView                      one(simpleModelRocket(), &executor);
+    EstimateView                      other(simpleModelRocket(), &executor);
+    const std::shared_ptr<Simulation> first  = one.selectOutdatedFirstSimulation();
+    const std::shared_ptr<Simulation> second = other.selectOutdatedFirstSimulation();
+    ASSERT_TRUE(one.waitForStart());
+    ASSERT_TRUE(other.waitForStart());
+    EXPECT_EQ(executor.waitingJobs().size(), 2U);
+    EXPECT_EQ(executor.runAll(), 2U);
+    EXPECT_EQ(first->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_EQ(second->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_TRUE(endsAtTheGroundHit(*second->getSimulatedData()));
+    EXPECT_FALSE(one.background().isCalculating());
+    EXPECT_FALSE(other.background().isCalculating());
+}
+
+TEST_F(BackgroundSimulationTest, ARunTheExecutorRefusesIsReportedAndCalculatesNoLonger)
+{
+    // A defect (here an extra listener that another live job has): the executor's BugError is
+    // reported through Guard, and the view does not stay on "Calculating...".
+    const RecordingGuardHook hook;
+    ManualSimulationExecutor executor(Mode::STEPPED);
+    EstimateView             one(simpleModelRocket(), &executor);
+    EstimateView             other(simpleModelRocket(), &executor);
+    const OneSharedListener  shared{.listener = std::make_shared<GroundHitListener>()};
+    one.background().setExtraListeners(shared);
+    other.background().setExtraListeners(shared);
+    static_cast<void>(one.selectOutdatedFirstSimulation());
+    ASSERT_TRUE(one.waitForStart());
+    static_cast<void>(other.selectOutdatedFirstSimulation());
+    EXPECT_FALSE(other.waitForStart());
+    ASSERT_EQ(hook.failures().size(), 1U);
+    EXPECT_EQ(hook.failures().front().kind, Guard::Failure::Kind::BUG);
+    EXPECT_TRUE(
+        hook.failures().front().message.contains(QStringLiteral("the listener of one job")));
+    EXPECT_EQ(hook.failures().front().context, QStringLiteral("Background simulation"));
+    EXPECT_FALSE(other.background().isCalculating());
+    EXPECT_FALSE(other.info().isCalculatingData());
+    EXPECT_TRUE(other.background().chain().empty());
+    EXPECT_EQ(other.background().job(), SimulationExecutor::kNoJob);
+    EXPECT_EQ(executor.submittedJobs().size(), 1U);
+    // The first view's run goes on.
+    EXPECT_TRUE(one.background().isCalculating());
+    EXPECT_EQ(executor.runAll(), 1U);
+    EXPECT_FALSE(one.background().isCalculating());
 }
 
 TEST_F(BackgroundSimulationTest, AFunctionalChangeAbandonsTheRunAndEstimatesAgain)
@@ -651,8 +801,9 @@ TEST_F(BackgroundSimulationThreadsTest, TheEstimateRunsOnTheApplicationsExecutor
 {
     // The application's executor (a worker thread, the GUI thread polling its mailbox): the run
     // of simulation #1 is adopted on the GUI thread and shown.
+    EstimateView                      view(simpleModelRocket());
     PollingSimulationExecutor         executor(1);
-    EstimateView                      view(simpleModelRocket(), &executor);
+    const ViewOnTheExecutor           onTheExecutor(view, executor);
     const std::shared_ptr<Simulation> first = view.selectOutdatedFirstSimulation();
     const std::shared_ptr<FlightData> old   = first->getSimulatedData();
     ASSERT_TRUE(view.waitUntilCalculated(kThreadsSafetyNetMilliseconds));
@@ -661,6 +812,30 @@ TEST_F(BackgroundSimulationThreadsTest, TheEstimateRunsOnTheApplicationsExecutor
     EXPECT_NE(first->getSimulatedData(), old);
     EXPECT_TRUE(isSummaryOf(view.info().flightData(), *first->getSimulatedData()));
     EXPECT_FALSE(view.document().isSaved());
+    EXPECT_FALSE(executor.isPolling());
+}
+
+TEST_F(BackgroundSimulationThreadsTest, TwoDesignViewsEstimateAtTheSameTime)
+{
+    // Two windows' estimates on the application's executor at once (their runs meet at step 3:
+    // both are live jobs then), each with listeners of its own; both are adopted.
+    const QtRocket::Test::StepMeeting meeting(2, 3);
+    EstimateView                      one(simpleModelRocket());
+    EstimateView                      other(simpleModelRocket());
+    one.background().setExtraListeners(MeetTheOtherView{.meeting = &meeting});
+    other.background().setExtraListeners(MeetTheOtherView{.meeting = &meeting});
+    PollingSimulationExecutor         executor(2);
+    const ViewOnTheExecutor           oneOnTheExecutor(one, executor);
+    const ViewOnTheExecutor           otherOnTheExecutor(other, executor);
+    const std::shared_ptr<Simulation> first  = one.selectOutdatedFirstSimulation();
+    const std::shared_ptr<Simulation> second = other.selectOutdatedFirstSimulation();
+    ASSERT_TRUE(one.waitUntilCalculated(kThreadsSafetyNetMilliseconds));
+    ASSERT_TRUE(other.waitUntilCalculated(kThreadsSafetyNetMilliseconds));
+    EXPECT_TRUE(meeting.allMet());
+    EXPECT_EQ(first->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_EQ(second->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_TRUE(isSummaryOf(one.info().flightData(), *first->getSimulatedData()));
+    EXPECT_TRUE(isSummaryOf(other.info().flightData(), *second->getSimulatedData()));
     EXPECT_FALSE(executor.isPolling());
 }
 

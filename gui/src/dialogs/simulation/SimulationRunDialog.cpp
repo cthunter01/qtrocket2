@@ -21,8 +21,10 @@
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationBatch.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/simulation/SimulationProgressEstimator.h"
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
 {
@@ -131,6 +133,12 @@ UserPrompts::RunSimulationsAnswer SimulationRunDialog::run(
     QWidget* parent, UserPrompts& prompts, const UserPrompts::RunSimulationsRequest& request,
     const SimulationBatch::Options& options)
 {
+    // The executor hands no news over while one of its callbacks runs: the dialog would never
+    // close (SimulationExecutor's class comment).
+    if (request.executor != nullptr && request.executor->isHandingOver())
+    {
+        bug("A run dialog is not opened from inside a callback of the simulation executor");
+    }
     ModalDialog<SimulationRunDialog> dialog(parent, prompts, request, options);
     if (const SimulationRunDialog* const made = dialog.get();
         made != nullptr && !made->batch().isFinished())

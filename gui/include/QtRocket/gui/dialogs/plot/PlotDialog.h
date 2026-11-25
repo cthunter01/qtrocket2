@@ -117,8 +117,13 @@ public:
     [[nodiscard]] const QString& geometryName() const noexcept { return m_geometryName; }
 
     /// The help text under the chart: what the gestures of PlotInputBindings::simulationChart()
-    /// do, worded as OpenRocket's PlotDialog.lbl.Chart words JFreeChart's (QtRocket's own text).
+    /// do, worded as OpenRocket's PlotDialog.lbl.Chart words JFreeChart's (QtRocket's own text),
+    /// the key of Qt::ControlModifier named by controlKeyName().
     [[nodiscard]] static QString helpText();
+    /// The name the help text gives the key of Qt::ControlModifier, which the bindings use:
+    /// "ctrl", and on macOS, where Qt's Control modifier is the Command key (and Control and a
+    /// click is the secondary click), "cmd".
+    [[nodiscard]] static QString controlKeyName();
 
     /// The question of "Export Image" (doPNGExport()'s SaveFileChooser): no title (the file
     /// dialog's own, as Swing's), FileHelper.PNG_FILTER alone, starting in @p preferences'

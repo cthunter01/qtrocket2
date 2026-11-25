@@ -45,6 +45,11 @@ namespace QtRocket::Gui::Test
 /// stop requested through its stop source, and its run ends CANCELLED after that step. An
 /// abandoned job (abandon(), abandonAll()) gets no callback again: a waiting one is dropped
 /// unrun, a running one runs to its end with a stop requested, and nothing is called after.
+/// A job's listeners are its own while it is live, as the core runner holds them: from submit()
+/// until its finished() is called (or, abandoned, until its run has ended; a waiting job that is
+/// abandoned holds them until the executor's next turn, as the runner holds an abandoned queued
+/// job's until its next poll), and submit() refuses a sample listener or an extra listener that a
+/// live job has.
 /// Everything is recorded: the jobs submitted, cancelled and abandoned. Destroying the executor
 /// drops the waiting jobs without a callback, as the application's executor calls none once it
 /// is being destroyed.
@@ -87,8 +92,9 @@ public:
     void setMode(Mode mode) noexcept { m_mode = mode; }
 
     /// @throws BugError when @p run is null, has run or is the run of a job that waits or runs,
-    ///         when @p stopSource has no stop state, or when an extra listener is null (as the
-    ///         core runner throws)
+    ///         when @p stopSource has no stop state, when an extra listener is null, or when
+    ///         @p sampler or an extra listener is a listener of a live job (see the class
+    ///         comment; as the core runner throws)
     [[nodiscard]] JobId submit(const QObject* window, std::shared_ptr<SimulationRun> run,
                                std::shared_ptr<RunSampleListener>               sampler,
                                std::vector<std::shared_ptr<SimulationListener>> extraListeners,
@@ -98,6 +104,8 @@ public:
     void                abandon(JobId job) override;
     void                abandonAll(const QObject* window) override;
     [[nodiscard]] bool  isPending(JobId job) const override;
+    /// Whether one of its callbacks runs now.
+    [[nodiscard]] bool isHandingOver() const override { return m_delivering > 0; }
 
     /// The job that has waited longest, to its end, on this thread: the report of a job that was
     /// cancelled while it waited (finished()), or the run of a job and its report (see the class
@@ -167,10 +175,16 @@ private:
     [[nodiscard]] Job* findRunning(JobId job);
     /// The ids of the pending jobs of @p window, in the order they were submitted.
     [[nodiscard]] std::vector<JobId> pendingJobsOf(const QObject* window) const;
-    /// Throws a BugError when @p run cannot be submitted (see submit()).
+    /// Throws a BugError when @p run cannot be submitted with @p sampler and @p extraListeners
+    /// (see submit()).
     void checkSubmission(
-        const SimulationRun* run, const std::stop_source& stopSource,
+        const SimulationRun* run, const RunSampleListener* sampler,
+        const std::stop_source&                                 stopSource,
         const std::vector<std::shared_ptr<SimulationListener>>& extraListeners) const;
+    /// Whether @p listener is a listener of a live job (see the class comment).
+    [[nodiscard]] bool isListenerOfALiveJob(const SimulationListener& listener) const;
+    /// Forgets the listeners of the waiting jobs abandoned before this turn of the executor.
+    void releaseAbandonedListeners() noexcept;
     /// Requests a stop through @p source.
     static void requestStop(std::stop_source& source) noexcept;
     /// Adds @p job to @p jobs, once.
@@ -184,6 +198,8 @@ private:
     std::vector<SubmittedJob> m_submitted;
     std::vector<JobId>        m_cancelled;
     std::vector<JobId>        m_abandoned;
+    /// The listeners of the waiting jobs abandoned since the last turn: still a live job's.
+    std::vector<std::shared_ptr<SimulationListener>> m_abandonedListeners;
     /// How many callbacks of the executor run (nested ones counted).
     int m_delivering = 0;
     /// Whether a turn is posted and has not begun.

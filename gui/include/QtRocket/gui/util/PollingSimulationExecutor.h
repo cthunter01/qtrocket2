@@ -38,6 +38,9 @@ namespace QtRocket::Gui
 /// callback of a poll and started again after the last (when a job is still pending), so a
 /// callback that runs an event loop (a modal message) sees no other callback of the executor
 /// until it returns; a job submitted from inside a callback is polled once the poll is over.
+/// So a callback, and whatever it calls (a document's listeners included), never waits for a
+/// job's callback (a run dialog's modal loop: it would wait for good); such work is queued to
+/// a later turn of the event loop (isHandingOver() tells, SimulationExecutor's class comment).
 /// A callback that throws is reported through Guard, and the poll goes on with the next news.
 ///
 /// The destructor calls no callback: it drops the callbacks, and the runner's destructor
@@ -76,6 +79,8 @@ public:
     void                abandon(JobId job) override;
     void                abandonAll(const QObject* window) override;
     [[nodiscard]] bool  isPending(JobId job) const override;
+    /// Whether the news is being handed over (the poll is paused: a callback runs).
+    [[nodiscard]] bool isHandingOver() const override { return m_handingOver; }
 
     /// The most threads the jobs run on.
     [[nodiscard]] std::size_t threadCount() const noexcept { return m_runner.getThreadCount(); }

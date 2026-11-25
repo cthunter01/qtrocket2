@@ -19,8 +19,10 @@
 #include <rocketplot/Annotation.h>
 #include <rocketplot/EventMarker.h>
 #include <rocketplot/IconAnnotation.h>
+#include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/Range.h>
+#include <rocketplot/Series.h>
 #include <rocketplot/TextAnnotation.h>
 #include <rocketplot/enums.h>
 #include <rocketplot/text.h>
@@ -188,22 +190,41 @@ void SimulationPlot::build()
     setAxisLabels(QtStrings::fromUtf8(m_model.getDomainLabel()),
                   axes[0].hasSeries ? QtStrings::fromUtf8(axes[0].label) : QString(),
                   axes[1].hasSeries ? QtStrings::fromUtf8(axes[1].label) : QString());
-    for (const SimulationPlotModel::Series& plotted : m_model.getSeries())
+    const std::vector<SimulationPlotModel::Series>& all = m_model.getSeries();
+    for (std::size_t index = 0; index < all.size(); ++index)
     {
+        const SimulationPlotModel::Series& plotted = all[index];
         // OpenRocket bug 42: the colour of the series' own row (the model's colour index).
         const QColor color = plotted.color.has_value() ? ColorConversion::toQColor(*plotted.color)
                                                        : PlotColors::plotColor(plotted.colorIndex);
-        std::vector<double> x = plotted.x;
-        std::vector<double> y = plotted.y;
-        addSeries(std::move(x), std::move(y),
-                  {.name        = QtStrings::fromUtf8(plotted.name),
-                   .legendGroup = legendGroupOf(plotted.row),
-                   .axis        = plotted.axis,
-                   .color       = color,
-                   .lineStyle   = plotted.lineStyle,
-                   .shape       = plotted.branch});
+        std::vector<double>     x    = plotted.x;
+        std::vector<double>     y    = plotted.y;
+        rocketplot::LineSeries& line = addSeries(std::move(x), std::move(y),
+                                                 {.name        = QtStrings::fromUtf8(plotted.name),
+                                                  .legendGroup = legendGroupOf(plotted.row),
+                                                  .axis        = plotted.axis,
+                                                  .color       = color,
+                                                  .lineStyle   = plotted.lineStyle,
+                                                  .shape       = plotted.branch});
+        // The legend's entry of a row stands for the row's series of every branch, and shows
+        // them all (a click, a double click, its menu): a stage chosen keeps the others hidden.
+        connect(&line, &rocketplot::Series::changed, this,
+                [this, index] { keepToTheShownBranch(index); });
     }
     updateHomeRanges();
+}
+
+void SimulationPlot::keepToTheShownBranch(std::size_t index)
+{
+    if (!m_branch.has_value() || m_model.getSeries().at(index).branch == *m_branch)
+    {
+        return;
+    }
+    // Hiding it emits changed() again, which finds it hidden.
+    if (rocketplot::LineSeries* const line = series(index); line != nullptr && line->isVisible())
+    {
+        line->setVisible(false);
+    }
 }
 
 void SimulationPlot::updateHomeRanges()

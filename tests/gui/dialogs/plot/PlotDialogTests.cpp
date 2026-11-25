@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 #include <rocketplot/Axis.h>
+#include <rocketplot/InputBindings.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/Range.h>
 #include <rocketplot/enums.h>
@@ -39,6 +40,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
 #include "QtRocket/gui/plot/DataPlot.h"
+#include "QtRocket/gui/plot/PlotInputBindings.h"
 #include "QtRocket/gui/plot/SimulationPlot.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
@@ -305,6 +307,16 @@ void expectZoomed(const Ranges& actual, const Ranges& home, double xFactor, doub
 /// The PNG signature's readable part.
 constexpr std::string_view kPngSignature = "\x89PNG";
 
+/// The name of the key of Qt::ControlModifier on this platform: the Command key on macOS.
+[[nodiscard]] QString controlKeyOfThePlatform()
+{
+#ifdef Q_OS_MACOS
+    return QStringLiteral("cmd");
+#else
+    return QStringLiteral("ctrl");
+#endif
+}
+
 TEST_F(PlotDialogTest, IsAWindowModalDialogTitledWithTheSimulation)
 {
     DialogUnderTest             test;
@@ -388,6 +400,22 @@ TEST_F(PlotDialogTest, TheZoomButtonsShowJavasIconsWithoutATextOrATooltip)
     EXPECT_TRUE(dialog.exportButton().toolTip().isEmpty());
 }
 
+TEST_F(PlotDialogTest, TheHelpTextNamesTheKeyTheGesturesTake)
+{
+    // Qt::ControlModifier pans with a drag and zooms the x axis with the wheel: the Control key,
+    // the Command key on macOS (where Control and a click is the secondary click).
+    const rocketplot::InputBindings bindings = PlotInputBindings::simulationChart();
+    EXPECT_EQ(bindings.action(rocketplot::Gesture::DRAG, Qt::LeftButton, Qt::ControlModifier),
+              rocketplot::PlotAction::PAN);
+    EXPECT_EQ(bindings.action(rocketplot::Gesture::WHEEL, Qt::NoButton, Qt::ControlModifier),
+              rocketplot::PlotAction::ZOOM_X);
+    EXPECT_EQ(PlotDialog::controlKeyName(), controlKeyOfThePlatform());
+    EXPECT_TRUE(PlotDialog::helpText().contains(controlKeyOfThePlatform() +
+                                                QStringLiteral("-left click drag to pan")));
+    EXPECT_TRUE(PlotDialog::helpText().contains(controlKeyOfThePlatform() +
+                                                QStringLiteral("-mouse wheel x axis only")));
+}
+
 TEST_F(PlotDialogTest, TheHelpTextIsQtRocketsSmallerByTwoPoints)
 {
     DialogUnderTest             test;
@@ -396,9 +424,10 @@ TEST_F(PlotDialogTest, TheHelpTextIsQtRocketsSmallerByTwoPoints)
     EXPECT_EQ(dialog.helpLabel().textFormat(), Qt::PlainText);
     // What the gestures of PlotInputBindings::simulationChart() do.
     EXPECT_EQ(PlotDialog::helpText(),
-              QStringLiteral("left click drag to zoom area. shift- or ctrl-left click drag to pan. "
-                             "mouse wheel to zoom, ctrl-mouse wheel x axis only, shift-mouse wheel "
-                             "y axis only. double click to reset. right click for the menu."));
+              QStringLiteral("left click drag to zoom area. shift- or %1-left click drag to pan. "
+                             "mouse wheel to zoom, %1-mouse wheel x axis only, shift-mouse wheel "
+                             "y axis only. double click to reset. right click for the menu.")
+                  .arg(controlKeyOfThePlatform()));
     // It wraps rather than widen the dialog (OpenRocket's one line sets its least width).
     EXPECT_TRUE(dialog.helpLabel().wordWrap());
     // StyledLabel(-2): "font size relative to a label's=-2.0".

@@ -66,11 +66,16 @@ namespace QtRocket::Gui
 /// executor (submit the next job, cancel or abandon another, or its own). While a callback runs,
 /// no other callback of the executor comes (the poll is paused): a callback that shows a modal
 /// message (the run dialog's failure, OpenRocket's DetailDialog) sees no other job end during the
-/// message's event loop, so the messages come one at a time. A callback that throws is reported
-/// through Guard (Guard::run()), and the turn goes on with the next news. After finished(), no
-/// callback of the job comes again; nor after the job was abandoned (abandon(), abandonAll()),
-/// nor once the executor is being destroyed (its destructor cancels the jobs, waits for the
-/// running ones and calls no callback).
+/// message's event loop, so the messages come one at a time. So a callback, and whatever it calls
+/// synchronously (the document's listeners of a change it fires included), must never wait for a
+/// job's callback: a run dialog opened there (SimulationRunDialog::run(), which refuses it: a
+/// BugError) or any other wait for runs would wait for good, as no news comes until the callback
+/// has returned. Such work is queued to a later turn of the event loop (a zero-time QTimer with a
+/// context object); isHandingOver() tells whether a callback runs. A callback that throws is
+/// reported through Guard (Guard::run()), and the turn goes on with the next news. After
+/// finished(), no callback of the job comes again; nor after the job was abandoned (abandon(),
+/// abandonAll()), nor once the executor is being destroyed (its destructor cancels the jobs, waits
+/// for the running ones and calls no callback).
 ///
 /// Lifetimes: the executor outlives every window (it is the application's), and a job that is
 /// cancelled calls back once its run has returned, a poll or more later. So callbacks that
@@ -118,8 +123,11 @@ public:
     /// has threads), stopped through @p stopSource, and returns the job's id. @p window is only
     /// compared, never used. No callback comes from inside submit().
     /// @throws BugError when @p run is null or has run, when @p stopSource has no stop state, or
-    ///         when an extra listener is null (the core runner refuses a run or a listener that is
-    ///         a live job's too)
+    ///         when an extra listener is null; and the core runner refuses a run or a listener
+    ///         (the sample listener, an extra one) that is a live job's too: a listener belongs to
+    ///         one job from its submit() until its end has been reported (an abandoned job's until
+    ///         its run has ended and the executor has seen it), so every job gets listeners of
+    ///         its own (a stateless system listener included: never a shared instance())
     [[nodiscard]] virtual JobId submit(
         const QObject* window, std::shared_ptr<SimulationRun> run,
         std::shared_ptr<RunSampleListener>               sampler,
@@ -152,6 +160,11 @@ public:
     /// Whether the job @p job is pending: submitted, its finished() not called yet, and not
     /// abandoned.
     [[nodiscard]] virtual bool isPending(JobId job) const = 0;
+
+    /// Whether a callback of the executor runs now (its news is being handed over: no other comes
+    /// meanwhile). Nothing that waits for a job's callback may be done then (see the class
+    /// comment).
+    [[nodiscard]] virtual bool isHandingOver() const = 0;
 };
 
 }  // namespace QtRocket::Gui

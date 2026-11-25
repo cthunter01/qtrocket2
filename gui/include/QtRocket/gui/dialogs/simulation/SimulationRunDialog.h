@@ -76,7 +76,9 @@ public:
     /// none), modal (ModalDialog): returns when every run has ended, how the batch ended
     /// (SimulationBatch::answer()), or a cancelled batch when the dialog was destroyed with its
     /// parent meanwhile (its runs are abandoned then). Java's runSimulations().
-    /// @throws BugError as the constructor
+    /// @throws BugError as the constructor, and when it is called from inside a callback of the
+    ///         request's executor (SimulationExecutor::isHandingOver(): no news of the runs would
+    ///         come while the dialog waits, so it would wait for good)
     [[nodiscard]] static UserPrompts::RunSimulationsAnswer run(
         QWidget* parent, UserPrompts& prompts, const UserPrompts::RunSimulationsRequest& request,
         const SimulationBatch::Options& options = {});

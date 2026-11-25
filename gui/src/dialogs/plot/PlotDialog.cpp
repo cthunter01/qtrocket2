@@ -203,11 +203,24 @@ void PlotDialog::build(DataPlot& plot, bool initialShowEvents, const Extras& ext
 QString PlotDialog::helpText()
 {
     //: Not in OpenRocket: QtRocket's own text in place of PlotDialog.lbl.Chart, which describes
-    //: JFreeChart's gestures; these are rocketplot's (the user's decision U-M4-6)
-    return tr(
-        "left click drag to zoom area. shift- or ctrl-left click drag to pan. mouse wheel "
-        "to zoom, ctrl-mouse wheel x axis only, shift-mouse wheel y axis only. double click "
-        "to reset. right click for the menu.");
+    //: JFreeChart's gestures; these are rocketplot's (the user's decision U-M4-6); %1 is the
+    //: name of the Control key (on macOS the Command key)
+    return tr("left click drag to zoom area. shift- or %1-left click drag to pan. mouse wheel "
+              "to zoom, %1-mouse wheel x axis only, shift-mouse wheel y axis only. double click "
+              "to reset. right click for the menu.")
+        .arg(controlKeyName());
+}
+
+QString PlotDialog::controlKeyName()
+{
+#ifdef Q_OS_MACOS
+    //: Not in OpenRocket: the Command key in the plot's help text (Qt's Control modifier is the
+    //: Command key on macOS)
+    return tr("cmd");
+#else
+    //: Not in OpenRocket: the Control key in the plot's help text
+    return tr("ctrl");
+#endif
 }
 
 UserPrompts::SaveFileRequest PlotDialog::exportImageRequest(const Preferences& preferences)

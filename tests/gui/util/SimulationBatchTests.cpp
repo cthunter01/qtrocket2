@@ -192,13 +192,20 @@ struct AtStep
 
 /// What the hook before the first failure's message notes: whether the other simulation's run
 /// had ended, also after turns of the event loop (the poll is paused while a message is open).
+/// It submits a run of @p unrelated first, so that a turn of the executor is pending while the
+/// message is open (that turn must wait for the message too).
 struct LookBeforeTheMessage
 {
-    const SimulationBatch* batch;
-    bool*                  otherDone;
+    const SimulationBatch*    batch;
+    ManualSimulationExecutor* executor;
+    const Simulation*         unrelated;
+    bool*                     otherDone;
 
     void operator()() const
     {
+        static_cast<void>(executor->submit(nullptr, std::make_shared<SimulationRun>(*unrelated),
+                                           nullptr, {}, std::stop_source{},
+                                           {.progressed = {}, .finished = {}}));
         QCoreApplication::processEvents();
         QCoreApplication::processEvents();
         *otherDone = batch->isSimulationDone(1);
@@ -431,7 +438,10 @@ TEST_F(SimulationBatchTest, FailuresAreShownOneAtATime)
                                                          RunFailure::CALCULATION_WITH_BRANCH}},
          .sampleClock    = {}});
     bool otherDone = true;
-    prompts.beforeNextMessage(LookBeforeTheMessage{.batch = &batch, .otherDone = &otherDone});
+    prompts.beforeNextMessage(LookBeforeTheMessage{.batch     = &batch,
+                                                   .executor  = &executor,
+                                                   .unrelated = runs.first().get(),
+                                                   .otherDone = &otherDone});
     batch.start();
     QCoreApplication::processEvents();
     EXPECT_FALSE(otherDone);

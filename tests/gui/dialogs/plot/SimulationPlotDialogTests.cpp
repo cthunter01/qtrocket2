@@ -24,9 +24,12 @@
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtTypes>
 #include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
+#include <rocketplot/Legend.h>
+#include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/TextAnnotation.h>
 
@@ -194,6 +197,33 @@ void PrintTo(const StageView& view, std::ostream* out)
 [[nodiscard]] int leftIn(const QWidget& widget, const QWidget& dialog)
 {
     return widget.mapTo(&dialog, QPoint(0, 0)).x();
+}
+
+/// Where @p plot drew the legend's entry @p entry, after it was drawn anew (a test failure and a
+/// point off the plot when it has no such entry).
+[[nodiscard]] QPoint legendEntryPoint(rocketplot::PlotWidget& plot, qsizetype entry)
+{
+    static_cast<void>(plot.grab());
+    const QList<rocketplot::Legend::Entry> entries = plot.legend()->entries();
+    if (entry >= entries.size() || !entries.at(entry).isShown())
+    {
+        ADD_FAILURE() << "the legend shows no entry " << entry;
+        return {-1, -1};
+    }
+    return entries.at(entry).rect.center().toPoint();
+}
+
+/// Clicks the legend's entry @p entry of @p plot.
+void clickLegendEntry(rocketplot::PlotWidget& plot, qsizetype entry)
+{
+    QTest::mouseClick(&plot, Qt::LeftButton, Qt::NoModifier, legendEntryPoint(plot, entry));
+}
+
+/// Double-clicks the legend's entry @p entry of @p plot (the double click alone: CLAUDE.md's
+/// trap).
+void doubleClickLegendEntry(rocketplot::PlotWidget& plot, qsizetype entry)
+{
+    QTest::mouseDClick(&plot, Qt::LeftButton, Qt::NoModifier, legendEntryPoint(plot, entry));
 }
 
 /// Delivers the deferred deletions.
@@ -365,6 +395,42 @@ TEST_F(SimulationPlotDialogTest, ChoosingAStageShowsItsSeriesAndEventsAlone)
             {.series = "001001001", .events = 5, .showErrorsEnabled = false, .abortText = {}},
             {.series = "111111111", .events = 13, .showErrorsEnabled = false, .abortText = {}},
         }));
+}
+
+TEST_F(SimulationPlotDialogTest, TheLegendShowsAndHidesOnlyTheSeriesOfTheStageChosen)
+{
+    // A legend entry stands for its row's series of every stage (U-M4-6), and Java's stage box is
+    // its plot's only control of which series show (setShowBranch()): with the Sustainer chosen,
+    // the entry "Altitude (m)" hides and shows the Sustainer's altitude alone (a click), shows it
+    // alone (a double click) and every series of the stage again (a second one), and nothing
+    // shows another stage's series (the entry menu's "Show all"); choosing a stage shows each of
+    // its series again.
+    const StoredFlight                          flight(ExampleDesign::kThreeStageLowPowerRocket);
+    const std::unique_ptr<SimulationPlotDialog> dialog = flight.dialog(kVerticalMotion);
+    dialog->show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(dialog.get()));
+    rocketplot::PlotWidget& plot = dialog->plot().plotWidget();
+    ASSERT_EQ(chooseStage(*dialog, 1).series, "100100100");
+    clickLegendEntry(plot, 0);
+    EXPECT_EQ(visibleSeries(plot), "000100100");
+    clickLegendEntry(plot, 0);
+    EXPECT_EQ(visibleSeries(plot), "100100100");
+    doubleClickLegendEntry(plot, 0);
+    EXPECT_EQ(visibleSeries(plot), "100000000");
+    doubleClickLegendEntry(plot, 0);
+    EXPECT_EQ(visibleSeries(plot), "100100100");
+    rocketplot::LineSeries* const booster = dialog->plot().series(1);
+    ASSERT_NE(booster, nullptr);
+    booster->setVisible(true);
+    EXPECT_EQ(visibleSeries(plot), "100100100");
+    clickLegendEntry(plot, 1);
+    EXPECT_EQ(visibleSeries(plot), "100000100");
+    EXPECT_EQ(chooseStage(*dialog, 2).series, "010010010");
+    EXPECT_EQ(chooseStage(*dialog, 1).series, "100100100");
+    // All Stages: an entry stands for its row's series of every stage, as before.
+    EXPECT_EQ(chooseStage(*dialog, 0).series, "111111111");
+    clickLegendEntry(plot, 0);
+    EXPECT_EQ(visibleSeries(plot), "000111111");
 }
 
 TEST_F(SimulationPlotDialogTest, ShowErrorsIsEnabledForAStageWithAnAbort)
