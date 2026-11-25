@@ -1,13 +1,16 @@
 #include "QtRocket/gui/util/MemoryPlotDefaults.h"
 
+#include <memory>
+
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/util/PlotDefaults.h"
+#include "QtRocket/plot/SimulationPlotConfiguration.h"
 
 // The keeper of the last plotted configuration (OpenRocket's SimulationPlotPanel.
-// DEFAULT_CONFIGURATION). Its configuration type is the core's plot model (Milestone 4), which the
-// plot tab's tests give it; here what holds without one.
+// DEFAULT_CONFIGURATION). The plot tab's own use of it (doPlot() keeps the configuration without
+// its looks, the next tab starts from it) is tests/gui/dialogs/plot/SimulationPlotPanelTests.cpp's.
 
 namespace QtRocket::Gui
 {
@@ -25,6 +28,27 @@ TEST_F(MemoryPlotDefaultsTest, HasNoConfigurationBeforeTheFirstPlot)
     PlotDefaults& asInterface = defaults;
     asInterface.setLastPlotted(nullptr);
     EXPECT_EQ(asInterface.lastPlotted(), nullptr);
+}
+
+TEST_F(MemoryPlotDefaultsTest, KeepsTheConfigurationLastPlotted)
+{
+    MemoryPlotDefaults defaults;
+    PlotDefaults&      asInterface = defaults;
+    const auto         plotted     = std::make_shared<const SimulationPlotConfiguration>(
+        SimulationPlotConfiguration::defaultConfigurations().at(4));
+    asInterface.setLastPlotted(plotted);
+    // The same object, shared (the tab copies it).
+    EXPECT_EQ(asInterface.lastPlotted(), plotted);
+    ASSERT_NE(defaults.lastPlotted(), nullptr);
+    EXPECT_EQ(defaults.lastPlotted()->getName(), "Stability vs. time");
+    EXPECT_EQ(defaults.lastPlotted()->getDataCount(), 3U);
+
+    const auto next = std::make_shared<const SimulationPlotConfiguration>(
+        SimulationPlotConfiguration::customConfiguration());
+    asInterface.setLastPlotted(next);
+    EXPECT_EQ(defaults.lastPlotted(), next);
+    asInterface.setLastPlotted(nullptr);
+    EXPECT_EQ(defaults.lastPlotted(), nullptr);
 }
 
 }  // namespace

@@ -37,9 +37,10 @@
 #   plot-widgets       the values tests/gui/widgets/DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp,
 #                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
 #                      see README.md)
-#   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp and
-#                      tests/gui/plot/DataPlotTests.cpp pin by hand (checked only, see README.md; the probe runs
-#                      under xvfb-run)
+#   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp,
+#                      tests/gui/plot/DataPlotTests.cpp and the plot tab's tests (PlotTypeSelectorTests.cpp,
+#                      SimulationPlotTypeSelectorTests.cpp, SimulationPlotPanelTests.cpp of tests/gui/dialogs/plot/)
+#                      pin by hand (checked only, see README.md; the probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -507,10 +508,14 @@ for family in "${families[@]}"; do
         ;;
     plot-dialog)
         # OpenRocket's SimulationPlotDialog is a JDialog, which a headless AWT refuses to make (it is never
-        # shown); its plots are of stored simulations of the examples. The tests pin the whole transcript by hand.
+        # shown); its plots are of stored simulations of the examples. Then the plot tab, SimulationPlotPanel,
+        # of such flights (in a JFrame that is packed, never shown), whose transcript follows the dialog's in the
+        # family's one snapshot. The tests pin the whole transcript by hand.
         run_probe "${family}" PlotDialogProbe xvfb "${examples}"
+        run_probe "${family}" PlotTabProbe xvfb "${examples}"
+        cat "${work}/PlotTabProbe.txt" >> "${work}/PlotDialogProbe.txt"
         check_hand_pins "${family}" PlotDialogProbe \
-            "tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp and tests/gui/plot/DataPlotTests.cpp"
+            "tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp, tests/gui/plot/DataPlotTests.cpp and the plot tab's tests of tests/gui/dialogs/plot/"
         continue
         ;;
     esac

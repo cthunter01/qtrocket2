@@ -171,3 +171,310 @@ reset, Alt: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
 first, made (not shown): stored size is its size=true a position stored=true
 after setSize(900, 700), setLocation(40, 30): stored size=java.awt.Dimension[width=900,height=700] stored position=java.awt.Point[x=40,y=30] keys=position.info.openrocket.swing.gui.plot.SimulationPlotDialog,size.info.openrocket.swing.gui.plot.SimulationPlotDialog
 next dialog: size=900x700 location=40,30
+== plot tab simple: 'Simulation 1' branches 1
+types 58: Time | Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude | Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth) | Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration | CP location | CG location | Stability margin calibers | Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA) | Normal force coefficient (CN) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound | Mach number | Reynolds number | Reference length | Reference area | Simulation time step | Computation time | Coriolis acceleration
+panel layout='fill, ins n n 0 n' columns='' rows=''
+  0: JLabel text='Preset plot configurations:' visible=true enabled=true constraints='spanx, split'
+  1: JComboBox visible=true enabled=true constraints='growx, wrap 20lp'
+  2: JSeparator visible=true enabled=true constraints='spanx, growx, wrap'
+  3: JLabel text='X axis type:' visible=true enabled=true constraints='spanx, split'
+  4: GroupableAndSearchableComboBox tooltip='Time' visible=true enabled=true constraints='width 200lp!, gapright unrel'
+  5: JLabel text='Unit:' visible=true enabled=true constraints='null'
+  6: UnitSelector text='s' visible=true enabled=true constraints='width 40lp, gapright unrel'
+  7: DescriptionArea visible=false enabled=true constraints='growx, wrap'
+  8: JPanel visible=true enabled=true constraints='pushy, wmin 400lp, grow 100, gapright para'
+  9: JPanel visible=true enabled=true constraints='pushy, grow 100, wrap'
+  10: JButton text='New Y axis plot type' visible=true enabled=true constraints='spanx, pushx, left'
+preset box items 10: 'Vertical motion vs. time' 'Total motion vs. time' 'Flight side profile' 'Ground track' 'Stability vs. time' 'Drag coefficients vs. Mach number' 'Roll characteristics' 'Angle of attack and orientation vs. time' 'Simulation time step and computation time' 'Custom'
+y panel layout='fill, ins 0' columns='' rows=''
+  0: JLabel text='Y axis types:' visible=true enabled=true constraints='wrap rel'
+  1: JScrollPane visible=true enabled=true constraints='pushy, grow 100'
+rows panel layout='gapy rel' columns='' rows=''
+  0: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+  1: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+  2: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+extra y panel layout='fill, ins 0' columns='' rows=''
+  0: JLabel text='Flight events:' visible=true enabled=true constraints='growx, wrap rel'
+  1: JPanel visible=true enabled=true constraints='growx, wrap rel'
+  2: JPanel visible=true enabled=true constraints='pushy, grow 100'
+events panel layout='ins 0' columns='' rows=''
+  0: JScrollPane visible=true enabled=true constraints='width 200lp, grow 1, wrap rel'
+  1: JButton text='All' visible=true enabled=true constraints='split 2, gapleft para, gapright para, growx, sizegroup buttons'
+  2: JButton text='None' visible=true enabled=true constraints='gapleft para, gapright para, growx, sizegroup buttons, wrap'
+  3: JLabel text='Marker style:' tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' visible=true enabled=true constraints='split 3, growx'
+  4: JRadioButton text='Vertical line' visible=true enabled=true constraints='null'
+  5: JRadioButton text='Icon' visible=true enabled=true constraints='wrap'
+row 0 layout='ins 0' columns='' rows=''
+  0: GroupableAndSearchableComboBox tooltip='Altitude' visible=true enabled=true constraints='width 200lp!, gapright unrel, top'
+  1: JLabel text='Unit:' visible=true enabled=true constraints='top'
+  2: UnitSelector text='m' visible=true enabled=true constraints='width 40lp, gapright unrel, top'
+  3: JLabel text='Axis:' visible=true enabled=true constraints='top'
+  4: JComboBox visible=true enabled=true constraints='top'
+  5: JButton text='' icon tooltip='Remove this plot' visible=true enabled=true constraints='gapright 0, top'
+  6: JPanel visible=true enabled=true constraints='newline, gapleft para, spanx, wrap'
+row 0 appearance layout='ins 0' columns='' rows=''
+  0: JLabel text='Color:' visible=true enabled=true constraints='top'
+  1: ColorChooserButton text='' icon visible=true enabled=true constraints='top'
+  2: JLabel text='Line style:' visible=true enabled=true constraints='gapleft para, top'
+  3: JComboBox visible=true enabled=true constraints='top'
+  4: JButton text='' icon tooltip='<html>Set as default<br>Save the current color and line style as the application default for this data type</html>' visible=true enabled=false constraints='gapleft para, top'
+  5: JButton text='' icon tooltip='<html>Reset to factory default<br>Revert the color and line style to their built-in defaults for this plot</html>' visible=true enabled=false constraints='top'
+events table: header=false showVerticalLines=false showHorizontalLines=false rowSelectionAllowed=false columnSelectionAllowed=false column 0 width = row height + 2: true scroll preferred height=150 column 1 class=String editable 0/1=true/false
+initial: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  events: 10: Launch=false; Motor ignition=true; Lift-off=false; Launch rod clearance=false; Motor burnout=true; Ejection charge=false; Apogee=true; Recovery device deployment=true; Ground hit=true; Simulation end=false
+row 0 geometry: type width=200 gap type-'Unit:'=18 gap 'Unit:'-unit=6 unit width=40 gap unit-'Axis:'=18 gap 'Axis:'-axis=6 gap axis-remove=6 type y=0
+row 0 appearance: x=18 (the type box's x=0) gaps: 6 24 6 24 6 vertical gap to the first line=6
+x axis geometry: type width=200 gap type-'Unit:'=12 gap 'Unit:'-unit=6 unit width=40 gap unit-description=12
+panel geometry: gap preset box-separator=20 gap separator-X row=12 y panel-extra y gap=24 new Y button x=6 panel insets left=6
+events geometry: All and None equally wide=true All x - table x=18 gap All-None=18
+== presets of 'A simple model rocket' #1
+preset 0: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 1: preset box=1 'Total motion vs. time' X box='Time' X unit=s
+  configuration: name='Total motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Total velocity [m/s] @-1 color=none Solid; Total acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Total velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Total acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 2: preset box=2 'Flight side profile' X box='Position East of launch' X unit=m
+  configuration: name='Flight side profile' X=Position East of launch [m] rows=1: Altitude [m] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Auto #0072bd Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 3: preset box=3 'Ground track' X box='Position East of launch' X unit=m
+  configuration: name='Ground track' X=Position East of launch [m] rows=2: Position North of launch [m] @0 color=none Solid; Altitude [m] @1 color=none Solid events=[Motor ignition, Motor burnout, Apogee, Recovery device deployment, Ground hit, Warning, Simulation abort, Exception]
+  rows: 0 Position North of launch [m] Left #0072bd Solid setDefault=off reset=off | 1 Altitude [m] Right #d95319 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 4: preset box=4 'Stability vs. time' X box='Time' X unit=s
+  configuration: name='Stability vs. time' X=Time [s] rows=3: Stability margin calibers [​] @0 color=none Solid; CP location [cm] @1 color=none Solid; CG location [cm] @1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Stability margin calibers [​] Left #0072bd Solid setDefault=off reset=off | 1 CP location [cm] Right #d95319 Solid setDefault=off reset=off | 2 CG location [cm] Right #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 5: preset box=5 'Drag coefficients vs. Mach number' X box='Mach number' X unit=​
+  configuration: name='Drag coefficients vs. Mach number' X=Mach number [​] rows=4: Drag coefficient (CD) [​] @0 color=none Solid; Friction drag coefficient (CD_friction) [​] @0 color=none Solid; Base drag coefficient (CD_base) [​] @0 color=none Solid; Pressure drag coefficient (CD_pressure) [​] @0 color=none Solid events=[Warning, Simulation abort, Exception]
+  rows: 0 Drag coefficient (CD) [​] Left #0072bd Solid setDefault=off reset=off | 1 Friction drag coefficient (CD_friction) [​] Left #d95319 Solid setDefault=off reset=off | 2 Base drag coefficient (CD_base) [​] Left #edb120 Solid setDefault=off reset=off | 3 Pressure drag coefficient (CD_pressure) [​] Left #7e318e Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 6: preset box=6 'Roll characteristics' X box='Time' X unit=s
+  configuration: name='Roll characteristics' X=Time [s] rows=4: Roll rate (Z) [°/s] @0 color=none Solid; Roll moment coefficient [​] @1 color=none Solid; Roll forcing coefficient [​] @1 color=none Solid; Roll damping coefficient [​] @1 color=none Solid events=[Motor ignition, Launch rod clearance, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Roll rate (Z) [°/s] Left #0072bd Solid setDefault=off reset=off | 1 Roll moment coefficient [​] Right #d95319 Solid setDefault=off reset=off | 2 Roll forcing coefficient [​] Right #edb120 Solid setDefault=off reset=off | 3 Roll damping coefficient [​] Right #7e318e Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 7: preset box=7 'Angle of attack and orientation vs. time' X box='Time' X unit=s
+  configuration: name='Angle of attack and orientation vs. time' X=Time [s] rows=3: Angle of attack [°] @0 color=none Solid; Lateral orientation (azimuth) [°] @-1 color=none Solid; Vertical orientation (zenith) [°] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Angle of attack [°] Left #0072bd Solid setDefault=off reset=off | 1 Lateral orientation (azimuth) [°] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical orientation (zenith) [°] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 8: preset box=8 'Simulation time step and computation time' X box='Time' X unit=s
+  configuration: name='Simulation time step and computation time' X=Time [s] rows=2: Simulation time step [s] @-1 color=none Solid; Computation time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Simulation time step [s] Auto #0072bd Solid setDefault=off reset=off | 1 Computation time [s] Auto #d95319 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+Custom chosen (the configuration keeps its name): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Simulation time step and computation time' X=Time [s] rows=2: Simulation time step [s] @-1 color=none Solid; Computation time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Simulation time step [s] Auto #0072bd Solid setDefault=off reset=off | 1 Computation time [s] Auto #d95319 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+preset 2 again: the X type is the position, the description and the marker style do not follow: preset box=2 'Flight side profile' X box='Position East of launch' X unit=m
+  configuration: name='Flight side profile' X=Position East of launch [m] rows=1: Altitude [m] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Auto #0072bd Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+== edits of 'A simple model rocket' #1
+X axis -> Mach number: preset box=9 'Custom' X box='Mach number' X unit=​
+  configuration: name='Custom' X=Mach number [​] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+preset 0 after it: the description and the marker style stay: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+X axis -> Time: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+X unit -> min (no Custom): preset box=0 'Vertical motion vs. time' X box='Time' X unit=min
+  configuration: name='Vertical motion vs. time' X=Time [min] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+row 0 unit -> ft (no Custom): preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+row 1 axis -> Right (no Custom; the colours are computed before the axis changes): preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #edb120 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #d95319 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+updatePlots: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #edb120 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #d95319 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+row 2 type -> Mass (Custom; the colours are computed before the type changes): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Mass [g] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #edb120 Solid setDefault=off reset=off | 2 Mass [g] Auto #d95319 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+New Y axis plot type: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=4: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Mass [g] @-1 color=none Solid; Altitude above sea level [m] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #7e318e Solid setDefault=off reset=off | 2 Mass [g] Auto #d95319 Solid setDefault=off reset=off | 3 Altitude above sea level [m] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+New Y axis plot type: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=5: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Mass [g] @-1 color=none Solid; Altitude above sea level [m] @-1 color=none Solid; Total velocity [m/s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #77ac30 Solid setDefault=off reset=off | 2 Mass [g] Auto #d95319 Solid setDefault=off reset=off | 3 Altitude above sea level [m] Auto #edb120 Solid setDefault=off reset=off | 4 Total velocity [m/s] Auto #7e318e Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+New Y axis plot type: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=6: Altitude [ft] @0 color=none Solid; Vertical velocity [m/s] @1 color=none Solid; Mass [g] @-1 color=none Solid; Altitude above sea level [m] @-1 color=none Solid; Total velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Right #7e318e Solid setDefault=off reset=off | 2 Mass [g] Auto #d95319 Solid setDefault=off reset=off | 3 Altitude above sea level [m] Auto #77ac30 Solid setDefault=off reset=off | 4 Total velocity [m/s] Auto #4dbeee Solid setDefault=off reset=off | 5 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+row 1 removed: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=5: Altitude [ft] @0 color=none Solid; Mass [g] @-1 color=none Solid; Altitude above sea level [m] @-1 color=none Solid; Total velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [ft] Left #0072bd Solid setDefault=off reset=off | 1 Mass [g] Auto #d95319 Solid setDefault=off reset=off | 2 Altitude above sea level [m] Auto #7e318e Solid setDefault=off reset=off | 3 Total velocity [m/s] Auto #77ac30 Solid setDefault=off reset=off | 4 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+preset 8: preset box=8 'Simulation time step and computation time' X box='Time' X unit=s
+  configuration: name='Simulation time step and computation time' X=Time [s] rows=2: Simulation time step [s] @-1 color=none Solid; Computation time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Simulation time step [s] Auto #0072bd Solid setDefault=off reset=off | 1 Computation time [s] Auto #d95319 Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+row 1 removed: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=1: Simulation time step [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Simulation time step [s] Auto #0072bd Solid setDefault=off reset=off
+  description visible=true marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+the last row removed: IndexOutOfBoundsException: Index 0 out of bounds for length 0
+12 times New Y axis plot type (the next would show 'A maximum of 15 plots is allowed.'): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=15: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid; Altitude above sea level [m] @-1 color=none Solid; Total velocity [m/s] @-1 color=none Solid; Total acceleration [m/s²] @-1 color=none Solid; Position East of launch [m] @-1 color=none Solid; Position North of launch [m] @-1 color=none Solid; Lateral distance [m] @-1 color=none Solid; Lateral direction [°] @-1 color=none Solid; Lateral velocity [m/s] @-1 color=none Solid; Lateral acceleration [m/s²] @-1 color=none Solid; Latitude [° N] @-1 color=none Solid; Longitude [° E] @-1 color=none Solid; Angle of attack [°] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #0072bd Solid setDefault=off reset=off | 3 Altitude above sea level [m] Auto #edb120 Solid setDefault=off reset=off | 4 Total velocity [m/s] Auto #7e318e Solid setDefault=off reset=off | 5 Total acceleration [m/s²] Auto #d95319 Solid setDefault=off reset=off | 6 Position East of launch [m] Auto #edb120 Solid setDefault=off reset=off | 7 Position North of launch [m] Auto #77ac30 Solid setDefault=off reset=off | 8 Lateral distance [m] Auto #4dbeee Solid setDefault=off reset=off | 9 Lateral direction [°] Auto #7e318e Solid setDefault=off reset=off | 10 Lateral velocity [m/s] Auto #a2142f Solid setDefault=off reset=off | 11 Lateral acceleration [m/s²] Auto #c56a7a Solid setDefault=off reset=off | 12 Latitude [° N] Auto #ff7f50 Solid setDefault=off reset=off | 13 Longitude [° E] Auto #556b2f Solid setDefault=off reset=off | 14 Angle of attack [°] Auto #77ac30 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+== appearances of 'A simple model rocket' #1
+row 0 colour -> #c86432: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=#c86432 Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #c86432 Solid setDefault=on reset=on | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  simulation's Altitude appearance: color=200,100,50,255 lineStyle=none
+row 0 line style -> DASHED: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=#c86432 Dashed; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #c86432 Dashed setDefault=on reset=on | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  simulation's Altitude appearance: color=200,100,50,255 lineStyle=DASHED
+row 0 Set as default: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=#c86432 Dashed; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #c86432 Dashed setDefault=off reset=on | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  default of Altitude: color=200,100,50,255 lineStyle=DASHED stored keys: [Altitude.color=200,100,50, Altitude.lineStyle=DASHED]
+row 0 Reset to factory default: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=on reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  simulation's Altitude appearance: none
+row 1 type -> Altitude (its default appearance): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Altitude [m] @-1 color=#c86432 Dashed; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=on reset=off | 1 Altitude [m] Auto #c86432 Dashed setDefault=off reset=on | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+row 2 line style -> DOTTED: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Altitude [m] @-1 color=#c86432 Dashed; Vertical acceleration [m/s²] @-1 color=none Dotted events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=on reset=off | 1 Altitude [m] Auto #c86432 Dashed setDefault=off reset=on | 2 Vertical acceleration [m/s²] Auto #edb120 Dotted setDefault=on reset=on
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+a new panel: the simulation's appearance of Vertical acceleration and the default of Altitude: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=#c86432 Dashed; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Dotted events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #c86432 Dashed setDefault=off reset=on | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Dotted setDefault=on reset=on
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  stored keys after clearing: []
+== events of 'A simple model rocket' #1
+None: 10: Launch=false; Motor ignition=false; Lift-off=false; Launch rod clearance=false; Motor burnout=false; Ejection charge=false; Apogee=false; Recovery device deployment=false; Ground hit=false; Simulation end=false active=[]
+All: 10: Launch=true; Motor ignition=true; Lift-off=true; Launch rod clearance=true; Motor burnout=true; Ejection charge=true; Apogee=true; Recovery device deployment=true; Ground hit=true; Simulation end=true active=[Launch, Motor ignition, Lift-off, Launch rod clearance, Motor burnout, Ejection charge, Stage separation, Apogee, Recovery device deployment, Ground hit, Simulation end, Altitude change, Tumbling, Warning, Simulation abort, Exception]
+row 1 unchecked: 10: Launch=true; Motor ignition=false; Lift-off=true; Launch rod clearance=true; Motor burnout=true; Ejection charge=true; Apogee=true; Recovery device deployment=true; Ground hit=true; Simulation end=true
+a click on row 0's name: 10: Launch=false; Motor ignition=false; Lift-off=true; Launch rod clearance=true; Motor burnout=true; Ejection charge=true; Apogee=true; Recovery device deployment=true; Ground hit=true; Simulation end=true
+Icon clicked: pref MarkerStyleIcon=true description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=false tooltip=none Icon enabled=true selected=true tooltip=none
+Vertical line clicked: pref MarkerStyleIcon=false description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+a new panel with MarkerStyleIcon=true: description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=false tooltip=none Icon enabled=true selected=true tooltip=none
+== doPlot
+doPlot: a dialog=true the panel's: name='Custom' X=Position East of launch [ft] rows=3: Position North of launch [m] @0 color=#0a141e Solid; Altitude [m] @1 color=none Solid; Time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Apogee, Recovery device deployment, Ground hit, Warning, Simulation abort, Exception]
+  DEFAULT_CONFIGURATION: name='Custom' X=Position East of launch [ft] rows=3: Position North of launch [m] @0 color=none Solid; Altitude [m] @1 color=none Solid; Time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Apogee, Recovery device deployment, Ground hit, Warning, Simulation abort, Exception]
+the next panel (Three stage low power rocket #1): preset box=9 'Custom' X box='Position East of launch' X unit=ft
+  configuration: name='Custom' X=Position East of launch [ft] rows=3: Position North of launch [m] @0 color=none Solid; Altitude [m] @1 color=none Solid; Time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Apogee, Recovery device deployment, Ground hit, Warning, Simulation abort, Exception]
+  rows: 0 Position North of launch [m] Left #0072bd Solid setDefault=off reset=off | 1 Altitude [m] Right #7e318e Solid setDefault=off reset=off | 2 Time [s] Auto #77ac30 Solid setDefault=off reset=off
+  description visible=false marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+and of 'A simple model rocket' #1 again: preset box=9 'Custom' X box='Position East of launch' X unit=ft
+  configuration: name='Custom' X=Position East of launch [ft] rows=3: Position North of launch [m] @0 color=#0a141e Solid; Altitude [m] @1 color=none Solid; Time [s] @-1 color=none Solid events=[Motor ignition, Motor burnout, Apogee, Recovery device deployment, Ground hit, Warning, Simulation abort, Exception]
+  rows: 0 Position North of launch [m] Left #0a141e Solid setDefault=on reset=on | 1 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 2 Time [s] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=false tooltip='Only available for time domain, other domains only support icon markers' Vertical line enabled=false selected=true tooltip='Only available for time domain, other domains only support icon markers' Icon enabled=false selected=false tooltip='Only available for time domain, other domains only support icon markers'
+== plot tab three-stage: 'Simulation 1' branches 3
+types 58: Time | Altitude | Altitude above sea level | Vertical velocity | Total velocity | Vertical acceleration | Total acceleration | Position East of launch | Position North of launch | Lateral distance | Lateral direction | Lateral velocity | Lateral acceleration | Latitude | Longitude | Angle of attack | Roll rate (Z) | Pitch rate (Y) | Yaw rate (X) | Vertical orientation (zenith) | Lateral orientation (azimuth) | Mass | Motor mass | Longitudinal moment of inertia | Rotational moment of inertia | Gravitational acceleration | CP location | CG location | Stability margin calibers | Thrust | Thrust-to-weight ratio | Drag force | Drag coefficient (CD) | Friction drag coefficient (CD_friction) | Pressure drag coefficient (CD_pressure) | Base drag coefficient (CD_base) | Axial drag coefficient (CA) | Normal force coefficient (CN) | Pitch moment coefficient (Cm) | Yaw moment coefficient | Side force coefficient | Roll moment coefficient | Roll forcing coefficient | Roll damping coefficient | Pitch damping coefficient | Wind velocity | Wind direction | Air temperature | Air pressure | Air density | Speed of sound | Mach number | Reynolds number | Reference length | Reference area | Simulation time step | Computation time | Coriolis acceleration
+panel layout='fill, ins n n 0 n' columns='' rows=''
+  0: JLabel text='Preset plot configurations:' visible=true enabled=true constraints='spanx, split'
+  1: JComboBox visible=true enabled=true constraints='growx, wrap 20lp'
+  2: JSeparator visible=true enabled=true constraints='spanx, growx, wrap'
+  3: JLabel text='X axis type:' visible=true enabled=true constraints='spanx, split'
+  4: GroupableAndSearchableComboBox tooltip='Time' visible=true enabled=true constraints='width 200lp!, gapright unrel'
+  5: JLabel text='Unit:' visible=true enabled=true constraints='null'
+  6: UnitSelector text='s' visible=true enabled=true constraints='width 40lp, gapright unrel'
+  7: DescriptionArea visible=false enabled=true constraints='growx, wrap'
+  8: JPanel visible=true enabled=true constraints='pushy, wmin 400lp, grow 100, gapright para'
+  9: JPanel visible=true enabled=true constraints='pushy, grow 100, wrap'
+  10: JButton text='New Y axis plot type' visible=true enabled=true constraints='spanx, pushx, left'
+preset box items 10: 'Vertical motion vs. time' 'Total motion vs. time' 'Flight side profile' 'Ground track' 'Stability vs. time' 'Drag coefficients vs. Mach number' 'Roll characteristics' 'Angle of attack and orientation vs. time' 'Simulation time step and computation time' 'Custom'
+y panel layout='fill, ins 0' columns='' rows=''
+  0: JLabel text='Y axis types:' visible=true enabled=true constraints='wrap rel'
+  1: JScrollPane visible=true enabled=true constraints='pushy, grow 100'
+rows panel layout='gapy rel' columns='' rows=''
+  0: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+  1: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+  2: SimulationPlotTypeSelector visible=true enabled=true constraints='wrap'
+extra y panel layout='fill, ins 0' columns='' rows=''
+  0: JLabel text='Flight events:' visible=true enabled=true constraints='growx, wrap rel'
+  1: JPanel visible=true enabled=true constraints='growx, wrap rel'
+  2: JPanel visible=true enabled=true constraints='pushy, grow 100'
+events panel layout='ins 0' columns='' rows=''
+  0: JScrollPane visible=true enabled=true constraints='width 200lp, grow 1, wrap rel'
+  1: JButton text='All' visible=true enabled=true constraints='split 2, gapleft para, gapright para, growx, sizegroup buttons'
+  2: JButton text='None' visible=true enabled=true constraints='gapleft para, gapright para, growx, sizegroup buttons, wrap'
+  3: JLabel text='Marker style:' tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' visible=true enabled=true constraints='split 3, growx'
+  4: JRadioButton text='Vertical line' visible=true enabled=true constraints='null'
+  5: JRadioButton text='Icon' visible=true enabled=true constraints='wrap'
+row 0 layout='ins 0' columns='' rows=''
+  0: GroupableAndSearchableComboBox tooltip='Altitude' visible=true enabled=true constraints='width 200lp!, gapright unrel, top'
+  1: JLabel text='Unit:' visible=true enabled=true constraints='top'
+  2: UnitSelector text='m' visible=true enabled=true constraints='width 40lp, gapright unrel, top'
+  3: JLabel text='Axis:' visible=true enabled=true constraints='top'
+  4: JComboBox visible=true enabled=true constraints='top'
+  5: JButton text='' icon tooltip='Remove this plot' visible=true enabled=true constraints='gapright 0, top'
+  6: JPanel visible=true enabled=true constraints='newline, gapleft para, spanx, wrap'
+row 0 appearance layout='ins 0' columns='' rows=''
+  0: JLabel text='Color:' visible=true enabled=true constraints='top'
+  1: ColorChooserButton text='' icon visible=true enabled=true constraints='top'
+  2: JLabel text='Line style:' visible=true enabled=true constraints='gapleft para, top'
+  3: JComboBox visible=true enabled=true constraints='top'
+  4: JButton text='' icon tooltip='<html>Set as default<br>Save the current color and line style as the application default for this data type</html>' visible=true enabled=false constraints='gapleft para, top'
+  5: JButton text='' icon tooltip='<html>Reset to factory default<br>Revert the color and line style to their built-in defaults for this plot</html>' visible=true enabled=false constraints='top'
+events table: header=false showVerticalLines=false showHorizontalLines=false rowSelectionAllowed=false columnSelectionAllowed=false column 0 width = row height + 2: true scroll preferred height=150 column 1 class=String editable 0/1=true/false
+initial: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #a2142f Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #d95319 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+  events: 12: Launch=false; Motor ignition=true; Lift-off=false; Launch rod clearance=false; Motor burnout=true; Ejection charge=false; Stage separation=true; Apogee=true; Recovery device deployment=true; Ground hit=true; Simulation end=false; Tumbling=true
+row 0 geometry: type width=200 gap type-'Unit:'=18 gap 'Unit:'-unit=6 unit width=40 gap unit-'Axis:'=18 gap 'Axis:'-axis=6 gap axis-remove=6 type y=0
+row 0 appearance: x=18 (the type box's x=0) gaps: 6 24 6 24 6 vertical gap to the first line=6
+x axis geometry: type width=200 gap type-'Unit:'=12 gap 'Unit:'-unit=6 unit width=40 gap unit-description=12
+panel geometry: gap preset box-separator=20 gap separator-X row=12 y panel-extra y gap=24 new Y button x=6 panel insets left=6
+events geometry: All and None equally wide=true All x - table x=18 gap All-None=18
+== SimulationChartTest's colour test
+made: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Vertical motion vs. time' X=Time [s] rows=3: Altitude [m] @0 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[Motor ignition, Motor burnout, Stage separation, Apogee, Recovery device deployment, Ground hit, Tumbling, Warning, Simulation abort, Exception]
+  rows: 0 Altitude [m] Left #0072bd Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #d95319 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+setConfiguration, updatePlots: preset box=0 'Vertical motion vs. time' X box='Time' X unit=s
+  configuration: name='Test' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Vertical velocity [m/s] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Auto #edb120 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #0072bd Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+row 1 type -> Position East of launch: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Position East of launch [m] @-1 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 1 Position East of launch [m] Auto #edb120 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #0072bd Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+row 2 type -> Position North of launch: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Position East of launch [m] @-1 color=none Solid; Position North of launch [m] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 1 Position East of launch [m] Auto #0072bd Solid setDefault=off reset=off | 2 Position North of launch [m] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+updatePlots (the colours of the configuration as it is): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Custom' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Position East of launch [m] @-1 color=none Solid; Position North of launch [m] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #edb120 Solid setDefault=off reset=off | 1 Position East of launch [m] Auto #0072bd Solid setDefault=off reset=off | 2 Position North of launch [m] Auto #d95319 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+again; row 1 axis -> Left: preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Test' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Vertical velocity [m/s] @0 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Left #edb120 Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #0072bd Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none
+updatePlots (the colours of the configuration as it is): preset box=9 'Custom' X box='Time' X unit=s
+  configuration: name='Test' X=Time [s] rows=3: Altitude [m] @1 color=none Solid; Vertical velocity [m/s] @0 color=none Solid; Vertical acceleration [m/s²] @-1 color=none Solid events=[]
+  rows: 0 Altitude [m] Right #d95319 Solid setDefault=off reset=off | 1 Vertical velocity [m/s] Left #0072bd Solid setDefault=off reset=off | 2 Vertical acceleration [m/s²] Auto #edb120 Solid setDefault=off reset=off
+  description visible=false marker style enabled=true tooltip='Style of the flight event marker (how it's drawn in the simulation plot)' Vertical line enabled=true selected=true tooltip=none Icon enabled=true selected=false tooltip=none

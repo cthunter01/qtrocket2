@@ -8,6 +8,7 @@
 
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/plot/SimulationPlotConfiguration.h"
 #include "QtRocket/simulation/Simulation.h"
 
 namespace QtRocket::Gui::Test
@@ -47,9 +48,9 @@ void RecordingSimulationDialogs::editSimulations(QWidget* parent, OpenRocketDocu
     }
 }
 
-void RecordingSimulationDialogs::plotSimulation(
-    QWidget* parent, std::shared_ptr<Simulation> simulation,
-    const SimulationPlotConfiguration& /*configuration*/)
+void RecordingSimulationDialogs::plotSimulation(QWidget*                           parent,
+                                                std::shared_ptr<Simulation>        simulation,
+                                                const SimulationPlotConfiguration& configuration)
 {
     m_requests.push_back({.kind            = Kind::PLOT,
                           .parent          = parent,
@@ -57,6 +58,7 @@ void RecordingSimulationDialogs::plotSimulation(
                           .simulationNames = {nameOf(simulation.get())},
                           .tab             = Tab::PLOT_DATA,
                           .newSimulation   = false});
+    m_plotConfigurations.push_back(configuration);
 }
 
 }  // namespace QtRocket::Gui::Test

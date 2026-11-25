@@ -24,7 +24,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
-| `plot-dialog` | values pinned by hand | `PlotDialogProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
+| `plot-dialog` | values pinned by hand | `PlotDialogProbe`, `PlotTabProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp`, `PlotTypeSelectorTests.cpp`, `SimulationPlotTypeSelectorTests.cpp`, `SimulationPlotPanelTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -309,7 +309,17 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   the chart and the preferences, and what the dialog remembers of its size and place. It prints nothing that
   depends on the fonts (no bounds but the chart's; the ranges after a zoom, which ChartPanel computes in pixels,
   to 6 digits). The dialog is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
-  `-Djava.awt.headless=false`; no window is shown. The tests pin the whole transcript by hand.
+  `-Djava.awt.headless=false`; no window is shown. Its second probe, `PlotTabProbe` (part G5), prints OpenRocket's
+  plot tab (`PlotPanel`, `PlotTypeSelector`, `SimulationPlotPanel` and `SimulationPlotTypeSelector`) made by
+  `SimulationPlotPanel.create()` of "A simple model rocket" #1, "Three stage low power rocket" #1 and the flight
+  of `SimulationChartTest`'s colour test, in a `JFrame` that is packed and never shown: the panel's components with
+  their MigLayout constraints, the gaps between them after `pack()` (no bounds that depend on the fonts), the
+  preset box's items, the rows (type, unit, axis, colour, line style, the appearance buttons' states), the events
+  table, the marker style and the description; then what each preset, the X axis type and unit, a row's type,
+  unit, axis, colour and line style, New Y axis plot type, the remove buttons, All, None, a click on an event's
+  name, the marker style, Set as default, Reset to factory default and `doPlot()` do, set as Swing sets them
+  (`setSelectedItem()`, `setSelectedIndex()`, `doClick()`), with the configuration the next tab starts from.
+  Its transcript is appended to `PlotDialogProbe`'s. The tests pin the whole transcript by hand.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -407,8 +417,8 @@ lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-
 `PlotWidgetsProbe` (`plot-widgets`) has no table either: the four tests above pin its whole transcript by hand,
 and its `hand-pinned.txt` is that transcript.
 
-`PlotDialogProbe` (`plot-dialog`) has no table either: the three tests above pin its whole transcript by hand,
-and its `hand-pinned.txt` is that transcript.
+`PlotDialogProbe` and `PlotTabProbe` (`plot-dialog`) have no table either: the tests above pin their whole
+transcripts by hand, and the family's `hand-pinned.txt` is the two, `PlotTabProbe`'s after `PlotDialogProbe`'s.
 
 `PresetGuiProbe`, `ConfigPresetRowProbe` and `PresetShownProbe` (`preset-chooser`; its other probe,
 `PresetChooserProbe`, writes `PresetChooserPins.h`) have no table: the tests pin their whole transcripts by hand
