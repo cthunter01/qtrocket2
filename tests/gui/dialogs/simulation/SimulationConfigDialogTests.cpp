@@ -2,18 +2,20 @@
 // which has no JUnit test of its own): its top rows, tabs and buttons as OpenRocket shows them
 // (the M4 sim-config scout's walk of "A simple model rocket" Simulation 1, java/dialog-walk.txt,
 // hand-pinned here), the buttons' texts per tab, the live edits, OK (with and without runs, the
-// plot), Cancel and Close (the discard question, the undo, OpenRocket bugs 29 and 30), the
-// multi-simulation edit, the background estimate's hooks and the remembered geometry. The
-// questions are scripted (ScriptedUserPrompts), the runs go through the manual executor, and the
-// plot dialog is recorded (RecordingSimulationDialogs). Fresh runs: "A simple model rocket" #1
-// only, no value of the flight pinned.
+// plot, the export: OpenRocket bug 49), Cancel and Close (the discard question, the undo,
+// OpenRocket bugs 29 and 30), the multi-simulation edit, the background estimate's hooks and the
+// remembered geometry. The questions are scripted (ScriptedUserPrompts), the runs go through the
+// manual executor, and the plot dialog is recorded (RecordingSimulationDialogs). Fresh runs: "A
+// simple model rocket" #1 only, no value of the flight pinned.
 
 #include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -48,19 +50,24 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/document/events/DocumentChangeEvent.h"
+#include "QtRocket/file/CsvExport.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationExportPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationOptionsPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationWarningsPanel.h"
+#include "QtRocket/gui/settings/CsvOptionPreferences.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/ColorConversion.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/SimulationStatusColors.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
+#include "QtRocket/gui/widgets/CsvExportPanel.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
@@ -68,16 +75,23 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/FlightDataBranch.h"
+#include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/extension/example/AirStart.h"
+#include "QtRocket/unit/Unit.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/Signal.h"
 #include "RecordingSimulationDialogs.h"
 #include "ScriptedUserPrompts.h"
 #include "SimulationRunTestSupport.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "dialogs/simulation/SimulationDialogWalk.h"
 
@@ -269,6 +283,46 @@ void typeRodLength(const SimulationConfigDialog& dialog, std::string_view text)
     return kinds;
 }
 
+/// The text of the exported file @p file; empty, with a test failure, when it cannot be read.
+[[nodiscard]] std::string exportedText(const std::filesystem::path& file)
+{
+    const Result<std::vector<std::byte>> bytes = readFile(file);
+    if (!bytes.has_value())
+    {
+        ADD_FAILURE() << bytes.error().toString();
+        return {};
+    }
+    return bytesToString(*bytes);
+}
+
+/// What the core's CsvExport writes of @p branch of @p simulation for the rows ticked in
+/// @p panel, in their units, with the panel's options; empty, with a test failure, when it fails.
+[[nodiscard]] std::string coreExportOf(Simulation& simulation, const FlightDataBranch& branch,
+                                       const SimulationExportPanel& panel)
+{
+    std::vector<const FlightDataType*> fields;
+    std::vector<const Unit*>           units;
+    const std::vector<bool>            selected = panel.exportPanel().selected();
+    for (std::size_t row = 0; row < selected.size(); ++row)
+    {
+        if (selected.at(row))
+        {
+            fields.push_back(panel.types().at(row));
+            units.push_back(&panel.exportPanel().unit(row));
+        }
+    }
+    std::ostringstream out;
+    const Result<void> written =
+        CsvExport::exportCsv(out, simulation, branch, fields, units,
+                             CsvOptionPreferences::toCsvExportOptions(panel.csvOptions().values()));
+    if (!written.has_value())
+    {
+        ADD_FAILURE() << written.error().toString();
+        return {};
+    }
+    return out.str();
+}
+
 // ------------------------------------------------------------------------------ the shell
 
 TEST_F(SimulationConfigDialogTest, ShowsOpenRocketsTopRowsTabsAndButtons)
@@ -305,14 +359,17 @@ TEST_F(SimulationConfigDialogTest, ShowsOpenRocketsTopRowsTabsAndButtons)
     EXPECT_FALSE(dialog.isMultiEdit());
     EXPECT_EQ(dialog.multiSimEditLabel(), nullptr);
     EXPECT_FALSE(dialog.isModified());
-    // The plot tab of a simulation with data; the export panel comes with part I3.
+    // The plot and export tabs of a simulation with data.
     ASSERT_NE(dialog.plotPanel(), nullptr);
     EXPECT_EQ(dialog.tabs().widget(SimulationConfigDialog::kPlotTab), dialog.plotPanel());
+    ASSERT_NE(dialog.exportPanel(), nullptr);
+    EXPECT_EQ(dialog.tabs().widget(SimulationConfigDialog::kExportTab), dialog.exportPanel());
+    EXPECT_EQ(dialog.exportPanel()->simulation(), session.simulation(0));
     EXPECT_EQ(tabStates(dialog.tabs()),
               (QStringList{QStringLiteral("Launch conditions enabled"),
                            QStringLiteral("Simulation options enabled"),
                            QStringLiteral("Warnings enabled"), QStringLiteral("Plot data enabled"),
-                           QStringLiteral("Export data disabled")}));
+                           QStringLiteral("Export data enabled")}));
     // Tabs 0 and 1 scroll; the Warnings tab shows the simulation's warnings.
     EXPECT_EQ(dialog.launchConditionsScrollArea().widget(), &dialog.conditionsPanel());
     EXPECT_EQ(dialog.simulationOptionsScrollArea().widget(), &dialog.optionsPanel());
@@ -341,6 +398,9 @@ TEST_F(SimulationConfigDialogTest, WithoutDataThePlotAndExportTabsAreDisabledWit
                   QStringLiteral("Export data disabled tip=Simulation has no data to export")}));
     EXPECT_EQ(dialog.tabs().widget(SimulationConfigDialog::kPlotTab)->objectName(),
               QStringLiteral("plotPlaceholder"));
+    EXPECT_EQ(dialog.exportPanel(), nullptr);
+    EXPECT_EQ(dialog.tabs().widget(SimulationConfigDialog::kExportTab)->objectName(),
+              QStringLiteral("exportPlaceholder"));
 }
 
 TEST_F(SimulationConfigDialogTest, AMultiSimulationEditShowsItsLabelAndDisablesPlotAndExport)
@@ -362,6 +422,7 @@ TEST_F(SimulationConfigDialogTest, AMultiSimulationEditShowsItsLabelAndDisablesP
               session.simulation(0)->getFlightConfigurationId());
     // The data of the first is there, but a multi-simulation edit neither plots nor exports.
     EXPECT_NE(dialog.plotPanel(), nullptr);
+    EXPECT_NE(dialog.exportPanel(), nullptr);
     EXPECT_EQ(tabStates(dialog.tabs()).mid(3),
               (QStringList{
                   QStringLiteral(
@@ -615,6 +676,81 @@ TEST_F(SimulationConfigDialogTest, PlotWithoutAPlotTabCloses)
     dialog.ok();
     EXPECT_TRUE(dialog.isClosed());
     EXPECT_TRUE(services.simulationDialogs().requests().empty());
+}
+
+TEST_F(SimulationConfigDialogTest,
+       ExportRunsTheOutdatedSimulationThenWritesItsNewFlightAndStaysOpen)
+{
+    // OpenRocket bug 49: Java's export tab writes the flight the dialog opened with, under the
+    // comments of the new one. Here the file question comes after the run, and the file holds
+    // the simulation's flight data as the run left it.
+    Session                           session;
+    const std::shared_ptr<Simulation> simulation = session.simulation(0);
+    const SimulationConfigDialog&     dialog =
+        session.open(editRequest({simulation}, Tab::EXPORT_DATA));
+    const SimulationExportPanel* const panel = dialog.exportPanel();
+    ASSERT_NE(panel, nullptr);
+    panel->exportPanel().setSelected(0, true);
+    panel->exportPanel().setSelected(1, true);
+    const std::shared_ptr<FlightData> stored = simulation->getSimulatedData();
+    session.outdate(0);
+    const QtRocket::Test::TempDir directory;
+    session.prompts().answerSaveFile(
+        UserPrompts::SaveFileAnswer{.file               = directory.resolve("flight"),
+                                    .directory          = directory.path(),
+                                    .saveSimulationData = std::nullopt,
+                                    .selectedNameFilter = FileNames::csvFilter(),
+                                    .csvOptions         = std::nullopt});
+    EXPECT_EQ(dialog.okButton().text(), QStringLiteral("Export"));
+    dialog.okButton().click();
+
+    EXPECT_EQ(promptKinds(session.prompts()),
+              (std::vector<std::string>{"RUN_SIMULATIONS", "SAVE_FILE"}));
+    EXPECT_EQ(simulation->getStatus(), Status::UPTODATE);
+    const std::shared_ptr<FlightData>& flown = simulation->getSimulatedData();
+    ASSERT_NE(flown, nullptr);
+    EXPECT_NE(flown, stored);
+    EXPECT_EQ(exportedText(directory.resolve("flight.csv")),
+              coreExportOf(*simulation, flown->getBranch(0), *panel));
+    EXPECT_TRUE(
+        exportedText(directory.resolve("flight.csv")).starts_with("# Simulation 1 (Up to date)\n"));
+    // The dialog stays open; Close keeps the edits, without a question.
+    EXPECT_FALSE(dialog.isClosed());
+    dialog.cancelButton().click();
+    EXPECT_TRUE(dialog.isClosed());
+    EXPECT_EQ(session.prompts().prompts().size(), 2U);
+}
+
+TEST_F(SimulationConfigDialogTest, ExportAfterARunThatLeftNoDataAsksNothingAndStaysOpen)
+{
+    Session                           session;
+    const std::shared_ptr<Simulation> simulation = session.simulation(0);
+    SimulationConfigDialog& dialog = session.open(editRequest({simulation}, Tab::EXPORT_DATA));
+    session.outdate(0);
+    session.prompts().answerRunSimulationsWith(
+        [simulation](QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& /*request*/) {
+            simulation->loadFrom(*simulation->copy());
+            return UserPrompts::RunSimulationsAnswer{.cancelled = false, .allSuccessful = false};
+        });
+    dialog.ok();
+    ASSERT_FALSE(simulation->hasSimulationData());
+    EXPECT_EQ(promptKinds(session.prompts()), std::vector<std::string>{"RUN_SIMULATIONS"});
+    EXPECT_FALSE(dialog.isClosed());
+}
+
+TEST_F(SimulationConfigDialogTest, ExportWithoutAnExportTabCloses)
+{
+    Gui::Test::TestGuiServices                services;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    const auto simulation = std::make_shared<Simulation>(document.get(), document->getRocket());
+    SimulationConfigDialog dialog(services.services(), *document,
+                                  editRequest({simulation}, Tab::EXPORT_DATA));
+    services.prompts().answerRunSimulations({.cancelled = false, .allSuccessful = false});
+    dialog.ok();
+    EXPECT_TRUE(dialog.isClosed());
+    EXPECT_EQ(dialog.result(), QDialog::Accepted);
+    EXPECT_TRUE(services.prompts().saveFileRequests().empty());
 }
 
 TEST_F(SimulationConfigDialogTest, OkOfAMultiSimulationEditCopiesTheConditionsAndExtensions)

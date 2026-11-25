@@ -12,6 +12,7 @@ target_sources(QtRocket_gui PRIVATE
     RecoveryWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/RecoveryWarningsPanel.h
     SimulationConditionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationConditionsPanel.h
     SimulationConfigDialog.cpp ${gui_include_dir}/dialogs/simulation/SimulationConfigDialog.h
+    SimulationExportPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationExportPanel.h
     SimulationExtensionList.cpp ${gui_include_dir}/dialogs/simulation/SimulationExtensionList.h
     SimulationOptionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationOptionsPanel.h
     SimulationRunDialog.cpp ${gui_include_dir}/dialogs/simulation/SimulationRunDialog.h

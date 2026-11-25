@@ -35,6 +35,7 @@ namespace QtRocket::Gui
 class ConfigurationComboBox;
 class GuiServices;
 class SimulationConditionsPanel;
+class SimulationExportPanel;
 class SimulationOptionsPanel;
 class SimulationPlotPanel;
 class SimulationWarningsPanel;
@@ -71,9 +72,10 @@ class WindowGeometry;
 ///      data, else an empty page (plotPlaceholder); disabled in a multi-simulation edit (tooltip
 ///      tab.plotDis.ttip, "Plotting not supported for multi-simulation editing") or without
 ///      data (tab.plotNoData.ttip, "Simulation has no data to plot");
-///   4. "Export data" (tab.Exportdata): an empty page (exportPlaceholder) until the export panel
-///      comes (Milestone 4's run 3, part I3), disabled, with Java's tooltips in a
-///      multi-simulation edit (tab.expDis.ttip) or without data (tab.expNoData.ttip);
+///   4. "Export data" (tab.Exportdata): SimulationExportPanel of the first simulation when it has
+///      data (exportTab), else an empty page (exportPlaceholder); disabled in a multi-simulation
+///      edit (tooltip tab.expDis.ttip, "Exporting not supported for multi-simulation editing") or
+///      without data (tab.expNoData.ttip, "Simulation has no data to export");
 ///   the tabs are made once, when the dialog is made (a run in the dialog enables no tab), and
 ///   never hold the dialog larger than the top rows and the buttons need (Java: their minimum
 ///   size 0, "wmin 0, hmin 0"): a tab without a scroll area of its own (the plot tab's) is cut
@@ -104,9 +106,10 @@ class WindowGeometry;
 ///   (the dialog's parent), the document, those simulations, the services' executor and
 ///   EditRequest::cancelBackgroundRuns (none runs without an executor). Then on the Plot data tab
 ///   the plot dialog of the plot tab's configuration opens (SimulationPlotPanel::doPlot(), over
-///   this dialog) and the dialog stays open; on the Export data tab the export (the export panel,
-///   part I3) and the dialog stays open; on either without its panel, and on the other tabs, the
-///   dialog closes (accepted).
+///   this dialog) and the dialog stays open; on the Export data tab the export
+///   (SimulationExportPanel::doExport(): the file question, then the first simulation's flight
+///   data as it is after the run, OpenRocket bug 49) and the dialog stays open; on either without
+///   its panel, and on the other tabs, the dialog closes (accepted).
 /// - Cancel (cancel(): the Cancel or Close button, Escape, the window's close button): on the
 ///   Plot data and Export data tabs the dialog closes and keeps every edit (Java: "Normal close
 ///   action"). On the other tabs (Java's cancelSimEdit()): an existing simulation that was not
@@ -143,7 +146,6 @@ class WindowGeometry;
 ///   still open, and No keeps it open. Java disposes of the dialog first and asks afterwards (a
 ///   No then keeps the edits of a closed dialog, uncopied to the other simulations of a
 ///   multi-simulation edit).
-/// - The Export data tab is disabled until the export panel exists (run 3's part I3).
 /// - The run dialog and the plot dialog are children of this dialog (Java gives them the main
 ///   window as owner): they stay above it and go with it.
 /// - Plot after a run that left the simulation without data does nothing (Java's plot dialog
@@ -248,6 +250,9 @@ public:
     }
     /// The plot tab's panel; null when the first simulation had no data when the dialog was made.
     [[nodiscard]] SimulationPlotPanel* plotPanel() const noexcept { return m_plotPanel; }
+    /// The export tab's panel; null when the first simulation had no data when the dialog was
+    /// made.
+    [[nodiscard]] SimulationExportPanel* exportPanel() const noexcept { return m_exportPanel; }
 
     [[nodiscard]] QWidget& bottomPanel() const noexcept { return *m_bottomPanel; }
     /// "Multi-simulation edit"; null unless in a multi-simulation edit.
@@ -344,6 +349,7 @@ private:
     SimulationOptionsPanel*    m_optionsPanel{nullptr};
     SimulationWarningsPanel*   m_warningsPanel{nullptr};
     SimulationPlotPanel*       m_plotPanel{nullptr};
+    SimulationExportPanel*     m_exportPanel{nullptr};
     QWidget*                   m_bottomPanel{nullptr};
     StyledLabel*               m_multiSimEditLabel{nullptr};
     QPushButton*               m_cancelButton{nullptr};

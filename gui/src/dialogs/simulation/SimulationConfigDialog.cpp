@@ -36,6 +36,7 @@
 #include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationExportPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationOptionsPanel.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationWarningsPanel.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
@@ -409,15 +410,23 @@ void SimulationConfigDialog::buildTabs(QWidget& content, QVBoxLayout& layout)
     }
 
     //// Export data
-    // The export panel comes with Milestone 4's run 3 (part I3); until then the tab is an empty
-    // page, disabled, with Java's tooltips where Java disables it.
-    auto* exportTab = makeChild<QWidget>(m_tabs);
-    exportTab->setObjectName(QStringLiteral("exportPlaceholder"));
+    QWidget* exportTab = nullptr;
+    if (hasData)
+    {
+        m_exportPanel = makeChild<SimulationExportPanel>(m_tabs, *m_services, first);
+        exportTab     = m_exportPanel;
+    }
+    else
+    {
+        // Java adds the tab without a component.
+        exportTab = makeChild<QWidget>(m_tabs);
+        exportTab->setObjectName(QStringLiteral("exportPlaceholder"));
+    }
     //: SimulationConfigDialog.tab.Exportdata
     m_tabs->addTab(exportTab, tr("Export data"));
-    m_tabs->setTabEnabled(kExportTab, false);
     if (isMultiEdit() || !hasData)
     {
+        m_tabs->setTabEnabled(kExportTab, false);
         //: SimulationConfigDialog.tab.expDis.ttip
         const QString disabled = tr("Exporting not supported for multi-simulation editing");
         //: SimulationConfigDialog.tab.expNoData.ttip
@@ -603,10 +612,15 @@ void SimulationConfigDialog::ok()
     }
     if (tabIndex == kExportTab)
     {
-        // Without an export panel (it comes with part I3), the dialog closes, as Java's without
-        // one.
-        dispose(QDialog::Accepted);
-        resumeBackgroundRuns();
+        if (m_exportPanel == nullptr)
+        {
+            dispose(QDialog::Accepted);
+            resumeBackgroundRuns();
+            return;
+        }
+        // The dialog stays open. The export writes the flight data as the run left it (OpenRocket
+        // bug 49, SimulationExportPanel), and nothing when the run left none.
+        static_cast<void>(m_exportPanel->doExport());
         return;
     }
 

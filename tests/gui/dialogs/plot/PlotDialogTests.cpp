@@ -11,12 +11,15 @@
 #include <utility>
 #include <vector>
 
+#include <QByteArray>
 #include <QCheckBox>
 #include <QColor>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDialog>
 #include <QFont>
+#include <QImage>
+#include <QImageReader>
 #include <QPoint>
 #include <QPushButton>
 #include <QRect>
@@ -47,6 +50,7 @@
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/plot/PlotPreferences.h"
@@ -638,6 +642,23 @@ TEST_F(PlotDialogTest, ExportImageWritesThePlotAsAPng)
     EXPECT_EQ(prompts.prompts().size(), 1U);
     EXPECT_EQ(test.services().preferences().getDefaultDirectory(), std::optional(elsewhere.path()));
     EXPECT_TRUE(dialog.isVisible());
+}
+
+TEST_F(PlotDialogTest, ExportImageWritesAPngImageOfThePlot)
+{
+    // Plan 11.6, E9: the file is a PNG image that Qt reads back, as large as the plot's image
+    // (rocketplot's renderToImage(), what exportTo() writes); no pixel is compared.
+    DialogUnderTest               test;
+    const QtRocket::Test::TempDir directory;
+    const SimulationPlotDialog&   dialog = test.show();
+    test.services().prompts().answerSaveFile(pngAnswer(directory, "flight"));
+    QTest::mouseClick(&dialog.exportButton(), Qt::LeftButton);
+    QImageReader reader(QtStrings::fromPath(directory.resolve("flight.png")));
+    EXPECT_EQ(reader.format(), QByteArray("png"));
+    const QImage image = reader.read();
+    ASSERT_FALSE(image.isNull()) << QtStrings::toUtf8(reader.errorString());
+    EXPECT_EQ(image.size(), test.plot().renderToImage().size());
+    EXPECT_FALSE(image.size().isEmpty());
 }
 
 TEST_F(PlotDialogTest, ExportImageKeepsAPngNameAndAsksBeforeReplacingAFile)
