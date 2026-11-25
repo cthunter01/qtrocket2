@@ -93,11 +93,11 @@ class GuiServices;
 /// askColor() ColorChooserButton's colour dialog (Qt's own QColorDialog, "colorDialog", with the
 /// alpha channel: Java's JColorChooser has a transparency slider; Qt's dialog, not the platform's,
 /// as Swing's chooser is no platform dialog and macOS's colour panel is no modal question), and an
-/// open dialog selects the request's file. The other questions of Milestone 4 are not shown yet:
-/// they answer their cancelling answer at once, without a dialog, until the parts of Milestone 4
-/// that own their dialogs fill them in (runSimulations(): the run dialog, which runs nothing yet;
-/// askWindCsvImportSettings(): CSVImportSettingsDialog; a save with CSV options, which is
-/// cancelled before its file dialog: the table export's options dialog). Nothing asks them yet.
+/// open dialog selects the request's file. runSimulations() shows SimulationRunDialog
+/// (dialogs/simulation/, the run dialog) and askWindCsvImportSettings() CSVImportSettingsDialog
+/// (dialogs/simulation/CsvImportSettingsDialog, a ModalDialog parented to the asking window, whose
+/// OK reports invalid columns through these prompts). A save with CSV options is not shown yet: it
+/// is cancelled before its file dialog until the table export's options dialog fills it in.
 ///
 /// Each dialog is made for its question (ModalDialog), and so is the menu of a file or a
 /// directory, so that it survives its parent being destroyed while it is open: the question then

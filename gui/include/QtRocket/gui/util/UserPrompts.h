@@ -81,8 +81,8 @@ class SimulationExecutor;
 ///   caller then stores; no extension forced on the chosen file: OpenRocket's forceExtension() on
 ///   an open dialog is bug 37) and the aerodynamic lookup's "Load from file..."
 ///   (AerodynamicLookupDialog.title.choose "Select CSV file", AerodynamicLookupDialog.csvFilter
-///   for *.csv *.txt *.dat, in the directory of the table's file with that file selected:
-///   OpenFileRequest::fileName);
+///   for *.csv *.txt *.dat, in the default directory with the name of the table's file filled
+///   in: OpenFileRequest::fileName, as Java's setSelectedFile() and then setCurrentDirectory());
 /// - askSaveFile() and askOverwrite(): the export tab's CSV file (SimulationExportPanel.doExport():
 ///   a SaveFileChooser, so refuseIllegalNames; FileHelper.CSV_FILTER beside "All Files", the
 ///   default directory, no proposed name; the caller forces ".csv" and then asks askOverwrite()),

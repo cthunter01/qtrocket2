@@ -1,6 +1,7 @@
 #include "QtRocket/gui/main/MainWindow.h"
 
 #include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <stop_token>
@@ -43,6 +44,8 @@
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationRun.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/FileIo.h"
 #include "ScriptedUserPrompts.h"
@@ -442,20 +445,22 @@ TEST_F(MainWindowTest, AbandonsTheJobsOfItsSimulationsAsItGoes)
     // SimulationExecutor's lifetimes: the window's jobs (the run dialog's, the design view's
     // estimate) are abandoned as it is destroyed, so that none of their callbacks reaches the
     // objects of a window that is gone; another window's job goes on.
+    // The runs are of the new design, which has no motor: the one that runs ends at once.
     Gui::Test::ManualSimulationExecutor& executor = services().executor();
     executor.setMode(Gui::Test::ManualSimulationExecutor::Mode::STEPPED);
+    const Simulation         simulation(rocket());
     std::vector<std::string> finished;
-    const auto               callbacks = [&finished](std::string name) {
-        return SimulationExecutor::Callbacks{
-            .progressed = {},
-            .finished   = [&finished, label = std::move(name)](SimulationExecutor::Ending) {
-                finished.push_back(label);
-            }};
+    const auto               submit = [&executor, &simulation, &finished](const QObject* owner,
+                                                                          std::string    name) {
+        return executor.submit(
+            owner, std::make_shared<SimulationRun>(simulation), nullptr, {}, std::stop_source{},
+            {.progressed = {},
+             .finished   = [&finished, label = std::move(name)](const std::exception_ptr&) {
+                 finished.push_back(label);
+             }});
     };
-    const SimulationExecutor::JobId own =
-        executor.submit(&window(), [](const std::stop_token&) { }, callbacks("own"));
-    const SimulationExecutor::JobId other =
-        executor.submit(nullptr, [](const std::stop_token&) { }, callbacks("other"));
+    const SimulationExecutor::JobId own   = submit(&window(), "own");
+    const SimulationExecutor::JobId other = submit(nullptr, "other");
     destroyWindow();
     EXPECT_EQ(executor.abandonedJobs(), std::vector<SimulationExecutor::JobId>{own});
     EXPECT_FALSE(executor.isPending(own));

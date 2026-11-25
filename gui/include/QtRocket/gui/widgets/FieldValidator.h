@@ -5,13 +5,13 @@
 #include <vector>
 
 #include <QColor>
+#include <QLabel>
 #include <QObject>
 #include <QPointer>
 #include <QString>
 
 #include "QtRocket/util/Signal.h"
 
-class QLabel;
 class QPalette;
 class QTimer;
 class QWidget;

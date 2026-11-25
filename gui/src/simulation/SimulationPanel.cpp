@@ -651,11 +651,14 @@ bool SimulationPanel::runSimulations(std::vector<std::shared_ptr<Simulation>> si
     {
         return true;  // nothing runs without an executor (GuiServices)
     }
-    const QPointer<SimulationPanel>          alive(this);
-    const UserPrompts::RunSimulationsRequest request{.window      = window(),
-                                                     .document    = m_document,
-                                                     .simulations = std::move(simulations),
-                                                     .executor    = executor};
+    const QPointer<SimulationPanel> alive(this);
+    // The window's background estimate is not cancelled yet: run 3 gives the tab the window's
+    // RocketPanel (RunSimulationsRequest::cancelBackgroundRuns).
+    const UserPrompts::RunSimulationsRequest request{.window               = window(),
+                                                     .document             = m_document,
+                                                     .simulations          = std::move(simulations),
+                                                     .executor             = executor,
+                                                     .cancelBackgroundRuns = {}};
     static_cast<void>(m_services.prompts().runSimulations(this, request));
     return !alive.isNull();
 }
