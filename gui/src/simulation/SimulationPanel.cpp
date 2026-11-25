@@ -607,9 +607,12 @@ void SimulationPanel::cellDoubleClicked(const std::shared_ptr<Simulation>& simul
             if (SimulationDialogs* const dialogs = m_services.simulationDialogs();
                 dialogs != nullptr)
             {
-                dialogs->editSimulations(
-                    this, *m_document,
-                    {.simulations = {simulation}, .tab = Tab::WARNINGS, .newSimulation = false});
+                dialogs->editSimulations(this, *m_document,
+                                         {.simulations          = {simulation},
+                                          .tab                  = Tab::WARNINGS,
+                                          .newSimulation        = false,
+                                          .cancelBackgroundRuns = {},
+                                          .pauseBackgroundRuns  = {}});
             }
             return;
         default:
@@ -632,9 +635,12 @@ void SimulationPanel::openDialog(Tab tab, bool newSimulation,
     if (SimulationDialogs* const dialogs = m_services.simulationDialogs(); dialogs != nullptr)
     {
         const QPointer<SimulationPanel> alive(this);
-        dialogs->editSimulations(
-            this, *m_document,
-            {.simulations = std::move(simulations), .tab = tab, .newSimulation = newSimulation});
+        dialogs->editSimulations(this, *m_document,
+                                 {.simulations          = std::move(simulations),
+                                  .tab                  = tab,
+                                  .newSimulation        = newSimulation,
+                                  .cancelBackgroundRuns = {},
+                                  .pauseBackgroundRuns  = {}});
         if (alive.isNull())
         {
             return;

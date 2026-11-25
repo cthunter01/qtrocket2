@@ -11,6 +11,7 @@ target_sources(QtRocket_gui PRIVATE
     RandomSeedControls.cpp ${gui_include_dir}/dialogs/simulation/RandomSeedControls.h
     RecoveryWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/RecoveryWarningsPanel.h
     SimulationConditionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationConditionsPanel.h
+    SimulationConfigDialog.cpp ${gui_include_dir}/dialogs/simulation/SimulationConfigDialog.h
     SimulationExtensionList.cpp ${gui_include_dir}/dialogs/simulation/SimulationExtensionList.h
     SimulationOptionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationOptionsPanel.h
     SimulationRunDialog.cpp ${gui_include_dir}/dialogs/simulation/SimulationRunDialog.h

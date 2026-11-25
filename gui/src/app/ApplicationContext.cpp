@@ -15,6 +15,7 @@
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/app/MotorDatabaseMetadataIO.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -71,17 +72,19 @@ template <class ReadFiles>
     return readFiles(defaultDirectory.value_or(std::filesystem::path()));
 }
 
-/// The application's simulation dialogs: the plot dialog (SimulationPlotDialog::showPlot(), over
-/// the context's services); the settings dialog opens nothing until Milestone 4's run 3 makes it.
+/// The application's simulation dialogs over the context's services: the settings dialog
+/// (SimulationConfigDialog::edit(), modal to the window of its parent) and the plot dialog
+/// (SimulationPlotDialog::showPlot()).
 class ApplicationSimulationDialogs final : public SimulationDialogs
 {
 public:
     /// The dialogs asking their questions through @p services, which outlive them.
     explicit ApplicationSimulationDialogs(const GuiServices& services) : m_services(&services) { }
 
-    void editSimulations(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
-                         const EditRequest& /*request*/) override
+    void editSimulations(QWidget* parent, OpenRocketDocument& document,
+                         const EditRequest& request) override
     {
+        SimulationConfigDialog::edit(parent, *m_services, document, request);
     }
 
     void plotSimulation(QWidget* parent, std::shared_ptr<Simulation> simulation,

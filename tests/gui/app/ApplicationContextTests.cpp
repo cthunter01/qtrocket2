@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
@@ -44,6 +45,8 @@
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/plot/SimulationPlot.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
@@ -77,6 +80,7 @@
 #include "SimulationRunTestSupport.h"
 #include "TestPaths.h"
 #include "TestTempDir.h"
+#include "dialogs/simulation/SimulationDialogWalk.h"
 #include "unit/DefaultUnitsGuard.h"
 
 namespace QtRocket::Gui
@@ -305,6 +309,61 @@ TEST_F(ApplicationContextTest, TheSimulationDialogsOpenThePlotDialogOverTheConte
     dialog->closeButton().click();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_TRUE(shown.isNull());
+}
+
+/// What the test saw of the settings dialog while it was open.
+struct ShownSettingsDialog
+{
+    QString            title;
+    Qt::WindowModality modality = Qt::NonModal;
+    const QWidget*     parent   = nullptr;
+};
+
+TEST_F(ApplicationContextTest, TheSimulationDialogsEditInTheSettingsDialogModalToTheWindow)
+{
+    // The runs of the executor read the design's preference store: the run has ended before the
+    // design goes (the run dialog waits for it), though the context goes after it.
+    const Gui::Test::ExampleDesign design(Gui::Test::ExampleDesign::kSimpleModelRocket);
+    const ApplicationContext&      context = makeContext();
+    QWidget                        window;
+    QWidget                        panel(&window);
+    window.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&window));
+    const std::shared_ptr<Simulation> simulation = design.simulation(0);
+    ASSERT_NE(simulation, nullptr);
+
+    // SimulationConfigDialog(window, document, false, simulation).setVisible(true): modal, over
+    // the window of the panel that asks; the user lengthens the launch rod and clicks OK, which
+    // runs the outdated simulation on the context's executor (its threads) and closes the dialog.
+    ShownSettingsDialog              shown;
+    const Gui::Test::NextModalDialog answer([&shown](QWidget& modal) {
+        auto* const dialog = qobject_cast<SimulationConfigDialog*>(&modal);
+        ASSERT_NE(dialog, nullptr);
+        shown = {.title    = dialog->windowTitle(),
+                 .modality = dialog->windowModality(),
+                 .parent   = dialog->parentWidget()};
+        EXPECT_TRUE(Gui::Test::enterText(*dialog->conditionsPanel().rodLength().spinBox, "150"));
+        dialog->okButton().click();
+    });
+    context.simulationDialogs().editSimulations(&panel, design.document(),
+                                                {.simulations = {simulation},
+                                                 .tab = SimulationDialogs::Tab::LAUNCH_CONDITIONS,
+                                                 .newSimulation        = false,
+                                                 .cancelBackgroundRuns = {},
+                                                 .pauseBackgroundRuns  = {}});
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(shown.title, QStringLiteral("Edit simulation"));
+    EXPECT_EQ(shown.modality, Qt::WindowModal);
+    EXPECT_EQ(shown.parent, &window);
+    // The run through the context's prompts (the test's scripted ones, which run it as the run
+    // dialog does) and its executor.
+    ASSERT_EQ(prompts()->runSimulationsQuestions().size(), 1U);
+    EXPECT_EQ(prompts()->runSimulationsQuestions().front().executor, &context.simulationExecutor());
+    EXPECT_EQ(simulation->getStatus(), Simulation::Status::UPTODATE);
+    EXPECT_DOUBLE_EQ(simulation->getOptions().getLaunchRodLength(), 1.5);
+    // Closed, it goes.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_EQ(window.findChild<SimulationConfigDialog*>(), nullptr);
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)
