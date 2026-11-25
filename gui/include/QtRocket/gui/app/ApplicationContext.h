@@ -70,11 +70,11 @@ class SettingsPreferences;
 /// 10. the simulations' services (Milestone 4): the executor that runs them for every window
 ///    (GuiServices::simulationExecutor(): a PollingSimulationExecutor, the core's
 ///    SimulationRunner of max(1, hardware_concurrency()) threads polled by a timer of the GUI
-///    thread), the last plotted configuration
-///    (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the process) and
-///    the simulation dialogs (GuiServices::simulationDialogs(): the plot dialog,
-///    SimulationPlotDialog::showPlot() over these services; the settings dialog opens nothing
-///    until Milestone 4's run 3 makes it).
+///    thread; a test may give the context its own, the second constructor), the last plotted
+///    configuration (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the
+///    process) and the simulation dialogs (GuiServices::simulationDialogs(): the settings dialog,
+///    SimulationConfigDialog::edit(), and the plot dialog, SimulationPlotDialog::showPlot(), over
+///    these services).
 /// The user's files that could not be loaded and that OpenRocket shows a warning for are kept for
 /// the user (databaseProblems(): the start shows them after its first window).
 ///
@@ -98,6 +98,14 @@ public:
     /// default units, so for the GUI thread only.
     ApplicationContext(std::unique_ptr<SettingsPreferences> preferences, DataPaths dataPaths,
                        std::unique_ptr<UserPrompts> prompts);
+    /// As the constructor above, with @p simulationExecutor (not null) as the executor of the
+    /// simulations of step 10 in place of a PollingSimulationExecutor: a test's (one that runs
+    /// every job on the GUI thread when the test says), so that the whole application runs
+    /// without threads. It goes before the preference store and the databases, which its jobs
+    /// read.
+    ApplicationContext(std::unique_ptr<SettingsPreferences> preferences, DataPaths dataPaths,
+                       std::unique_ptr<UserPrompts>        prompts,
+                       std::unique_ptr<SimulationExecutor> simulationExecutor);
     ~ApplicationContext();
 
     ApplicationContext(const ApplicationContext&)            = delete;

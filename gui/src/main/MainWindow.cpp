@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
@@ -20,6 +21,7 @@
 #include <Qt>
 
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/flightconfig/FlightConfigurationPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
@@ -179,6 +181,8 @@ void MainWindow::tabChanged(int index)
     {
         return;
     }
+    // The design view's estimate reads the current tab at its next estimate.
+    updateBackgroundRuns();
     // BasicFrame.stateChanged(): the simulations tab that stops being the current one remembers
     // its selection first.
     if (m_previousTab == kSimulationTab)
@@ -231,6 +235,43 @@ void MainWindow::setRocketPanel(QWidget* panel)
     m_rocketPanel = panel;
     // replaceWidget() leaves the old panel without a parent.
     old->deleteLater();
+    updateBackgroundRuns();
+}
+
+void MainWindow::pauseBackgroundRuns(bool paused)
+{
+    if (paused)
+    {
+        ++m_backgroundRunPauses;
+    }
+    else
+    {
+        QTROCKET_ASSERT(m_backgroundRunPauses > 0);
+        --m_backgroundRunPauses;
+    }
+    updateBackgroundRuns();
+}
+
+void MainWindow::cancelBackgroundRuns(
+    std::span<const std::shared_ptr<Simulation>> simulations) const
+{
+    if (const RocketPanel* const panel = componentRocketPanel(); panel != nullptr)
+    {
+        panel->backgroundSimulation().cancelFor(simulations);
+    }
+}
+
+void MainWindow::updateBackgroundRuns() const
+{
+    const RocketPanel* const panel = componentRocketPanel();
+    if (panel == nullptr)
+    {
+        return;
+    }
+    BackgroundSimulation& estimate = panel->backgroundSimulation();
+    // BasicFrame.getSelectedTab() == SIMULATION_TAB, which Java's updateExtras() asks.
+    estimate.setSimulationsTabSelected(m_tabs->currentIndex() == kSimulationTab);
+    estimate.setPaused(m_backgroundRunPauses > 0);
 }
 
 void MainWindow::refreshSimulationTable() const

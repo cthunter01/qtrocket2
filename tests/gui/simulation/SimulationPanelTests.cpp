@@ -13,6 +13,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1168,6 +1169,175 @@ TEST_F(SimulationPanelTest, TheSpotlightGivesTheTableTheFocus)
     tab->panel().takeTheSpotlight();
     QCoreApplication::processEvents();
     EXPECT_EQ(tab->panel().focusWidget(), &tab->view());
+}
+
+// =================================================================== the window's estimate
+
+/// What a tab's window does with its background estimate (SimulationPanel::BackgroundRuns), noted
+/// in order with what the test notes: "pause", "resume", "cancel [names]".
+class EstimateNotes
+{
+public:
+    /// Hooks that note into this object, which must outlive the panel they are given to.
+    [[nodiscard]] SimulationPanel::BackgroundRuns hooks()
+    {
+        return {.cancel =
+                    [this](std::span<const std::shared_ptr<Simulation>> simulations) {
+                        note("cancel " + namesOf(simulations));
+                    },
+                .pause = [this](bool paused) { note(paused ? "pause" : "resume"); }};
+    }
+
+    void note(std::string text) { m_notes.push_back(std::move(text)); }
+
+    [[nodiscard]] const Names& notes() const noexcept { return m_notes; }
+
+    /// "[A, B]" of @p simulations.
+    [[nodiscard]] static std::string namesOf(
+        std::span<const std::shared_ptr<Simulation>> simulations)
+    {
+        std::string text = "[";
+        for (const std::shared_ptr<Simulation>& simulation : simulations)
+        {
+            text += (text.size() > 1 ? ", " : "") + simulation->getName();
+        }
+        return text + "]";
+    }
+
+private:
+    Names m_notes;
+};
+
+/// The run dialog of the scripted questions, as far as the window's estimate sees it: notes "run
+/// [names]", takes the simulations out of the estimate's hands as the batch does
+/// (RunSimulationsRequest::cancelBackgroundRuns), and answers that every run succeeded (none
+/// runs).
+struct RunAsTheBatchDoes
+{
+    EstimateNotes* notes;
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
+    {
+        notes->note("run " + EstimateNotes::namesOf(request.simulations));
+        if (request.cancelBackgroundRuns)
+        {
+            request.cancelBackgroundRuns(request.simulations);
+        }
+        return {.cancelled = false, .allSuccessful = true};
+    }
+};
+
+/// The settings dialog as far as the window's estimate sees it (RecordingSimulationDialogs'
+/// edit): notes "edit [names]", or "edit [names] without the estimate" when its request lacks a
+/// hook, then pauses the estimate as it opens, takes its simulations out of the estimate's hands
+/// as its OK's run does, and resumes the estimate as it closes.
+struct EditAsTheDialogDoes
+{
+    EstimateNotes* notes;
+
+    void operator()(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                    const SimulationDialogs::EditRequest& request) const
+    {
+        const std::string names = EstimateNotes::namesOf(request.simulations);
+        if (!request.pauseBackgroundRuns || !request.cancelBackgroundRuns)
+        {
+            notes->note("edit " + names + " without the estimate");
+            return;
+        }
+        notes->note("edit " + names);
+        request.pauseBackgroundRuns(true);
+        request.cancelBackgroundRuns(request.simulations);
+        request.pauseBackgroundRuns(false);
+    }
+};
+
+TEST_F(SimulationPanelTest, EveryRunPausesTheWindowsEstimateAndTakesItsSimulations)
+{
+    // O-M4-16: the estimate is paused while the run dialog is open, and the batch takes the
+    // simulations it runs out of its hands: the Run action, the status click, the auto-run and
+    // Plot / Export of a simulation without data.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->panel().setBackgroundRuns(notes.hooks());
+    outdate(*tab, 3);
+    tab->show();
+    tab->selectRows({4, 0});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().runSimulationAction()->trigger();
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->clickCell(3, Column::STATUS);
+    tab->services().preferences().setAutoRunSimulations(true);
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().activating();
+    const std::shared_ptr<Simulation> fresh = appendNewSimulation(*tab);
+    tab->view().selectSimulations({fresh});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().plotSimulationAction()->trigger();
+    EXPECT_EQ(
+        notes.notes(),
+        (Names{"pause", "run [Simulation 1, Simulation 5]", "cancel [Simulation 1, Simulation 5]",
+               "resume", "pause", "run [Simulation 4]", "cancel [Simulation 4]", "resume", "pause",
+               "run [Simulation 4]", "cancel [Simulation 4]", "resume", "pause",
+               "run [Simulation 6]", "cancel [Simulation 6]", "resume"}));
+}
+
+TEST_F(SimulationPanelTest, EverySettingsDialogGetsTheWindowsEstimate)
+{
+    // The settings dialog pauses the estimate while it is open and gives its OK's run the cancel
+    // (SimulationDialogs::EditRequest): New, Edit, Plot / Export and both double clicks.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->panel().setBackgroundRuns(notes.hooks());
+    tab->services().simulationDialogs().whileEditing(EditAsTheDialogDoes{&notes});
+    tab->show();
+    tab->selectRows({1, 3});
+    tab->panel().editSimulationAction()->trigger();
+    tab->selectRows({2});
+    tab->panel().plotSimulationAction()->trigger();
+    tab->doubleClickCell(0, Column::WARNINGS);
+    tab->doubleClickCell(4, Column::NAME);
+    tab->panel().newSimulationAction()->trigger();
+    EXPECT_EQ(notes.notes(), (Names{"edit [Simulation 2, Simulation 4]",
+                                    "pause",
+                                    "cancel [Simulation 2, Simulation 4]",
+                                    "resume",
+                                    "edit [Simulation 3 - too short delay]",
+                                    "pause",
+                                    "cancel [Simulation 3 - too short delay]",
+                                    "resume",
+                                    "edit [Simulation 1]",
+                                    "pause",
+                                    "cancel [Simulation 1]",
+                                    "resume",
+                                    "edit [Simulation 5]",
+                                    "pause",
+                                    "cancel [Simulation 5]",
+                                    "resume",
+                                    "edit [Simulation 6]",
+                                    "pause",
+                                    "cancel [Simulation 6]",
+                                    "resume"}));
+}
+
+TEST_F(SimulationPanelTest, APanelOfNoWindowGivesItsDialogsNoEstimate)
+{
+    // Without the window's hooks (setBackgroundRuns()), the requests carry none: nothing is
+    // paused or cancelled.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    EXPECT_FALSE(tab->panel().backgroundRuns().cancel);
+    EXPECT_FALSE(tab->panel().backgroundRuns().pause);
+    tab->services().simulationDialogs().whileEditing(EditAsTheDialogDoes{&notes});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->selectRows({0});
+    tab->panel().editSimulationAction()->trigger();
+    tab->panel().runSimulationAction()->trigger();
+    EXPECT_EQ(notes.notes(),
+              (Names{"edit [Simulation 1] without the estimate", "run [Simulation 1]"}));
 }
 
 }  // namespace

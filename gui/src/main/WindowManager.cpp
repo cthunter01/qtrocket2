@@ -4,6 +4,7 @@
 #include <concepts>
 #include <functional>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include <QMenuBar>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QString>
 #include <QTabWidget>
 
@@ -35,7 +37,6 @@
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
-#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
@@ -133,17 +134,52 @@ void coupleSelections(DocumentSelectionModel& components, SimulationTableView& s
                          QStringLiteral("Selection")));
 }
 
+/// The Simulations tab's cancel of its window's background estimate (SimulationPanel::
+/// BackgroundRuns::cancel): MainWindow::cancelBackgroundRuns(), nothing once the window is gone.
+struct CancelTheEstimate
+{
+    QPointer<MainWindow> window;
+
+    void operator()(std::span<const std::shared_ptr<Simulation>> simulations) const
+    {
+        if (const MainWindow* const shown = window.data(); shown != nullptr)
+        {
+            shown->cancelBackgroundRuns(simulations);
+        }
+    }
+};
+
+/// The Simulations tab's pause of its window's background estimate (SimulationPanel::
+/// BackgroundRuns::pause): MainWindow::pauseBackgroundRuns(), nothing once the window is gone.
+struct PauseTheEstimate
+{
+    QPointer<MainWindow> window;
+
+    void operator()(bool paused) const
+    {
+        if (MainWindow* const shown = window.data(); shown != nullptr)
+        {
+            shown->pauseBackgroundRuns(paused);
+        }
+    }
+};
+
 /// Puts the "Flight simulations" tab (@p panel, a SimulationPanel the WindowManager made) into
 /// @p window and connects it as BasicFrame does: its selection and the design panel's
 /// (@p designPanel) exclusive (coupleSelections()), the component actions doing its operations on
 /// the selected simulations (RocketActions' simulation half, which follows the window's current
 /// tab for Paste), and the File menu's "Export simulation table as CSV file" tied to the tab's
 /// action (BasicFrame's createMenuItemFromAction(getExportSimulationTableAsCSVAction())): enabled
-/// as it is, triggering it.
+/// as it is, triggering it. The tab pauses the window's background estimate while its dialogs are
+/// open and has its runs take their simulations out of the estimate's hands (O-M4-16), through
+/// the window (MainWindow::pauseBackgroundRuns() and cancelBackgroundRuns(): the design view below
+/// the tabs, whichever it is when they are called; nothing once the window is gone).
 void installSimulationPanel(MainWindow& window, const DesignPanel& designPanel,
                             SimulationPanel& panel)
 {
     window.setSimulationPanel(&panel);
+    const QPointer<MainWindow> owner(&window);
+    panel.setBackgroundRuns({.cancel = CancelTheEstimate{owner}, .pause = PauseTheEstimate{owner}});
     coupleSelections(designPanel.selection(), panel.table());
     RocketActions& actions = designPanel.rocketActions();
     actions.setSimulationPanel(
@@ -161,10 +197,12 @@ void installSimulationPanel(MainWindow& window, const DesignPanel& designPanel,
 /// Puts the design view (RocketPanel) into @p window, below its tabs, and connects it to the
 /// window's @p designPanel as BasicFrame does (rocketpanel.setSelectionModel(tree's), the popup
 /// menu of doComponentTreePopup(), DesignPanel's highlight of the figure) and to the window's
-/// configuration dialog requests.
-void installRocketPanel(MainWindow& window, DesignPanel& designPanel, Preferences& preferences)
+/// configuration dialog requests. Its estimate of the flight runs on the executor of
+/// @p services (RocketPanel::setSimulationExecutor(): none without one), as jobs of the window,
+/// once the window has told it its current tab and its pauses (MainWindow::setRocketPanel()).
+void installRocketPanel(MainWindow& window, DesignPanel& designPanel, const GuiServices& services)
 {
-    auto* panel = makeChild<RocketPanel>(&window, window.document(), preferences);
+    auto* panel = makeChild<RocketPanel>(&window, window.document(), services.preferences());
     panel->setSelectionModel(&designPanel.selection());
     // What the figure draws as selected is the design panel's highlight (the selection with the
     // components below a selected assembly; the first stage alone at the start).
@@ -188,6 +226,7 @@ void installRocketPanel(MainWindow& window, DesignPanel& designPanel, Preference
             },
             QStringLiteral("Design view edit")));
     window.setRocketPanel(panel);
+    panel->setSimulationExecutor(services.simulationExecutor());
 }
 
 }  // namespace
@@ -419,7 +458,7 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     installFlightConfigurationPanel(window, *designPanel, m_services,
                                     [this] { return documents(); });
     // BasicFrame's RocketPanel, sharing the tree's selection.
-    installRocketPanel(window, *designPanel, m_services.preferences());
+    installRocketPanel(window, *designPanel, m_services);
     // BasicFrame.positionRelativeToExistingFrames(), after the remembered geometry.
     if (!m_entries.empty())
     {

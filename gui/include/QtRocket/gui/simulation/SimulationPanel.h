@@ -1,6 +1,9 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <span>
+#include <utility>
 #include <vector>
 
 #include <QObject>
@@ -136,6 +139,18 @@ class SimulationTableView;
 /// (Rocket::hasMotors() of each id); the table, with every button that needs a configuration
 /// with motors enabled again, once one has.
 ///
+/// THE WINDOW'S ESTIMATE (decision O-M4-16, the critic's G4): the design view's background
+/// estimate of the flight (figure/BackgroundSimulation) neither starts nor adopts a run while a
+/// simulation dialog or the run dialog of the window is open, and a run dialog's batch takes the
+/// simulations it runs out of its hands. The panel opens both dialogs of the window, so the window
+/// hands it what does that (setBackgroundRuns(): MainWindow::pauseBackgroundRuns() and
+/// cancelBackgroundRuns(), which the WindowManager connects): the panel pauses the estimate around
+/// each run dialog it opens (Run, the status click, the auto-run, Plot / Export of a simulation
+/// without data) and gives every run's request the cancel (RunSimulationsRequest::
+/// cancelBackgroundRuns), and it gives the settings dialog both (EditRequest::pauseBackgroundRuns,
+/// which the dialog calls while it is open, and cancelBackgroundRuns, for the run of its OK).
+/// Without them (a panel of no window) nothing is paused or cancelled.
+///
 /// The panel keeps no simulation across a document change but the ones a running operation holds
 /// (std::shared_ptr) and the remembered selection (std::weak_ptr). The document, the services'
 /// objects and the clipboard must outlive it.
@@ -179,6 +194,21 @@ public:
     /// MigLayout's "para" gap (M2's rule: 12 pixels): between the buttons, and between them and
     /// the card.
     static constexpr int kParagraphGap = 12;
+
+    /// What the panel does to its window's background estimate of the flight (see the class
+    /// comment); either may be empty: nothing is done then.
+    struct BackgroundRuns
+    {
+        /// Takes the given simulations out of the estimate's hands (BackgroundSimulation::
+        /// cancelFor()): the request of every run dialog the panel or its settings dialog opens
+        /// carries it (UserPrompts::RunSimulationsRequest::cancelBackgroundRuns), and the batch
+        /// calls it with the simulations it runs.
+        std::function<void(std::span<const std::shared_ptr<Simulation>> simulations)> cancel;
+        /// Pauses the estimate (true) or ends a pause (false), counted (MainWindow::
+        /// pauseBackgroundRuns()): around each run dialog the panel opens, and from the settings
+        /// dialog while it is open (SimulationDialogs::EditRequest::pauseBackgroundRuns).
+        std::function<void(bool paused)> pause;
+    };
 
     /// The tab of @p document, asking through @p services and copying to and pasting from
     /// @p clipboard (the application's OpenRocketClipboard), all of which outlive it.
@@ -277,6 +307,11 @@ public:
     /// Shows the popup menu at @p globalPosition (doPopup()).
     void showPopupMenu(const QPoint& globalPosition);
 
+    /// What pauses and cancels the window's background estimate from now on (see the class
+    /// comment; the WindowManager gives every window's panel its window's). None by default.
+    void setBackgroundRuns(BackgroundRuns runs) { m_backgroundRuns = std::move(runs); }
+    [[nodiscard]] const BackgroundRuns& backgroundRuns() const noexcept { return m_backgroundRuns; }
+
     // ------------------------------------------------------------------ the operations
 
     /// New simulation (see the class comment).
@@ -334,9 +369,15 @@ private:
     /// sims)), then the selection kept and the spotlight taken.
     void openDialog(SimulationDialogs::Tab tab, bool newSimulation,
                     std::vector<std::shared_ptr<Simulation>> simulations);
-    /// The run dialog of @p simulations (new SimulationRunDialog(window, document, sims)); false
-    /// when the panel went during it.
+    /// The run dialog of @p simulations (new SimulationRunDialog(window, document, sims)), with
+    /// the window's estimate paused while it is open and the cancel of its simulations in its
+    /// request (see the class comment); false when the panel went during it.
     bool runSimulations(std::vector<std::shared_ptr<Simulation>> simulations);
+    /// The settings dialog's request of @p simulations on @p tab, with the window's estimate's
+    /// pause and cancel (see the class comment).
+    [[nodiscard]] SimulationDialogs::EditRequest editRequest(
+        std::vector<std::shared_ptr<Simulation>> simulations, SimulationDialogs::Tab tab,
+        bool newSimulation) const;
     /// fireMaintainSelection(): the table read again; its selection stays on its simulations.
     void maintainSelection();
     /// Whether the status @p row's simulation had at the table's last reading is one a click on
@@ -374,6 +415,7 @@ private:
     IconButton*                             m_plotButton{nullptr};
     bool                                    m_hasValidConfig{false};
     PreviousSelection                       m_previousSelection;
+    BackgroundRuns                          m_backgroundRuns;
     ComponentChangeSignal::ScopedConnection m_rocketChanges;
 };
 

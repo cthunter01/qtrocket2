@@ -608,11 +608,7 @@ void SimulationPanel::cellDoubleClicked(const std::shared_ptr<Simulation>& simul
                 dialogs != nullptr)
             {
                 dialogs->editSimulations(this, *m_document,
-                                         {.simulations          = {simulation},
-                                          .tab                  = Tab::WARNINGS,
-                                          .newSimulation        = false,
-                                          .cancelBackgroundRuns = {},
-                                          .pauseBackgroundRuns  = {}});
+                                         editRequest({simulation}, Tab::WARNINGS, false));
             }
             return;
         default:
@@ -636,11 +632,7 @@ void SimulationPanel::openDialog(Tab tab, bool newSimulation,
     {
         const QPointer<SimulationPanel> alive(this);
         dialogs->editSimulations(this, *m_document,
-                                 {.simulations          = std::move(simulations),
-                                  .tab                  = tab,
-                                  .newSimulation        = newSimulation,
-                                  .cancelBackgroundRuns = {},
-                                  .pauseBackgroundRuns  = {}});
+                                 editRequest(std::move(simulations), tab, newSimulation));
         if (alive.isNull())
         {
             return;
@@ -658,15 +650,35 @@ bool SimulationPanel::runSimulations(std::vector<std::shared_ptr<Simulation>> si
         return true;  // nothing runs without an executor (GuiServices)
     }
     const QPointer<SimulationPanel> alive(this);
-    // The window's background estimate is not cancelled yet: run 3 gives the tab the window's
-    // RocketPanel (RunSimulationsRequest::cancelBackgroundRuns).
+    // The window's estimate pauses while the run dialog is open, and the batch takes the
+    // simulations it runs out of its hands (O-M4-16). The hooks are copied: the panel may go
+    // during the dialog.
+    const BackgroundRuns                     runs = m_backgroundRuns;
     const UserPrompts::RunSimulationsRequest request{.window               = window(),
                                                      .document             = m_document,
                                                      .simulations          = std::move(simulations),
                                                      .executor             = executor,
-                                                     .cancelBackgroundRuns = {}};
+                                                     .cancelBackgroundRuns = runs.cancel};
+    if (runs.pause)
+    {
+        runs.pause(true);
+    }
     static_cast<void>(m_services.prompts().runSimulations(this, request));
+    if (runs.pause)
+    {
+        runs.pause(false);
+    }
     return !alive.isNull();
+}
+
+SimulationDialogs::EditRequest SimulationPanel::editRequest(
+    std::vector<std::shared_ptr<Simulation>> simulations, Tab tab, bool newSimulation) const
+{
+    return {.simulations          = std::move(simulations),
+            .tab                  = tab,
+            .newSimulation        = newSimulation,
+            .cancelBackgroundRuns = m_backgroundRuns.cancel,
+            .pauseBackgroundRuns  = m_backgroundRuns.pause};
 }
 
 void SimulationPanel::maintainSelection()

@@ -112,12 +112,20 @@ private:
 
 ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> preferences,
                                        DataPaths dataPaths, std::unique_ptr<UserPrompts> prompts)
+  : ApplicationContext(std::move(preferences), std::move(dataPaths), std::move(prompts),
+                       std::make_unique<PollingSimulationExecutor>())
+{
+}
+
+ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> preferences,
+                                       DataPaths dataPaths, std::unique_ptr<UserPrompts> prompts,
+                                       std::unique_ptr<SimulationExecutor> simulationExecutor)
   : m_preferences(nonNull(std::move(preferences))),
     m_dataPaths(std::move(dataPaths)),
     m_prompts(nonNull(std::move(prompts))),
     m_motorFinder(m_motors),
     m_extensions(SimulationExtensionRegistry::bundled()),
-    m_simulationExecutor(std::make_unique<PollingSimulationExecutor>()),
+    m_simulationExecutor(nonNull(std::move(simulationExecutor))),
     m_services(*m_preferences, m_materials, m_motors, m_presets, m_loadingContext, *m_prompts)
 {
     // SwingStartup.runInEDT(): the default units before any window.

@@ -173,6 +173,7 @@
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
@@ -654,6 +655,9 @@ public:
                        : static_cast<UserPrompts&>(m_prompts))
     {
         addBuiltinMaterials(m_materials);
+        // No window runs a simulation on its own (GuiTestSupport.h, O-M4-12): the design view's
+        // estimate stays off, also once the services have an executor.
+        m_environment.preferences().putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
     }
 
     [[nodiscard]] const GuiServices&              services() const noexcept { return m_services; }

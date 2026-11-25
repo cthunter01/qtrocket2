@@ -74,7 +74,7 @@ class SimulationTableModel;
 /// its warnings tab after a double click on the warnings column, nothing after one on the status
 /// column, and the dialog of the simulation (its plot tab when the data is up to date) after one
 /// on any other column, through the services' UserPrompts::runSimulations() and
-/// SimulationDialogs, whose production implementations are Milestone 4's run 3's.
+/// SimulationDialogs (the application's: SimulationRunDialog and SimulationConfigDialog).
 /// - A click of the right button on a row selects that row alone when it is not selected, then
 ///   asks for the context menu (contextMenuRequested()); beside the rows it clears the
 ///   selection and asks for nothing.
