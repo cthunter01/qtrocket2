@@ -14,7 +14,7 @@
 // OpenRocket's bugs the table holds QtRocket's answer, with OpenRocket's own beside it: the
 // warnings column's orders (bug 23), the pairing Copy (bug 25). A simulation a scenario ran fresh
 // has no cells, warnings or counts (CLAUDE.md: no value of a fresh flight is pinned). Read once per
-// test process.
+// test process, by the first test that compares with them.
 
 #include <array>
 #include <cstddef>
@@ -199,14 +199,21 @@ struct SimulationTablePins
 /// simulationTablePins(), or null and a test failure when they cannot be read.
 [[nodiscard]] const SimulationTablePins* simulationTablePinsOrFail();
 
-/// The names of the pins' designs, in their order, for INSTANTIATE_TEST_SUITE_P (none when the
-/// pins cannot be read: SimulationTablePinsGolden fails then).
+/// The name the pins give the new design, their last.
+inline constexpr std::string_view kNewDesignPinName = "new_design";
+
+/// The names of the designs the pins hold, in their order, for INSTANTIATE_TEST_SUITE_P: those of
+/// OpenDesignsExitGolden's list (exit/OpenDesigns.h's openDesigns()), then kNewDesignPinName.
+/// Made without reading the pins, which GoogleTest's generators would read in every test process
+/// (a process per test under ctest): only the tests that compare with them read them.
+/// SimulationTablePinsGolden and OpenDesignsExitGoldenDesigns check that the pins hold exactly
+/// these designs; a design the pins lack fails its tests.
 [[nodiscard]] std::vector<std::string> simulationTablePinnedDesigns();
 
-/// The names of the pins' designs of the kinds "example" and "new" (the sixteen examples, which
-/// loadSimulationExample() loads by their files' names, and the new design), in their order, as
-/// simulationTablePinnedDesigns(): for the suites that compare the tables of the examples alone
-/// (the exit suite OpenDesignsExitGolden compares every design's in its windows).
+/// The names of simulationTablePinnedDesigns() of OpenRocket's sixteen example designs (the
+/// pins' kind "example", which loadSimulationExample() loads by their files' names) and of the
+/// new design, in their order: for the suites that compare the tables of the examples alone (the
+/// exit suite OpenDesignsExitGolden compares every design's in its windows).
 [[nodiscard]] std::vector<std::string> simulationTablePinnedExampleDesigns();
 
 /// The name of the tests of a design of simulationTablePinnedDesigns(): the design's name in the

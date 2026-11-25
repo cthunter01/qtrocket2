@@ -26,6 +26,7 @@
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "RocketInfoFlightPins.h"
 
 namespace QtRocket::Gui::Test
@@ -37,6 +38,11 @@ namespace
 /// Rows and columns are computed from the same numbers in Java (in float) and here.
 constexpr double kRowTolerance    = 1e-6;
 constexpr double kColumnTolerance = 1e-9;
+
+/// The rows of the block's numbers above its bottom one (FlightPinText::rowFromBottom).
+constexpr int kApogeeRow       = 2;
+constexpr int kVelocityRow     = 1;
+constexpr int kAccelerationRow = 0;
 
 /// Whether @p actual is @p expected, NaN included (stored values round-trip exactly).
 void expectSameValue(double actual, double expected, std::string_view what)
@@ -151,23 +157,71 @@ struct BottomFrame
     return frame.x1 + widest + RocketInfo::kFlightValueGap;
 }
 
-/// Compares the text of the flight item @p item with @p pin's (a value of a fresh flight, which
-/// no test pins: any but empty).
-void expectFlightTextContentAsJava(const RocketInfo::Item& item, const FlightPinText& pin)
+/// The value of @p data's number @p rowFromBottom rows above the block's bottom one (the apogee
+/// two, the maximum velocity with the Mach number one, the maximum acceleration none) as
+/// RocketInfo writes it: in the default unit, "N/A" for NaN; none for another row.
+[[nodiscard]] std::optional<QString> valueTextOf(const RocketInfo::FlightSummary& data,
+                                                 int                              rowFromBottom)
+{
+    const QString notAvailable = QStringLiteral("N/A");
+    if (rowFromBottom == kApogeeRow)
+    {
+        return std::isnan(data.maxAltitude)
+                   ? notAvailable
+                   : QtStrings::defaultUnitText(UnitGroupId::DISTANCE, data.maxAltitude);
+    }
+    if (rowFromBottom == kVelocityRow)
+    {
+        return std::isnan(data.maxVelocity)
+                   ? notAvailable
+                   : QtStrings::defaultUnitText(UnitGroupId::VELOCITY, data.maxVelocity) +
+                         QStringLiteral("  (Mach ") +
+                         QtStrings::unitText(unitGroup(UnitGroupId::COEFFICIENT).getDefaultUnit(),
+                                             data.maxMachNumber) +
+                         QStringLiteral(")");
+    }
+    if (rowFromBottom == kAccelerationRow)
+    {
+        return std::isnan(data.maxAcceleration)
+                   ? notAvailable
+                   : QtStrings::defaultUnitText(UnitGroupId::ACCELERATION, data.maxAcceleration);
+    }
+    return std::nullopt;
+}
+
+/// Compares the text of the flight item @p item with that of @p pin, a value of a fresh flight,
+/// which no test pins: it must be that of @p data, the numbers the block shows (valueTextOf(); the
+/// callers compare them with the simulation's), so that the block shows the flight's data, not
+/// "N/A" or the numbers of an earlier flight.
+void expectFreshFlightTextAsShown(const RocketInfo::Item& item, const FlightPinText& pin,
+                                  const RocketInfo::FlightSummary& data)
+{
+    EXPECT_FALSE(pin.leftColumn) << "a fresh text in the labels' column";
+    const std::optional<QString> value = valueTextOf(data, pin.rowFromBottom);
+    EXPECT_TRUE(value.has_value()) << "a fresh text in row " << pin.rowFromBottom;
+    EXPECT_EQ(QtStrings::toUtf8(item.text), QtStrings::toUtf8(value.value_or(QString())));
+}
+
+/// Compares the text of the flight item @p item with @p pin's (a value of a fresh flight: @p
+/// data's, expectFreshFlightTextAsShown()).
+void expectFlightTextContentAsJava(const RocketInfo::Item& item, const FlightPinText& pin,
+                                   const RocketInfo::FlightSummary& data)
 {
     EXPECT_EQ(item.kind, RocketInfo::Item::Kind::TEXT);
     if (pin.fresh)
     {
-        EXPECT_FALSE(item.text.isEmpty());
+        expectFreshFlightTextAsShown(item, pin, data);
         return;
     }
     EXPECT_EQ(QtStrings::toUtf8(item.text), pin.text);
 }
 
-/// Compares the text, the font and the colour of the flight item @p item with @p pin.
-void expectFlightTextAsJava(const RocketInfo::Item& item, const FlightPinText& pin)
+/// Compares the text, the font and the colour of the flight item @p item with @p pin (a fresh
+/// value: with @p data's).
+void expectFlightTextAsJava(const RocketInfo::Item& item, const FlightPinText& pin,
+                            const RocketInfo::FlightSummary& data)
 {
-    expectFlightTextContentAsJava(item, pin);
+    expectFlightTextContentAsJava(item, pin, data);
     const bool bold = pin.font == "BOLD";
     EXPECT_EQ(item.font,
               bold ? RocketInfo::Item::FontRole::BOLD : RocketInfo::Item::FontRole::REGULAR);
@@ -188,12 +242,13 @@ void expectFlightPlaceAsJava(const RocketInfo::Item& item, const FlightPinText& 
     EXPECT_NEAR(item.position.x(), column, kColumnTolerance);
 }
 
-/// Compares the flight item @p item with @p pin.
+/// Compares the flight item @p item with @p pin (a fresh value: with @p data's).
 void expectFlightItemAsJava(const RocketInfo::Item& item, const FlightPinText& pin,
-                            const BottomFrame& frame, std::optional<double> valueColumn)
+                            const RocketInfo::FlightSummary& data, const BottomFrame& frame,
+                            std::optional<double> valueColumn)
 {
     SCOPED_TRACE(pin.fresh ? std::string("(a value of the fresh flight)") : pin.text);
-    expectFlightTextAsJava(item, pin);
+    expectFlightTextAsJava(item, pin, data);
     expectFlightPlaceAsJava(item, pin, frame, valueColumn);
 }
 
@@ -255,12 +310,13 @@ void expectFlightBlockAsJava(RocketInfo& info, const Preferences& preferences,
 {
     const std::vector<RocketInfo::Item> items = flightBlockItemsOf(info);
     ASSERT_EQ(items.size(), texts.size());
-    const BottomFrame           frame       = bottomFrameOf(preferences);
-    const std::optional<double> valueColumn = valueColumnOf(items, texts, frame);
+    const BottomFrame               frame       = bottomFrameOf(preferences);
+    const std::optional<double>     valueColumn = valueColumnOf(items, texts, frame);
+    const RocketInfo::FlightSummary data = info.flightData().value_or(RocketInfo::FlightSummary{});
     for (std::size_t index = 0; index < items.size(); ++index)
     {
         SCOPED_TRACE(index);
-        expectFlightItemAsJava(items.at(index), texts[index], frame, valueColumn);
+        expectFlightItemAsJava(items.at(index), texts[index], data, frame, valueColumn);
     }
 }
 

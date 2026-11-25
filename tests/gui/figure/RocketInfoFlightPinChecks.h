@@ -69,9 +69,10 @@ void expectFlightOverlayAsJava(const RocketInfo& info, std::string_view configur
 
 /// Compares what @p info draws of the flight block in kFlightPinVisible (flightBlockItemsOf(), the
 /// overlay's fonts of @p preferences) with @p texts: as many texts, each with its text (a value of
-/// a fresh flight: any but empty), its font, its colour (also the light theme's of its key), its
-/// row above the bottom one and its column (the left margin, or the values' 10 pixels right of the
-/// widest label).
+/// a fresh flight, which no test pins: the default unit's text of the number @p info's flight
+/// data holds, "N/A" for NaN, which the callers compare with the simulation's), its font, its
+/// colour (also the light theme's of its key), its row above the bottom one and its column (the
+/// left margin, or the values' 10 pixels right of the widest label).
 void expectFlightBlockAsJava(RocketInfo& info, const Preferences& preferences,
                              std::span<const FlightPinText> texts);
 

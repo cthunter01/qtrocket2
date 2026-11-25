@@ -18,6 +18,7 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/util/Error.h"
+#include "exit/OpenDesigns.h"
 #include "goldens/GoldenData.h"
 
 namespace QtRocket::Gui::Test
@@ -286,32 +287,26 @@ const SimulationTablePins* simulationTablePinsOrFail()
 
 std::vector<std::string> simulationTablePinnedDesigns()
 {
-    std::vector<std::string>           names;
-    const Result<SimulationTablePins>& loaded = simulationTablePins();
-    if (loaded.has_value())
+    std::vector<std::string> names;
+    for (const OpenDesign& design : openDesigns())
     {
-        for (const SimulationTablePinDesign& design : loaded->designs)
-        {
-            names.push_back(design.name);
-        }
+        names.push_back(design.name);
     }
+    names.emplace_back(kNewDesignPinName);
     return names;
 }
 
 std::vector<std::string> simulationTablePinnedExampleDesigns()
 {
-    std::vector<std::string>           names;
-    const Result<SimulationTablePins>& loaded = simulationTablePins();
-    if (loaded.has_value())
+    std::vector<std::string> names;
+    for (const OpenDesign& design : openDesigns())
     {
-        for (const SimulationTablePinDesign& design : loaded->designs)
+        if (design.source == OpenDesignSource::EXAMPLE)
         {
-            if (design.kind == "example" || design.kind == "new")
-            {
-                names.push_back(design.name);
-            }
+            names.push_back(design.name);
         }
     }
+    names.emplace_back(kNewDesignPinName);
     return names;
 }
 

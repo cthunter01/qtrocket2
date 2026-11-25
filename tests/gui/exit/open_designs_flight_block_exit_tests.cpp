@@ -93,6 +93,7 @@
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/FileIo.h"
 #include "ScopedApplicationPalette.h"
 #include "ScriptedUserPrompts.h"
 #include "TestPaths.h"
@@ -405,8 +406,8 @@ void expectAdoptedAsJava(const MainWindow& window, const RocketInfoFlightPin& pi
     return pin.estimated && !pin.imperial && !pin.selectConfigurationOf.has_value() &&
            pin.kind == Gui::Test::openDesignKind(design.source) &&
            std::filesystem::equivalent(
-               QtRocket::Test::dataDir().parent_path() / std::filesystem::path(pin.file),
-               design.file, error);
+               QtRocket::Test::dataDir().parent_path() / pathFromUtf8(pin.file), design.file,
+               error);
 }
 
 /// The designs of the suite without a pinned flight block as opened (isOpenedDesignPin()), by

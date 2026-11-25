@@ -1,5 +1,6 @@
 #include "dialogs/simulation/SimulationDialogPinChecks.h"
 
+#include <array>
 #include <cstddef>
 #include <map>
 #include <string>
@@ -8,13 +9,24 @@
 #include <vector>
 
 #include <QColor>
+#include <QIcon>
+#include <QImage>
+#include <QLayout>
+#include <QLayoutItem>
+#include <QObject>
+#include <QPushButton>
+#include <QSize>
 #include <QString>
 #include <QTabWidget>
+#include <QWidget>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationExtensionList.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationOptionsPanel.h"
 #include "QtRocket/gui/util/ColorConversion.h"
+#include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationStatusColors.h"
 #include "QtRocket/gui/util/ThemeColors.h"
@@ -107,21 +119,6 @@ constexpr std::string_view kIconButtonLine    = "    BUTTON  icon";
     return lines;
 }
 
-/// @p lines with every @p from replaced by @p to (in any line, any number of times).
-[[nodiscard]] std::vector<std::string> replacedEverywhere(std::vector<std::string> lines,
-                                                          std::string_view         from,
-                                                          std::string_view         to)
-{
-    for (std::string& line : lines)
-    {
-        if (const std::size_t at = line.find(from); at != std::string::npos)
-        {
-            line.replace(at, from.size(), to);
-        }
-    }
-    return lines;
-}
-
 /// Whether @p line names an extension in the extensions' box (its panel's label).
 [[nodiscard]] bool isExtensionName(std::string_view line)
 {
@@ -196,6 +193,62 @@ private:
     return kept;
 }
 
+/// The probe's names of the extensions' buttons' icons, by Icons::Id.
+constexpr std::array<std::pair<Icons::Id, std::string_view>, 3> kExtensionButtonIcons{{
+    {Icons::Id::CONFIGURE, "CONFIGURE"},
+    {Icons::Id::HELP, "HELP"},
+    {Icons::Id::EDIT_DELETE, "DELETE"},
+}};
+
+/// The probe's first button of an extension's panel that has a configurator.
+constexpr std::string_view kConfigureButton = "CONFIGURE";
+
+/// @p icon drawn at 16 pixels (two icons are the same when they draw the same).
+[[nodiscard]] QImage drawnIcon(const QIcon& icon)
+{
+    constexpr int kSide = 16;
+    return icon.pixmap(QSize(kSide, kSide)).toImage();
+}
+
+/// The probe's name of @p button's icon (kExtensionButtonIcons), "other" for another.
+[[nodiscard]] std::string_view extensionButtonName(const QPushButton& button)
+{
+    const QImage drawn = drawnIcon(button.icon());
+    for (const auto& [id, name] : kExtensionButtonIcons)
+    {
+        if (drawn == drawnIcon(Icons::icon(id)))
+        {
+            return name;
+        }
+    }
+    return "other";
+}
+
+/// The names of the buttons of @p layout, in its order (a widget's layout in its place), appended
+/// to @p names.
+void appendButtonNames(const QLayout& layout, std::string& names)
+{
+    for (int index = 0; index < layout.count(); ++index)
+    {
+        // QLayoutItem::layout() is not const.
+        QLayoutItem* const item = layout.itemAt(index);
+        if (const QLayout* const inner = item->layout(); inner != nullptr)
+        {
+            appendButtonNames(*inner, names);
+            continue;
+        }
+        const QWidget* const widget = item->widget();
+        if (const auto* const button = qobject_cast<const QPushButton*>(widget); button != nullptr)
+        {
+            names += (names.empty() ? "" : " ") + std::string(extensionButtonName(*button));
+        }
+        else if (widget != nullptr && widget->layout() != nullptr)
+        {
+            appendButtonNames(*widget->layout(), names);
+        }
+    }
+}
+
 }  // namespace
 
 std::vector<std::string> settingsDialogWalk(const SimulationConfigDialog& dialog)
@@ -251,12 +304,49 @@ std::vector<std::string> expectedSettingsDialogWalk(const SimulationDialogPins& 
     std::vector<std::string> lines = withStatusColor(simulation.walk, status, pins);
     lines                          = without(std::move(lines), "    BUTTON Add extension");
     lines                          = withoutConfigureButtons(lines, simulation.extensions);
-    lines = replacedEverywhere(std::move(lines), "BUTTON Single Deployment Warnings icon",
-                               "BUTTON Single Deployment Warnings");
-    lines = replacedEverywhere(std::move(lines), "BUTTON Dual Deployment Warnings icon",
-                               "BUTTON Dual Deployment Warnings");
-    return replacedEverywhere(std::move(lines),
-                              "LABEL <html><body style=", "TEXTAREA <html><body style=");
+    // Each in one line of every walk: the Warnings tab's two sections and its description.
+    lines = replacedIn(std::move(lines), "BUTTON Single Deployment Warnings icon",
+                       "BUTTON Single Deployment Warnings", 1);
+    lines = replacedIn(std::move(lines), "BUTTON Dual Deployment Warnings icon",
+                       "BUTTON Dual Deployment Warnings", 1);
+    return replacedIn(std::move(lines),
+                      "LABEL <html><body style=", "TEXTAREA <html><body style=", 1);
+}
+
+std::vector<std::string> settingsDialogExtensionButtons(const SimulationConfigDialog& dialog)
+{
+    const SimulationExtensionList& list = dialog.optionsPanel().extensionList();
+    std::vector<std::string>       panels;
+    for (std::size_t index = 0; index < list.extensionCount(); ++index)
+    {
+        std::string names;
+        if (const QLayout* const layout = list.extensionPanel(index).layout(); layout != nullptr)
+        {
+            appendButtonNames(*layout, names);
+        }
+        panels.push_back(std::move(names));
+    }
+    return panels;
+}
+
+std::vector<std::string> expectedSettingsDialogExtensionButtons(
+    const SimulationDialogPinSimulation& simulation)
+{
+    std::vector<std::string> panels;
+    for (const std::string& buttons : simulation.extensions)
+    {
+        std::string_view shown = buttons;
+        if (shown.starts_with(kConfigureButton))
+        {
+            shown.remove_prefix(kConfigureButton.size());
+            if (shown.starts_with(' '))
+            {
+                shown.remove_prefix(1);
+            }
+        }
+        panels.emplace_back(shown);
+    }
+    return panels;
 }
 
 std::vector<std::string> expectedSettingsDialogTabStates(

@@ -40,10 +40,24 @@ struct SimulationDialogPinSimulation;
 /// - no "Add extension" button (U-M4-3: Milestone 7), and no Configure button in an extension's
 ///   panel (the first of its icon buttons where the pins name CONFIGURE first);
 /// - the Warnings tab's collapsible sections' headers without an icon (CollapsiblePanel: the
-///   style's arrow) and their descriptions as word-wrapped labels (TEXTAREA).
+///   style's arrow) and their descriptions as word-wrapped labels (TEXTAREA); each of these
+///   edits must apply to exactly one line of the walk (a test failure otherwise), so that it
+///   cannot outlive the pin it was made for.
 [[nodiscard]] std::vector<std::string> expectedSettingsDialogWalk(
     const SimulationDialogPins& pins, const SimulationDialogPinSimulation& simulation,
     Simulation::Status status);
+
+/// The buttons of each extension's panel in @p dialog's Simulation options tab
+/// (SimulationExtensionList), in the order of their row, by their icons as the probe's EXT lines
+/// name them, space separated ("HELP DELETE"): CONFIGURE, HELP or DELETE for a button that draws
+/// as Icons::Id::CONFIGURE, HELP or EDIT_DELETE, "other" for another; one line per extension.
+[[nodiscard]] std::vector<std::string> settingsDialogExtensionButtons(
+    const SimulationConfigDialog& dialog);
+
+/// The pinned buttons of @p simulation's extensions' panels (its EXT lines) without a first
+/// CONFIGURE (U-M4-3: the Configure button comes with Milestone 7).
+[[nodiscard]] std::vector<std::string> expectedSettingsDialogExtensionButtons(
+    const SimulationDialogPinSimulation& simulation);
 
 /// The pinned tab states of @p simulation's dialog, but the Export data tab's disabled without a
 /// tooltip where OpenRocket's is enabled when @p exportPlaceholder (the dialog shows its export

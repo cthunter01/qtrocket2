@@ -72,9 +72,10 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   runs (the re-saves of the test rockets beta, Falcon 9 Heavy, the multi-stage event rocket and the cluster
   pods) show "Calculating..." and their labels with "N/A", dimmed; then (`runEstimate()`, Milestone 4's run 3,
   part Y3, for the exit suite of the flight block) the probe marks the document saved, as `OpenFileWorker`
-  marks a design it opened, runs what `RocketPanel`'s `BackgroundSimulationWorker` runs, on its own thread
+  marks a design it opened, runs what `RocketPanel`'s `BackgroundSimulationWorker` runs, on the probe's thread
   and without its 300 ms sleep (`Simulation.simulate()` with the worker's listeners, `simulationDone()` or
-  `simulationInterrupted()`, and the change listener `updateExtras()` gives every simulation), and prints the
+  `simulationInterrupted()`, and the change listeners `updateExtras()` gives the simulations up to the first
+  of the selected configuration, which show a simulation of that configuration that changed), and prints the
   document's saved state and undo history before and after, each simulation's status after its run, and the
   overlay after the runs. Those are fresh flights: the generator writes the apogee, the maximum velocity and
   the maximum acceleration of the block as `null`, so the table holds no value of them. The generator writes

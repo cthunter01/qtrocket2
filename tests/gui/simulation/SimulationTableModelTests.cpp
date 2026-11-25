@@ -529,6 +529,22 @@ void expectOrders(Table&                                                        
     table.model().setSortKeys({});
 }
 
+/// The names of @p table's designs, in their order; @p examplesOnly: of the kinds "example" and
+/// "new" alone.
+[[nodiscard]] std::vector<std::string> pinnedDesignNames(
+    const Gui::Test::SimulationTablePins& table, bool examplesOnly)
+{
+    std::vector<std::string> names;
+    for (const Gui::Test::SimulationTablePinDesign& design : table.designs)
+    {
+        if (!examplesOnly || design.kind == "example" || design.kind == "new")
+        {
+            names.push_back(design.name);
+        }
+    }
+    return names;
+}
+
 TEST(SimulationTablePinsGolden, ComeFromTheGoldensOpenRocket)
 {
     const Gui::Test::SimulationTablePins* table = pins();
@@ -540,7 +556,11 @@ TEST(SimulationTablePinsGolden, ComeFromTheGoldensOpenRocket)
     EXPECT_EQ(table->designs.size(), 67U);
     EXPECT_NE(table->findDesign("example_a_simple_model_rocket"), nullptr);
     EXPECT_NE(table->findDesign("gui_from_scratch"), nullptr);
-    EXPECT_EQ(table->designs.back().name, "new_design");
+    EXPECT_EQ(table->designs.back().name, Gui::Test::kNewDesignPinName);
+    EXPECT_EQ(table->designs.back().kind, "new");
+    // The suites' instantiations, made without reading the pins, are the pins' designs.
+    EXPECT_EQ(Gui::Test::simulationTablePinnedDesigns(), pinnedDesignNames(*table, false));
+    EXPECT_EQ(Gui::Test::simulationTablePinnedExampleDesigns(), pinnedDesignNames(*table, true));
     EXPECT_EQ(Gui::Test::simulationTablePinnedExampleDesigns().size(), 17U);
     EXPECT_NE(table->findScenario("status_a_simple_model_rocket"), nullptr);
     EXPECT_NE(table->findScenario("status_two_stage_high_power_rocket"), nullptr);

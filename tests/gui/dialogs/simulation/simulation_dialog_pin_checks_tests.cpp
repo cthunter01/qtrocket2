@@ -47,6 +47,25 @@ using Status                    = Simulation::Status;
     return simulation;
 }
 
+/// The lines of OpenRocket's Warnings tab that QtRocket's walk shows otherwise (each is in every
+/// walk once), after @p walk.
+[[nodiscard]] std::vector<std::string> withWarningsTab(std::vector<std::string> walk)
+{
+    walk.insert(walk.end(), {"TAB Warnings", "    BUTTON Single Deployment Warnings icon",
+                             "    LABEL <html><body style='margin:0;'>Warn</body></html>",
+                             "    BUTTON Dual Deployment Warnings icon"});
+    return walk;
+}
+
+/// withWarningsTab()'s lines as QtRocket's walk shows them, after @p walk.
+[[nodiscard]] std::vector<std::string> withQtWarningsTab(std::vector<std::string> walk)
+{
+    walk.insert(walk.end(), {"TAB Warnings", "    BUTTON Single Deployment Warnings",
+                             "    TEXTAREA <html><body style='margin:0;'>Warn</body></html>",
+                             "    BUTTON Dual Deployment Warnings"});
+    return walk;
+}
+
 /// QtRocket's status line of @p status with OpenRocket's text @p text.
 [[nodiscard]] std::string qtStatusLine(Status status, const char* text)
 {
@@ -92,11 +111,11 @@ TEST_F(SimulationDialogPinChecks, TheExpectedWalkTakesQtRocketsDeliberateDiffere
 
 TEST_F(SimulationDialogPinChecks, AnErrorStatusTakesQtRocketsErrorColour)
 {
-    const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(
+    const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(withWarningsTab(
         {"LABEL Status:", R"(LABEL <html><font color="#ff0000"><b>Cannot run</b></font></html>)",
-         "    BUTTON Add extension"});
-    const std::vector<std::string> expected{"LABEL Status:",
-                                            qtStatusLine(Status::CANT_RUN, "<b>Cannot run</b>")};
+         "    BUTTON Add extension"}));
+    const std::vector<std::string>                 expected =
+        withQtWarningsTab({"LABEL Status:", qtStatusLine(Status::CANT_RUN, "<b>Cannot run</b>")});
     EXPECT_EQ(Gui::Test::expectedSettingsDialogWalk(lightThemePins(), simulation, Status::CANT_RUN),
               expected);
 }
@@ -105,10 +124,10 @@ TEST_F(SimulationDialogPinChecks, AStatusInAnotherColourThanTheThemesFails)
 {
     // OpenRocket's status line must be in its theme's colour of the status (the text's for a
     // simulation loaded from its file).
-    const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(
+    const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(withWarningsTab(
         {"LABEL Status:", R"(LABEL <html><font color="#ff0000">Loaded</font></html>)",
-         "    BUTTON Add extension"});
-    const Gui::Test::SimulationDialogPins pins = lightThemePins();
+         "    BUTTON Add extension"}));
+    const Gui::Test::SimulationDialogPins          pins       = lightThemePins();
     EXPECT_NONFATAL_FAILURE(
         static_cast<void>(Gui::Test::expectedSettingsDialogWalk(pins, simulation, Status::LOADED)),
         "is not its theme's text of LOADED");
@@ -117,14 +136,43 @@ TEST_F(SimulationDialogPinChecks, AStatusInAnotherColourThanTheThemesFails)
 TEST_F(SimulationDialogPinChecks, AnExtensionOfThePinsMissingFromTheWalkFails)
 {
     const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(
-        {"LABEL Status:", R"(LABEL <html><font color="#000000">Loaded</font></html>)",
-         "  BORDER Simulation extensions", "    BUTTON Add extension",
-         "    LABEL No simulation extensions defined"},
+        withWarningsTab(
+            {"LABEL Status:", R"(LABEL <html><font color="#000000">Loaded</font></html>)",
+             "  BORDER Simulation extensions", "    BUTTON Add extension",
+             "    LABEL No simulation extensions defined"}),
         {"HELP DELETE"});
     const Gui::Test::SimulationDialogPins pins = lightThemePins();
     EXPECT_NONFATAL_FAILURE(
         static_cast<void>(Gui::Test::expectedSettingsDialogWalk(pins, simulation, Status::LOADED)),
         "extensions' names in the walk");
+}
+
+TEST_F(SimulationDialogPinChecks, AWarningsLineMissingFromTheWalkFails)
+{
+    // Each edit of the Warnings tab's lines applies to one line of the walk: an edit that no
+    // longer finds its line fails, so that it cannot outlive the pin it was made for.
+    std::vector<std::string> walk = withWarningsTab(
+        {"LABEL Status:", R"(LABEL <html><font color="#000000">Loaded</font></html>)",
+         "    BUTTON Add extension"});
+    std::erase(walk, "    BUTTON Dual Deployment Warnings icon");
+    const Gui::Test::SimulationDialogPinSimulation simulation = simulationPins(std::move(walk));
+    const Gui::Test::SimulationDialogPins          pins       = lightThemePins();
+    EXPECT_NONFATAL_FAILURE(
+        static_cast<void>(Gui::Test::expectedSettingsDialogWalk(pins, simulation, Status::LOADED)),
+        "BUTTON Dual Deployment Warnings icon");
+}
+
+TEST_F(SimulationDialogPinChecks, TheExpectedExtensionButtonsHaveNoConfigureButton)
+{
+    // U-M4-3: an extension's panel shows Help (when the extension has a description) and Delete;
+    // OpenRocket's Configure button, first where an extension has a configurator, comes with
+    // Milestone 7.
+    const Gui::Test::SimulationDialogPinSimulation simulation =
+        simulationPins({}, {"CONFIGURE HELP DELETE", "CONFIGURE DELETE", "HELP DELETE"});
+    EXPECT_EQ(Gui::Test::expectedSettingsDialogExtensionButtons(simulation),
+              (std::vector<std::string>{"HELP DELETE", "DELETE", "HELP DELETE"}));
+    EXPECT_EQ(Gui::Test::expectedSettingsDialogExtensionButtons(simulationPins({})),
+              std::vector<std::string>{});
 }
 
 TEST_F(SimulationDialogPinChecks, TheExportPlaceholderIsDisabledWhereOpenRocketsTabIsEnabled)

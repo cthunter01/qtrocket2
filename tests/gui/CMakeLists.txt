@@ -76,15 +76,18 @@ gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOU
 # flight of the examples with every preset plot, 486 tests) runs as one test of ctest, in one process: in a process of
 # its own each of them would read the motor database, the plot goldens and its example again (some seconds under the
 # sanitizers for a plot of a tenth of one), where one process loads each example once. It fails when its filter selects
-# no test (the suite renamed, say).
+# no test (the suite renamed, say): GoogleTest then prints "Running 0 tests" and exits 0, which FAIL_REGULAR_EXPRESSION
+# turns into a failure (the exit code still counts). GoogleTest's --gtest_fail_if_no_test_selected is newer than the
+# GoogleTest an installed package may hold (Dependencies.cmake's FIND_PACKAGE_ARGS), and an older GoogleTest takes an
+# unknown --gtest_ flag for --help and passes without running a test.
 set(QTROCKET_GUI_ONE_PROCESS_SUITE "StoredSimulations/SimulationPlotPresetsGolden")
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
     TEST_FILTER "*Golden*.*-${QTROCKET_GUI_ONE_PROCESS_SUITE}.*"
     PROPERTIES LABELS golden ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 add_test(NAME ${QTROCKET_GUI_ONE_PROCESS_SUITE}
-    COMMAND QtRocket_gui_tests "--gtest_filter=${QTROCKET_GUI_ONE_PROCESS_SUITE}.*" --gtest_fail_if_no_test_selected)
+    COMMAND QtRocket_gui_tests "--gtest_filter=${QTROCKET_GUI_ONE_PROCESS_SUITE}.*")
 set_tests_properties(${QTROCKET_GUI_ONE_PROCESS_SUITE} PROPERTIES LABELS "gui;golden" TIMEOUT 1500
-    ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+    FAIL_REGULAR_EXPRESSION "Running 0 tests" ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 # The tests that show Qt's own file dialog run one at a time. QFileDialog keeps its history and last directory in the
 # native settings (QSettings(UserScope, "QtProject")), which QSettings::setPath() redirects to main()'s temporary
 # directory only where the native format is an INI file: on Windows (the registry) and macOS (CFPreferences) one test

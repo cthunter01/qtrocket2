@@ -42,6 +42,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "RocketInfoFlightPinChecks.h"
 #include "RocketInfoFlightPins.h"
 #include "ScopedApplicationPalette.h"
@@ -83,7 +84,7 @@ public:
         }
         Result<LoadedDocument> loaded =
             GeneralRocketLoader(m_environment.context())
-                .load(QtRocket::Test::dataDir().parent_path() / std::filesystem::path(pin.file));
+                .load(QtRocket::Test::dataDir().parent_path() / pathFromUtf8(pin.file));
         if (!loaded.has_value())
         {
             ADD_FAILURE() << "cannot load " << pin.file << ": " << loaded.error().message;

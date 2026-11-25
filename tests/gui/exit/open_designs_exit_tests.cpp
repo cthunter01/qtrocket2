@@ -2880,7 +2880,8 @@ private:
 
 /// @p dialog of @p simulation, as it opened, against OpenRocket's (@p pin of @p pins): its
 /// simulation, its title, its walk (expectedSettingsDialogWalk(): with the status @p status the
-/// simulation had when it opened) and its tabs' states.
+/// simulation had when it opened), its extensions' buttons by their icons (the walk shows an icon
+/// button as "BUTTON  icon") and its tabs' states.
 void expectSettingsDialogAsJava(const SimulationConfigDialog& dialog, const Simulation& simulation,
                                 Simulation::Status                              status,
                                 const Gui::Test::SimulationDialogPins&          pins,
@@ -2891,6 +2892,8 @@ void expectSettingsDialogAsJava(const SimulationConfigDialog& dialog, const Simu
     EXPECT_EQ(QtStrings::toUtf8(dialog.windowTitle()), pin.title);
     Gui::Test::expectSameLines(Gui::Test::settingsDialogWalk(dialog),
                                Gui::Test::expectedSettingsDialogWalk(pins, pin, status));
+    EXPECT_EQ(Gui::Test::settingsDialogExtensionButtons(dialog),
+              Gui::Test::expectedSettingsDialogExtensionButtons(pin));
     const bool exportPlaceholder =
         dialog.tabs().widget(SimulationConfigDialog::kExportTab)->objectName() ==
         QStringLiteral("exportPlaceholder");
@@ -3021,9 +3024,10 @@ void editAndCancel(const MainWindow& window, SimulationPanel& tab, const GuiServ
         const Gui::Test::NextModalDialog dialog(
             SettingsDialogCheck(pins, pin, *simulation, simulation->getStatus()));
         openSettingsDialog(tab, services, document, simulation);
+        // Counted until the dialog is gone, as the probe counts until after its dispose.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         EXPECT_EQ(changes.counts(), pin.changes);
     }
-    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     expectDocumentStateAsJava(document, pin.undoAfter, pin.statusesAfter);
     EXPECT_EQ(document.getSimulations(), simulations);
     EXPECT_EQ(changedSimulations(snapshots, simulations), std::vector<std::string>{});

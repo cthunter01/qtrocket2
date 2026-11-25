@@ -389,9 +389,11 @@ public class RocketInfoFlightProbe {
 	 * document's simulation with InterruptListener.INSTANCE, GroundHitListener.INSTANCE, the custom expressions'
 	 * listener and the worker's CancelListener (never cancelled here: a listener that does nothing); then
 	 * simulationDone() (not calculating, a SimulationChangeEvent of the document, the next simulation) or
-	 * simulationInterrupted() (FlightData.NaN_DATA, not calculating, the chain ends). Meanwhile the change listener
-	 * updateExtras() gave every simulation shows a simulation of the selected configuration that changed
-	 * (updateFlightData(): RocketInfo.setSimulation()).
+	 * simulationInterrupted() (FlightData.NaN_DATA, not calculating, the chain ends). Meanwhile the change listeners
+	 * updateExtras() gave the simulations when the design was opened (RocketPanel.java:1610-1623: each simulation up
+	 * to and including the first of the selected configuration, where its loop breaks) show a simulation that changed
+	 * when it is of the selected configuration (updateFlightData(): RocketInfo.setSimulation() when its
+	 * configuration's id compareTo() the selected one's is 0; the == of the ids there only decides updateFigures()).
 	 */
 	static void runEstimate(OpenRocketDocument document, FlightState opened) throws Exception {
 		// OpenFileWorker: the design just opened is saved.
@@ -402,14 +404,26 @@ public class RocketInfoFlightProbe {
 		state.calculating = opened.calculating;
 		state.simulation = opened.simulation;
 		List<Simulation> all = document.getSimulations();
-		for (int index : updateSims(document, false)) {
-			Simulation sim = all.get(index);
+		// updateExtras()'s change listeners, as it adds them.
+		List<Simulation> listened = new ArrayList<>();
+		List<StateChangeListener> listeners = new ArrayList<>();
+		FlightConfigurationId openedID = document.getSelectedConfiguration().getFlightConfigurationID();
+		for (Simulation sim : all) {
 			StateChangeListener shows = e -> {
-				if (sim.getFlightConfigurationId() == document.getSelectedConfiguration().getFlightConfigurationID()) {
+				FlightConfigurationId curID = document.getSelectedConfiguration().getFlightConfigurationID();
+				if (sim.getFlightConfigurationId().compareTo(curID) == 0) {
 					setSimulation(state, sim);
 				}
 			};
 			sim.addChangeListener(shows);
+			listened.add(sim);
+			listeners.add(shows);
+			if (sim.getFlightConfigurationId().compareTo(openedID) == 0) {
+				break;
+			}
+		}
+		for (int index : updateSims(document, false)) {
+			Simulation sim = all.get(index);
 			// doInBackground(): calculating while it runs.
 			state.calculating = true;
 			Throwable failure = null;
@@ -420,7 +434,6 @@ public class RocketInfoFlightProbe {
 			} catch (Throwable t) {
 				failure = t;
 			}
-			sim.removeChangeListener(shows);
 			if (failure != null) {
 				// simulationInterrupted()
 				state.shown = Shown.NAN;
@@ -432,6 +445,9 @@ public class RocketInfoFlightProbe {
 			state.calculating = false;
 			document.fireDocumentChangeEvent(new SimulationChangeEvent(sim));
 			line("R", "ran", Integer.toString(index), sim.getStatus().name(), Boolean.toString(sim.hasSummaryData()));
+		}
+		for (int index = 0; index < listened.size(); index++) {
+			listened.get(index).removeChangeListener(listeners.get(index));
 		}
 		line("R", "after", documentState(document));
 		overlay(document, state);
