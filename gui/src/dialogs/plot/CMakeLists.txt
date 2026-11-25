@@ -2,4 +2,6 @@
 # area. The plots themselves (rocketplot's widgets) are the area plot/'s.
 # Each source with its header (${gui_include_dir}/dialogs/plot/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    PlotDialog.cpp ${gui_include_dir}/dialogs/plot/PlotDialog.h
+    SimulationPlotDialog.cpp ${gui_include_dir}/dialogs/plot/SimulationPlotDialog.h
 )

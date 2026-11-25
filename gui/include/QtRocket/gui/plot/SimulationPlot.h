@@ -122,7 +122,7 @@ public:
     /// Draws the events of every stage, whatever stage is shown, or removes the events
     /// (SimulationPlot.setShowEvents(): drawDomainMarkers(-1), or clearing the markers and the
     /// icons). The first drawing of event lines widens the domain's home range (bug 43).
-    void setShowEvents(bool show);
+    void setShowEvents(bool show) override;
     /// Shows or hides the abort box (setShowErrors(), ErrorAnnotationSet.setVisible()).
     void setShowErrors(bool show);
     /// Shows the series of branch @p branch only and draws its events, its abort box in place of

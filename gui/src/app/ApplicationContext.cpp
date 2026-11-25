@@ -14,6 +14,7 @@
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/app/MotorDatabaseMetadataIO.h"
+#include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -70,19 +71,30 @@ template <class ReadFiles>
     return readFiles(defaultDirectory.value_or(std::filesystem::path()));
 }
 
-/// The application's simulation dialogs until Milestone 4's settings and plot dialogs replace
-/// them: they open nothing. Nothing asks for them yet.
-class NoSimulationDialogs final : public SimulationDialogs
+/// The application's simulation dialogs: the plot dialog (SimulationPlotDialog::showPlot(), over
+/// the context's services); the settings dialog opens nothing until Milestone 4's run 3 makes it.
+class ApplicationSimulationDialogs final : public SimulationDialogs
 {
 public:
+    /// The dialogs asking their questions through @p services, which outlive them.
+    explicit ApplicationSimulationDialogs(const GuiServices& services) : m_services(&services) { }
+
     void editSimulations(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
                          const EditRequest& /*request*/) override
     {
     }
-    void plotSimulation(QWidget* /*parent*/, std::shared_ptr<Simulation> /*simulation*/,
-                        const SimulationPlotConfiguration& /*configuration*/) override
+
+    void plotSimulation(QWidget* parent, std::shared_ptr<Simulation> simulation,
+                        const SimulationPlotConfiguration& configuration) override
     {
+        QTROCKET_ASSERT(parent != nullptr);
+        QTROCKET_ASSERT(simulation != nullptr);
+        static_cast<void>(
+            SimulationPlotDialog::showPlot(*m_services, *simulation, configuration, *parent));
     }
+
+private:
+    const GuiServices* m_services;
 };
 
 /// The problem of the database @p database with the file @p file and the message of @p error.
@@ -103,7 +115,6 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     m_motorFinder(m_motors),
     m_extensions(SimulationExtensionRegistry::bundled()),
     m_simulationExecutor(std::make_unique<PollingSimulationExecutor>()),
-    m_simulationDialogs(std::make_unique<NoSimulationDialogs>()),
     m_services(*m_preferences, m_materials, m_motors, m_presets, m_loadingContext, *m_prompts)
 {
     // SwingStartup.runInEDT(): the default units before any window.
@@ -126,6 +137,7 @@ ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> pref
     // Step 10.
     m_services.setSimulationExecutor(m_simulationExecutor.get());
     m_services.setPlotDefaults(&m_plotDefaults);
+    m_simulationDialogs = std::make_unique<ApplicationSimulationDialogs>(m_services);
     m_services.setSimulationDialogs(m_simulationDialogs.get());
 }
 

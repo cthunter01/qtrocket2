@@ -37,6 +37,9 @@
 #   plot-widgets       the values tests/gui/widgets/DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp,
 #                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
 #                      see README.md)
+#   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp and
+#                      tests/gui/plot/DataPlotTests.cpp pin by hand (checked only, see README.md; the probe runs
+#                      under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -44,7 +47,7 @@
 # OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
-# never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser and plot-widgets.
+# never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser, plot-widgets and plot-dialog.
 #
 # Environment:
 #   OPENROCKET_DIR        the OpenRocket checkout (default: "openrocket" next to the main working tree of the
@@ -69,13 +72,13 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser and open-designs,
-# xvfb-run.
+# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser, open-designs and
+# plot-dialog, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser open-designs plot-widgets)
+    preset-chooser open-designs plot-widgets plot-dialog)
 
 check=false
 families=()
@@ -133,7 +136,7 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves flight-config preset-chooser open-designs; do
+for family in rocket-panel thrust-curves flight-config preset-chooser open-designs plot-dialog; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -500,6 +503,14 @@ for family in "${families[@]}"; do
         run_probe "${family}" PlotWidgetsProbe headless
         check_hand_pins "${family}" PlotWidgetsProbe \
             "DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp, LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp"
+        continue
+        ;;
+    plot-dialog)
+        # OpenRocket's SimulationPlotDialog is a JDialog, which a headless AWT refuses to make (it is never
+        # shown); its plots are of stored simulations of the examples. The tests pin the whole transcript by hand.
+        run_probe "${family}" PlotDialogProbe xvfb "${examples}"
+        check_hand_pins "${family}" PlotDialogProbe \
+            "tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp and tests/gui/plot/DataPlotTests.cpp"
         continue
         ;;
     esac

@@ -46,6 +46,9 @@ public:
     static constexpr const char* kClusteredMotors = "Clustered motors.ork";
     /// "Simulation scripting.ork".
     static constexpr const char* kSimulationScripting = "Simulation scripting.ork";
+    /// "Three stage low power rocket.ork": stored flights of three stages (no run: they are
+    /// long).
+    static constexpr const char* kThreeStageLowPowerRocket = "Three stage low power rocket.ork";
 
     /// The example @p fileName of data/examples (a test failure, and an empty document, when it
     /// cannot be loaded).

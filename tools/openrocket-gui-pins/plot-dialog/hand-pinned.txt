@@ -1,0 +1,173 @@
+== dialog simple-vertical-motion: 'Simulation 1' preset 0 branches 1 hasErrors false
+title='Simulation 1'
+modality=DOCUMENT_MODAL
+defaultCloseOperation=DISPOSE_ON_CLOSE
+escapeCloses=true
+defaultButton='Close'
+resizable=true
+owner=none
+layout='fill, hidemode 3' columns='[]' rows='[grow][]'
+component 0: SimulationChart(ChartPanel) preferred=1024x768 minimum=12x12 visible=true enabled=true constraints='grow, wrap 20lp'
+component 1: StyledLabel text='left click drag to zoom area. mouse wheel to zoom. ctrl-mouse wheel to zoom x axis only. ctrl-left click drag to pan.  right click drag to zoom dynamically.' font size relative to a label's=-2.0 foreground=ff000000 visible=true enabled=true constraints='wrap'
+component 2: JCheckBox text='Show data points' icon=none tooltip=none selected=false visible=true enabled=true constraints='split, left'
+component 3: JCheckBox text='Show events' icon=none tooltip=none selected=true visible=true enabled=true constraints='split, left'
+component 4: JCheckBox text='Show errors' icon=none tooltip=none selected=true visible=false enabled=true constraints='split, left'
+component 5: JButton text='' icon=ZOOM_IN tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 6: JButton text='' icon=ZOOM_RESET tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 7: JButton text='' icon=ZOOM_OUT tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 8: JButton text='Export Image' icon=none tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 9: JButton text='Close' icon=none tooltip=none visible=true enabled=true constraints='gapbefore push, right'
+chart after pack=6,6 1024x768 gap below the chart=20 chart right edge to the panel's=6
+Close's right edge is the chart's=true
+row, left to right: Show data points Show events ZOOM_IN ZOOM_RESET ZOOM_OUT Export Image Close
+gaps between the row's neighbours but Close: 6 6 6 6 6
+the row's components centred on one line=true
+at open: domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=false x=[-0.5, 16.387999999999998] y0=[-5.8148599999999995, 52.23286] y1=[-16.94345, 152.197103931479]
+Show data points clicked: selected=true pref ShowPlotPoints=true domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=true
+Show data points clicked again: selected=false pref ShowPlotPoints=false domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=false
+Show events clicked: selected=false pref ShowPlotEvents=false domainMarkers=0+0 annotations=0 seriesVisible=11|1 shapes=false
+Show events clicked again: selected=true pref ShowPlotEvents=true domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=false
+Show errors clicked: selected=false domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=false
+Show errors clicked again: selected=true domainMarkers=5+0 annotations=0 seriesVisible=11|1 shapes=false
+no stage box in the panel
+before zoom: x=[-0.500000, 16.3880] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+zoom in: x=[3.72200, 12.1660] y0=[8.69707, 37.7209] y1=[25.3417, 109.912]
+reset: x=[-0.500000, 16.3880] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+zoom in, Alt: x=[3.72200, 12.1660] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+zoom out: x=[-0.500000, 16.3880] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+zoom out, Alt: x=[-0.500000, 16.3880] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+reset, Alt: x=[-0.500000, 16.3880] y0=[-5.81486, 52.2329] y1=[-16.9435, 152.197]
+== dialog simple-drag-mach: 'Simulation 1' preset 5 branches 1 hasErrors false
+title='Simulation 1'
+modality=DOCUMENT_MODAL
+defaultCloseOperation=DISPOSE_ON_CLOSE
+escapeCloses=true
+defaultButton='Close'
+resizable=true
+owner=none
+layout='fill, hidemode 3' columns='[]' rows='[grow][]'
+component 0: SimulationChart(ChartPanel) preferred=1024x768 minimum=12x12 visible=true enabled=true constraints='grow, wrap 20lp'
+component 1: StyledLabel text='left click drag to zoom area. mouse wheel to zoom. ctrl-mouse wheel to zoom x axis only. ctrl-left click drag to pan.  right click drag to zoom dynamically.' font size relative to a label's=-2.0 foreground=ff000000 visible=true enabled=true constraints='wrap'
+component 2: StyledLabel text='The data is plotted in time order even though the X axis type is not time. ' font size relative to a label's=-2.0 foreground=ffc80000 visible=true enabled=true constraints='wrap'
+component 3: JCheckBox text='Show data points' icon=none tooltip=none selected=false visible=true enabled=true constraints='split, left'
+component 4: JCheckBox text='Show events' icon=none tooltip=none selected=true visible=true enabled=true constraints='split, left'
+component 5: JCheckBox text='Show errors' icon=none tooltip=none selected=true visible=false enabled=true constraints='split, left'
+component 6: JButton text='' icon=ZOOM_IN tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 7: JButton text='' icon=ZOOM_RESET tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 8: JButton text='' icon=ZOOM_OUT tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 9: JButton text='Export Image' icon=none tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 10: JButton text='Close' icon=none tooltip=none visible=true enabled=true constraints='gapbefore push, right'
+chart after pack=6,6 1024x768 gap below the chart=20 chart right edge to the panel's=6
+Close's right edge is the chart's=true
+row, left to right: Show data points Show events ZOOM_IN ZOOM_RESET ZOOM_OUT Export Image Close
+gaps between the row's neighbours but Close: 6 6 6 6 6
+the row's components centred on one line=true
+at open: domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false x=[-0.494, 0.586] y0=[-3.456, 118.656]
+Show data points clicked: selected=true pref ShowPlotPoints=true domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=true
+Show data points clicked again: selected=false pref ShowPlotPoints=false domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false
+Show events clicked: selected=false pref ShowPlotEvents=false domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false
+Show events clicked again: selected=true pref ShowPlotEvents=true domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false
+Show errors clicked: selected=false domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false
+Show errors clicked again: selected=true domainMarkers=0+0 annotations=0 seriesVisible=1111 shapes=false
+no stage box in the panel
+before zoom: x=[-0.494000, 0.586000] y0=[-3.45600, 118.656]
+zoom in: x=[-0.224000, 0.316000] y0=[27.0720, 88.1280]
+reset: x=[-0.494000, 0.586000] y0=[-3.45600, 118.656]
+zoom in, Alt: x=[-0.224000, 0.316000] y0=[-3.45600, 118.656]
+zoom out: x=[-0.494000, 0.586000] y0=[-3.45600, 118.656]
+zoom out, Alt: x=[-0.494000, 0.586000] y0=[-3.45600, 118.656]
+reset, Alt: x=[-0.494000, 0.586000] y0=[-3.45600, 118.656]
+== dialog three-stage: 'Simulation 1' preset 0 branches 3 hasErrors false
+title='Simulation 1'
+modality=DOCUMENT_MODAL
+defaultCloseOperation=DISPOSE_ON_CLOSE
+escapeCloses=true
+defaultButton='Close'
+resizable=true
+owner=none
+layout='fill, hidemode 3' columns='[]' rows='[grow][]'
+component 0: SimulationChart(ChartPanel) preferred=1024x768 minimum=12x12 visible=true enabled=true constraints='grow, wrap 20lp'
+component 1: StyledLabel text='left click drag to zoom area. mouse wheel to zoom. ctrl-mouse wheel to zoom x axis only. ctrl-left click drag to pan.  right click drag to zoom dynamically.' font size relative to a label's=-2.0 foreground=ff000000 visible=true enabled=true constraints='wrap'
+component 2: JCheckBox text='Show data points' icon=none tooltip=none selected=false visible=true enabled=true constraints='split, left'
+component 3: JCheckBox text='Show events' icon=none tooltip=none selected=true visible=true enabled=true constraints='split, left'
+component 4: JCheckBox text='Show errors' icon=none tooltip=none selected=true visible=false enabled=true constraints='split, left'
+component 5: JComboBox items=[All Stages | Sustainer | Booster stage(1) | Booster stage(2)] selected=0 visible=true enabled=true constraints='gapleft rel'
+component 6: JButton text='' icon=ZOOM_IN tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 7: JButton text='' icon=ZOOM_RESET tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 8: JButton text='' icon=ZOOM_OUT tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 9: JButton text='Export Image' icon=none tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 10: JButton text='Close' icon=none tooltip=none visible=true enabled=true constraints='gapbefore push, right'
+chart after pack=6,6 1024x768 gap below the chart=20 chart right edge to the panel's=6
+Close's right edge is the chart's=true
+row, left to right: Show data points Show events JComboBox ZOOM_IN ZOOM_RESET ZOOM_OUT Export Image Close
+gaps between the row's neighbours but Close: 6 6 6 6 6 6
+the row's components centred on one line=true
+at open: domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false x=[-0.5, 72.79671] y0=[-354.5455, 286.48949999999996] y1=[-98.19301347464746, 79.34459000000001]
+Show data points clicked: selected=true pref ShowPlotPoints=true domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=true
+Show data points clicked again: selected=false pref ShowPlotPoints=false domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show events clicked: selected=false pref ShowPlotEvents=false domainMarkers=0+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show events clicked again: selected=true pref ShowPlotEvents=true domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show errors clicked: selected=false domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show errors clicked again: selected=true domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+stage 1 'Sustainer': errors enabled=false domainMarkers=7+0 annotations=0 seriesVisible=100100|100 shapes=false
+stage 2 'Booster stage(1)': errors enabled=false domainMarkers=5+0 annotations=0 seriesVisible=010010|010 shapes=false
+stage 3 'Booster stage(2)': errors enabled=false domainMarkers=5+0 annotations=0 seriesVisible=001001|001 shapes=false
+stage 0 'All Stages': errors enabled=false domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show events unchecked, stage 1: domainMarkers=7+0 annotations=0 seriesVisible=100100|100 shapes=false
+Show events unchecked, stage 0: domainMarkers=13+0 annotations=0 seriesVisible=111111|111 shapes=false
+before zoom: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom in: x=[17.8247, 54.4742] y0=[-194.287, 126.231] y1=[-53.8086, 34.9602]
+reset: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom in, Alt: x=[17.8247, 54.4742] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom out: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom out, Alt: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+reset, Alt: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+== dialog three-stage-aborts: 'Aborted copy' preset 0 branches 3 hasErrors true
+title='Aborted copy'
+modality=DOCUMENT_MODAL
+defaultCloseOperation=DISPOSE_ON_CLOSE
+escapeCloses=true
+defaultButton='Close'
+resizable=true
+owner=none
+layout='fill, hidemode 3' columns='[]' rows='[grow][]'
+component 0: SimulationChart(ChartPanel) preferred=1024x768 minimum=12x12 visible=true enabled=true constraints='grow, wrap 20lp'
+component 1: StyledLabel text='left click drag to zoom area. mouse wheel to zoom. ctrl-mouse wheel to zoom x axis only. ctrl-left click drag to pan.  right click drag to zoom dynamically.' font size relative to a label's=-2.0 foreground=ff000000 visible=true enabled=true constraints='wrap'
+component 2: JCheckBox text='Show data points' icon=none tooltip=none selected=false visible=true enabled=true constraints='split, left'
+component 3: JCheckBox text='Show events' icon=none tooltip=none selected=true visible=true enabled=true constraints='split, left'
+component 4: JCheckBox text='Show errors' icon=none tooltip=none selected=true visible=true enabled=true constraints='split, left'
+component 5: JComboBox items=[All Stages | Sustainer | Booster stage(1) | Booster stage(2)] selected=0 visible=true enabled=true constraints='gapleft rel'
+component 6: JButton text='' icon=ZOOM_IN tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 7: JButton text='' icon=ZOOM_RESET tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 8: JButton text='' icon=ZOOM_OUT tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 9: JButton text='Export Image' icon=none tooltip=none visible=true enabled=true constraints='gapleft rel'
+component 10: JButton text='Close' icon=none tooltip=none visible=true enabled=true constraints='gapbefore push, right'
+chart after pack=6,6 1024x768 gap below the chart=20 chart right edge to the panel's=6
+Close's right edge is the chart's=true
+row, left to right: Show data points Show events Show errors JComboBox ZOOM_IN ZOOM_RESET ZOOM_OUT Export Image Close
+gaps between the row's neighbours but Close: 6 6 6 6 6 6 6
+the row's components centred on one line=true
+at open: domainMarkers=15+0 annotations=0 seriesVisible=111111|111 shapes=false x=[-0.5, 72.79671] y0=[-354.5455, 286.48949999999996] y1=[-98.19301347464746, 79.34459000000001]
+Show data points clicked: selected=true pref ShowPlotPoints=true domainMarkers=15+0 annotations=0 seriesVisible=111111|111 shapes=true
+Show data points clicked again: selected=false pref ShowPlotPoints=false domainMarkers=15+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show events clicked: selected=false pref ShowPlotEvents=false domainMarkers=0+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show events clicked again: selected=true pref ShowPlotEvents=true domainMarkers=15+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show errors clicked: selected=false domainMarkers=15+0 annotations=0 seriesVisible=111111|111 shapes=false
+Show errors clicked again: selected=true domainMarkers=15+0 annotations=1 seriesVisible=111111|111 shapes=false
+stage 1 'Sustainer': errors enabled=true domainMarkers=8+0 annotations=1 seriesVisible=100100|100 shapes=false
+stage 2 'Booster stage(1)': errors enabled=false domainMarkers=5+0 annotations=0 seriesVisible=010010|010 shapes=false
+stage 3 'Booster stage(2)': errors enabled=true domainMarkers=6+0 annotations=1 seriesVisible=001001|001 shapes=false
+stage 0 'All Stages': errors enabled=true domainMarkers=15+0 annotations=1 seriesVisible=111111|111 shapes=false
+Show events unchecked, stage 1: domainMarkers=8+0 annotations=1 seriesVisible=100100|100 shapes=false
+Show events unchecked, stage 0: domainMarkers=15+0 annotations=1 seriesVisible=111111|111 shapes=false
+before zoom: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom in: x=[17.8247, 54.4742] y0=[-194.287, 126.231] y1=[-53.8086, 34.9602]
+reset: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom in, Alt: x=[17.8247, 54.4742] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom out: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+zoom out, Alt: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+reset, Alt: x=[-0.500000, 72.7990] y0=[-354.546, 286.489] y1=[-98.1930, 79.3446]
+== remembered size and place
+first, made (not shown): stored size is its size=true a position stored=true
+after setSize(900, 700), setLocation(40, 30): stored size=java.awt.Dimension[width=900,height=700] stored position=java.awt.Point[x=40,y=30] keys=position.info.openrocket.swing.gui.plot.SimulationPlotDialog,size.info.openrocket.swing.gui.plot.SimulationPlotDialog
+next dialog: size=900x700 location=40,30

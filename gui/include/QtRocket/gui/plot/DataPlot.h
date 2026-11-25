@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
+#include <QSize>
 #include <QString>
 #include <QWidget>
 
@@ -32,8 +33,9 @@ class GuiServices;
 /// shows them) on a rocketplot PlotWidget that fills this widget (plotWidget(); objectName "chart",
 /// OpenRocket's field; this widget is "chartPanel"). The areas after plot/ use it through this
 /// class and its subclasses alone, without naming rocketplot (CLAUDE.md, section GUI): the plot
-/// dialog shows it, zooms it (zoomIn(), zoomOut(), resetZoom()), switches its points
-/// (setShowPoints()) and exports it (exportImage()).
+/// dialog (dialogs/plot/PlotDialog) shows it at its preferred size (sizeHint(), ChartPanel's),
+/// zooms it (zoomIn(), zoomOut(), resetZoom()), switches its points and events (setShowPoints(),
+/// setShowEvents()) and exports it (exportImage()).
 ///
 /// What Plot's constructor makes, a subclass gives this class (setTitles(), setAxisLabels(),
 /// addSeries(), setHomeRanges()):
@@ -114,6 +116,9 @@ public:
     static constexpr int    kZeroLineGrey  = 128;
     static constexpr double kZeroLineWidth = 0.5;
     static constexpr double kZeroLineAlpha = 0.8;
+    /// ChartPanel's preferred size, DEFAULT_WIDTH x DEFAULT_HEIGHT (sizeHint()).
+    static constexpr int kPreferredWidth  = 1024;
+    static constexpr int kPreferredHeight = 768;
     /// How far the zoom buttons zoom: ChartPanel's zoomInFactor 0.5 halves the ranges about the
     /// middle of the data area, its zoomOutFactor 2.0 doubles them (PlotWidget::zoom(2.0) and
     /// zoom(0.5)).
@@ -143,6 +148,15 @@ public:
     [[nodiscard]] bool showsPoints() const noexcept { return m_showPoints; }
     /// Marks the points of every series, or no point (Plot.setShowPoints()).
     void setShowPoints(bool show);
+
+    /// Draws the plot's flight events, or removes them (the plot dialog's "Show events"):
+    /// Plot.setShowEvents(), which does nothing; SimulationPlot draws its events (Milestone 7's
+    /// component analysis plot has none).
+    virtual void setShowEvents(bool show);
+
+    /// ChartPanel's preferred size (ChartPanel.DEFAULT_WIDTH x DEFAULT_HEIGHT, which
+    /// SimulationChart keeps): the size the plot dialog's chart opens with (pack()).
+    [[nodiscard]] QSize sizeHint() const override;
 
     /// The plot dialog's zoom buttons (ChartPanel's ZOOM_IN_BOTH, ZOOM_OUT_BOTH and with Alt held
     /// ZOOM_IN_DOMAIN, ZOOM_OUT_DOMAIN): the ranges halved or doubled about their middles, of x

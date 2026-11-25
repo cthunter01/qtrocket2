@@ -72,8 +72,9 @@ class SettingsPreferences;
 ///    SimulationRunner of max(1, hardware_concurrency()) threads polled by a timer of the GUI
 ///    thread), the last plotted configuration
 ///    (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the process) and
-///    the simulation dialogs (GuiServices::simulationDialogs(); until Milestone 4's settings and
-///    plot dialogs replace them, ones that open nothing).
+///    the simulation dialogs (GuiServices::simulationDialogs(): the plot dialog,
+///    SimulationPlotDialog::showPlot() over these services; the settings dialog opens nothing
+///    until Milestone 4's run 3 makes it).
 /// The user's files that could not be loaded and that OpenRocket shows a warning for are kept for
 /// the user (databaseProblems(): the start shows them after its first window).
 ///
@@ -207,7 +208,8 @@ private:
     /// refers to is declared before it too.
     std::unique_ptr<SimulationExecutor> m_simulationExecutor;
     MemoryPlotDefaults                  m_plotDefaults;
-    std::unique_ptr<SimulationDialogs>  m_simulationDialogs;
+    /// Made in the constructor, after the services it refers to (their pointer to it is set then).
+    std::unique_ptr<SimulationDialogs> m_simulationDialogs;
     /// Declared before the services, which refer to it.
     GuiServices::StartupData m_startupData;
     GuiServices              m_services;

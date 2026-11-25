@@ -15,15 +15,24 @@
 #include <vector>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QCoreApplication>
 #include <QDir>
+#include <QEvent>
 #include <QObject>
+#include <QPoint>
+#include <QPointer>
+#include <QPushButton>
 #include <QString>
 #include <QStringList>
+#include <QTest>
 #include <QTextDocument>
 #include <QThread>
+#include <QWidget>
+#include <Qt>
 #include <QtContainerFwd>
 #include <QtCore/qtestsupport_core.h>
+#include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
@@ -34,7 +43,9 @@
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
+#include "QtRocket/gui/plot/SimulationPlot.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MemoryPlotDefaults.h"
@@ -47,6 +58,8 @@
 #include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
+#include "QtRocket/plot/PlotPreferences.h"
+#include "QtRocket/plot/SimulationPlotConfiguration.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -61,6 +74,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "ScriptedUserPrompts.h"
+#include "SimulationRunTestSupport.h"
 #include "TestPaths.h"
 #include "TestTempDir.h"
 #include "unit/DefaultUnitsGuard.h"
@@ -260,6 +274,37 @@ TEST_F(ApplicationContextTest, TheServicesHaveTheSimulationsServices)
     EXPECT_FALSE(executor.isPending(abandoned));
     EXPECT_TRUE(waitUntilIdle(*polling));
     EXPECT_FALSE(abandonedEnded);
+}
+
+TEST_F(ApplicationContextTest, TheSimulationDialogsOpenThePlotDialogOverTheContextsServices)
+{
+    const Gui::Test::ExampleDesign design(Gui::Test::ExampleDesign::kSimpleModelRocket);
+    const ApplicationContext&      context = makeContext();
+    PlotPreferences::setShowEvents(context.preferences(), false);
+    QWidget parent;
+    parent.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&parent));
+    SimulationPlotConfiguration preset =
+        SimulationPlotConfiguration::defaultConfigurations().front();
+    preset.resetUnits();
+
+    // SimulationPlotDialog.getPlot(parent, simulation, configuration).setVisible(true): open and
+    // back at once.
+    context.simulationDialogs().plotSimulation(&parent, design.simulation(0), preset);
+    auto* const dialog = parent.findChild<SimulationPlotDialog*>();
+    ASSERT_NE(dialog, nullptr);
+    const QPointer<SimulationPlotDialog> shown(dialog);
+    dialog->plot().setReadoutHook([](const QPoint& /*position*/, const QString& /*text*/) { });
+    EXPECT_TRUE(dialog->isVisible());
+    EXPECT_EQ(dialog->windowModality(), Qt::WindowModal);
+    EXPECT_EQ(dialog->windowTitle(), QStringLiteral("Simulation 1"));
+    // The context's preferences.
+    EXPECT_FALSE(dialog->showEventsBox().isChecked());
+
+    // Closed, it goes.
+    dialog->closeButton().click();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(shown.isNull());
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)

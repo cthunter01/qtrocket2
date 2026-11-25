@@ -11,6 +11,7 @@
 #include <QPoint>
 #include <QPointF>
 #include <QPointer>
+#include <QSize>
 #include <QString>
 #include <QToolTip>
 #include <QVBoxLayout>
@@ -143,6 +144,16 @@ void DataPlot::setShowPoints(bool show)
             applyPoints(*line, m_shapes[i]);
         }
     }
+}
+
+void DataPlot::setShowEvents(bool /*show*/)
+{
+    // Plot.setShowEvents(): "Default implementation does nothing".
+}
+
+QSize DataPlot::sizeHint() const
+{
+    return {kPreferredWidth, kPreferredHeight};
 }
 
 void DataPlot::zoomIn(bool domainOnly)

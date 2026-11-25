@@ -9,6 +9,7 @@
 #include <QList>
 #include <QPoint>
 #include <QPointF>
+#include <QSize>
 #include <QString>
 #include <QWidget>
 #include <QtTypes>
@@ -164,6 +165,30 @@ TEST_F(DataPlotTest, TheReadoutIsTheSubclassesToolTip)
     EXPECT_EQ(plot.readout(), QStringLiteral("series 1 point 2"));
     ASSERT_EQ(readout.texts->size(), 1U);
     EXPECT_EQ(readout.texts->front(), QStringLiteral("series 1 point 2"));
+}
+
+TEST_F(DataPlotTest, ItsPreferredSizeIsChartPanels)
+{
+    // ChartPanel.DEFAULT_WIDTH x DEFAULT_HEIGHT, SimulationChart's preferred size ("preferred=
+    // 1024x768", tools/openrocket-gui-pins' plot-dialog probe), whatever size it has.
+    const Gui::Test::TestGuiServices services;
+    const TwoLinePlot                plot(services.services());
+    EXPECT_EQ(plot.sizeHint(), QSize(1024, 768));
+    EXPECT_EQ(plot.sizeHint(), QSize(DataPlot::kPreferredWidth, DataPlot::kPreferredHeight));
+    EXPECT_EQ(plot.size(), QSize(600, 400));
+}
+
+TEST_F(DataPlotTest, APlotWithoutEventsDrawsNoneWhenShowEventsIsChanged)
+{
+    // Plot.setShowEvents(): "Default implementation does nothing".
+    const Gui::Test::TestGuiServices services;
+    TwoLinePlot                      plot(services.services());
+    const qsizetype                  annotations = plot.plotWidget().annotations().size();
+    plot.setShowEvents(true);
+    EXPECT_EQ(plot.plotWidget().annotations().size(), annotations);
+    EXPECT_TRUE(Gui::Test::readAnnotations(plot.plotWidget()).events.empty());
+    plot.setShowEvents(false);
+    EXPECT_EQ(plot.plotWidget().annotations().size(), annotations);
 }
 
 TEST_F(DataPlotTest, ASeriesOnAThirdAxisIsABug)
