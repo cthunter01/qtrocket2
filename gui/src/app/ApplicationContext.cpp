@@ -15,6 +15,7 @@
 #include "QtRocket/gui/app/DataPaths.h"
 #include "QtRocket/gui/app/MotorDatabaseMetadataIO.h"
 #include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -71,17 +72,19 @@ template <class ReadFiles>
     return readFiles(defaultDirectory.value_or(std::filesystem::path()));
 }
 
-/// The application's simulation dialogs: the plot dialog (SimulationPlotDialog::showPlot(), over
-/// the context's services); the settings dialog opens nothing until Milestone 4's run 3 makes it.
+/// The application's simulation dialogs over the context's services: the settings dialog
+/// (SimulationConfigDialog::edit(), modal to the window of its parent) and the plot dialog
+/// (SimulationPlotDialog::showPlot()).
 class ApplicationSimulationDialogs final : public SimulationDialogs
 {
 public:
     /// The dialogs asking their questions through @p services, which outlive them.
     explicit ApplicationSimulationDialogs(const GuiServices& services) : m_services(&services) { }
 
-    void editSimulations(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
-                         const EditRequest& /*request*/) override
+    void editSimulations(QWidget* parent, OpenRocketDocument& document,
+                         const EditRequest& request) override
     {
+        SimulationConfigDialog::edit(parent, *m_services, document, request);
     }
 
     void plotSimulation(QWidget* parent, std::shared_ptr<Simulation> simulation,
@@ -109,12 +112,20 @@ private:
 
 ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> preferences,
                                        DataPaths dataPaths, std::unique_ptr<UserPrompts> prompts)
+  : ApplicationContext(std::move(preferences), std::move(dataPaths), std::move(prompts),
+                       std::make_unique<PollingSimulationExecutor>())
+{
+}
+
+ApplicationContext::ApplicationContext(std::unique_ptr<SettingsPreferences> preferences,
+                                       DataPaths dataPaths, std::unique_ptr<UserPrompts> prompts,
+                                       std::unique_ptr<SimulationExecutor> simulationExecutor)
   : m_preferences(nonNull(std::move(preferences))),
     m_dataPaths(std::move(dataPaths)),
     m_prompts(nonNull(std::move(prompts))),
     m_motorFinder(m_motors),
     m_extensions(SimulationExtensionRegistry::bundled()),
-    m_simulationExecutor(std::make_unique<PollingSimulationExecutor>()),
+    m_simulationExecutor(nonNull(std::move(simulationExecutor))),
     m_services(*m_preferences, m_materials, m_motors, m_presets, m_loadingContext, *m_prompts)
 {
     // SwingStartup.runInEDT(): the default units before any window.

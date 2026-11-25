@@ -601,9 +601,11 @@ public:
         /// the GUI thread once, after their seeds are drawn and before their runs are prepared,
         /// with the request's simulations (the critic's G4, O-M4-16: a background run and a run
         /// of the batch of the same simulation would both be adopted, the later one winning). May
-        /// be empty: nothing is cancelled then. The window that asks for the run fills it (run
-        /// 3: the Simulations tab's Run and the settings dialog's OK, from the window's
-        /// RocketPanel: rocketPanel.backgroundSimulation().cancelFor(simulations)).
+        /// be empty: nothing is cancelled then. The window that asks for the run fills it: the
+        /// Simulations tab (SimulationPanel::BackgroundRuns::cancel, for its Run, the status
+        /// click, the auto-run and Plot / Export) and the settings dialog's OK (its
+        /// EditRequest::cancelBackgroundRuns, the tab's), both MainWindow::cancelBackgroundRuns():
+        /// rocketPanel.backgroundSimulation().cancelFor(simulations).
         std::function<void(std::span<const std::shared_ptr<Simulation>> simulations)>
             cancelBackgroundRuns;
     };

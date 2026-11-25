@@ -51,6 +51,8 @@
 #include "QtRocket/gui/dialogs/DefaultUnitSelector.h"  // IWYU pragma: keep
 #include "QtRocket/gui/dialogs/PreferencesDialog.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
@@ -382,6 +384,94 @@ TEST_F(SimulationsWindowTest, ChoosingTheTabRunsTheOutdatedSimulationsWhenThePre
     EXPECT_EQ(run.window, &window);
     EXPECT_EQ(run.document, &window.document());
     EXPECT_EQ(run.executor, &services().executor());
+}
+
+// =================================================================== the design view's estimate
+
+/// The design view's estimate of the flight of @p window.
+[[nodiscard]] BackgroundSimulation& estimateOf(const MainWindow& window)
+{
+    const RocketPanel* const panel = window.componentRocketPanel();
+    QTROCKET_ASSERT(panel != nullptr);
+    return panel->backgroundSimulation();
+}
+
+/// The run dialog and the settings dialog as far as the window's estimate sees them: each notes
+/// "run" or "edit", then the window's pauses and whether the estimate is paused while it is open
+/// ("pauses=1 paused"), and whether its request takes its simulations out of the estimate's hands
+/// (" cancels"). The settings dialog pauses the estimate as it opens and resumes it as it closes,
+/// as the application's does (SimulationConfigDialog); the run dialog runs nothing.
+struct NoteTheEstimate
+{
+    const MainWindow*         window;
+    std::vector<std::string>* seen;
+
+    [[nodiscard]] std::string state() const
+    {
+        return "pauses=" + std::to_string(window->backgroundRunPauses()) +
+               (estimateOf(*window).isPaused() ? " paused" : " running");
+    }
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
+    {
+        seen->push_back("run " + state() + (request.cancelBackgroundRuns ? " cancels" : ""));
+        return {.cancelled = false, .allSuccessful = true};
+    }
+
+    void operator()(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                    const SimulationDialogs::EditRequest& request) const
+    {
+        if (!request.pauseBackgroundRuns)
+        {
+            seen->emplace_back("edit without a pause");
+            return;
+        }
+        request.pauseBackgroundRuns(true);
+        seen->push_back("edit " + state() + (request.cancelBackgroundRuns ? " cancels" : ""));
+        request.pauseBackgroundRuns(false);
+    }
+};
+
+TEST_F(SimulationsWindowTest, TheDesignViewEstimatesOnTheServicesExecutorAndKnowsTheTab)
+{
+    // WindowManager gives the design view the services' executor (its jobs the window's), and
+    // the window tells it whether the Flight simulations tab is the current one (Java's
+    // RocketPanel asks BasicFrame.getSelectedTab() at each updateExtras()).
+    MainWindow* const shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    MainWindow&                 window   = *shown;
+    const BackgroundSimulation& estimate = estimateOf(window);
+    EXPECT_EQ(estimate.executor(), &services().executor());
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    showTab(window, MainWindow::kSimulationTab);
+    EXPECT_TRUE(estimate.isSimulationsTabSelected());
+    showTab(window, MainWindow::kFlightConfigurationTab);
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    // A New design's window too.
+    const MainWindow& other = manager().newDesign();
+    EXPECT_EQ(estimateOf(other).executor(), &services().executor());
+}
+
+TEST_F(SimulationsWindowTest, TheTabsDialogsPauseTheWindowsEstimateWhileOpen)
+{
+    // O-M4-16: the tab hands the window's pause and cancel to the run dialog it opens and to the
+    // settings dialog; once they have closed, the estimate runs again.
+    const MainWindow* const shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    const MainWindow&        window = *shown;
+    std::vector<std::string> seen;
+    const NoteTheEstimate    note{.window = &window, .seen = &seen};
+    services().simulationDialogs().whileEditing(note);
+    SimulationPanel& tab = simulationsOf(window);
+    tab.table().selectSimulations({rowOf(window, 0)});
+    prompts().answerRunSimulationsWith(note);
+    tab.runSimulation();
+    tab.editSimulation();
+    EXPECT_EQ(seen, (std::vector<std::string>{"run pauses=1 paused cancels",
+                                              "edit pauses=1 paused cancels"}));
+    EXPECT_EQ(window.backgroundRunPauses(), 0);
+    EXPECT_FALSE(estimateOf(window).isPaused());
 }
 
 // ============================================================================ the selection

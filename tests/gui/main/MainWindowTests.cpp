@@ -34,6 +34,8 @@
 #include "ManualSimulationExecutor.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
@@ -467,6 +469,50 @@ TEST_F(MainWindowTest, AbandonsTheJobsOfItsSimulationsAsItGoes)
     EXPECT_TRUE(executor.isPending(other));
     EXPECT_EQ(executor.runAll(), 1U);
     EXPECT_EQ(finished, std::vector<std::string>{"other"});
+}
+
+TEST_F(MainWindowTest, TellsTheDesignViewsEstimateTheCurrentTabAndItsPauses)
+{
+    // The estimate of the flight of a RocketPanel below the tabs: whether the Flight simulations
+    // tab is the current one (Java's RocketPanel asks BasicFrame.getSelectedTab() at each
+    // updateExtras()), and paused while a pause of the window lasts (O-M4-16), counted. A pause
+    // that began before the panel came holds it as it comes.
+    window().pauseBackgroundRuns(true);
+    window().selectTab(MainWindow::kSimulationTab);
+    auto* const panel = makeChild<RocketPanel>(&window(), document(), services().preferences());
+    window().setRocketPanel(panel);
+    ASSERT_EQ(window().componentRocketPanel(), panel);
+    const BackgroundSimulation& estimate = panel->backgroundSimulation();
+    EXPECT_TRUE(estimate.isSimulationsTabSelected());
+    EXPECT_TRUE(estimate.isPaused());
+    // The settings dialog's OK runs while the dialog is open: a pause within a pause.
+    window().pauseBackgroundRuns(true);
+    EXPECT_EQ(window().backgroundRunPauses(), 2);
+    window().pauseBackgroundRuns(false);
+    EXPECT_TRUE(estimate.isPaused());
+    window().pauseBackgroundRuns(false);
+    EXPECT_EQ(window().backgroundRunPauses(), 0);
+    EXPECT_FALSE(estimate.isPaused());
+    EXPECT_THROW(window().pauseBackgroundRuns(false), BugError);
+    EXPECT_EQ(window().backgroundRunPauses(), 0);
+    // Each change of the current tab.
+    window().selectTab(MainWindow::kDesignTab);
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    window().selectTab(MainWindow::kFlightConfigurationTab);
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    window().selectTab(MainWindow::kSimulationTab);
+    EXPECT_TRUE(estimate.isSimulationsTabSelected());
+}
+
+TEST_F(MainWindowTest, PausesAndCancelsNothingWithoutADesignView)
+{
+    // A placeholder below the tabs: the pauses are counted, nothing is cancelled.
+    EXPECT_EQ(window().componentRocketPanel(), nullptr);
+    window().pauseBackgroundRuns(true);
+    EXPECT_EQ(window().backgroundRunPauses(), 1);
+    window().cancelBackgroundRuns({});
+    window().pauseBackgroundRuns(false);
+    EXPECT_EQ(window().backgroundRunPauses(), 0);
 }
 
 TEST_F(MainWindowTest, HasNoComponentFlightConfigurationPanelOfItsOwn)

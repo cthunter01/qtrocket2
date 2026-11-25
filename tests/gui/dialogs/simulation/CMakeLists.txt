@@ -10,6 +10,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     RandomSeedControlsTests.cpp
     RecoveryWarningsPanelTests.cpp
     SimulationConditionsPanelTests.cpp
+    SimulationConfigDialogTests.cpp
     SimulationDialogWalk.cpp
     SimulationExtensionListTests.cpp
     SimulationOptionsPanelTests.cpp

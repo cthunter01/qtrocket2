@@ -578,6 +578,8 @@ public:
                        : static_cast<UserPrompts&>(m_prompts))
     {
         addBuiltinMaterials(m_materials);
+        // No window runs a simulation on its own (GuiTestSupport.h, O-M4-12): the design view's
+        // estimate stays off, also once the services have an executor.
         m_environment.preferences().putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
         m_services.setSimulationExecutor(&m_executor);
     }
