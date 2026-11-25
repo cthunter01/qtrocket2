@@ -91,12 +91,15 @@ class WindowGeometry;
 ///   default one (Java: setDisposableDialogOptions(this, null)): Return clicks none.
 ///
 /// What it does:
-/// - When it is made: the window's background estimate is paused (EditRequest::
-///   pauseBackgroundRuns), the document gets the undo position "Edit <name>" (one simulation) or
+/// - When it is made: the document gets the undo position "Edit <name>" (one simulation) or
 ///   "Edit simulations" (Java's literals, translatable here), and from then on the first change of
 ///   the first simulation (Simulation::changed(): a name, a configuration, an option, a plot
 ///   appearance, a run's result) marks the dialog modified (isModified()) and puts "* " before the
-///   title, once. The panels edit the first simulation's options live, as Java's models.
+///   title, once. The panels edit the first simulation's options live, as Java's models. Last,
+///   once the dialog is complete, the window's background estimate is paused
+///   (EditRequest::pauseBackgroundRuns): a dialog whose making fails (a BugError) leaves no pause
+///   behind, and nothing can be adopted before then (an adoption comes from the executor's poll,
+///   in a later turn of the event loop).
 /// - OK (ok(), the OK button): the fields' pending edits committed (BindingScope::commitAll()),
 ///   SimulationOptionsPanel::prepareForSimulation(), in a multi-simulation edit the first
 ///   simulation's conditions and extensions copied to the others (the options'
@@ -125,7 +128,10 @@ class WindowGeometry;
 /// - The size and the place are remembered (WindowGeometry under kGeometryName; Java:
 ///   GUIUtil.rememberWindowPosition() and rememberWindowSize() by the class); without a
 ///   remembered size the dialog takes its contents' (Java: pack()); both are capped to the
-///   available area of its screen less kScreenMargin pixels (capDialogToScreenBounds()).
+///   available area of its screen less kScreenMargin pixels (capDialogToScreenBounds()). Without
+///   a remembered place the dialog is centred over its parent, as Java's: its
+///   GUIUtil.setDisposableDialogOptions()' setLocationRelativeTo(getOwner()) comes after, and
+///   cancels, the constructor's setLocationByPlatform(true).
 ///
 /// Lifetime: the dialog holds the simulations by their std::shared_ptr; the panels' bindings
 /// and object selections are kept by the dialog's BindingScope, released as the dialog closes.
@@ -151,8 +157,6 @@ class WindowGeometry;
 /// - Plot after a run that left the simulation without data does nothing (Java's plot dialog
 ///   would fail on the missing data); the dialog stays open.
 /// - The background estimate's pause (EditRequest::pauseBackgroundRuns) is an addition (O-M4-16).
-/// - Without a remembered place the platform places the dialog (Qt centres it over its parent;
-///   Java: setLocationByPlatform()).
 class SimulationConfigDialog final : public QDialog
 {
     Q_OBJECT
@@ -177,8 +181,8 @@ public:
 
     /// The dialog over @p document's simulations of @p request (at least one, none null), opening
     /// on the request's tab, asking its questions and running through @p services; @p parent is
-    /// the design window (or null). Not shown yet. Pauses the background estimate and adds the
-    /// undo position (see the class comment).
+    /// the design window (or null). Not shown yet. Adds the undo position and, once complete,
+    /// pauses the background estimate (see the class comment).
     /// @throws BugError when the request has no simulation or a null one
     SimulationConfigDialog(const GuiServices& services, OpenRocketDocument& document,
                            const SimulationDialogs::EditRequest& request,

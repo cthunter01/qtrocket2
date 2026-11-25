@@ -69,6 +69,7 @@
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/CsvOptionValues.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -82,6 +83,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "RecordingGuardHook.h"
 #include "RecordingSimulationDialogs.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
@@ -506,6 +508,44 @@ TEST_F(SimulationsWindowTest, TheTabsDialogsPauseTheWindowsEstimateWhileOpen)
     tab.editSimulation();
     EXPECT_EQ(seen, (std::vector<std::string>{"run pauses=1 paused cancels",
                                               "edit pauses=1 paused cancels"}));
+    EXPECT_EQ(window.backgroundRunPauses(), 0);
+    EXPECT_FALSE(estimateOf(window).isPaused());
+}
+
+/// The run dialog failing on a programming error, as SimulationRunDialog::run() does while the
+/// executor is handing over: notes the window's pauses while it is open (NoteTheEstimate's
+/// state()), then raises a BugError.
+struct FailOnABug
+{
+    NoteTheEstimate note;
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& /*request*/) const
+    {
+        note.seen->push_back("run " + note.state());
+        bug("The test's run dialog fails");
+    }
+};
+
+TEST_F(SimulationsWindowTest, ARunDialogThatFailsOnABugStillEndsItsPauseOfTheEstimate)
+{
+    // A BugError out of the run dialog (Guard reports it, the application goes on) ends the tab's
+    // pause of the window's estimate all the same: the estimate is not paused for good.
+    const Gui::Test::RecordingGuardHook guardHook;
+    const MainWindow* const             shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    const MainWindow&        window = *shown;
+    std::vector<std::string> seen;
+    const SimulationPanel&   tab = simulationsOf(window);
+    tab.table().selectSimulations({rowOf(window, 0)});
+    prompts().answerRunSimulationsWith(
+        FailOnABug{.note = NoteTheEstimate{.window = &window, .seen = &seen}});
+    tab.runSimulationAction()->trigger();
+    EXPECT_EQ(seen, std::vector<std::string>{"run pauses=1 paused"});
+    ASSERT_EQ(guardHook.failures().size(), 1U);
+    EXPECT_EQ(guardHook.failures().front().kind, Guard::Failure::Kind::BUG);
+    EXPECT_TRUE(guardHook.failures().front().message.contains(
+        QStringLiteral("The test's run dialog fails")));
     EXPECT_EQ(window.backgroundRunPauses(), 0);
     EXPECT_FALSE(estimateOf(window).isPaused());
 }

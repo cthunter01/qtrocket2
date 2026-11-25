@@ -165,9 +165,10 @@ class SimulationTableView;
 /// hands it what does that (setBackgroundRuns(): MainWindow::pauseBackgroundRuns() and
 /// cancelBackgroundRuns(), which the WindowManager connects): the panel pauses the estimate around
 /// each run dialog it opens (Run, the status click, the auto-run, Plot / Export of a simulation
-/// without data) and gives every run's request the cancel (RunSimulationsRequest::
-/// cancelBackgroundRuns), and it gives the settings dialog both (EditRequest::pauseBackgroundRuns,
-/// which the dialog calls while it is open, and cancelBackgroundRuns, for the run of its OK).
+/// without data; the pause ends also when a BugError leaves the run dialog) and gives every run's
+/// request the cancel (RunSimulationsRequest::cancelBackgroundRuns), and it gives the settings
+/// dialog both (EditRequest::pauseBackgroundRuns, which the dialog calls while it is open, and
+/// cancelBackgroundRuns, for the run of its OK).
 /// Without them (a panel of no window) nothing is paused or cancelled.
 ///
 /// The panel keeps no simulation across a document change but the ones a running operation holds

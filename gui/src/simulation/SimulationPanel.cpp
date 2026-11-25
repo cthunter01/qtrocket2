@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QStackedWidget>
 #include <QString>
 #include <QStringList>
@@ -771,7 +772,18 @@ bool SimulationPanel::runSimulations(std::vector<std::shared_ptr<Simulation>> si
     {
         runs.pause(true);
     }
+    // The pause ends however the run dialog ends: a BugError out of it (Guard reports it, the
+    // application goes on) would otherwise keep the window's estimate paused for good. The guard
+    // is for that unwinding only (its destructor is noexcept): the normal end resumes below,
+    // where a BugError of the hook still reaches Guard.
+    auto resumeOnUnwinding = qScopeGuard([&runs] {
+        if (runs.pause)
+        {
+            runs.pause(false);
+        }
+    });
     static_cast<void>(m_services.prompts().runSimulations(this, request));
+    resumeOnUnwinding.dismiss();
     if (runs.pause)
     {
         runs.pause(false);

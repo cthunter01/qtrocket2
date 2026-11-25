@@ -179,14 +179,6 @@ SimulationConfigDialog::SimulationConfigDialog(const GuiServices&               
     // DOCUMENT_MODAL: modal to the design window.
     setWindowModality(Qt::WindowModal);
 
-    // The window's background estimate neither starts nor is adopted while the dialog is open
-    // (O-M4-16): its adoption would be one of the dialog's changes, and Cancel's undo would undo
-    // it.
-    if (m_pauseBackgroundRuns)
-    {
-        m_pauseBackgroundRuns(true);
-    }
-
     Simulation& first = *m_simulations.front();
     if (m_simulations.size() == 1)
     {
@@ -226,6 +218,16 @@ SimulationConfigDialog::SimulationConfigDialog(const GuiServices&               
     updateButtons(m_tabs->currentIndex());
 
     sizeAndPlace();
+
+    // The window's background estimate neither starts nor is adopted while the dialog is open
+    // (O-M4-16): its adoption would be one of the dialog's changes, and Cancel's undo would undo
+    // it. Paused last: a making that fails (a BugError of a panel) leaves no pause that nothing
+    // would end, and no adoption can come before (only the executor's poll, in a later turn of
+    // the event loop, adopts).
+    if (m_pauseBackgroundRuns)
+    {
+        m_pauseBackgroundRuns(true);
+    }
 }
 
 SimulationConfigDialog::~SimulationConfigDialog()

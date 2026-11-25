@@ -45,6 +45,7 @@
 
 #include <gtest/gtest.h>
 
+#include "ForwardingUserPrompts.h"
 #include "GuiTestSupport.h"
 #include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
@@ -61,6 +62,7 @@
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/ColorConversion.h"
 #include "QtRocket/gui/util/FileNames.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
@@ -671,9 +673,16 @@ TEST_F(SimulationConfigDialogTest, PlotWithoutAPlotTabCloses)
     const auto simulation = std::make_shared<Simulation>(document.get(), document->getRocket());
     SimulationConfigDialog dialog(services.services(), *document,
                                   editRequest({simulation}, Tab::PLOT_DATA));
-    // The new rocket has no motors: it cannot run, and nothing is asked.
+    // The new rocket has no motors: its simulation cannot run (CANT_RUN), which is not up to date,
+    // so OK first hands it to the run dialog, as Java's getOutdatedSimulations() does, and then
+    // closes (Java: plotTab == null).
+    ASSERT_EQ(simulation->getStatus(), Status::CANT_RUN);
     services.prompts().answerRunSimulations({.cancelled = false, .allSuccessful = false});
     dialog.ok();
+    EXPECT_EQ(promptKinds(services.prompts()), std::vector<std::string>{"RUN_SIMULATIONS"});
+    ASSERT_EQ(services.prompts().runSimulationsQuestions().size(), 1U);
+    EXPECT_EQ(services.prompts().runSimulationsQuestions().front().simulationNames,
+              QStringList{QtStrings::fromUtf8(simulation->getName())});
     EXPECT_TRUE(dialog.isClosed());
     EXPECT_TRUE(services.simulationDialogs().requests().empty());
 }
@@ -746,8 +755,13 @@ TEST_F(SimulationConfigDialogTest, ExportWithoutAnExportTabCloses)
     const auto simulation = std::make_shared<Simulation>(document.get(), document->getRocket());
     SimulationConfigDialog dialog(services.services(), *document,
                                   editRequest({simulation}, Tab::EXPORT_DATA));
+    // The run of the simulation that cannot run (CANT_RUN, not up to date) comes first, then the
+    // dialog closes (Java: exportTab == null).
+    ASSERT_EQ(simulation->getStatus(), Status::CANT_RUN);
     services.prompts().answerRunSimulations({.cancelled = false, .allSuccessful = false});
     dialog.ok();
+    EXPECT_EQ(promptKinds(services.prompts()), std::vector<std::string>{"RUN_SIMULATIONS"});
+    EXPECT_EQ(services.prompts().runSimulationsQuestions().size(), 1U);
     EXPECT_TRUE(dialog.isClosed());
     EXPECT_EQ(dialog.result(), QDialog::Accepted);
     EXPECT_TRUE(services.prompts().saveFileRequests().empty());
@@ -1061,6 +1075,145 @@ TEST_F(SimulationConfigDialogTest, TheOpenDialogGoesWithItsWindow)
     EXPECT_TRUE(answer.acted());
     EXPECT_EQ(window, nullptr);
     EXPECT_EQ(calls.pauses, std::vector<bool>{true});
+}
+
+/// OK's run dialog, during which the window goes (and the settings dialog, its child, with it):
+/// the run counts as cancelled.
+struct CloseTheWindowDuringTheRun
+{
+    std::unique_ptr<QWidget>* window;
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& /*request*/) const
+    {
+        window->reset();
+        return {.cancelled = true, .allSuccessful = false};
+    }
+};
+
+/// The test's prompts, which close the window (and the settings dialog, its child, with it) while
+/// the discard question is asked, after the script's answer.
+class CloseTheWindowDuringTheDiscardQuestion final : public Gui::Test::ForwardingUserPrompts
+{
+public:
+    CloseTheWindowDuringTheDiscardQuestion(UserPrompts& delegate, std::unique_ptr<QWidget>& window)
+      : ForwardingUserPrompts(delegate), m_window(&window)
+    {
+    }
+
+    [[nodiscard]] DiscardAnswer askDiscardChanges(QWidget*        parent,
+                                                  DiscardQuestion question) override
+    {
+        const DiscardAnswer answer = delegate().askDiscardChanges(parent, question);
+        m_window->reset();
+        return answer;
+    }
+
+private:
+    std::unique_ptr<QWidget>* m_window;
+};
+
+/// Edits the launch rod length of the settings dialog @p dialog (150 cm), then clicks @p button
+/// (OK or Cancel) of it, which may destroy the dialog.
+struct EditThenClick
+{
+    enum class Button
+    {
+        OK,
+        CANCEL,
+    };
+
+    Button button;
+
+    void operator()(QWidget& dialog) const
+    {
+        auto* const settings = qobject_cast<SimulationConfigDialog*>(&dialog);
+        ASSERT_NE(settings, nullptr);
+        typeRodLength(*settings, "150");
+        ASSERT_TRUE(settings->isModified());
+        (button == Button::OK ? settings->okButton() : settings->cancelButton()).click();
+    }
+};
+
+TEST_F(SimulationConfigDialogTest, TheDialogGoingWithItsWindowDuringOksRunEndsItsOk)
+{
+    // The window goes while OK's run dialog is open: OK reads nothing of the destroyed dialog
+    // afterwards (no plot, no close of its own), edit() returns, and the estimate is not resumed
+    // (the window's design view went with it). The edit stays: nothing undoes it.
+    Gui::Test::TestGuiServices services;
+    const ExampleDesign        design(ExampleDesign::kSimpleModelRocket);
+    auto                       window = std::make_unique<QWidget>();
+    window->show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(window.get()));
+    HookCalls calls;
+    services.prompts().answerRunSimulationsWith(CloseTheWindowDuringTheRun{&window});
+    const Gui::Test::NextModalDialog answer(EditThenClick{EditThenClick::Button::OK});
+    SimulationConfigDialog::edit(window.get(), services.services(), design.document(),
+                                 hookedRequest(design.simulation(0), calls));
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(window, nullptr);
+    EXPECT_EQ(promptKinds(services.prompts()), std::vector<std::string>{"RUN_SIMULATIONS"});
+    EXPECT_EQ(calls.pauses, std::vector<bool>{true});
+    EXPECT_DOUBLE_EQ(design.simulation(0)->getOptions().getLaunchRodLength(), 1.5);
+    EXPECT_TRUE(services.simulationDialogs().requests().empty());
+}
+
+TEST_F(SimulationConfigDialogTest, TheDialogGoingWithItsWindowDuringTheDiscardQuestionEndsCancel)
+{
+    // The window goes while Cancel's discard question is open: Cancel reads nothing of the
+    // destroyed dialog afterwards (no discard, no undo), edit() returns, and the estimate is not
+    // resumed. "Don't ask me again" is kept whatever happened (Java turns it off with the answer).
+    Gui::Test::TestGuiServices services;
+    const ExampleDesign        design(ExampleDesign::kSimpleModelRocket);
+    auto                       window = std::make_unique<QWidget>();
+    window->show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(window.get()));
+    CloseTheWindowDuringTheDiscardQuestion prompts(services.prompts(), window);
+    const GuiServices                      closing = services.services().withPrompts(prompts);
+    HookCalls                              calls;
+    services.prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = true});
+    const Gui::Test::NextModalDialog answer(EditThenClick{EditThenClick::Button::CANCEL});
+    SimulationConfigDialog::edit(window.get(), closing, design.document(),
+                                 hookedRequest(design.simulation(0), calls));
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(window, nullptr);
+    EXPECT_EQ(promptKinds(services.prompts()), std::vector<std::string>{"DISCARD_CHANGES"});
+    EXPECT_EQ(calls.pauses, std::vector<bool>{true});
+    EXPECT_DOUBLE_EQ(design.simulation(0)->getOptions().getLaunchRodLength(), 1.5);
+    EXPECT_FALSE(services.preferences().isShowDiscardSimulationConfirmation());
+}
+
+/// What the window's estimate sees of the dialog when the dialog pauses it: the number of tabs
+/// of the settings dialog under @p window, or -1 while the dialog has none yet.
+struct NoteTheDialogAtThePause
+{
+    const QWidget*    window;
+    std::vector<int>* tabCounts;
+
+    void operator()(bool paused) const
+    {
+        if (!paused)
+        {
+            return;
+        }
+        const auto* const tabs = window->findChild<QTabWidget*>(QStringLiteral("tabbedPane"));
+        tabCounts->push_back(tabs == nullptr ? -1 : tabs->count());
+    }
+};
+
+TEST_F(SimulationConfigDialogTest, PausesTheEstimateOnlyOnceItIsComplete)
+{
+    // The estimate is paused last, once the dialog is complete (its panels made, its tabs
+    // there): a BugError of a panel while the dialog is made then leaves no pause behind that
+    // nothing would end (the hook is called with false only after a close).
+    Session                        session;
+    std::vector<int>               tabCounts;
+    SimulationDialogs::EditRequest request = editRequest({session.simulation(0)});
+    request.pauseBackgroundRuns =
+        NoteTheDialogAtThePause{.window = &session.window(), .tabCounts = &tabCounts};
+    const SimulationConfigDialog& dialog = session.open(request);
+    EXPECT_EQ(tabCounts, std::vector<int>{5});
+    EXPECT_FALSE(dialog.isClosed());
 }
 
 // ---------------------------------------------------------------------------- the geometry

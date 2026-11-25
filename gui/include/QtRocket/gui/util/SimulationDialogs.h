@@ -67,10 +67,10 @@ public:
             cancelBackgroundRuns;
         /// What pauses the window's background estimate while the dialog is open
         /// (figure/BackgroundSimulation::setPaused(), O-M4-16: no estimate starts or is adopted
-        /// while a simulation dialog of the window is open): the dialog calls it with true when it
-        /// is made, before its undo position, and with false once when it has closed (after the
-        /// undo of a Cancel), never when it is destroyed open with its window. Filled by the
-        /// opener; may be empty.
+        /// while a simulation dialog of the window is open): the dialog calls it with true as the
+        /// last step of its making (after its undo position; never when its making fails), and
+        /// with false once when it has closed (after the undo of a Cancel), never when it is
+        /// destroyed open with its window. Filled by the opener; may be empty.
         std::function<void(bool paused)> pauseBackgroundRuns;
     };
 
