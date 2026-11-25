@@ -13,9 +13,13 @@ Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_co
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
 OpenRocket's unit tests. Milestone 2 adds the graphical program `QtRocket` (Qt 6 Widgets), which designs rockets
-as OpenRocket's Design tab does, and Milestone 3 its "Motors & Configuration" tab, the motor chooser with its
-thrust curve plots, and the component presets with the parts library; simulations, appearance and the 3D views
-come later ([The GUI](#the-gui)).
+as OpenRocket's Design tab does, Milestone 3 its "Motors & Configuration" tab, the motor chooser with its thrust
+curve plots, and the component presets with the parts library, and Milestone 4 its "Flight simulations" tab: the
+simulations' settings, running them with progress and cancel, the design view's flight estimate, the plots of
+their flight data and its CSV export; appearance, the 3D views and the analysis tools come later
+([The GUI](#the-gui)).
+
+<a id="requirements"></a>
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -76,18 +80,21 @@ Each workflow preset (`dev`, `dev-msvc`, `ci-gcc`, `ci-clang`, `ci-msvc`, `asan`
 configures, builds and tests in one command, and the `dist-*` ones also package. Separate steps:
 `cmake --preset <p>`, `cmake --build --preset <p>`, `ctest --preset <p>`.
 
-CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, `asan`, and `tidy` in two jobs,
-the workflows `tidy-core` and `tidy-gui`, which build and test the core's and the GUI's halves), macOS
-(`ci-clang`) and Windows (`ci-msvc`), with the GUI: against the newest Qt on Linux (Arch Linux's packages) and Qt
-6.8.3, the oldest Qt supported, on macOS and Windows.
+CI (GitHub Actions) builds and tests on all three in seven jobs: Linux (`ci-gcc`, `ci-clang`, `asan`, and `tidy`
+in two jobs, the workflows `tidy-core` and `tidy-gui`, which build and test the core's and the GUI's halves),
+macOS (`ci-clang`) and Windows (`ci-msvc`), with the GUI: against the newest Qt on Linux (Arch Linux's packages)
+and Qt 6.8.3, the oldest Qt supported, on macOS and Windows. An eighth job checks the formatting (clang-format).
+The `tsan` preset runs in no CI job: it is run locally after a change to the simulations or their threads.
 
 API docs: `cmake --build --preset clang-debug --target docs`, then open `build/clang-debug/docs/html/index.html`.
 
+<a id="the-gui"></a>
+
 ## The GUI
 `QtRocket` is the graphical program. It follows OpenRocket's GUI: its windows, dialogs, texts and rules.
-Milestones 2 and 3 give it what OpenRocket's "Rocket design" and "Motors & Configuration" tabs offer but
-simulations, appearance and the 3D views ([docs/gui-differences.md](docs/gui-differences.md) lists what comes
-later):
+Milestones 2 to 4 give it what OpenRocket's "Rocket design", "Motors & Configuration" and "Flight simulations"
+tabs offer but appearance, the 3D views and the analysis tools (Monte Carlo, component analysis, optimization)
+([docs/gui-differences.md](docs/gui-differences.md) lists what comes later):
 
 - A window per design: the component tree beside the buttons that add components, and below them the design view,
   the rocket from the side, the top or the back, with zoom, rotation, rulers, the CG and CP, the stage and flight
@@ -105,12 +112,29 @@ later):
 - The motor chooser: OpenRocket's motor database and the user's own thrust curve files, searched by text and
   filtered by manufacturer, impulse class, diameter and length (also the mount's), the thrust curve, delay and
   details of each motor, and the plot of its thrust curves (zoom, pan, export to PNG, JPEG, SVG, PDF or CSV).
+- The "Flight simulations" tab: the design's simulations in a table (status, warnings and the key figures of
+  each flight, sorted by any column, with a choice of columns kept in the design), New, Edit, Run, Delete and
+  Plot / Export, cut, copy (also as text on the system clipboard), paste and duplicate, and the table's export
+  to a CSV file.
+- The settings of a simulation: the launch conditions (the launch site and rod, the atmosphere, the average
+  wind or a wind profile of several altitudes, edited in a table beside its plot or imported from a CSV file),
+  the simulation options (time step, geodetic calculations, gravity, random seed, aerodynamic lookup tables,
+  the list of the simulation's extensions) and the thresholds of the recovery warnings.
+- Runs: the simulations run on as many threads as the processor offers, with the run dialog's progress and
+  Cancel (a cancelled simulation keeps its earlier results). The design view shows the flight estimate of the
+  selected flight configuration (apogee, maximum velocity and acceleration), run in the background whenever
+  the design changes.
+- Plots: OpenRocket's nine preset plots of a simulation's flight data, or the quantities chosen, on two y axes,
+  with the flight events and the stages (zoom, pan, image export); the export of the flight data to a CSV
+  file.
 - Edit: undo and redo, cut, copy, paste, duplicate, delete, move up and down, dragging components in the tree
   (also from one window to another), hiding and showing components, and disabling and enabling stages.
 - File: New, Open (the `.ork` files `QtRocket_cli` reads), Open recent, Open example (OpenRocket's 16 example
-  designs), Save, Save as (with the design information), Properties, Close design and Quit.
-- Preferences: the units, the design options, the user's thrust curve and component preset files, "Open last
-  design file on startup" and the automatic Parts Library.
+  designs), Save, Save as (with the design information), Properties, Export simulation table as CSV file,
+  Close design and Quit.
+- Preferences: the units, the design options, the defaults of new simulations (their options, launch
+  conditions and warning thresholds), the user's thrust curve and component preset files, "Open last design
+  file on startup" and the automatic Parts Library.
 
 `QtRocket [file...]` opens the design files it is given, each in a window of its own; without one it opens the most
 recent design when the preference "Open last design file on startup" is set, and a New design otherwise. On macOS,
@@ -247,15 +271,26 @@ uses the standard directories (`cmake --install build/<preset> --prefix <dir>`).
 The core's tests are in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
 `QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). The GUI's tests are in
 `QtRocket_gui_tests` (GoogleTest with QtTest's helpers, `tests/gui/<area>/`); they run on Qt's offscreen platform,
-so no window appears. Two exit suites check the GUI as a whole against OpenRocket (`tests/gui/exit/`):
+so no window appears. Three exit suites check the GUI as a whole against OpenRocket (`tests/gui/exit/`):
 `FromScratchExitGolden` designs a rocket from scratch through the GUI alone (the add buttons, the dialogs' fields,
 undo, copy and paste, Save as), then compares every step and the saved file with what OpenRocket's own GUI code did
-with the same steps (`tools/openrocket-gui-reference/`); `OpenDesignsExitGolden` opens OpenRocket's 16 examples,
-the 49 re-saves of its golden harness and that reference design in QtRocket's windows and compares the tree, the
-dialogs' fields, the figure and the information overlay with OpenRocket's golden data.
-<!-- RUN 3 MERGE: name group X's FlightConfigurationsExitGolden here, and what group Y adds to
-OpenDesignsExitGolden (the tab's tables, the presets); then remove this comment. -->
-The lint tests
+with the same steps (`tools/openrocket-gui-reference/`); `FlightConfigurationsExitGolden` does the same in the
+"Motors & Configuration" tab, with two designs (that reference design and a two-stage example): the tab's
+buttons and tables, the ignition, deployment and separation dialogs, the motor chooser, renames, undo and redo,
+Save as; `OpenDesignsExitGolden` opens OpenRocket's 16 examples, the 49 re-saves of its golden harness and that
+reference design in QtRocket's windows and compares the tree, the dialogs' fields, the figure, the information
+overlay and the "Motors & Configuration" tab with OpenRocket's golden data and OpenRocket's own tab, and for the
+examples the parts library of every component that takes presets.
+
+The simulations are compared with what OpenRocket's own classes make of the examples' stored simulations: the
+core's plot model with OpenRocket's plots of each of them in the nine presets (`SimulationPlotGolden`), and in the
+GUI the simulations table, its CSV text and Copy (`SimulationTableModelGolden`, `SimulationTableCsvExportGolden`
+and the other `SimulationTable*Golden` suites), the tab's actions (`SimulationPanelGolden`), the plot tab and the
+plot itself (`SimulationPlotPanelGolden`, `SimulationPlotChartGolden`) and the design view's flight block
+(`RocketInfoFlightGolden`). The suites that run simulations on threads of their own (the core's
+`SimulationRunner`, `SimulationThreading` and `RunSampleListener`, the GUI's `BackgroundSimulationThreadsTest`,
+`PollingSimulationExecutorTest` and `SimulationRunDialogThreadsTest`) have a time limit, so that a broken cancel
+fails a test instead of hanging the run; the `tsan` preset checks them for data races. The lint tests
 (`tests/lint/`) check rules of the source tree that the compiler cannot, such as the include order of the layers.
 Test data lives in `tests/data/`. ctest labels select parts of the suite:
 
@@ -287,20 +322,25 @@ tools/openrocket-goldens/generate.sh
 ctest --preset clang-debug -L golden
 ```
 
-[tools/openrocket-goldens/README.md](tools/openrocket-goldens/README.md) describes the harness, the file formats,
-the tolerances of the comparisons and the other fixtures it can write.
+`tools/openrocket-goldens/README.md` describes the harness, the file formats, the tolerances of the comparisons
+and the other fixtures it can write.
 
 The preset golden `presets/presets.json` holds every component preset OpenRocket reads from the bundled `.orc`
 files, with every property, and the order of its preset database (`generate.sh --presets` writes it alone).
 
 The GUI's references come from OpenRocket's Swing classes the same way. `tools/openrocket-gui-reference/` runs
-OpenRocket's GUI code on a scenario of GUI steps and writes `tests/data/goldens/gui/from-scratch/` (the scenario,
-the steps' states and OpenRocket's save). The tables the GUI's tests compare with (the `*Pins.h` headers, which
-name their generator, and a few tables in test files) are written by Java probes in `tools/openrocket-gui-pins/`
-and `tools/openrocket-panel-pins/`; the core's tables of the motor chooser come from
-`tools/openrocket-motor-chooser/`, the core's plot goldens (`tests/data/goldens/plots/`, OpenRocket's plots of the
-examples' stored simulations) from `tools/openrocket-plots/`, and the tables of JDK 17's text collation, which
-OpenRocket's tables sort with, from `tools/openrocket-collation/`. Each tool's README says how to run it.
+OpenRocket's GUI code on scenarios of GUI steps and writes `tests/data/goldens/gui/from-scratch/`,
+`flight-configurations/` and `multi-stage/` (each a scenario, the steps' states and OpenRocket's save). The
+tables the GUI's tests compare with (the `*Pins.h` headers, which name their generator, the JSON tables of
+`tests/data/goldens/gui/simulation-table/` and `rocket-info/`, and a few tables in test files) are written by
+Java probes in `tools/openrocket-gui-pins/` and `tools/openrocket-panel-pins/`, and `tools/openrocket-probes/`
+keeps other probes whose output tests pin by hand (those of the simulation settings' panels among them). The
+core's tables of the motor chooser come from `tools/openrocket-motor-chooser/`, the core's plot goldens
+(`tests/data/goldens/plots/`, OpenRocket's plots of the examples' stored simulations) from
+`tools/openrocket-plots/`, and the tables of JDK 17's text collation, which OpenRocket's tables sort with, from
+`tools/openrocket-collation/`. Each tool's README says how to run it.
+
+<a id="releases"></a>
 
 ## Releases
 The Release workflow (`.github/workflows/release.yml`) runs only when started by hand, never on a push:
