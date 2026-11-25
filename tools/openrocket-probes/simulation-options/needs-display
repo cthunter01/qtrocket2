@@ -1,0 +1,3 @@
+SimulationOptionsProbe makes AerodynamicLookupDialog, a JDialog, which headless Swing refuses, and shows the
+extensions' help dialogs, the file chooser and message dialogs modally: run.sh runs it under xvfb-run with
+java.awt.headless=false (the lookup dialog is packed, never shown).

@@ -11,7 +11,6 @@
 
 #include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -248,34 +247,8 @@ void appendWalk(std::vector<std::string>& lines, const QWidget& widget)
     return lines;
 }
 
-/// @p lines with every @p from replaced by @p to; the number of lines that held it must be
-/// @p count (a test failure otherwise), so that an edit cannot outlive the pin it was made for.
-[[nodiscard]] std::vector<std::string> replacedIn(std::vector<std::string> lines,
-                                                  std::string_view from, std::string_view to,
-                                                  int count)
-{
-    int found = 0;
-    for (std::string& line : lines)
-    {
-        if (const std::size_t at = line.find(from); at != std::string::npos)
-        {
-            line.replace(at, from.size(), to);
-            ++found;
-        }
-    }
-    EXPECT_EQ(found, count) << from;
-    return lines;
-}
-
-/// @p lines without the one line @p dropped (a test failure unless it is there exactly once).
-[[nodiscard]] std::vector<std::string> without(std::vector<std::string> lines,
-                                               std::string_view         dropped)
-{
-    const auto count = std::ranges::count(lines, dropped);
-    EXPECT_EQ(count, 1) << dropped;
-    std::erase(lines, std::string(dropped));
-    return lines;
-}
+using Gui::Test::replacedIn;
+using Gui::Test::without;
 
 // --------------------------------------------------------------------------------- the sections
 

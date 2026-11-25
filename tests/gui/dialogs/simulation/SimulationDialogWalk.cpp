@@ -1,5 +1,7 @@
 #include "dialogs/simulation/SimulationDialogWalk.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <span>
 #include <string>
@@ -17,11 +19,16 @@
 #include <QLayoutItem>
 #include <QLineEdit>
 #include <QObject>
+#include <QPixmap>
+#include <QPlainTextEdit>
 #include <QRadioButton>
 #include <QScrollArea>
 #include <QSlider>
 #include <QString>
+#include <QTabWidget>
 #include <QWidget>
+
+#include <gtest/gtest.h>
 
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -111,9 +118,16 @@ namespace
     }
     if (const auto* const label = qobject_cast<const QLabel*>(&widget))
     {
-        // A word wrapped label is Java's read-only JTextArea.
+        // A word wrapped label is Java's read-only JTextArea; a label with a picture is Java's
+        // JLabel with an icon.
         return (label->wordWrap() ? QStringLiteral("TEXTAREA ") : QStringLiteral("LABEL ")) +
-               clean(label->text());
+               clean(label->text()) +
+               (label->pixmap().isNull() ? QString() : QStringLiteral(" icon"));
+    }
+    // Java's JTextArea.
+    if (const auto* const area = qobject_cast<const QPlainTextEdit*>(&widget))
+    {
+        return QStringLiteral("TEXTAREA ") + clean(area->toPlainText());
     }
     // After the label, which is a frame too.
     if (const auto* const frame = qobject_cast<const QFrame*>(&widget);
@@ -163,6 +177,27 @@ void walkWidget(const QWidget& widget, const QWidget& root, const QString& inden
     {
         lines.push_back(QtStrings::toUtf8(indent + QStringLiteral("BORDER ") + box->title()));
         inner += QStringLiteral("  ");
+    }
+    if (const auto* const tabs = qobject_cast<const QTabWidget*>(&widget))
+    {
+        // Java's JTabbedPane: its titles, then each page (also the ones not shown) after its
+        // title.
+        QString titles;
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            titles += QStringLiteral(" [") + tabs->tabText(index) + QStringLiteral("]");
+        }
+        lines.push_back(
+            QtStrings::toUtf8(indent + QStringLiteral("TABS") + titles +
+                              QStringLiteral(" selected=%1").arg(tabs->currentIndex())));
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            lines.push_back(
+                QtStrings::toUtf8(indent + QStringLiteral("TAB ") + tabs->tabText(index)));
+            const QWidget& page = *tabs->widget(index);
+            walkWidget(page, page, indent + QStringLiteral("  "), lines);
+        }
+        return;
     }
     if (const auto* const scrollArea = qobject_cast<const QScrollArea*>(&widget);
         scrollArea != nullptr && scrollArea->widget() != nullptr)
@@ -215,6 +250,47 @@ std::string numberRowState(std::string_view name, const ConfigFields::NumberWidg
         state += QStringLiteral(" tip=") + clean(spinBox.toolTip());
     }
     return QtStrings::toUtf8(state);
+}
+
+std::vector<std::string> replacedIn(std::vector<std::string> lines, std::string_view from,
+                                    std::string_view to, int count)
+{
+    int found = 0;
+    for (std::string& line : lines)
+    {
+        if (const std::size_t at = line.find(from); at != std::string::npos)
+        {
+            line.replace(at, from.size(), to);
+            ++found;
+        }
+    }
+    EXPECT_EQ(found, count) << from;
+    return lines;
+}
+
+std::vector<std::string> without(std::vector<std::string> lines, std::string_view dropped)
+{
+    const auto count = std::ranges::count(lines, dropped);
+    EXPECT_EQ(count, 1) << dropped;
+    std::erase(lines, std::string(dropped));
+    return lines;
+}
+
+void expectSameLines(std::span<const std::string> actual, std::span<const std::string> expected)
+{
+    const std::size_t common = std::min(actual.size(), expected.size());
+    for (std::size_t index = 0; index < common; ++index)
+    {
+        EXPECT_EQ(actual[index], expected[index]) << "line " << index;
+    }
+    for (std::size_t index = common; index < actual.size(); ++index)
+    {
+        ADD_FAILURE() << "line " << index << " is one too many: " << actual[index];
+    }
+    for (std::size_t index = common; index < expected.size(); ++index)
+    {
+        ADD_FAILURE() << "line " << index << " is missing: " << expected[index];
+    }
 }
 
 std::vector<std::string> linesWithPrefix(std::span<const std::string_view> lines,
