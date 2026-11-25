@@ -144,11 +144,7 @@ QVariant SimulationTableModel::headerData(int section, Qt::Orientation orientati
     if (role == Qt::ToolTipRole)
     {
         const QString tip = SimulationColumns::headerToolTip(column);
-        if (tip.isEmpty())
-        {
-            return {};
-        }
-        return {tip};
+        return tip.isEmpty() ? QVariant() : QVariant(tip);
     }
     return {};
 }

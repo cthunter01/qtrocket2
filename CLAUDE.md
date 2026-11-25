@@ -327,7 +327,10 @@ The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
   CI's version from PyPI: `python3 -m venv <dir> && <dir>/bin/pip install clang-tidy==23.1.3 clang-format==23.1.3`,
   then after a `tidy` preset build `<dir>/bin/clang-tidy -p build/tidy --quiet <file>` on every `.cpp` you created
   or changed and `<dir>/bin/clang-format --dry-run --Werror <files>`; both versions of both tools must be clean
-  (reshape code that the two clang-formats format differently)
+  (reshape code that the two clang-formats format differently). CI's Qt there is also newer (6.12, whose
+  `QVariant` takes a `QString&&`): its performance-no-automatic-move refuses a `const` local returned into another
+  type (`return {tip};` into a `QVariant`), and this machine's Qt refuses `std::move` there
+  (performance-move-const-arg): construct explicitly, `tip.isEmpty() ? QVariant() : QVariant(tip)`
 - A sweep by hand (clang-tidy over `compile_commands.json`, the duplicate-symbol scan of the object files for the
   macOS trap of section Portability) skips `build/<preset>/_deps/`: rocketplot's sources and objects are there
 
