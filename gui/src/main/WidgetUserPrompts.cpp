@@ -52,6 +52,7 @@
 #include "QtRocket/gui/dialogs/motor/MotorChooserDialog.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
 #include "QtRocket/gui/dialogs/simulation/CsvImportSettingsDialog.h"
+#include "QtRocket/gui/dialogs/simulation/CsvOptionsDialog.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationRunDialog.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
@@ -746,12 +747,6 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
 std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
     QWidget* parent, const SaveFileRequest& request)
 {
-    if (request.csvOptions.has_value())
-    {
-        // The table export's options dialog, asked after the file, is not there yet: the save
-        // is cancelled before its file dialog (see the class comment).
-        return std::nullopt;
-    }
     const QPointer<QWidget>       guard(parent);
     std::optional<SaveFileAnswer> chosen = askLegalFileToSave(parent, request);
     if (!chosen.has_value())
@@ -768,6 +763,20 @@ std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
         }
         answer.saveSimulationData = StorageOptionsDialog::ask(parent, *request.saveSimulationData);
         if (!answer.saveSimulationData.has_value())
+        {
+            return std::nullopt;
+        }
+    }
+    if (request.csvOptions.has_value())
+    {
+        // The CsvOptionPanel accessory of the simulation table's export, asked once the file is
+        // chosen (U-M4-6), titled as the file question.
+        if (parentGone(parent, guard))
+        {
+            return std::nullopt;
+        }
+        answer.csvOptions = CsvOptionsDialog::ask(parent, request.title, *request.csvOptions);
+        if (!answer.csvOptions.has_value())
         {
             return std::nullopt;
         }

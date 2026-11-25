@@ -4,6 +4,7 @@
 target_sources(QtRocket_gui_tests PRIVATE
     AerodynamicLookupDialogTests.cpp
     CsvImportSettingsDialogTests.cpp
+    CsvOptionsDialogTests.cpp
     MultiLevelWindEditDialogTests.cpp
     MultiLevelWindTableModelTests.cpp
     MultiLevelWindTableViewTests.cpp

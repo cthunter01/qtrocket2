@@ -63,10 +63,12 @@
 #include "QtRocket/gui/simulation/SimulationClipboard.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableCsvExport.h"
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/simulation/SimulationTableView.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/CsvOptionValues.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -78,9 +80,12 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "RecordingSimulationDialogs.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
@@ -302,17 +307,48 @@ TEST_F(SimulationsWindowTest, EveryWindowHasTheTabWiredToItsDesign)
     EXPECT_EQ(wiringOf(second, clipboard()),
               "tab=2 text='Flight simulations' panel document clipboard actions window");
     // The File menu's "Export simulation table as CSV file" is the tab's action: enabled while the
-    // table has rows, and triggered it asks the tab for the export of every row.
+    // table has rows, and triggered it asks the tab for the export of every row (whose file
+    // question is cancelled here).
     EXPECT_TRUE(first->menus().exportSimulationTableAction()->isEnabled());
     EXPECT_FALSE(second.menus().exportSimulationTableAction()->isEnabled());
     const QSignalSpy exports(&simulationsOf(*first), &SimulationPanel::csvExportRequested);
+    prompts().answerSaveFile(std::nullopt);
     first->menus().exportSimulationTableAction()->trigger();
     ASSERT_EQ(exports.count(), 1);
     EXPECT_FALSE(exports.at(0).at(0).toBool());
+    EXPECT_EQ(prompts().saveFileRequests().size(), 1U);
     deleteEverySimulation(*first);
     EXPECT_FALSE(first->menus().exportSimulationTableAction()->isEnabled());
     first->menus().undoAction()->trigger();
     EXPECT_TRUE(first->menus().exportSimulationTableAction()->isEnabled());
+}
+
+TEST_F(SimulationsWindowTest, TheFileMenuWritesTheTableOfTheWindowsDesign)
+{
+    // BasicFrame's File item, the tab's getExportSimulationTableAsCSVAction(): the file question
+    // over the window's tab, then the table's text in the file.
+    const MainWindow* const window = openExample();
+    ASSERT_NE(window, nullptr);
+    const QtRocket::Test::TempDir directory;
+    CsvOptionValues               options;
+    options.fieldSeparator      = QStringLiteral(";");
+    options.decimalPlaces       = 4;
+    options.exponentialNotation = false;
+    prompts().answerSaveFile(UserPrompts::SaveFileAnswer{.file      = directory.resolve("rocket"),
+                                                         .directory = directory.path(),
+                                                         .saveSimulationData = std::nullopt,
+                                                         .selectedNameFilter = QString(),
+                                                         .csvOptions         = options});
+    window->menus().exportSimulationTableAction()->trigger();
+    ASSERT_EQ(prompts().saveFileRequests().size(), 1U);
+    EXPECT_EQ(prompts().saveFileRequests().front().fileName,
+              QStringLiteral("A simple model rocket.csv"));
+    const SimulationPanel&               tab  = simulationsOf(*window);
+    const Result<std::vector<std::byte>> file = readFile(directory.resolve("rocket.csv"));
+    ASSERT_TRUE(file.has_value()) << file.error().toString();
+    EXPECT_EQ(bytesToString(file.value_or(std::vector<std::byte>())),
+              SimulationTableCsvExport::tableText(tab.tableModel(), tab.tableModel().simulations(),
+                                                  ";", 4, false));
 }
 
 // ============================================================================ the tab switches

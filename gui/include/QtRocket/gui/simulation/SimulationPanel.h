@@ -14,6 +14,7 @@
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 
 class QAction;
@@ -24,6 +25,7 @@ class QStackedWidget;
 namespace QtRocket
 {
 class OpenRocketDocument;
+class Preferences;
 class Simulation;
 }  // namespace QtRocket
 
@@ -69,9 +71,9 @@ class SimulationTableView;
 /// - Export simulation table as CSV file ("simTableExportAction", SIM_TABLE_EXPORT): the table
 ///   has rows; the File menu's item (BasicFrame takes it from
 ///   getExportSimulationTableAsCSVAction()). Triggered, it asks for the export
-///   (csvExportRequested(false)).
+///   (csvExportRequested(false)), which the panel answers itself (exportSimulationsToCsv()).
 /// - Export simulation(s) as CSV file ("selectedSimsExportAction", SIM_TABLE_EXPORT): the table
-///   has rows and a row is selected; csvExportRequested(true).
+///   has rows and a row is selected; csvExportRequested(true), exportSimulationsToCsv(true).
 /// Their states follow their rules at every change those read (updateActions(): the table's
 /// selection, its rows, the clipboard, the configurations' motors). The keys are only shown: the
 /// actions are added to the popup menu alone, whose keys Qt answers nowhere (the window's Edit
@@ -121,6 +123,23 @@ class SimulationTableView;
 /// SimulationTableModel::refresh()) and takes the spotlight (takeTheSpotlight()). A dialog or a
 /// question runs an event loop: when the panel goes meanwhile, nothing more is done; a
 /// simulation that left the document meanwhile gets no dialog.
+///
+/// THE TABLE'S CSV EXPORT (exportSimulationsToCsv(): SimulationPanel.exportSimulationsToCSV(),
+/// setUpSimExportCSVFileChooser() and SimulationTableCSVExport.export()): without a row of the
+/// table, the message "Simulation table has no entries... Please run a simulation first." (with
+/// Java's ellipsis character; INFORMATION, JOptionPane's own title "Message") and nothing more.
+/// Otherwise the file question (csvExportRequest(): "Save as CSV file", the CSV filter alone, the
+/// default directory, "<rocket name>.csv" proposed, illegal names refused, and the CSV options of
+/// the table export as stored, which the question asks once the file is chosen), the file given the
+/// extension ".csv" (FileNames::forceExtension()), the overwrite question for a file that exists,
+/// then the options answered stored (CsvOptionPreferences::store() under
+/// "SimulationTableCSVExport"; the default directory is not stored, as Java's export does not store
+/// it), and the file written: the bytes of SimulationTableCsvExport::tableText() with the
+/// separator, decimal places and notation answered, of every row of the table or of the selected
+/// ones, in the table's order (as the table reads when the questions are answered), UTF-8,
+/// replacing the file. A file that cannot be written shows "Error writing file" (ERROR: "An error
+/// occurred while writing to the file:" and the reason); a cancelled question, or No to the
+/// overwrite, ends the export with nothing stored or written.
 ///
 /// THE WINDOW'S PART (BasicFrame.stateChanged()): updatePreviousSelection() when the tab stops
 /// being the current one; takeTheSpotlight() and then activating() when it becomes it.
@@ -184,6 +203,11 @@ class SimulationTableView;
 ///   first simulation came.
 /// - Java's simTableExportButton ("Run then Dump simulations") is made but never shown; it is
 ///   left out.
+/// - The table's CSV export asks its CSV options after the file, in a question of their own
+///   (WidgetUserPrompts: CsvOptionsDialog), where Java's file chooser shows them beside the files
+///   (its accessory CsvOptionPanel(SimulationTableCSVExport.class); the user's decision U-M4-6);
+///   Cancel there ends the export. A file that cannot be written shows "Error writing file" with
+///   the reason, where Java shows the IOException's message alone in a plain message ("Message").
 class SimulationPanel final : public QWidget
 {
     Q_OBJECT
@@ -328,6 +352,22 @@ public:
     void pasteSimulations();
     void duplicateSimulations();
     void deleteSimulations();
+    /// The table's CSV export (see the class comment) of the selected rows' simulations when
+    /// @p onlySelected, else of every row: whether the file was written (false without a row, or
+    /// when a question was cancelled, the panel went during it, or the file could not be
+    /// written).
+    /// @throws BugError when the file question answers no CSV options
+    bool exportSimulationsToCsv(bool onlySelected);
+
+    /// The file question of the table's CSV export of @p document (setUpSimExportCSVFileChooser()):
+    /// titled "Save as CSV file" (simpanel.pop.exportToCSV.save.dialog.title), the CSV filter
+    /// alone (FileNames::csvFilter(); Java's chooser has no accept-all filter), the default
+    /// directory of @p preferences (empty when none is stored), the rocket's name with ".csv"
+    /// proposed, illegal names refused (a SaveFileChooser), and the CSV options of the table export
+    /// stored in @p preferences (CsvOptionPreferences::load() of "SimulationTableCSVExport", no
+    /// comment options: the panel Java's chooser holds).
+    [[nodiscard]] static UserPrompts::SaveFileRequest csvExportRequest(
+        const OpenRocketDocument& document, const Preferences& preferences);
 
 Q_SIGNALS:
     /// An export of the table as a CSV file was asked for (exportSimulationsToCSV(onlySelected)):

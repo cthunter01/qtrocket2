@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -18,22 +22,28 @@
 #include <QPointer>
 #include <QStackedWidget>
 #include <QString>
+#include <QStringList>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
 
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/settings/CsvOptionPreferences.h"
 #include "QtRocket/gui/simulation/SimulationClipboard.h"
 #include "QtRocket/gui/simulation/SimulationColumnVisibility.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/simulation/SimulationEditing.h"
+#include "QtRocket/gui/simulation/SimulationTableCsvExport.h"
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/simulation/SimulationTableView.h"
+#include "QtRocket/gui/util/CsvOptionValues.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/MenuText.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -43,6 +53,9 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 
 namespace QtRocket::Gui
 {
@@ -320,6 +333,11 @@ void SimulationPanel::connectParts()
     connect(m_table, &SimulationTableView::contextMenuRequested, this,
             guarded([this](const QPoint& position) { showPopupMenu(position); }, context()));
 
+    // The export actions' requests: the panel's own export (exportSimulationsToCSV()).
+    connect(
+        this, &SimulationPanel::csvExportRequested, this,
+        guarded([this](bool onlySelected) { exportSimulationsToCsv(onlySelected); }, context()));
+
     // What the rules read: the selection (the selection listener), the rows, the clipboard.
     const auto update = guarded([this] { updateActions(); }, context());
     connect(m_table, &SimulationTableView::selectedSimulationsChanged, this, update);
@@ -571,6 +589,96 @@ void SimulationPanel::deleteSimulations()
     }
     updatePreviousSelection();
     takeTheSpotlight();
+}
+
+// ------------------------------------------------------------------------ the CSV export
+
+bool SimulationPanel::exportSimulationsToCsv(bool onlySelected)
+{
+    UserPrompts& prompts     = m_services.prompts();
+    Preferences& preferences = m_services.preferences();
+    if (m_model->rowCount() <= 0)
+    {
+        // JOptionPane.showMessageDialog(tableParent, message): INFORMATION_MESSAGE, titled with
+        // Swing's own text.
+        prompts.showMessage(
+            this, {.severity = UserPrompts::Severity::INFORMATION,
+                   //: OptionPane.messageDialogTitle (Swing's own text, not messages.properties)
+                   .title = tr("Message"),
+                   //: simpanel.dlg.no.simulation.table.rows
+                   .lines = {tr("Simulation table has no entries\u2026 Please run a simulation "
+                                "first.")}});
+        return false;
+    }
+
+    // A question runs an event loop, in which the panel may go with its window: nothing of the
+    // panel is used once it has gone.
+    const QPointer<SimulationPanel>    alive(this);
+    const UserPrompts::SaveFileRequest request = csvExportRequest(*m_document, preferences);
+    const std::optional<UserPrompts::SaveFileAnswer> answer = prompts.askSaveFile(this, request);
+    if (alive.isNull() || !answer.has_value())
+    {
+        return false;
+    }
+    if (!answer->csvOptions.has_value())
+    {
+        bug("The file question of the table's CSV export answered no CSV options");
+    }
+    const CsvOptionValues       options = *answer->csvOptions;
+    const std::filesystem::path file =
+        FileNames::forceExtension(answer->file, QStringLiteral("csv"));
+    // FileHelper.confirmWrite().
+    std::error_code error;
+    if (std::filesystem::exists(file, error))
+    {
+        const bool overwrite = prompts.askOverwrite(this, QtStrings::fromPath(file.filename()));
+        if (alive.isNull() || !overwrite)
+        {
+            return false;
+        }
+    }
+    // csvOptions.storePreferences(); Java's export stores no default directory.
+    CsvOptionPreferences::store(preferences, CsvOptionPreferences::kSimulationTableCsvExport,
+                                options);
+
+    // The rows as the table has them now (Java: generateCSVData() after the questions), in its
+    // order: every row, or the selected ones (getSelectedRows()).
+    const std::vector<std::shared_ptr<Simulation>> simulations =
+        onlySelected ? m_table->selectedSimulations() : m_model->simulations();
+    const std::string text = SimulationTableCsvExport::tableText(
+        *m_model, simulations, QtStrings::toUtf8(options.fieldSeparator), options.decimalPlaces,
+        options.exponentialNotation);
+    if (const Result<void> written = writeTextFile(file, text); !written.has_value())
+    {
+        // Java's dumpDataToFile() shows the IOException's message alone (see the deviations).
+        prompts.showMessage(this, {.severity = UserPrompts::Severity::ERROR,
+                                   //: error.writing.title
+                                   .title = tr("Error writing file"),
+                                   //: error.writing.desc
+                                   .lines = {tr("An error occurred while writing to the file:"),
+                                             QtStrings::fromUtf8(written.error().message)}});
+        return false;
+    }
+    return true;
+}
+
+UserPrompts::SaveFileRequest SimulationPanel::csvExportRequest(const OpenRocketDocument& document,
+                                                               const Preferences& preferences)
+{
+    UserPrompts::SaveFileRequest request;
+    //: simpanel.pop.exportToCSV.save.dialog.title
+    request.title       = tr("Save as CSV file");
+    request.nameFilters = QStringList{FileNames::csvFilter()};
+    if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
+    {
+        request.directory = *directory;
+    }
+    // Default output CSV to same name as the document's rocket name.
+    request.fileName = QtStrings::fromUtf8(document.getRocket().getName()) + QStringLiteral(".csv");
+    request.refuseIllegalNames = true;
+    request.csvOptions =
+        CsvOptionPreferences::load(preferences, CsvOptionPreferences::kSimulationTableCsvExport, 0);
+    return request;
 }
 
 // ------------------------------------------------------------------------- the table's mouse

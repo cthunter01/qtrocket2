@@ -60,12 +60,14 @@ class GuiServices;
 ///   '<name>' may not contain the character ' <c> '. Please remove it.") for a name with one of
 ///   / \ : * ? " < > | (SaveFileNames, the name relative to the dialog's directory) and asks
 ///   again, in that directory with that name; a save that offers a storage option asks "Save
-///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it; a request
-///   for a file or a directory (OpenFileSelection::FILES_AND_DIRECTORIES: the preferences' Add)
-///   first opens a menu "File..." / "Directory..." below the widget that asks (the Add button;
-///   at the mouse pointer when a window asks), then the platform's dialog for the choice: the
-///   file dialog with the request's filters, or the folder dialog; the menu closed without a
-///   choice gives no file and shows no dialog;
+///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it, and a
+///   save with CSV options (the simulation table's export) asks them in the same way
+///   (dialogs/simulation/CsvOptionsDialog, titled as the save; the user's decision U-M4-6); a
+///   request for a file or a directory (OpenFileSelection::FILES_AND_DIRECTORIES: the
+///   preferences' Add) first opens a menu "File..." / "Directory..." below the widget that asks
+///   (the Add button; at the mouse pointer when a window asks), then the platform's dialog for
+///   the choice: the file dialog with the request's filters, or the folder dialog; the menu
+///   closed without a choice gives no file and shows no dialog;
 /// - editDesignInformation(): BasicFrame.showSaveRocketInfoDialog()'s "Save Design Info"
 ///   (SaveDesignInfoDialog, with the services the caller gives), whose outcome changes nothing of
 ///   the Save As that asks it (the user's decision R3-3);
@@ -96,8 +98,8 @@ class GuiServices;
 /// open dialog selects the request's file. runSimulations() shows SimulationRunDialog
 /// (dialogs/simulation/, the run dialog) and askWindCsvImportSettings() CSVImportSettingsDialog
 /// (dialogs/simulation/CsvImportSettingsDialog, a ModalDialog parented to the asking window, whose
-/// OK reports invalid columns through these prompts). A save with CSV options is not shown yet: it
-/// is cancelled before its file dialog until the table export's options dialog fills it in.
+/// OK reports invalid columns through these prompts). A save with CSV options asks them once the
+/// file is chosen (CsvOptionsDialog, see askSaveFile() above).
 ///
 /// Each dialog is made for its question (ModalDialog), and so is the menu of a file or a
 /// directory, so that it survives its parent being destroyed while it is open: the question then
@@ -111,16 +113,16 @@ class GuiServices;
 /// throws (the probe: "a$b.ork" IllegalArgumentException, "a$1.ork" IndexOutOfBoundsException)
 /// and one with "\" loses it ("a\b.ork" shows "ab.ork"). The file dialogs are Qt's
 /// (QFileDialog), with the platform's own where it has one (Swing's JFileChooser); the storage
-/// option is a question after the save dialog rather than beside its files. A file or a directory
-/// is chosen in two steps, the menu and then a dialog for one of the two, as Qt's dialogs choose
-/// either files or a directory (the user's decision U-M3-6c), where JFileChooser shows both at
-/// once; the menu's texts are QtRocket's. The start-up's database problems are one modal message
-/// for every file (O-M3-21), where OpenRocket's loaders show a modeless warning, always on top,
-/// for each; its lines put the file and the loader's message in as they are (escaped), where
-/// OpenRocket's HTML reads a '<' or '&' in them as markup, except for the "<br>" and "&nbsp" of
-/// OpenRocket's own RASP messages (written for this warning), which show as a line break and a
-/// space; the lines are 400 pixels wide, as OpenRocket's paragraphs, and the message scrolls
-/// when it is taller than two thirds of the screen (DetailDialog::wrapMessage()).
+/// option and the CSV options are questions after the save dialog rather than beside its files. A
+/// file or a directory is chosen in two steps, the menu and then a dialog for one of the two, as
+/// Qt's dialogs choose either files or a directory (the user's decision U-M3-6c), where
+/// JFileChooser shows both at once; the menu's texts are QtRocket's. The start-up's database
+/// problems are one modal message for every file (O-M3-21), where OpenRocket's loaders show a
+/// modeless warning, always on top, for each; its lines put the file and the loader's message in as
+/// they are (escaped), where OpenRocket's HTML reads a '<' or '&' in them as markup, except for the
+/// "<br>" and "&nbsp" of OpenRocket's own RASP messages (written for this warning), which show as a
+/// line break and a space; the lines are 400 pixels wide, as OpenRocket's paragraphs, and the
+/// message scrolls when it is taller than two thirds of the screen (DetailDialog::wrapMessage()).
 ///
 /// Its own state is none: one object serves every window (app/ApplicationContext owns it).
 class WidgetUserPrompts final : public UserPrompts

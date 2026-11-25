@@ -5,6 +5,7 @@
 target_sources(QtRocket_gui PRIVATE
     AerodynamicLookupDialog.cpp ${gui_include_dir}/dialogs/simulation/AerodynamicLookupDialog.h
     CsvImportSettingsDialog.cpp ${gui_include_dir}/dialogs/simulation/CsvImportSettingsDialog.h
+    CsvOptionsDialog.cpp ${gui_include_dir}/dialogs/simulation/CsvOptionsDialog.h
     MultiLevelWindEditDialog.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindEditDialog.h
     MultiLevelWindTableModel.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableModel.h
     MultiLevelWindTableView.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableView.h

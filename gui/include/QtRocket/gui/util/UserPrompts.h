@@ -347,8 +347,9 @@ public:
         /// chosen filter's suffix (PlotExport).
         // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
         QString selectedNameFilter = {};
-        /// The CSV options chosen, when the request had them; the caller stores them in the
-        /// preferences (CsvOptionPanel.storePreferences()) and exports with them.
+        /// The CSV options chosen, when the request had them (always then: the table export takes
+        /// an answer without them for a bug); the caller stores them in the preferences
+        /// (CsvOptionPanel.storePreferences()) and exports with them.
         // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
         std::optional<CsvOptionValues> csvOptions = {};
     };
