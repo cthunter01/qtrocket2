@@ -12,6 +12,7 @@ import info.openrocket.core.database.motor.ThrustCurveMotorSQLiteDatabase;
 import info.openrocket.core.database.motor.ThrustCurveMotorSetDatabase;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
+import info.openrocket.core.document.events.SimulationChangeEvent;
 import info.openrocket.core.file.GeneralRocketLoader;
 import info.openrocket.core.motor.ThrustCurveMotor;
 import info.openrocket.core.plugin.PluginModule;
@@ -22,8 +23,13 @@ import info.openrocket.core.rocketcomponent.FlightConfiguration;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.simulation.FlightData;
+import info.openrocket.core.simulation.customexpression.CustomExpressionSimulationListener;
+import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
+import info.openrocket.core.simulation.listeners.system.GroundHitListener;
+import info.openrocket.core.simulation.listeners.system.InterruptListener;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.unit.UnitGroup;
+import info.openrocket.core.util.StateChangeListener;
 import info.openrocket.core.util.StringUtils;
 import info.openrocket.core.util.TestRockets;
 import info.openrocket.swing.gui.figureelements.RocketInfo;
@@ -67,6 +73,16 @@ import java.util.TreeSet;
  * run (FlightData.NaN_DATA), without flight data, in imperial units, and the aborted simulation of the coverage
  * re-save "coverage-stored-flight" with its configuration selected.
  * <p>
+ * The designs whose estimate runs (updateSims(false) finds a simulation) are then run as the estimate runs them
+ * (runEstimate(), Milestone 4's run 3, part Y3: the exit suite's flight block): the document marked saved first, as
+ * OpenFileWorker marks a design it opened, then the BackgroundSimulationWorker's simulations one after the other on
+ * this thread (Simulation.simulate() with its listeners, simulationDone() or simulationInterrupted()), with
+ * updateExtras()'s change listener of the simulations; what the document says of its saved state and its undo
+ * history before and after, each simulation's status after its run, and the overlay after the last one, painted. The
+ * flight is a fresh one: its values are printed with the texts, and the generator leaves them out of the table
+ * (OpenRocket's flights at the default time step do not repeat from one set of component ids to another:
+ * tools/openrocket-goldens/README.md, "Reproducibility of the simulations").
+ * <p>
  * SwingPreferences in generate.sh's fresh store with MotorNameColumn false (as OpenDesignsTabProbe: the suite's
  * DesignFileEnvironment names a motor by its common name, in the configuration's name too); FlatLaf Light; every
  * design's UUIDs seeded from its name (DeterministicUuids).
@@ -89,6 +105,11 @@ import java.util.TreeSet;
  * <li>A status | text (the shown simulation's getStatus() at the paint, and removeHTMLTags(getStatusDescription()))</li>
  * <li>F line x1 y2 (the frame of the paint)</li>
  * <li>T font colour x y visualWidth | text (each text of the flight block, in the order RocketInfo draws them)</li>
+ * <li>for a design whose estimate runs: R before saved undo redo (the document's isSaved(), isUndoAvailable() and
+ * isRedoAvailable() once it is marked saved); R ran index status hasData (each simulation run, in order: its
+ * getStatus() and hasSummaryData() after its run); R failed index | throwable (a run that ended in
+ * simulationInterrupted(), which stops the chain); R after saved undo redo; then the O, A, F and T lines of the
+ * overlay after the runs</li>
  * <li>E</li>
  * </ul>
  * usage: RocketInfoFlightProbe DESIGNS COMPONENTS
@@ -149,7 +170,12 @@ public class RocketInfoFlightProbe {
 				}
 				File file = new File(fields[2]);
 				OpenRocketDocument doc = load(fields[0], fields[1], file);
-				scenario(fields[0], fields[1], file, "estimated metric -", doc, opened(doc));
+				FlightState state = opened(doc);
+				scenario(fields[0], fields[1], file, "estimated metric -", doc, state);
+				if (doc.getSelectedConfiguration().hasMotors() && !updateSims(doc, false).isEmpty()) {
+					runEstimate(doc, state);
+				}
+				System.out.println("E");
 				if (fields[0].equals("coverage_stored_flight")) {
 					storedFlight = file;
 				} else if (fields[0].equals("example_a_simple_model_rocket")) {
@@ -175,12 +201,14 @@ public class RocketInfoFlightProbe {
 		FlightState state = opened(doc);
 		state.calculating = true;
 		scenario("special:simple-calculating", "special", simple, "set metric -", doc, state);
+		System.out.println("E");
 
 		// After a failed run (simulationInterrupted(): FlightData.NaN_DATA, not calculating).
 		doc = load("special:simple-failed", "special", simple);
 		state = opened(doc);
 		state.shown = Shown.NAN;
 		scenario("special:simple-failed", "special", simple, "set metric -", doc, state);
+		System.out.println("E");
 
 		// NaN_DATA while calculating.
 		doc = load("special:simple-failed-calculating", "special", simple);
@@ -188,17 +216,20 @@ public class RocketInfoFlightProbe {
 		state.shown = Shown.NAN;
 		state.calculating = true;
 		scenario("special:simple-failed-calculating", "special", simple, "set metric -", doc, state);
+		System.out.println("E");
 
 		// No flight data while calculating: "Calculating..." alone, on the bottom row.
 		doc = load("special:simple-calculating-without-data", "special", simple);
 		state = new FlightState();
 		state.calculating = true;
 		scenario("special:simple-calculating-without-data", "special", simple, "set metric -", doc, state);
+		System.out.println("E");
 
 		// Imperial units.
 		UnitGroup.setDefaultImperialUnits();
 		doc = load("special:simple-imperial", "special", simple);
 		scenario("special:simple-imperial", "special", simple, "estimated imperial -", doc, opened(doc));
+		System.out.println("E");
 		UnitGroup.setDefaultMetricUnits();
 
 		// The aborted simulation of the coverage re-save, its configuration selected: it is not up to date (ABORTED),
@@ -208,6 +239,7 @@ public class RocketInfoFlightProbe {
 		doc.getRocket().setSelectedConfiguration(aborted.getFlightConfigurationId());
 		scenario("special:stored-flight-aborted", "coverage", storedFlight, "estimated metric 0", doc,
 				opened(doc));
+		System.out.println("E");
 		// The same, not calculating (once its run would have failed, or after it with the abort again).
 		doc = load("special:stored-flight-aborted-shown", "coverage", storedFlight);
 		aborted = doc.getSimulation(0);
@@ -215,6 +247,7 @@ public class RocketInfoFlightProbe {
 		state = opened(doc);
 		state.calculating = false;
 		scenario("special:stored-flight-aborted-shown", "coverage", storedFlight, "set metric 0", doc, state);
+		System.out.println("E");
 	}
 
 	/** Loads the design @p name of the kind @p kind from @p file. */
@@ -329,14 +362,95 @@ public class RocketInfoFlightProbe {
 			line("U", "current", "");
 			line("U", "all", "");
 		}
-		int shownIndex = state.simulation == null ? -1 : all.indexOf(state.simulation);
+		overlay(document, state);
+	}
+
+	/** The O, A, F and T lines of the overlay of @p document's selected configuration in the state @p state. */
+	static void overlay(OpenRocketDocument document, FlightState state) throws Exception {
+		int shownIndex = state.simulation == null ? -1 : document.getSimulations().indexOf(state.simulation);
 		line("O", state.shown.name(), Boolean.toString(state.calculating), shownIndex < 0 ? "-" : Integer.toString(shownIndex));
 		if (state.simulation != null) {
 			System.out.println("A " + state.simulation.getStatus().name() + " | "
 					+ StringUtils.removeHTMLTags(state.simulation.getStatusDescription()));
 		}
-		paint(config, state);
-		System.out.println("E");
+		paint(document.getSelectedConfiguration(), state);
+	}
+
+	/** isSaved(), isUndoAvailable() and isRedoAvailable() of @p document. */
+	static String documentState(OpenRocketDocument document) {
+		return document.isSaved() + " " + document.isUndoAvailable() + " " + document.isRedoAvailable();
+	}
+
+	/**
+	 * The estimate's runs of @p document, just opened with the overlay in the state @p opened (see the class
+	 * comment): OpenFileWorker's setSaved(true), then what the BackgroundSimulationWorker of
+	 * runBackgroundSimulations() (RocketPanel.java:1684-1711, :1728-1798) does with the simulations updateSims(false)
+	 * finds, without its 300 ms sleep and on this thread: SimulationWorker.doInBackground() simulates the
+	 * document's simulation with InterruptListener.INSTANCE, GroundHitListener.INSTANCE, the custom expressions'
+	 * listener and the worker's CancelListener (never cancelled here: a listener that does nothing); then
+	 * simulationDone() (not calculating, a SimulationChangeEvent of the document, the next simulation) or
+	 * simulationInterrupted() (FlightData.NaN_DATA, not calculating, the chain ends). Meanwhile the change listeners
+	 * updateExtras() gave the simulations when the design was opened (RocketPanel.java:1610-1623: each simulation up
+	 * to and including the first of the selected configuration, where its loop breaks) show a simulation that changed
+	 * when it is of the selected configuration (updateFlightData(): RocketInfo.setSimulation() when its
+	 * configuration's id compareTo() the selected one's is 0; the == of the ids there only decides updateFigures()).
+	 */
+	static void runEstimate(OpenRocketDocument document, FlightState opened) throws Exception {
+		// OpenFileWorker: the design just opened is saved.
+		document.setSaved(true);
+		line("R", "before", documentState(document));
+		FlightState state = new FlightState();
+		state.shown = opened.shown;
+		state.calculating = opened.calculating;
+		state.simulation = opened.simulation;
+		List<Simulation> all = document.getSimulations();
+		// updateExtras()'s change listeners, as it adds them.
+		List<Simulation> listened = new ArrayList<>();
+		List<StateChangeListener> listeners = new ArrayList<>();
+		FlightConfigurationId openedID = document.getSelectedConfiguration().getFlightConfigurationID();
+		for (Simulation sim : all) {
+			StateChangeListener shows = e -> {
+				FlightConfigurationId curID = document.getSelectedConfiguration().getFlightConfigurationID();
+				if (sim.getFlightConfigurationId().compareTo(curID) == 0) {
+					setSimulation(state, sim);
+				}
+			};
+			sim.addChangeListener(shows);
+			listened.add(sim);
+			listeners.add(shows);
+			if (sim.getFlightConfigurationId().compareTo(openedID) == 0) {
+				break;
+			}
+		}
+		for (int index : updateSims(document, false)) {
+			Simulation sim = all.get(index);
+			// doInBackground(): calculating while it runs.
+			state.calculating = true;
+			Throwable failure = null;
+			try {
+				sim.simulate(InterruptListener.INSTANCE, GroundHitListener.INSTANCE,
+						new CustomExpressionSimulationListener(document.getCustomExpressions()),
+						new AbstractSimulationListener());
+			} catch (Throwable t) {
+				failure = t;
+			}
+			if (failure != null) {
+				// simulationInterrupted()
+				state.shown = Shown.NAN;
+				state.calculating = false;
+				System.out.println("R failed " + index + " | " + failure);
+				break;
+			}
+			// simulationDone()
+			state.calculating = false;
+			document.fireDocumentChangeEvent(new SimulationChangeEvent(sim));
+			line("R", "ran", Integer.toString(index), sim.getStatus().name(), Boolean.toString(sim.hasSummaryData()));
+		}
+		for (int index = 0; index < listened.size(); index++) {
+			listened.get(index).removeChangeListener(listeners.get(index));
+		}
+		line("R", "after", documentState(document));
+		overlay(document, state);
 	}
 
 	static String indices(List<Integer> list) {

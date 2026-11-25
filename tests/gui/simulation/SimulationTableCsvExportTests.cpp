@@ -150,7 +150,7 @@ TEST_P(SimulationTableCsvExportGolden, CopiesEveryRowAsOpenRocket)
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, SimulationTableCsvExportGolden,
-                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedDesigns()),
+                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedExampleDesigns()),
                          Gui::Test::simulationTablePinTestName);
 
 // The pins' pairing: "A simple model rocket" with a new simulation (no data) inserted as the second

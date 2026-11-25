@@ -8,7 +8,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | Family | Table | Probe | Generator | Read by |
 |---|---|---|---|---|
 | `figure-paint` | `tests/gui/figure/RocketFigurePaintPins.h` | `FigurePaintProbe` | `gen_rocket_figure_paint_pins.py` | `rocket_figure_paint_golden_tests.cpp` |
-| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` (through `RocketInfoFlightPins.h`) |
+| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` and `open_designs_flight_block_exit_tests.cpp` (through `RocketInfoFlightPins.h` and `RocketInfoFlightPinChecks.h`) |
 | `ribbon` | `tests/gui/widgets/RibbonPins.h` | `RibbonProbe` | `gen_ribbon_pins.py` | `ribbon_golden_tests.cpp` |
 | `rocket-panel` | `tests/gui/figure/RocketPanelPins.h` | `RocketPanelProbe` | `gen_rocket_panel_pins.py` | `rocket_panel_golden_tests.cpp` |
 | `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp`, `SimulationPreferencesPanelTests.cpp`, `WarningsPreferencesPanelTests.cpp`, `LaunchPreferencesPanelTests.cpp` |
@@ -24,7 +24,8 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
-| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
+| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`, `SimulationPanelTests.cpp`, `SimulationTableCsvExportTests.cpp`, `SimulationEditingTests.cpp`, `simulations_window_tests.cpp`, `open_designs_exit_tests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
+| `simulation-dialog` | `tests/data/goldens/gui/simulation-dialog/simulation-dialog.json` | `SimulationDialogProbe` | `gen_simulation_dialog_pins.py` (and `open-designs/designs.py`) | `tests/gui/dialogs/simulation/SimulationDialogPins.h`: `open_designs_exit_tests.cpp` (through `SimulationDialogPinChecks.h`) |
 | `plot-dialog` | values pinned by hand | `PlotDialogProbe`, `PlotTabProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp`, `PlotTypeSelectorTests.cpp`, `SimulationPlotTypeSelectorTests.cpp`, `SimulationPlotPanelTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
@@ -67,9 +68,19 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   line without starting the worker (which simulations `updateSims(false)` and `updateSims(true)` would run,
   calculating or not, the shown simulation), every simulation's status and maxima, and the texts of the block
   after those of a paint without flight data, each with its font, colour, row above the bottom one and column
-  (the left margin or the values' column), which do not depend on the font. No fresh flight: the four
-  designs whose estimate would run show their stored values, dimmed. The generator writes JSON
-  (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, the design files relative to the repository).
+  (the left margin or the values' column), which do not depend on the font. The four designs whose estimate
+  runs (the re-saves of the test rockets beta, Falcon 9 Heavy, the multi-stage event rocket and the cluster
+  pods) show "Calculating..." and their labels with "N/A", dimmed; then (`runEstimate()`, Milestone 4's run 3,
+  part Y3, for the exit suite of the flight block) the probe marks the document saved, as `OpenFileWorker`
+  marks a design it opened, runs what `RocketPanel`'s `BackgroundSimulationWorker` runs, on the probe's thread
+  and without its 300 ms sleep (`Simulation.simulate()` with the worker's listeners, `simulationDone()` or
+  `simulationInterrupted()`, and the change listeners `updateExtras()` gives the simulations up to the first
+  of the selected configuration, which show a simulation of that configuration that changed), and prints the
+  document's saved state and undo history before and after, each simulation's status after its run, and the
+  overlay after the runs. Those are fresh flights: the generator writes the apogee, the maximum velocity and
+  the maximum acceleration of the block as `null`, so the table holds no value of them. The generator writes
+  JSON (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, schema 2, the design files relative to the
+  repository).
 - `ribbon`: `StageSelector` and `ConfigurationComboBox`, made as `RocketPanel` makes them, on the 16
   examples, the 13 test rockets and five designs of its own: the stage buttons (text, state, tooltip), each
   enabled button clicked twice on a fresh design, every configuration picked, with the rocket's events and
@@ -315,11 +326,11 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   `SimulationPanel` (its `SimulationTableModel`, `ColumnTable` and `ColumnTableRowSorter`, read by reflection),
   never shown; its `RocketActions` ask the toolkit for the menu shortcut key, so the probe runs under `xvfb-run`
   with `-Djava.awt.headless=false`. It takes a list of designs in `open-designs/designs.py`'s format (name, kind,
-  file): `generate.sh` passes the sixteen examples (designs.py's kind `example`); run 3 extends the table to
-  every design of `OpenDesignsExitGolden` by passing the whole list (the probe already loads each kind as that
-  suite loads it, as `OpenDesignsTabProbe` does: the bundled motors, `TestRockets`' seven synthetic ones for the
-  test rockets' re-saves, the six presets of the examples from `data/components`; `SwingPreferences` with
-  `MotorNameColumn` false; FlatLaf Light; every design's UUIDs seeded from its name). For each design and a new
+  file): `generate.sh` passes the whole list, every design of `OpenDesignsExitGolden` (the sixteen examples, the
+  49 re-saves and the GUI reference), and the probe loads each kind as that suite loads it, as
+  `OpenDesignsTabProbe` does: the bundled motors, `TestRockets`' seven synthetic ones for the test rockets'
+  re-saves, the six presets of the examples from `data/components`; `SwingPreferences` with `MotorNameColumn`
+  false; FlatLaf Light; every design's UUIDs seeded from its name. For each design and a new
   one it prints the model's columns (id, header, tooltip, unit), the view's widths, every row's status (with its
   icon's description, the status label's sort text, `getStatusDescription()` and the cells' tooltip), its
   warnings (the counts, the box's labels with each icon named by its level, the tooltip, each warning), its cells,
@@ -352,6 +363,25 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   Enter and Shift+Enter do (`selectNextRowCell`, `selectPreviousRowCell` run through the action maps from
   selections made with `changeSelection()`), and the sort keys after mouse events dispatched to the header. The
   tests pin its whole transcript by hand (`SimulationColumnVisibilityTests.cpp`, `SimulationTableViewTests.cpp`).
+- `simulation-dialog`: OpenRocket's simulation settings dialog (`SimulationConfigDialog`, Milestone 4, run 3,
+  part Y2, the exit check E4), over every simulation of every design of `OpenDesignsExitGolden` (the list
+  `open-designs/designs.py` writes), each design loaded as `simulation-table` loads it (the same motors, presets,
+  `MotorNameColumn` false, FlatLaf Light, the UUIDs seeded from the design's name) and left as `OpenFileWorker`
+  leaves a document File > Open loads (its file set, saved), with one `SwingPreferences` (`Scopes.SINGLETON`, as
+  OpenRocket's `GuiModule` binds it). For each simulation in the document's order, on the one document, it makes
+  the dialog the tab's Edit opens (`SimulationPanel.openDialog()`: the settings tab; never shown, so the probe runs
+  under `xvfb-run`) and prints its title, its walk in the form of `tools/openrocket-probes/simulation-options`'s
+  and `simulation-warnings`' walks (the top rows, the line of the tabs, each tab's title with the pages of the
+  Launch conditions, Simulation options and Warnings tabs, the buttons), each tab's title, enabled state and
+  tooltip, the icons of each extension's buttons, and for a multi-level wind the wind editor's table (the dialog
+  "Edit levels" opens, `MultiLevelWindEditDialog`, made over the settings dialog, never shown: the
+  `tools/openrocket-probes/wind-editor` probe's HEADER, ROW and MODEL lines); then whether the dialog was modified,
+  its Cancel (`doClick()`; a dialog that would ask its discard question fails the probe, as the question would
+  block), the change events every simulation fired meanwhile, and the document's undo state (its private undo
+  fields, read by reflection), saved state and statuses before the dialog and after its Cancel. The table is JSON:
+  the walks share their lines ("lines" lists each distinct line once, a walk is the indices of its lines: 196
+  walks of about 23,000 lines, of which a few hundred differ), one simulation per line; read once per test
+  process by `tests/gui/dialogs/simulation/SimulationDialogPins.h`.
 - `plot-dialog`: OpenRocket's plot dialog (`PlotDialog` and `SimulationPlotDialog`, Milestone 4, run 2, part
   G4), made through `SimulationPlotDialog.getPlot()` as the plot tab's `doPlot()` makes it, over stored flights of
   the examples ("A simple model rocket" #1 under the first preset and the drag coefficients over the Mach number,
@@ -412,7 +442,7 @@ Requirements:
   `build.properties` on the class path (`<version>-SNAPSHOT-<short commit>`, stamped by OpenRocket's build)
   and refuses classes of another commit (`ALLOW_OTHER_COMMIT=1` overrides).
 - `python3`, `clang-format` and, for `rocket-panel`, `thrust-curves`, `flight-config`, `preset-chooser`,
-  `open-designs` and `simulation-table`, `xvfb-run`.
+  `open-designs`, `simulation-table`, `simulation-dialog` and `plot-dialog`, `xvfb-run`.
 
 ```sh
 OPENROCKET_DIR=/path/to/openrocket OPENROCKET_CLASSPATH=... tools/openrocket-gui-pins/generate.sh        # every family
@@ -537,6 +567,14 @@ each scenario (a new simulation and a new design draw UUIDs; the transcript name
 8 characters, all of them the files'); its one fresh flight's values are not in the table. Two runs gave the same
 table. Its `SimulationTableViewProbe` reseeds from the design's file name before each load and before each new
 design (it prints no UUID); two runs gave the same transcript.
+`simulation-dialog` (Milestone 4) reseeds from the design's name before each design (its loads draw no UUID the
+table shows); two runs gave the same table.
+`rocket-info`'s `RocketInfoFlightProbe` runs four fresh flights (the estimate's runs of Milestone 4's run 3,
+part Y3). OpenRocket's flights at the default time step do not repeat from one set of component ids to another
+(`tools/openrocket-goldens/README.md`, "Reproducibility of the simulations"); seeded, they repeated (two runs
+printed the same transcript, the flights' values included), but the table holds none of their values all the
+same: what it keeps of them (the statuses, three of them ABORTED with their causes, the document's states and
+the texts of the block but for its three values) does not depend on the last bits of the flight.
 
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
@@ -610,7 +648,25 @@ QtRocket's answers for bugs 23 and 25 beside OpenRocket's), the first family who
 (`tests/data/goldens/gui/`) rather than a C++ header. Part T2 added its `SimulationTableViewProbe` (the column
 chooser, the keys and the header of the table view; pinned by hand). Its review gave QtRocket's warnings order a
 row without data last when descending (as `DefaultRowSorter` and QtRocket sort a missing value) and the scenarios
-the warnings column's orders (the designs' rows stayed byte for byte the same).
+the warnings column's orders (the designs' rows stayed byte for byte the same). Run 3's part Y1 passed it the
+whole list of `OpenDesignsExitGolden`'s 66 designs (the sixteen examples' tables stayed byte for byte the same), for
+the suite's test of the "Flight simulations" tab.
+
+Milestone 4's run 3, part Y2, added `simulation-dialog` (the M4 tests-exit scout's E4; the walk of the M4
+sim-config scout's `SimConfigDialogWalk` in the form of run 2's probes `simulation-options` and
+`simulation-warnings`, over every simulation of `OpenDesignsExitGolden`'s 66 designs as the tab's Edit opens it,
+then cancelled), for the suite's test of the settings dialog of every simulation.
+
+`rocket-info`'s second probe, `RocketInfoFlightProbe`, came in Milestone 4's run 2 (part G2: the flight block of
+each design of `OpenDesignsExitGolden` and seven states of its own, the first JSON table of the family). Run 3's
+part Y3 gave it the estimate's run of the four designs whose estimate runs, for the exit suite of the flight block
+(`open_designs_flight_block_exit_tests.cpp`): the table's schema 2, with a `run` for each scenario (null but for
+those four), the rest of it byte for byte the same. `RocketInfoPins.h`, the family's other table, does not
+regenerate byte for byte on every machine: OpenRocket's headless UI font is measured with the machine's fonts, and
+on the machine of runs 2 and 3 the row above the bottom one (`rowFromBottom`, in lines) of every text and caret is
+7.9476 smaller and one text's right alignment flips (583 lines, already at the base of run 2's part G2);
+`generate.sh --check rocket-info` then says `DIFFERENT` for it and `same` for `flight-blocks.json`, and the
+committed `RocketInfoPins.h` stays as it was made (a regenerated one is never committed).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

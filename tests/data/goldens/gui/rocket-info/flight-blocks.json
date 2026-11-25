@@ -1,5 +1,5 @@
 {
- "schema": 1,
+ "schema": 2,
  "openrocket": "5f164fd0e05d6e188857b0185601293b7a6e9eaf",
  "generator": "tools/openrocket-gui-pins/generate.sh rocket-info (RocketInfoFlightProbe)",
  "colours": {"FLIGHTDATA_TEXT_ACTIVE": [0, 0, 127, 255], "FLIGHTDATA_TEXT_INACTIVE": [0, 0, 127, 127], "ERROR": [255, 0, 0, 255], "TEXT": [0, 0, 0, 255]},
@@ -21,7 +21,8 @@
     {"text": "112 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "48.5 m/s  (Mach 0.143)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "153 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_a_simple_model_rocket", "kind": "example", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -40,7 +41,8 @@
     {"text": "317 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_arc_payload_rocket", "kind": "example", "file": "data/examples/ARC payload rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -55,7 +57,8 @@
     {"text": "451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "150 m/s  (Mach 0.442)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "197 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_airstart_timing", "kind": "example", "file": "data/examples/Airstart timing.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -74,7 +77,8 @@
     {"text": "1265 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "136 m/s  (Mach 0.404)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "63.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_chute_release", "kind": "example", "file": "data/examples/Chute release.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -90,7 +94,8 @@
     {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "88.7 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_clustered_motors", "kind": "example", "file": "data/examples/Clustered motors.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[4\u00d7 C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -109,7 +114,8 @@
     {"text": "307 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "98.5 m/s  (Mach 0.290)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "209 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_deployable_payload", "kind": "example", "file": "data/examples/Deployable payload.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -128,7 +134,8 @@
     {"text": "263 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "77.3 m/s  (Mach 0.228)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "152 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_dual_parachute_deployment", "kind": "example", "file": "data/examples/Dual parachute deployment.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H999-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -148,7 +155,8 @@
     {"text": "897 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "191 m/s  (Mach 0.561)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "1004 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_parallel_booster_staging", "kind": "example", "file": "data/examples/Parallel booster staging.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[I115-10; None]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -164,7 +172,8 @@
     {"text": "848 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "189 m/s  (Mach 0.557)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "117 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_pods_airframes_and_winglets", "kind": "example", "file": "data/examples/Pods--airframes and winglets.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 2}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -183,7 +192,8 @@
     {"text": "198 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "71.9 m/s  (Mach 0.212)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "164 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_pods_powered_with_recovery_deployment", "kind": "example", "file": "data/examples/Pods--powered with recovery deployment.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 A10-3, A8-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -198,7 +208,8 @@
     {"text": "90.7 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "43.3 m/s  (Mach 0.128)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "264 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_simulation_extensions", "kind": "example", "file": "data/examples/Simulation extensions.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -215,7 +226,8 @@
     {"text": "2463 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_simulation_scripting", "kind": "example", "file": "data/examples/Simulation scripting.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -232,7 +244,8 @@
     {"text": "2465 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_three_stage_low_power_rocket", "kind": "example", "file": "data/examples/Three stage low power rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -249,7 +262,8 @@
     {"text": "479 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "120 m/s  (Mach 0.354)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "174 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_tube_fin_rocket", "kind": "example", "file": "data/examples/Tube fin rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -264,7 +278,8 @@
     {"text": "282 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "119 m/s  (Mach 0.351)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "389 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "example_two_stage_high_power_rocket", "kind": "example", "file": "data/examples/Two stage high power rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H148R-0; H148R-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -280,7 +295,8 @@
     {"text": "676 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "159 m/s  (Mach 0.469)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "110 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_3d_printable_nose_cone_and_fins", "kind": "example-resave", "file": "tests/data/goldens/example-3d-printable-nose-cone-and-fins/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[B6-4]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -299,7 +315,8 @@
     {"text": "112 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "48.5 m/s  (Mach 0.143)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "153 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_a_simple_model_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-a-simple-model-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -318,7 +335,8 @@
     {"text": "317 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_arc_payload_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-arc-payload-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -333,7 +351,8 @@
     {"text": "451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "150 m/s  (Mach 0.442)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "197 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_airstart_timing", "kind": "example-resave", "file": "tests/data/goldens/example-airstart-timing/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -352,7 +371,8 @@
     {"text": "1265 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "136 m/s  (Mach 0.404)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "63.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_chute_release", "kind": "example-resave", "file": "tests/data/goldens/example-chute-release/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -368,7 +388,8 @@
     {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "88.7 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_clustered_motors", "kind": "example-resave", "file": "tests/data/goldens/example-clustered-motors/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[4\u00d7 C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -387,7 +408,8 @@
     {"text": "307 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "98.5 m/s  (Mach 0.290)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "209 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_deployable_payload", "kind": "example-resave", "file": "tests/data/goldens/example-deployable-payload/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -406,7 +428,8 @@
     {"text": "263 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "77.3 m/s  (Mach 0.228)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "152 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_dual_parachute_deployment", "kind": "example-resave", "file": "tests/data/goldens/example-dual-parachute-deployment/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H999-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -426,7 +449,8 @@
     {"text": "897 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "191 m/s  (Mach 0.561)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "1004 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_parallel_booster_staging", "kind": "example-resave", "file": "tests/data/goldens/example-parallel-booster-staging/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[I115-10; None]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -442,7 +466,8 @@
     {"text": "848 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "189 m/s  (Mach 0.557)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "117 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_pods_airframes_and_winglets", "kind": "example-resave", "file": "tests/data/goldens/example-pods-airframes-and-winglets/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 2}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -461,7 +486,8 @@
     {"text": "198 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "71.9 m/s  (Mach 0.212)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "164 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_pods_powered_with_recovery_deployment", "kind": "example-resave", "file": "tests/data/goldens/example-pods-powered-with-recovery-deployment/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 A10-3, A8-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -476,7 +502,8 @@
     {"text": "90.7 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "43.3 m/s  (Mach 0.128)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "264 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_simulation_extensions", "kind": "example-resave", "file": "tests/data/goldens/example-simulation-extensions/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -493,7 +520,8 @@
     {"text": "2463 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_simulation_scripting", "kind": "example-resave", "file": "tests/data/goldens/example-simulation-scripting/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -510,7 +538,8 @@
     {"text": "2465 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_three_stage_low_power_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-three-stage-low-power-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -527,7 +556,8 @@
     {"text": "479 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "120 m/s  (Mach 0.354)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "174 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_tube_fin_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-tube-fin-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -542,7 +572,8 @@
     {"text": "282 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "119 m/s  (Mach 0.351)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "389 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "resave_example_two_stage_high_power_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-two-stage-high-power-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H148R-0; H148R-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -558,7 +589,8 @@
     {"text": "676 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "159 m/s  (Mach 0.469)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "110 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_estes_alpha_iii", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -581,7 +613,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_beta", "kind": "testrocket", "file": "tests/data/goldens/testrocket-beta/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[B4-3; D21-0]"}, "runs": {"current": [2], "all": [1, 2, 3, 4, 5]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 2}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
    "simulations": [
@@ -602,7 +635,19 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": {"before": {"saved": true, "undoAvailable": false, "redoAvailable": false}, "after": {"saved": false, "undoAvailable": false, "redoAvailable": false}, "ran": [{"index": 2, "status": "UPTODATE", "hasData": true}], "succeeded": true, "overlay": {"shown": "DATA", "calculating": false, "simulation": 2}, "status": {"status": "UPTODATE", "text": "Up to date"},
+    "texts": [
+     {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+     {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+     {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+     {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+     {"text": "[B4-3; D21-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+    ]
+   }
   },
   {"name": "testrocket_simple_2_stage", "kind": "testrocket", "file": "tests/data/goldens/testrocket-simple-2-stage/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -618,7 +663,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_big_blue", "kind": "testrocket", "file": "tests/data/goldens/testrocket-big-blue/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -633,7 +679,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_iso_haisu", "kind": "testrocket", "file": "tests/data/goldens/testrocket-iso-haisu/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -648,7 +695,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_falcon_9_heavy", "kind": "testrocket", "file": "tests/data/goldens/testrocket-falcon-9-heavy/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; M1350-0; 8\u00d7 G77-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
    "simulations": [
@@ -665,7 +713,20 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": {"before": {"saved": true, "undoAvailable": false, "redoAvailable": false}, "after": {"saved": false, "undoAvailable": false, "redoAvailable": false}, "ran": [{"index": 1, "status": "ABORTED", "hasData": true}], "succeeded": true, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "ABORTED", "text": "Simulation Aborted: Stage began to tumble under thrust."},
+    "texts": [
+     {"text": "Simulation Aborted: Stage began to tumble under thrust.", "font": "BOLD", "colour": "ERROR", "rgba": [255, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"},
+     {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+     {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+     {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+     {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+     {"text": "[None; M1350-0; 8\u00d7 G77-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+    ]
+   }
   },
   {"name": "testrocket_multi_stage_event_test_rocket", "kind": "testrocket", "file": "tests/data/goldens/testrocket-multi-stage-event-test-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; C6-0; 2\u00d7 A10-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
    "simulations": [
@@ -682,7 +743,20 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": {"before": {"saved": true, "undoAvailable": false, "redoAvailable": false}, "after": {"saved": false, "undoAvailable": false, "redoAvailable": false}, "ran": [{"index": 1, "status": "ABORTED", "hasData": true}], "succeeded": true, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "ABORTED", "text": "Simulation Aborted: Stage began to tumble under thrust."},
+    "texts": [
+     {"text": "Simulation Aborted: Stage began to tumble under thrust.", "font": "BOLD", "colour": "ERROR", "rgba": [255, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"},
+     {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+     {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+     {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+     {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+     {"text": "[C6-5; C6-0; 2\u00d7 A10-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+    ]
+   }
   },
   {"name": "testrocket_end_plate_rocket", "kind": "testrocket", "file": "tests/data/goldens/testrocket-end-plate-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -697,7 +771,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_estes_alpha_iii_with_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -717,7 +792,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_estes_alpha_iii_with_motor_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -737,7 +813,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_estes_alpha_iii_with_second_motor", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -757,7 +834,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_estes_alpha_iii_with_inline_pod", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-inline-pod/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -777,7 +855,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "testrocket_cluster_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-cluster-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 C6-0; 12\u00d7 C6-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
    "simulations": [
@@ -794,7 +873,20 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": {"before": {"saved": true, "undoAvailable": false, "redoAvailable": false}, "after": {"saved": false, "undoAvailable": false, "redoAvailable": false}, "ran": [{"index": 1, "status": "ABORTED", "hasData": true}], "succeeded": true, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "ABORTED", "text": "Simulation Aborted: Can't calculate Center of Pressure"},
+    "texts": [
+     {"text": "Simulation Aborted: Can't calculate Center of Pressure", "font": "BOLD", "colour": "ERROR", "rgba": [255, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"},
+     {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+     {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+     {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+     {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+     {"text": "[2\u00d7 C6-0; 12\u00d7 C6-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+     {"text": null, "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+    ]
+   }
   },
   {"name": "legacy_simplerocket", "kind": "legacy", "file": "tests/data/goldens/legacy-simplerocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[A8-3]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -813,7 +905,8 @@
     {"text": "47.3 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "27.5 m/s  (Mach 0.081)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "135 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_0_roll_stabilized", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-0-roll-stabilized/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -828,7 +921,8 @@
     {"text": "283 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "88 m/s  (Mach 0.259)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "141 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_4_roll_stabilized", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-4-roll-stabilized/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -843,7 +937,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_5_preset_usage", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-5-preset-usage/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -858,7 +953,8 @@
     {"text": "308 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "119 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "300 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_a_simple_model_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-a-simple-model-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -877,7 +973,8 @@
     {"text": "311 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "94.6 m/s  (Mach 0.279)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "188 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_apocd", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-apocd/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [],
@@ -890,7 +987,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_boosted_dart", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-boosted-dart/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "Separation @1s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -906,7 +1004,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_high_power_airstart", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-high-power-airstart/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -925,7 +1024,8 @@
     {"text": "1233 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "134 m/s  (Mach 0.398)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "82.6 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_preset_usage_decals_first", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-preset-usage-decals-first/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -940,7 +1040,8 @@
     {"text": "308 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "119 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "300 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_simulation_listeners", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-simulation-listeners/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -957,7 +1058,8 @@
     {"text": "2450 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "239 m/s  (Mach 0.709)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.2 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_tarc_payloader", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-tarc-payloader/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -972,7 +1074,8 @@
     {"text": "450 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "148 m/s  (Mach 0.437)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "188 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_6_three_stage_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-three-stage-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -989,7 +1092,8 @@
     {"text": "466 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "118 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "160 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_7_simulation_extensions_and_scripting", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-7-simulation-extensions-and-scripting/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1006,7 +1110,8 @@
     {"text": "2451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "239 m/s  (Mach 0.709)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "52.2 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_7_tube_fin", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-7-tube-fin/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1021,7 +1126,8 @@
     {"text": "238 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "99.4 m/s  (Mach 0.293)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "303 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_8_logo_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-logo-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [],
@@ -1034,7 +1140,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_8_parallel_staging_example", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-parallel-staging-example/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; I132-0; 3\u00d7 D21-4]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1049,7 +1156,8 @@
     {"text": "1251 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "317 m/s  (Mach 0.937)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "1302 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_8_pods_example", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-pods-example/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; 4\u00d7 D21-4, I132-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1064,7 +1172,8 @@
     {"text": "71.8 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "163 m/s  (Mach 0.476)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "1097 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "legacy_v1_9_chute_release", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-9-chute-release/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1080,7 +1189,8 @@
     {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "87.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "coverage_kitchen_sink", "kind": "coverage", "file": "tests/data/goldens/coverage-kitchen-sink/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -1095,7 +1205,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "coverage_stored_flight", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [
@@ -1110,7 +1221,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "gui_from_scratch", "kind": "gui", "file": "tests/data/goldens/gui/from-scratch/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
    "simulations": [],
@@ -1123,7 +1235,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:simple-calculating", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": true, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1143,7 +1256,8 @@
     {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:simple-failed", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1162,7 +1276,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:simple-failed-calculating", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1182,7 +1297,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:simple-calculating-without-data", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NONE", "calculating": true, "simulation": null}, "status": null,
    "simulations": [
@@ -1194,7 +1310,8 @@
    ],
    "texts": [
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 0, "column": "LEFT"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:simple-imperial", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": true, "units": "imperial", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
    "simulations": [
@@ -1213,7 +1330,8 @@
     {"text": "1039 ft", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "313 ft/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "628 ft/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:stored-flight-aborted", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": 0}, "configuration": {"hasMotors": true, "name": "[C6-3]"}, "runs": {"current": [0], "all": [0]}, "overlay": {"shown": "DATA", "calculating": true, "simulation": 0}, "status": {"status": "ABORTED", "text": "Simulation Aborted: No motors ignited"},
    "simulations": [
@@ -1230,7 +1348,8 @@
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
     {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 5, "column": "LEFT"}
-   ]
+   ],
+   "run": null
   },
   {"name": "special:stored-flight-aborted-shown", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": 0}, "configuration": {"hasMotors": true, "name": "[C6-3]"}, "runs": {"current": [0], "all": [0]}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "ABORTED", "text": "Simulation Aborted: No motors ignited"},
    "simulations": [
@@ -1246,7 +1365,8 @@
     {"text": "2.25 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
     {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
-   ]
+   ],
+   "run": null
   }
  ]
 }

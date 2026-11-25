@@ -20,6 +20,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     rocket_panel_golden_tests.cpp
     RocketFigurePainterTests.cpp
     RocketFigureTests.cpp
+    RocketInfoFlightPinChecks.cpp
     RocketInfoFlightPins.cpp
     RocketInfoTests.cpp
     RocketPanelTests.cpp

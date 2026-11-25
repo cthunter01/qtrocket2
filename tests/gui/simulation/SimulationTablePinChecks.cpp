@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -9,15 +10,20 @@
 #include <variant>
 #include <vector>
 
+#include <QAction>
 #include <QFont>
 #include <QModelIndex>
 #include <QRect>
+#include <QString>
 #include <QVariant>
 #include <Qt>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/simulation/SimulationWarningsDelegate.h"
 #include "QtRocket/gui/util/Icons.h"
@@ -161,6 +167,17 @@ void expectStatus(const SimulationTableModel& model, int row, const SimulationTa
     return cells;
 }
 
+/// The pins' text of the state of the action @p name in @p pinned: '1', '0', '?' for none.
+[[nodiscard]] char pinnedState(const std::map<std::string, bool>& pinned, const std::string& name)
+{
+    const auto state = pinned.find(name);
+    if (state == pinned.end())
+    {
+        return '?';
+    }
+    return state->second ? '1' : '0';
+}
+
 }  // namespace
 
 void expectSimulationTablePinRow(const SimulationTableModel& model, int row,
@@ -189,6 +206,91 @@ void expectSimulationTablePinRows(const SimulationTableModel&               mode
     {
         expectSimulationTablePinRow(model, row, pins.at(static_cast<std::size_t>(row)));
     }
+}
+
+std::vector<int> simulationTableDocumentOrder(const SimulationTableModel& model)
+{
+    std::vector<int> order;
+    order.reserve(static_cast<std::size_t>(model.rowCount()));
+    for (int row = 0; row < model.rowCount(); ++row)
+    {
+        const std::optional<std::size_t> index =
+            model.document().getSimulationIndex(*model.simulation(row));
+        order.push_back(index.has_value() ? static_cast<int>(*index) : -1);
+    }
+    return order;
+}
+
+std::array<QAction*, 11> simulationPanelPinActions(const SimulationPanel& panel)
+{
+    return {panel.newSimulationAction(),
+            panel.editSimulationAction(),
+            panel.cutSimulationAction(),
+            panel.copySimulationAction(),
+            panel.pasteSimulationAction(),
+            panel.runSimulationAction(),
+            panel.plotSimulationAction(),
+            panel.duplicateSimulationAction(),
+            panel.deleteSimulationAction(),
+            panel.exportSimulationTableAction(),
+            panel.exportSelectedSimulationsAction()};
+}
+
+std::string simulationPanelActionName(const QAction& action)
+{
+    QString name = action.objectName();
+    name.chop(QStringLiteral("Action").size());
+    return QtStrings::toUtf8(name);
+}
+
+std::string simulationPanelActionStates(const SimulationPanel& panel)
+{
+    std::string text;
+    for (const QAction* action : simulationPanelPinActions(panel))
+    {
+        text += (text.empty() ? "" : " ") + simulationPanelActionName(*action) + '=' +
+                (action->isEnabled() ? '1' : '0');
+    }
+    return text;
+}
+
+std::string pinnedSimulationPanelActionStates(const SimulationPanel&             panel,
+                                              const std::map<std::string, bool>& pinned)
+{
+    std::string text;
+    for (const QAction* action : simulationPanelPinActions(panel))
+    {
+        const std::string name = simulationPanelActionName(*action);
+        text += (text.empty() ? "" : " ") + name + '=' + pinnedState(pinned, name);
+    }
+    return text;
+}
+
+std::vector<std::string> simulationMenuStateDifferences(const MainMenus&                   menus,
+                                                        const std::map<std::string, bool>& pinned,
+                                                        bool editItems)
+{
+    std::vector<std::pair<std::string, const QAction*>> items{
+        {"simTableExport", menus.exportSimulationTableAction()}};
+    if (editItems)
+    {
+        items.insert(items.end(), {{"editSimulation", menus.editAction()},
+                                   {"cutSimulation", menus.cutAction()},
+                                   {"copySimulation", menus.copyAction()},
+                                   {"pasteSimulation", menus.pasteAction()},
+                                   {"duplicateSimulation", menus.duplicateAction()},
+                                   {"deleteSimulation", menus.deleteAction()}});
+    }
+    std::vector<std::string> differences;
+    for (const auto& [name, action] : items)
+    {
+        const auto found = pinned.find(name);
+        if (found == pinned.end() || found->second != action->isEnabled())
+        {
+            differences.push_back(name);
+        }
+    }
+    return differences;
 }
 
 }  // namespace QtRocket::Gui::Test

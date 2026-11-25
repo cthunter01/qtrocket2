@@ -2,8 +2,8 @@
 """Writes tests/data/goldens/gui/simulation-table/simulation-table.json from SimulationTableProbe's transcript (see
 the probe's class comment for its lines and README.md, "simulation-table", for the table).
 
-The table holds what OpenRocket's simulations table shows of each design the probe was given (the sixteen
-examples, and a new design), of two status scenarios and of a Copy whose rows include one without data, in
+The table holds what OpenRocket's simulations table shows of each design the probe was given (the 66 designs of
+OpenDesignsExitGolden, open-designs/designs.py's list, and a new design), of two status scenarios and of a Copy whose rows include one without data, in
 QtRocket's terms where QtRocket fixes one of OpenRocket's bugs: the warnings column's orders are QtRocket's (bug
 23: OpenRocket's own, which keep the model's order, are kept beside them), and so is the Copy text of the pairing
 case (bug 25: OpenRocket's own is kept beside it). A simulation a scenario ran has no cells, warnings or counts in

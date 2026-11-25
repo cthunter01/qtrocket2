@@ -9,6 +9,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     PlotPanelTestSupport.cpp
     PlotTypeSelectorTests.cpp
     simulation_plot_panel_golden_tests.cpp
+    simulation_plot_presets_golden_tests.cpp
     SimulationPlotDialogTests.cpp
     SimulationPlotPanelTests.cpp
     SimulationPlotTypeSelectorTests.cpp

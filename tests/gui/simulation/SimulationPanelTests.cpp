@@ -88,6 +88,7 @@
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
 #include "TestTempDir.h"
+#include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
 #include "simulation/SimulationTableTestSupport.h"
 #include "tree/TreeViewMouse.h"
@@ -228,68 +229,6 @@ private:
     return std::make_unique<SimulationTab>(OpenRocketDocumentFactory::createNewRocket());
 }
 
-/// The panel's actions in the order of OpenRocket's probe (SimulationTableProbe.ACTIONS, without
-/// the Monte Carlo action of Milestone 7).
-[[nodiscard]] std::array<QAction*, 11> panelActions(const SimulationPanel& panel)
-{
-    return {panel.newSimulationAction(),
-            panel.editSimulationAction(),
-            panel.cutSimulationAction(),
-            panel.copySimulationAction(),
-            panel.pasteSimulationAction(),
-            panel.runSimulationAction(),
-            panel.plotSimulationAction(),
-            panel.duplicateSimulationAction(),
-            panel.deleteSimulationAction(),
-            panel.exportSimulationTableAction(),
-            panel.exportSelectedSimulationsAction()};
-}
-
-/// The probe's name of @p action: its objectName without "Action" ("newSimulation").
-[[nodiscard]] std::string probeName(const QAction& action)
-{
-    QString name = action.objectName();
-    name.chop(static_cast<int>(QStringLiteral("Action").size()));
-    return QtStrings::toUtf8(name);
-}
-
-/// The states of the panel's actions as the pins write them: "newSimulation=1 editSimulation=0
-/// ...", in the probe's order.
-[[nodiscard]] std::string actionStates(const SimulationPanel& panel)
-{
-    std::string text;
-    for (const QAction* action : panelActions(panel))
-    {
-        text += (text.empty() ? "" : " ") + probeName(*action) + '=' +
-                (action->isEnabled() ? '1' : '0');
-    }
-    return text;
-}
-
-/// The pins' text of the state of the action @p name in @p pinned: "1", "0", "?" for none.
-[[nodiscard]] char pinnedState(const std::map<std::string, bool>& pinned, const std::string& name)
-{
-    const auto state = pinned.find(name);
-    if (state == pinned.end())
-    {
-        return '?';
-    }
-    return state->second ? '1' : '0';
-}
-
-/// OpenRocket's states of @p pinned in the same form, the Monte Carlo action left out.
-[[nodiscard]] std::string pinnedActionStates(const SimulationPanel&             panel,
-                                             const std::map<std::string, bool>& pinned)
-{
-    std::string text;
-    for (const QAction* action : panelActions(panel))
-    {
-        const std::string name = probeName(*action);
-        text += (text.empty() ? "" : " ") + name + '=' + pinnedState(pinned, name);
-    }
-    return text;
-}
-
 /// The items of @p menu: their texts with their keys ("&Edit [Ctrl+E]") and "-" for a
 /// separator, a disabled item marked " (disabled)".
 [[nodiscard]] Names menuItems(const QMenu& menu)
@@ -317,12 +256,12 @@ private:
 [[nodiscard]] Names actionsOtherThanJavas(const SimulationPanel& panel)
 {
     Names names;
-    for (const QAction* action : panelActions(panel))
+    for (const QAction* action : Gui::Test::simulationPanelPinActions(panel))
     {
         if (action->icon().isNull() || action->menuRole() != QAction::NoRole ||
             action->shortcutContext() != Qt::WidgetShortcut)
         {
-            names.push_back(probeName(*action));
+            names.push_back(Gui::Test::simulationPanelActionName(*action));
         }
     }
     return names;
@@ -606,7 +545,7 @@ TEST_F(SimulationPanelTest, ShowsTheHelpWhileNoConfigurationHasMotors)
               "No configuration with motors defined.\nPlease create a valid configuration in "
               "the 'Motors & Configuration' tab.");
     // OpenRocket's states for a new design (the pins' "new_design"): New disabled.
-    EXPECT_EQ(actionStates(panel),
+    EXPECT_EQ(Gui::Test::simulationPanelActionStates(panel),
               "newSimulation=0 editSimulation=0 cutSimulation=0 copySimulation=0 "
               "pasteSimulation=0 runSimulation=0 plotSimulation=0 duplicateSimulation=0 "
               "deleteSimulation=0 simTableExport=0 selectedSimsExport=0");
@@ -629,7 +568,7 @@ TEST_F(SimulationPanelTest, SwitchesBetweenTheHelpAndTheTableWithTheMotors)
     EXPECT_FALSE(panel.hasValidConfig());
     EXPECT_TRUE(panel.isHelpShown());
     // The rules that need a configuration with motors say no; the others still see the row.
-    EXPECT_EQ(actionStates(panel),
+    EXPECT_EQ(Gui::Test::simulationPanelActionStates(panel),
               "newSimulation=0 editSimulation=0 cutSimulation=1 copySimulation=1 "
               "pasteSimulation=0 runSimulation=0 plotSimulation=0 duplicateSimulation=1 "
               "deleteSimulation=0 simTableExport=1 selectedSimsExport=1");
@@ -696,13 +635,14 @@ TEST_P(SimulationPanelGolden, EnablesItsActionsAsOpenRocket)
     for (const auto& [selection, states] : pin->actions)
     {
         select(*tab, selection);
-        EXPECT_EQ(actionStates(tab->panel()), pinnedActionStates(tab->panel(), states))
+        EXPECT_EQ(Gui::Test::simulationPanelActionStates(tab->panel()),
+                  Gui::Test::pinnedSimulationPanelActionStates(tab->panel(), states))
             << selection;
     }
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, SimulationPanelGolden,
-                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedDesigns()),
+                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedExampleDesigns()),
                          Gui::Test::simulationTablePinTestName);
 
 TEST_F(SimulationPanelTest, PastesWithoutASelectedRowWhileTheTableIsShown)

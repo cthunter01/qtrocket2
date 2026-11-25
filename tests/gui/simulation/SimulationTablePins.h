@@ -4,15 +4,17 @@
 // tests/data/goldens/gui/simulation-table/simulation-table.json, which
 // tools/openrocket-gui-pins/generate.sh writes from its SimulationTableProbe (family
 // simulation-table; its README.md and the probe's class comment say what each value is). The
-// table holds, for each design the probe was given (the sixteen examples, and a new design):
-// every cell's text, the status column's icon, sort text, description and tooltip, the
-// warnings' counts, box and tooltip, the orders of a click and a second click on each column's
-// header, the states of the panel's twelve actions, and the texts of the CSV export and the Copy;
-// then two scenarios of edits with every simulation's status after each step, and a Copy whose
-// rows include one without data. Where QtRocket fixes one of OpenRocket's bugs the table holds
-// QtRocket's answer, with OpenRocket's own beside it: the warnings column's orders (bug 23), the
-// pairing Copy (bug 25). A simulation a scenario ran fresh has no cells, warnings or counts
-// (CLAUDE.md: no value of a fresh flight is pinned). Read once per test process.
+// table holds, for each design the probe was given (the 66 designs of the exit suite
+// OpenDesignsExitGolden, open-designs/designs.py's list: the sixteen examples, the 49 re-saves and
+// the GUI reference; and a new design): every cell's text, the status column's icon, sort text,
+// description and tooltip, the warnings' counts, box and tooltip, the orders of a click and a
+// second click on each column's header, the states of the panel's twelve actions, and the texts of
+// the CSV export and the Copy; then two scenarios of edits with every simulation's status after
+// each step, and a Copy whose rows include one without data. Where QtRocket fixes one of
+// OpenRocket's bugs the table holds QtRocket's answer, with OpenRocket's own beside it: the
+// warnings column's orders (bug 23), the pairing Copy (bug 25). A simulation a scenario ran fresh
+// has no cells, warnings or counts (CLAUDE.md: no value of a fresh flight is pinned). Read once per
+// test process, by the first test that compares with them.
 
 #include <array>
 #include <cstddef>
@@ -97,12 +99,14 @@ struct SimulationTablePinWidth
 /// A design's table.
 struct SimulationTablePinDesign
 {
-    /// The name of the design in designs.py's list ("example_a_simple_model_rocket"), or
-    /// "new_design".
+    /// The name of the design in designs.py's list ("example_a_simple_model_rocket"), which is
+    /// that of its OpenDesign of exit/OpenDesigns.h, or "new_design".
     std::string name;
-    /// Its kind ("example", "new").
+    /// Its kind: designs.py's ("example", "example-resave", "testrocket", "legacy", "coverage",
+    /// "gui": exit/OpenDesigns.h's openDesignKind()), or "new".
     std::string kind;
-    /// Its file's name in data/examples ("A simple model rocket.ork"); empty for the new design.
+    /// Its file's name ("A simple model rocket.ork" in data/examples, "rocket.ork" for every
+    /// re-save and the GUI reference); empty for the new design.
     std::string file;
     bool        hasValidConfig = false;
     std::string nextSimulationName;
@@ -195,9 +199,22 @@ struct SimulationTablePins
 /// simulationTablePins(), or null and a test failure when they cannot be read.
 [[nodiscard]] const SimulationTablePins* simulationTablePinsOrFail();
 
-/// The names of the pins' designs, in their order, for INSTANTIATE_TEST_SUITE_P (none when the
-/// pins cannot be read: SimulationTablePinsGolden fails then).
+/// The name the pins give the new design, their last.
+inline constexpr std::string_view kNewDesignPinName = "new_design";
+
+/// The names of the designs the pins hold, in their order, for INSTANTIATE_TEST_SUITE_P: those of
+/// OpenDesignsExitGolden's list (exit/OpenDesigns.h's openDesigns()), then kNewDesignPinName.
+/// Made without reading the pins, which GoogleTest's generators would read in every test process
+/// (a process per test under ctest): only the tests that compare with them read them.
+/// SimulationTablePinsGolden and OpenDesignsExitGoldenDesigns check that the pins hold exactly
+/// these designs; a design the pins lack fails its tests.
 [[nodiscard]] std::vector<std::string> simulationTablePinnedDesigns();
+
+/// The names of simulationTablePinnedDesigns() of OpenRocket's sixteen example designs (the
+/// pins' kind "example", which loadSimulationExample() loads by their files' names) and of the
+/// new design, in their order: for the suites that compare the tables of the examples alone (the
+/// exit suite OpenDesignsExitGolden compares every design's in its windows).
+[[nodiscard]] std::vector<std::string> simulationTablePinnedExampleDesigns();
 
 /// The name of the tests of a design of simulationTablePinnedDesigns(): the design's name in the
 /// pins ("example_a_simple_model_rocket").

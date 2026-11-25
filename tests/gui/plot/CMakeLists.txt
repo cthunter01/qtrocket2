@@ -13,6 +13,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     PlotThemeTests.cpp
     rocketplot_build_tests.cpp
     simulation_plot_chart_golden_tests.cpp
+    SimulationPlotGoldenChecks.cpp
     SimulationPlotTests.cpp
     thrust_curve_plot_golden_tests.cpp
     ThrustCurvePlotTests.cpp
