@@ -201,6 +201,9 @@ void DesignPanel::connectRequests()
     // Cut, Copy, Paste, Duplicate and Delete show the design tab (parentFrame.selectTab()).
     connect(m_actions, &RocketActions::designTabRequested, this,
             guarded([this] { m_window->selectTab(MainWindow::kDesignTab); }, context()));
+    // Their work on the selected simulations shows the simulations tab (selectTab(SIMULATION_TAB)).
+    connect(m_actions, &RocketActions::simulationTabRequested, this,
+            guarded([this] { m_window->selectTab(MainWindow::kSimulationTab); }, context()));
     connect(m_addButtons, &ComponentAddButtons::addedComponentEditRequested, this,
             guarded(
                 [this](RocketComponent* component) {

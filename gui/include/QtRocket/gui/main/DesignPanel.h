@@ -56,7 +56,9 @@ class SplitPane;
 ///   remembered tab: ComponentButton's showDialog(..., false, true)); and RocketActions' requests
 ///   to close the dialog before a change (MainWindow::requestConfigDialogClose());
 /// - RocketActions' requests for the design tab after Cut, Copy, Paste, Duplicate and Delete go to
-///   the window (MainWindow::selectTab(), BasicFrame.selectTab(DESIGN_TAB));
+///   the window (MainWindow::selectTab(), BasicFrame.selectTab(DESIGN_TAB)), and so do its
+///   requests for the simulations tab after Edit, Cut, Copy, Paste, Duplicate and Delete did
+///   their work on the selected simulations (BasicFrame.selectTab(SIMULATION_TAB));
 /// - while the configuration dialog is visible (setConfigDialogVisible()), the tree's
 ///   double-click does not edit (DesignPanel's !ComponentConfigDialog.isDialogVisible()), and a
 ///   change of the selection to some components opens the dialog again for them (DesignPanel's

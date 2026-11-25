@@ -8,11 +8,13 @@
 #include <vector>
 
 #include <QAction>
+#include <QItemSelectionModel>
 #include <QLayout>
 #include <QMenuBar>
 #include <QObject>
 #include <QPoint>
 #include <QString>
+#include <QTabWidget>
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
@@ -26,6 +28,9 @@
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/RocketActions.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableView.h"
+#include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -93,6 +98,66 @@ void installFlightConfigurationPanel(MainWindow& window, const DesignPanel& desi
                      guarded([&window] { window.requestConfigDialogClose(); },
                              QStringLiteral("Motors & Configuration")));
     window.setFlightConfigurationPanel(panel);
+}
+
+/// Makes the window's selection of components (the tree's, @p components) and its selection of
+/// simulations (the simulations table's, @p simulations) exclusive, as OpenRocket's
+/// DocumentSelectionModel does across the window's tabs (decision O-M4-7): selecting components
+/// (in the tree, the design view or the Motors & Configuration tab's columns) deselects the
+/// simulations, and selecting simulations deselects the components. Each side acts only while the
+/// other has a selection, which it leaves empty: the other's answer to that finds nothing to do,
+/// so neither can call the other back (the re-entrancy guard). Each connection goes with the side
+/// it changes.
+void coupleSelections(DocumentSelectionModel& components, SimulationTableView& simulations)
+{
+    QObject::connect(&components, &DocumentSelectionModel::changed, &simulations,
+                     guarded(
+                         [&components, &simulations] {
+                             // The tree's listener: clearSimulationSelection().
+                             if (components.selectedComponent() != nullptr &&
+                                 !simulations.selectedSimulations().empty())
+                             {
+                                 simulations.selectSimulations({});
+                             }
+                         },
+                         QStringLiteral("Selection")));
+    QObject::connect(simulations.selectionModel(), &QItemSelectionModel::selectionChanged,
+                     &components,
+                     guarded(
+                         [&components, &simulations] {
+                             // The simulation list's listener: clearComponentSelection().
+                             if (!simulations.selectedSimulations().empty() &&
+                                 components.selectedComponent() != nullptr)
+                             {
+                                 components.clearComponentSelection();
+                             }
+                         },
+                         QStringLiteral("Selection")));
+}
+
+/// Puts the "Flight simulations" tab (@p panel, a SimulationPanel the WindowManager made) into
+/// @p window and connects it as BasicFrame does: its selection and the design panel's
+/// (@p designPanel) exclusive (coupleSelections()), the component actions doing its operations on
+/// the selected simulations (RocketActions' simulation half, which follows the window's current
+/// tab for Paste), and the File menu's "Export simulation table as CSV file" tied to the tab's
+/// action (BasicFrame's createMenuItemFromAction(getExportSimulationTableAsCSVAction())): enabled
+/// as it is, triggering it.
+void installSimulationPanel(MainWindow& window, const DesignPanel& designPanel,
+                            SimulationPanel& panel)
+{
+    window.setSimulationPanel(&panel);
+    coupleSelections(designPanel.selection(), panel.table());
+    RocketActions& actions = designPanel.rocketActions();
+    actions.setSimulationPanel(
+        &panel, [&window] { return window.selectedTab() == MainWindow::kSimulationTab; });
+    QObject::connect(
+        window.tabs(), &QTabWidget::currentChanged, &actions,
+        guarded([&actions] { actions.updateActions(); }, QStringLiteral("Rocket actions")));
+    QAction* const       item   = window.menus().exportSimulationTableAction();
+    const QAction* const action = panel.exportSimulationTableAction();
+    item->setEnabled(action->isEnabled());
+    QObject::connect(action, &QAction::enabledChanged, item, &QAction::setEnabled);
+    QObject::connect(item, &QAction::triggered, action, &QAction::trigger);
 }
 
 /// Puts the design view (RocketPanel) into @p window, below its tabs, and connects it to the
@@ -250,7 +315,7 @@ PreferencesDialog& WindowManager::showPreferences(MainWindow& window)
     // all preferences" pins the configuration names of every window's design first.
     const GuiServices::StartupData& startup = m_services.startupData();
     PreferencesDialog&              dialog  = PreferencesDialog::showPreferences(
-        m_services.preferences(), m_services.prompts(), [this] { return rocketPanels(); },
+        m_services.preferences(), m_services.prompts(), [this] { return viewsToRefresh(); },
         {.defaultUserThrustCurveDirectory = startup.defaultUserThrustCurveDirectory,
          .defaultUserComponentDirectory   = startup.defaultUserComponentDirectory,
          .openDocuments                   = [this] { return documents(); }},
@@ -275,6 +340,18 @@ std::vector<RocketPanel*> WindowManager::rocketPanels() const
     // A window whose design view is no RocketPanel (none, as the manager opens them).
     std::erase(panels, nullptr);
     return panels;
+}
+
+std::vector<RocketPanel*> WindowManager::viewsToRefresh() const
+{
+    // The dialog asks for the design views whenever it refreshes them (after Apply, OK, Cancel
+    // and Reset all preferences): the simulations tables follow, read again in the units of now
+    // (critic G6).
+    for (const std::unique_ptr<Entry>& entry : m_entries)
+    {
+        entry->window->refreshSimulationTable();
+    }
+    return rocketPanels();
 }
 
 void WindowManager::setSaveHook(SaveHook hook)
@@ -329,11 +406,16 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     entry->window      = std::make_unique<MainWindow>(*entry->document, m_services);
     entry->replaceable = replaceable;
     MainWindow& window = *entry->window;
+    // BasicFrame's SimulationPanel, made first, as BasicFrame makes it (it listens to the rocket
+    // and the document before the other panels); put into its tab once the design panel exists.
+    auto* simulationPanel =
+        makeChild<SimulationPanel>(&window, window.document(), m_services, *m_clipboard);
     // BasicFrame's DesignPanel, which selects the first stage; the tree has the focus when the
     // window is shown.
     auto* designPanel = makeChild<DesignPanel>(&window, window, *m_clipboard);
     window.setDesignPanel(designPanel);
     designPanel->takeTheSpotlight();
+    installSimulationPanel(window, *designPanel, *simulationPanel);
     // BasicFrame's FlightConfigurationPanel, made after the design panel and before the rocket
     // panel, as BasicFrame makes them (the order in which they listen to the rocket).
     installFlightConfigurationPanel(window, *designPanel, m_services,

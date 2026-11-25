@@ -7,6 +7,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     SimulationPanelTests.cpp
     SimulationTableCsvExportTests.cpp
     SimulationTableModelTests.cpp
+    SimulationTablePinChecks.cpp
     SimulationTablePins.cpp
     SimulationTableTestSupport.cpp
     SimulationTableViewTests.cpp

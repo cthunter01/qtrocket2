@@ -152,6 +152,17 @@ void MainMenus::addSaveAndCloseItems()
 
     m_fileMenu->addSeparator();
 
+    // BasicFrame: createMenuItemFromAction(getExportSimulationTableAsCSVAction()), after Print
+    // design info... (Milestone 8), then a separator. Java's action has no mnemonic, key or
+    // description.
+    m_exportSimulationTable =
+        //: simpanel.pop.exportSimTableToCSV
+        addAction(*m_fileMenu, QStringLiteral("exportSimulationTableAction"),
+                  MenuText::escaped(tr("Export simulation table as CSV file")));
+    m_exportSimulationTable->setIcon(Icons::icon(Icons::Id::SIM_TABLE_EXPORT));
+
+    m_fileMenu->addSeparator();
+
     //: main.menu.file.properties
     m_properties = addAction(*m_fileMenu, QStringLiteral("propertiesAction"),
                              MenuText::withMnemonic(tr("Properties"), QChar(u'I')));

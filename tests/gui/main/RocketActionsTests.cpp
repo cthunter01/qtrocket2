@@ -24,6 +24,8 @@
 #include <vector>
 
 #include <QAction>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QImage>
 #include <QList>
@@ -41,10 +43,14 @@
 #include "QtRocket/aero/ComponentDrag.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/document/SimulationCopy.h"
 #include "QtRocket/gui/main/ComponentEditing.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableModel.h"
+#include "QtRocket/gui/simulation/SimulationTableView.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
@@ -63,7 +69,9 @@
 #include "QtRocket/util/Error.h"
 #include "RecordingGuardHook.h"
 #include "ScriptedUserPrompts.h"
+#include "TestGuiServices.h"
 #include "rocket/TestRockets.h"
+#include "simulation/SimulationTableTestSupport.h"
 #include "tree/ProbeDesign.h"
 #include "tree/TreeEditingSupport.h"
 
@@ -2104,6 +2112,176 @@ TEST_F(RocketActionsTest, ThePopupShowsDisableAndEnableForStagesOnly)
     EXPECT_FALSE(popupShowsTheStageItemFor(window, {"Sustainer", "NC"}));
     EXPECT_FALSE(popupShowsTheStageItemFor(window, {"Rocket"}));
     EXPECT_FALSE(popupShowsTheStageItemFor(window, {"BT1"}));
+}
+
+// ========================================================================== the simulations
+
+/// The component actions of a window over "A simple model rocket" with its simulations tab, whose
+/// selection is not kept apart from the tree's (the WindowManager does that: simulations_window_
+/// tests), so that a test can select both; the tree selects nothing.
+class SimulationsTab
+{
+public:
+    SimulationsTab()
+      : m_document(Gui::Test::loadSimulationExample("A simple model rocket.ork")),
+        m_window(m_document != nullptr ? std::make_unique<Window>(*m_document) : nullptr),
+        m_panel(m_window != nullptr ? std::make_unique<SimulationPanel>(
+                                          *m_document, m_services.services(), m_window->clipboard())
+                                    : nullptr)
+    {
+        if (m_panel != nullptr)
+        {
+            m_window->actions().setSimulationPanel(m_panel.get(), [this] { return m_current; });
+        }
+    }
+
+    // A Copy of simulations put the table's text on the system clipboard too.
+    ~SimulationsTab() { QGuiApplication::clipboard()->clear(); }
+    SimulationsTab(const SimulationsTab&)            = delete;
+    SimulationsTab& operator=(const SimulationsTab&) = delete;
+    SimulationsTab(SimulationsTab&&)                 = delete;
+    SimulationsTab& operator=(SimulationsTab&&)      = delete;
+
+    /// Whether the document could be loaded (else a failure was reported).
+    [[nodiscard]] bool             isLoaded() const noexcept { return m_panel != nullptr; }
+    [[nodiscard]] Window&          window() const noexcept { return *m_window; }
+    [[nodiscard]] SimulationPanel& panel() const noexcept { return *m_panel; }
+    /// The tab's questions (the services', not the window's).
+    [[nodiscard]] ScriptedUserPrompts& prompts() noexcept { return m_services.prompts(); }
+    /// Selects the simulation of the table's row @p row alone.
+    void selectRow(int row) const
+    {
+        m_panel->table().selectSimulations({m_panel->tableModel().simulation(row)});
+    }
+    /// Makes the tab the window's current one, or not (the actions are told: updateActions()).
+    void setCurrent(bool current)
+    {
+        m_current = current;
+        m_window->actions().updateActions();
+    }
+    /// Destroys the tab.
+    void destroyPanel() { m_panel = nullptr; }
+
+private:
+    Gui::Test::TestGuiServices          m_services;
+    std::unique_ptr<OpenRocketDocument> m_document;
+    std::unique_ptr<Window>             m_window;
+    std::unique_ptr<SimulationPanel>    m_panel;
+    bool                                m_current = false;
+};
+
+/// The enabled ones of Edit, Cut, Copy, Paste, Duplicate and Delete of @p actions by their names,
+/// "edit cut copy".
+[[nodiscard]] std::string enabledEditActions(const RocketActions& actions)
+{
+    const std::array<std::pair<std::string_view, const QAction*>, 6> items{{
+        {"edit", actions.editAction()},
+        {"cut", actions.cutAction()},
+        {"copy", actions.copyAction()},
+        {"paste", actions.pasteAction()},
+        {"duplicate", actions.duplicateAction()},
+        {"delete", actions.deleteAction()},
+    }};
+    std::string                                                      text;
+    for (const auto& [name, action] : items)
+    {
+        if (action->isEnabled())
+        {
+            text += (text.empty() ? "" : " ") + std::string(name);
+        }
+    }
+    return text;
+}
+
+TEST_F(RocketActionsTest, TheEditActionsFollowTheSimulationsTabsActions)
+{
+    SimulationsTab tab;
+    ASSERT_TRUE(tab.isLoaded());
+    const RocketActions& actions = tab.window().actions();
+    EXPECT_EQ(actions.simulationPanel(), &tab.panel());
+    EXPECT_FALSE(actions.isSimulationSelected());
+    EXPECT_EQ(enabledEditActions(actions), "");
+
+    // A selected simulation: each one is enabled as the tab's action of the same name
+    // (clipboardChanged(): the component rule or the tab's); none asks for a tab.
+    tab.selectRow(0);
+    EXPECT_TRUE(actions.isSimulationSelected());
+    EXPECT_EQ(enabledEditActions(actions), "edit cut copy duplicate delete");
+    // Whenever the tab's actions change (here by hand: the tab sets them at its own changes).
+    tab.panel().editSimulationAction()->setEnabled(false);
+    EXPECT_EQ(enabledEditActions(actions), "cut copy duplicate delete");
+    tab.panel().updateActions();
+    EXPECT_EQ(enabledEditActions(actions), "edit cut copy duplicate delete");
+
+    // Simulations on the clipboard: Paste with the selected one; without one only while the tab
+    // is the current one (OpenRocket bug 27).
+    tab.panel().copySimulations();
+    EXPECT_EQ(enabledEditActions(actions), "edit cut copy paste duplicate delete");
+    tab.panel().table().selectSimulations({});
+    EXPECT_EQ(enabledEditActions(actions), "");
+    tab.setCurrent(true);
+    EXPECT_EQ(enabledEditActions(actions), "paste");
+    tab.setCurrent(false);
+    EXPECT_EQ(enabledEditActions(actions), "");
+}
+
+TEST_F(RocketActionsTest, TheEditActionsDoTheSimulationsTabsOperationsAndAskForItsTab)
+{
+    SimulationsTab tab;
+    ASSERT_TRUE(tab.isLoaded());
+    const RocketActions&      actions  = tab.window().actions();
+    const OpenRocketDocument& document = tab.window().document();
+    const QSignalSpy          simulationTab(&actions, &RocketActions::simulationTabRequested);
+    const QSignalSpy          designTab(&actions, &RocketActions::designTabRequested);
+    tab.selectRow(1);
+    actions.duplicateAction()->trigger();
+    EXPECT_EQ(document.getSimulationCount(), 6U);
+    actions.copyAction()->trigger();
+    EXPECT_EQ(tab.window().clipboard().simulations()->size(), 1U);
+    actions.pasteAction()->trigger();
+    EXPECT_EQ(document.getSimulationCount(), 7U);
+    tab.prompts().answerDeleteSimulations({.confirmed = true, .doNotAskAgain = false});
+    actions.deleteAction()->trigger();
+    EXPECT_EQ(document.getSimulationCount(), 6U);
+    tab.selectRow(0);
+    tab.prompts().answerDeleteSimulations({.confirmed = true, .doNotAskAgain = false});
+    actions.cutAction()->trigger();
+    EXPECT_EQ(document.getSimulationCount(), 5U);
+    // Each asked for the simulations tab, none for the design tab, and none closed the
+    // configuration dialog (Java's simulation branches do not dispose it).
+    EXPECT_EQ(simulationTab.count(), 5);
+    EXPECT_EQ(designTab.count(), 0);
+    EXPECT_EQ(tab.window().closeRequests(), 0);
+    EXPECT_TRUE(tab.window().edits().empty());
+}
+
+TEST_F(RocketActionsTest, ASimulationAndAComponentSelectedTogetherAreABug)
+{
+    // Java: IllegalStateException("Both simulation and component selected"); the window keeps
+    // the two selections exclusive.
+    const RecordingGuardHook hook;
+    const SimulationsTab     tab;
+    ASSERT_TRUE(tab.isLoaded());
+    tab.selectRow(0);
+    tab.window().select({"Sustainer"});
+    EXPECT_THROW(static_cast<void>(tab.window().actions().isSimulationSelected()), BugError);
+    tab.window().actions().copyAction()->trigger();
+    EXPECT_EQ(hook.failures().size(), 1U);
+}
+
+TEST_F(RocketActionsTest, TheEditActionsAreTheComponentsOnceTheSimulationsTabIsGone)
+{
+    SimulationsTab tab;
+    ASSERT_TRUE(tab.isLoaded());
+    tab.selectRow(0);
+    tab.destroyPanel();
+    const RocketActions& actions = tab.window().actions();
+    EXPECT_EQ(actions.simulationPanel(), nullptr);
+    EXPECT_FALSE(actions.isSimulationSelected());
+    tab.window().select({"Sustainer"});
+    EXPECT_EQ(enabledEditActions(actions), "edit copy duplicate");
+    actions.copyAction()->trigger();
+    EXPECT_FALSE(tab.window().clipboard().components().empty());
 }
 
 // ============================================================================== lifetimes

@@ -20,7 +20,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <QAbstractItemModel>
@@ -48,14 +47,9 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
-#include "QtRocket/gui/simulation/SimulationWarningsDelegate.h"
-#include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/TableSortKeys.h"
 #include "QtRocket/gui/util/ThemeColors.h"
-#include "QtRocket/logging/MessagePriority.h"
-#include "QtRocket/logging/Warning.h"
-#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -71,6 +65,7 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
+#include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
 #include "simulation/SimulationTableTestSupport.h"
 #include "unit/DefaultUnitsGuard.h"
@@ -490,145 +485,10 @@ TEST_F(SimulationTableModelTest, ShowsTheSortArrowOfThePrimaryKeyOnItsHeader)
     return Gui::Test::simulationTablePinsOrFail();
 }
 
-/// What OpenRocket's WarningsBox shows for the counts of the cell at @p index: the delegate's
-/// parts, a text as it is and an icon as [HIGH], [NORMAL] or [LOW].
-[[nodiscard]] std::string boxText(const QModelIndex& index)
-{
-    const std::optional<SimulationColumns::WarningCounts> counts =
-        SimulationWarningsDelegate::counts(index);
-    if (!counts.has_value())
-    {
-        return {};
-    }
-    std::string text;
-    for (const SimulationWarningsDelegate::Part& part :
-         SimulationWarningsDelegate::layOut(*counts, QRect(0, 0, 400, 20), QFont()))
-    {
-        if (!part.icon.has_value())
-        {
-            text += QtStrings::toUtf8(part.text);
-        }
-        else if (*part.icon == Icons::Id::WARNING_HIGH)
-        {
-            text += "[HIGH]";
-        }
-        else
-        {
-            text += *part.icon == Icons::Id::WARNING_NORMAL ? "[NORMAL]" : "[LOW]";
-        }
-    }
-    return text;
-}
-
-/// The priority's name as OpenRocket prints it (MessagePriority.name()).
-[[nodiscard]] std::string_view priorityName(MessagePriority priority)
-{
-    switch (priority)
-    {
-        case MessagePriority::HIGH:
-            return "HIGH";
-        case MessagePriority::NORMAL:
-            return "NORMAL";
-        case MessagePriority::LOW:
-            return "LOW";
-    }
-    return {};
-}
-
-/// The warning counts of the row @p row as the pins hold them: critical, normal, informational.
-[[nodiscard]] std::optional<std::array<std::size_t, 3>> countsOf(const SimulationTableModel& model,
-                                                                 int                         row)
-{
-    const std::optional<SimulationColumns::WarningCounts> counts = model.warningCounts(row);
-    if (!counts.has_value())
-    {
-        return std::nullopt;
-    }
-    return std::array{counts->critical, counts->normal, counts->informational};
-}
-
-/// The warnings of @p simulation, in the set's order: their priorities' names and texts.
-[[nodiscard]] std::vector<std::pair<std::string, std::string>> messagesOf(
-    const Simulation& simulation)
-{
-    std::vector<std::pair<std::string, std::string>> messages;
-    if (const WarningSet* warnings = simulation.getSimulatedWarnings(); warnings != nullptr)
-    {
-        for (const Warning& warning : *warnings)
-        {
-            messages.emplace_back(priorityName(warning.priority()), warning.toString());
-        }
-    }
-    return messages;
-}
-
-/// The warnings column of the row @p row is the pin's @p pin.
-void expectWarnings(const SimulationTableModel& model, int row,
-                    const Gui::Test::SimulationTablePinWarnings& pin)
-{
-    EXPECT_EQ(countsOf(model, row), pin.counts);
-    const QModelIndex index = model.index(row, SimulationColumns::indexOf(Column::WARNINGS));
-    EXPECT_EQ(boxText(index), pin.box);
-    EXPECT_EQ(textOf(model.data(index, Qt::ToolTipRole)), pin.toolTip);
-    EXPECT_EQ(messagesOf(*model.simulation(row)), pin.messages);
-}
-
-/// The status of the row @p row of @p model is the pin's row @p pin's.
-void expectStatus(const SimulationTableModel& model, int row,
-                  const Gui::Test::SimulationTablePinRow& pin)
-{
-    EXPECT_EQ(name(model.status(row)), pin.status);
-    EXPECT_EQ(textOf(cell(model, row, Column::STATUS, Qt::AccessibleTextRole)), pin.statusIcon);
-    const auto* sortText = std::get_if<std::string>(&model.cellValue(row, Column::STATUS));
-    EXPECT_EQ(sortText != nullptr ? *sortText : std::string("<none>"), pin.statusSortText);
-    EXPECT_EQ(QtStrings::toUtf8(
-                  SimulationColumns::statusDescription(model.status(row), *model.simulation(row))),
-              pin.description);
-    EXPECT_EQ(textOf(cell(model, row, Column::NAME, Qt::ToolTipRole)), pin.statusToolTip);
-    EXPECT_EQ(textOf(cell(model, row, Column::STATUS, Qt::ToolTipRole)), pin.statusToolTip);
-}
-
-/// The cells of the model columns 2 to 13 of the row @p row as the pins hold them: the text,
-/// nullopt for none.
-[[nodiscard]] std::vector<std::optional<std::string>> cellsOf(const SimulationTableModel& model,
-                                                              int                         row)
-{
-    std::vector<std::optional<std::string>> cells;
-    for (int column = 2; column < SimulationColumns::kColumnCount; ++column)
-    {
-        const QVariant shown = model.data(model.index(row, column), Qt::DisplayRole);
-        cells.push_back(shown.isValid() ? std::optional(textOf(shown)) : std::nullopt);
-    }
-    return cells;
-}
-
-/// The row @p row of @p model shows the pin's row @p pin (only its status for a fresh one).
-void expectRow(const SimulationTableModel& model, int row,
-               const Gui::Test::SimulationTablePinRow& pin)
-{
-    SCOPED_TRACE(testing::Message() << "row " << row << " (" << pin.row << ")");
-    expectStatus(model, row, pin);
-    if (pin.fresh)
-    {
-        return;
-    }
-    EXPECT_TRUE(pin.warnings.has_value());
-    if (pin.warnings.has_value())
-    {
-        expectWarnings(model, row, *pin.warnings);
-    }
-    EXPECT_EQ(cellsOf(model, row), pin.cells);
-}
-
 /// Every row of @p table shows its pin of @p pins (the rows in the document's order: no keys).
 void expectRows(const Table& table, const std::vector<Gui::Test::SimulationTablePinRow>& pins)
 {
-    ASSERT_EQ(table.model().rowCount(), static_cast<int>(pins.size()));
-    ASSERT_TRUE(table.model().sortKeys().keys().empty());
-    for (int row = 0; row < table.model().rowCount(); ++row)
-    {
-        expectRow(table.model(), row, pins.at(static_cast<std::size_t>(row)));
-    }
+    Gui::Test::expectSimulationTablePinRows(table.model(), pins);
 }
 
 /// A click and a second click on the header of each column of @p orders give their orders.
