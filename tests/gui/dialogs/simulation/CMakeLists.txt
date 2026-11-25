@@ -9,8 +9,11 @@ target_sources(QtRocket_gui_tests PRIVATE
     MultiLevelWindTableViewTests.cpp
     RandomSeedControlsTests.cpp
     RecoveryWarningsPanelTests.cpp
+    simulation_dialog_pin_checks_tests.cpp
     SimulationConditionsPanelTests.cpp
     SimulationConfigDialogTests.cpp
+    SimulationDialogPinChecks.cpp
+    SimulationDialogPins.cpp
     SimulationDialogWalk.cpp
     SimulationExtensionListTests.cpp
     SimulationOptionsPanelTests.cpp

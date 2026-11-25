@@ -50,6 +50,18 @@
 //   selected the first), the order after a click and a second click on each column's header, and
 //   the texts of the table's CSV export and of the Edit menu's Copy of every row; none of it
 //   changes the design, asks a question or runs a simulation;
+// - every simulation's settings dialog (Milestone 4, plan section 11.6's E4), opened through the
+//   tab (its row selected, Edit; the tab's request without Edit where OpenRocket's Edit is
+//   disabled too: no flight configuration with motors), shows OpenRocket's dialog of the same
+//   simulation (SimulationDialogPins.h: the simulation-dialog family of tools/openrocket-gui-pins,
+//   OpenRocket's real SimulationConfigDialog over every simulation of the same file in turn): its
+//   title, the top rows (the name, the configuration and its selector's items, the status), the
+//   Launch conditions, Simulation options and Warnings tabs widget by widget with their texts,
+//   values, units, enabled states and tooltips (QtRocket's deliberate differences applied:
+//   SimulationDialogPinChecks.h), the five tabs' enabled states and tooltips, the buttons, and a
+//   multi-level wind's levels in the wind editor its "Edit levels" opens; its Cancel closes it
+//   without a question, and before it and after it the document's undo history, saved state and
+//   statuses are OpenRocket's, no simulation fired a change, and every simulation is as it was;
 // - for the sixteen examples (OpenDesignsExitGoldenPartsLibrary, Milestone 3, the tests-exit
 //   scout's E4), the parts library of every component that takes presets, as its configuration
 //   dialog's "Parts Library" button opens it (the application's modal dialog, over the bundled
@@ -81,8 +93,8 @@
 // tests' one in its mode that never runs a job, and the design view's background estimate is off
 // (O-M4-12): no test of the suite runs a fresh flight.
 //
-// Each of the seven tests of a design (eight for an example) opens it anew, so that ctest runs
-// them as separate processes in parallel: 483 tests. Milestone 2's 331 took about 20 s on 8 jobs
+// Each of the eight tests of a design (nine for an example) opens it anew, so that ctest runs
+// them as separate processes in parallel: 550 tests. Milestone 2's 331 took about 20 s on 8 jobs
 // in a debug build (145 s of processes, none above 1.2 s; the examples, whose archives hold
 // flight data, take the longest) and about 65 s under the asan preset (500 s of processes, none
 // above 6 s); the tab's test of a design costs about what each of the other five costs (most of
@@ -91,7 +103,12 @@
 // 45 of them; 1 to 5 s in a debug build). The simulations tab's test (Milestone 4) costs less:
 // 0.24 to 1.1 s a design in a debug build (34 s of processes for the 66) and 0.9 to 3.7 s in the
 // asan preset's run of every test (124 s); then the whole suite took 58 s on 8 jobs in a debug
-// build (311 s of processes) and 1129 s of processes in that asan run (none above 17 s).
+// build (311 s of processes) and 1129 s of processes in that asan run (none above 17 s). The
+// settings dialog's test (Milestone 4) opens 0 to 9 dialogs a design: 0.33 to 1.3 s a design in
+// a debug build (43 s of processes for the 66; 11 s for all of them in one process) and 1.3 to
+// 4.2 s in the asan preset's run of every test (148 s); then the whole suite took 53 s on 8 jobs
+// in a debug build (376 s of processes) and 1300 s of processes in that asan run (none above 17 s,
+// none of the tests of a design above 4.5 s).
 
 #include <algorithm>
 #include <array>
@@ -173,6 +190,9 @@
 #include "QtRocket/gui/dialogs/preset/ComponentPresetFilterModel.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetTable.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetTableModel.h"
+#include "QtRocket/gui/dialogs/simulation/MultiLevelWindEditDialog.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 #include "QtRocket/gui/figure/DesignPhysics.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketInfo.h"
@@ -206,6 +226,7 @@
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
@@ -215,6 +236,7 @@
 #include "QtRocket/mass/MassCalculator.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/Coaxial.h"
@@ -235,6 +257,8 @@
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -242,11 +266,16 @@
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Geometry2D.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "dialogs/preset/PresetTableTestSupport.h"
+#include "dialogs/simulation/SimulationDialogPinChecks.h"
+#include "dialogs/simulation/SimulationDialogPins.h"
+#include "dialogs/simulation/SimulationDialogWalk.h"
+#include "dialogs/simulation/WindEditorTranscript.h"
 #include "exit/OpenDesigns.h"
 #include "figure/RecordingPaintDevice.h"
 #include "file/DesignFileEnvironment.h"
@@ -553,6 +582,31 @@ enum class PartsLibrary
     APPLICATIONS,
 };
 
+/// The simulation dialogs of the windows: the application's (app/ApplicationContext's), the
+/// settings dialog SimulationConfigDialog::edit() over the windows' services; no test of the suite
+/// plots (the plot dialog fails it).
+class ApplicationSimulationDialogs final : public SimulationDialogs
+{
+public:
+    /// The dialogs asking their questions through @p services, which outlive them.
+    explicit ApplicationSimulationDialogs(const GuiServices& services) : m_services(&services) { }
+
+    void editSimulations(QWidget* parent, OpenRocketDocument& document,
+                         const EditRequest& request) override
+    {
+        SimulationConfigDialog::edit(parent, *m_services, document, request);
+    }
+
+    void plotSimulation(QWidget* /*parent*/, std::shared_ptr<Simulation> /*simulation*/,
+                        const SimulationPlotConfiguration& /*configuration*/) override
+    {
+        ADD_FAILURE() << "no test of the suite plots";
+    }
+
+private:
+    const GuiServices* m_services;
+};
+
 /// The services of the windows (see the top of the file): a DesignFileEnvironment with the six
 /// component presets of the example designs (or, for the parts library's test, the bundled ones:
 /// PartsLibrary) over @p motors, OpenRocket's built-in materials as the application's materials,
@@ -561,7 +615,8 @@ enum class PartsLibrary
 /// the tests' executor, which never runs a job (ManualSimulationExecutor's NEVER mode: no test of
 /// the suite runs a simulation, and one that tried would fail), and the design view's background
 /// estimate is off (GuiPreferenceKeys::kBackgroundFlight, O-M4-12), so that no window runs a
-/// fresh flight of its own.
+/// fresh flight of its own. The simulation settings dialog is the application's
+/// (ApplicationSimulationDialogs).
 class DesignServices
 {
 public:
@@ -582,6 +637,7 @@ public:
         // estimate stays off, also once the services have an executor.
         m_environment.preferences().putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
         m_services.setSimulationExecutor(&m_executor);
+        m_services.setSimulationDialogs(&m_simulationDialogs);
     }
 
     [[nodiscard]] const GuiServices&              services() const noexcept { return m_services; }
@@ -606,7 +662,8 @@ private:
     PartsLibraryPrompts                 m_partsLibrary;
     Gui::Test::ManualSimulationExecutor m_executor{
         Gui::Test::ManualSimulationExecutor::Mode::NEVER};
-    GuiServices m_services;
+    GuiServices                  m_services;
+    ApplicationSimulationDialogs m_simulationDialogs{m_services};
 };
 
 /// Delivers the posted events until the windows, their layouts and their figures are done.
@@ -2693,6 +2750,365 @@ TEST_P(OpenDesignsExitGolden, TheSimulationsTabShowsOpenRocketsTable)
     expectExportsAsJava(*window, *tab, *pin);
 
     // None of it changed the design, asked a question or ran a simulation.
+    EXPECT_TRUE(document.isSaved());
+    EXPECT_FALSE(window->isWindowModified());
+    EXPECT_FALSE(document.isUndoAvailable());
+    EXPECT_EQ(prompts().prompts().size(), questionsOfTheOpening(GetParam()));
+    EXPECT_TRUE(executor().submittedJobs().empty());
+}
+
+// ==================================================================== the settings dialog
+
+/// The designs of the simulation-dialog pins as designs.py lists them: "<name> <kind> <file's
+/// name>".
+[[nodiscard]] std::vector<std::string> simulationDialogPinDesigns(
+    const Gui::Test::SimulationDialogPins& pins)
+{
+    std::vector<std::string> listed;
+    listed.reserve(pins.designs.size());
+    for (const Gui::Test::SimulationDialogPinDesign& design : pins.designs)
+    {
+        listed.push_back(design.name + ' ' + design.kind + ' ' + design.file);
+    }
+    return listed;
+}
+
+// The pins of OpenRocket's simulation settings dialog (SimulationDialogPins.h, the
+// simulation-dialog family of tools/openrocket-gui-pins: OpenRocket's real SimulationConfigDialog
+// over every simulation of the same files) come from the goldens' OpenRocket and are of the 66
+// designs of the suite in its order, each of its kind and file as designs.py lists them.
+TEST(OpenDesignsExitGoldenDesigns, HaveOpenRocketsSettingsDialogsEach)
+{
+    const Gui::Test::SimulationDialogPins* const pins = Gui::Test::simulationDialogPinsOrFail();
+    ASSERT_NE(pins, nullptr);
+    EXPECT_EQ(pins->commit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
+    EXPECT_EQ(simulationDialogPinDesigns(*pins), listedDesigns(openDesigns()));
+}
+
+/// A simulation as the suite compares it before its dialog and after its Cancel: its name, flight
+/// configuration, options (a copy: Java's clone()), extensions and data.
+struct SimulationSnapshot
+{
+    explicit SimulationSnapshot(const Simulation& simulation)
+      : name(simulation.getName()),
+        configuration(simulation.getFlightConfigurationId()),
+        options(simulation.getOptions()),
+        extensions(simulation.getSimulationExtensions()),
+        data(simulation.getSimulatedData())
+    {
+    }
+
+    std::string                                       name;
+    FlightConfigurationId                             configuration;
+    SimulationOptions                                 options;
+    std::vector<std::shared_ptr<SimulationExtension>> extensions;
+    std::shared_ptr<FlightData>                       data;
+};
+
+/// What of @p simulation differs from @p snapshot, by name ("options").
+[[nodiscard]] std::vector<std::string> changesSince(const SimulationSnapshot& snapshot,
+                                                    const Simulation&         simulation)
+{
+    std::vector<std::string> changes;
+    if (simulation.getName() != snapshot.name)
+    {
+        changes.emplace_back("name");
+    }
+    if (simulation.getFlightConfigurationId() != snapshot.configuration)
+    {
+        changes.emplace_back("configuration");
+    }
+    if (!(simulation.getOptions() == snapshot.options))
+    {
+        changes.emplace_back("options");
+    }
+    if (simulation.getSimulationExtensions() != snapshot.extensions)
+    {
+        changes.emplace_back("extensions");
+    }
+    if (simulation.getSimulatedData() != snapshot.data)
+    {
+        changes.emplace_back("data");
+    }
+    return changes;
+}
+
+/// The change events (Simulation::changed()) each of @p simulations fires while it lives.
+class SimulationChangeCounter
+{
+public:
+    explicit SimulationChangeCounter(const std::vector<std::shared_ptr<Simulation>>& simulations)
+      : m_counts(simulations.size(), 0)
+    {
+        m_connections.reserve(simulations.size());
+        for (std::size_t index = 0; index < simulations.size(); ++index)
+        {
+            m_connections.emplace_back(
+                simulations[index]->changed().connect([this, index] { ++m_counts[index]; }));
+        }
+    }
+    ~SimulationChangeCounter()                                         = default;
+    SimulationChangeCounter(const SimulationChangeCounter&)            = delete;
+    SimulationChangeCounter& operator=(const SimulationChangeCounter&) = delete;
+    SimulationChangeCounter(SimulationChangeCounter&&)                 = delete;
+    SimulationChangeCounter& operator=(SimulationChangeCounter&&)      = delete;
+
+    [[nodiscard]] const std::vector<int>& counts() const noexcept { return m_counts; }
+
+private:
+    std::vector<int>                        m_counts;
+    std::vector<Signal<>::ScopedConnection> m_connections;
+};
+
+/// @p document's undo state and saved state, as the pins hold OpenRocket's.
+[[nodiscard]] Gui::Test::SimulationDialogPinUndo undoStateOf(const OpenRocketDocument& document)
+{
+    OpenRocketDocument::UndoDetail detail = document.getUndoDetail();
+    return {.position     = detail.position,
+            .descriptions = std::move(detail.descriptions),
+            .next         = std::move(detail.nextDescription),
+            .stored       = std::move(detail.storedDescription),
+            .clean        = detail.clean,
+            .saved        = document.isSaved()};
+}
+
+/// @p undo as one line, for the comparisons' messages.
+[[nodiscard]] std::string undoStateText(const Gui::Test::SimulationDialogPinUndo& undo)
+{
+    std::string descriptions;
+    for (const std::optional<std::string>& description : undo.descriptions)
+    {
+        descriptions += (descriptions.empty() ? "" : "|") + description.value_or("<none>");
+    }
+    return std::format("position={} descriptions=[{}] next={} stored={} clean={} saved={}",
+                       undo.position, descriptions, undo.next.value_or("<none>"),
+                       undo.stored.value_or("<none>"), undo.clean, undo.saved);
+}
+
+/// The names of the statuses of @p document's simulations ("LOADED"), in its order.
+[[nodiscard]] std::vector<std::string> statusNamesOf(const OpenRocketDocument& document)
+{
+    std::vector<std::string> names;
+    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
+    {
+        names.emplace_back(name(simulation->getStatus()));
+    }
+    return names;
+}
+
+/// The wind editor's table of @p dialog's multi-level wind (its "Edit levels" opens it over the
+/// dialog), as the probe prints OpenRocket's (WindEditorTranscript.h's header and row lines), the
+/// editor closed again.
+[[nodiscard]] std::vector<std::string> windEditorTable(const SimulationConfigDialog& dialog,
+                                                       const Simulation&             simulation)
+{
+    std::vector<std::string>            lines;
+    const MultiLevelPinkNoiseWindModel& model = simulation.getOptions().getMultiLevelWindModel();
+    {
+        const Gui::Test::NextModalDialog editor([&lines, &model](QWidget& shown) {
+            const auto* const wind = qobject_cast<const MultiLevelWindEditDialog*>(&shown);
+            if (wind == nullptr)
+            {
+                ADD_FAILURE() << "not the wind editor: " << QtStrings::toUtf8(shown.objectName());
+                return;
+            }
+            lines = Gui::Test::windTableHeaderLines(wind->tableModel());
+            for (std::string& line : Gui::Test::windTableRowLines(wind->tableModel(), model))
+            {
+                lines.push_back(std::move(line));
+            }
+            wind->closeButton().click();
+        });
+        dialog.conditionsPanel().editWindLevels();
+    }
+    return lines;
+}
+
+/// @p dialog of @p simulation, as it opened, against OpenRocket's (@p pin of @p pins): its
+/// simulation, its title, its walk (expectedSettingsDialogWalk(): with the status @p status the
+/// simulation had when it opened) and its tabs' states.
+void expectSettingsDialogAsJava(const SimulationConfigDialog& dialog, const Simulation& simulation,
+                                Simulation::Status                              status,
+                                const Gui::Test::SimulationDialogPins&          pins,
+                                const Gui::Test::SimulationDialogPinSimulation& pin)
+{
+    EXPECT_EQ(dialog.simulations().size(), 1U);
+    EXPECT_EQ(dialog.simulations().front().get(), &simulation);
+    EXPECT_EQ(QtStrings::toUtf8(dialog.windowTitle()), pin.title);
+    Gui::Test::expectSameLines(Gui::Test::settingsDialogWalk(dialog),
+                               Gui::Test::expectedSettingsDialogWalk(pins, pin, status));
+    const bool exportPlaceholder =
+        dialog.tabs().widget(SimulationConfigDialog::kExportTab)->objectName() ==
+        QStringLiteral("exportPlaceholder");
+    EXPECT_EQ(Gui::Test::settingsDialogTabStates(dialog.tabs()),
+              Gui::Test::expectedSettingsDialogTabStates(pin, exportPlaceholder));
+}
+
+/// The settings dialog of a simulation as it opened (the NextModalDialog's), against OpenRocket's
+/// (expectSettingsDialogAsJava()), a multi-level wind's levels in the wind editor, unmodified;
+/// then its Cancel.
+class SettingsDialogCheck
+{
+public:
+    SettingsDialogCheck(const Gui::Test::SimulationDialogPins&          pins,
+                        const Gui::Test::SimulationDialogPinSimulation& pin,
+                        const Simulation& simulation, Simulation::Status status)
+      : m_pins(&pins), m_pin(&pin), m_simulation(&simulation), m_status(status)
+    {
+    }
+
+    void operator()(QWidget& shown) const
+    {
+        const auto* const dialog = qobject_cast<const SimulationConfigDialog*>(&shown);
+        if (dialog == nullptr)
+        {
+            ADD_FAILURE() << "not the settings dialog: " << QtStrings::toUtf8(shown.objectName());
+            return;
+        }
+        expectSettingsDialogAsJava(*dialog, *m_simulation, m_status, *m_pins, *m_pin);
+        if (!m_pin->wind.empty())
+        {
+            Gui::Test::expectSameLines(windEditorTable(*dialog, *m_simulation), m_pin->wind);
+        }
+        EXPECT_EQ(dialog->isModified(), m_pin->modified);
+        EXPECT_EQ(QtStrings::toUtf8(dialog->windowTitle()), m_pin->modifiedTitle);
+        dialog->cancelButton().click();
+    }
+
+private:
+    const Gui::Test::SimulationDialogPins*          m_pins;
+    const Gui::Test::SimulationDialogPinSimulation* m_pin;
+    const Simulation*                               m_simulation;
+    Simulation::Status                              m_status;
+};
+
+/// Opens the settings dialog of @p simulation, the only row selected, as @p tab opens it: through
+/// its Edit button, which OpenRocket enables while a flight configuration of the rocket has motors
+/// (SimulationPanel's hasValidConfig); else (OpenRocket's Edit is disabled too, and the table
+/// behind the help card) through @p services' simulation dialogs, with the request the tab's Edit
+/// makes, so that the dialog of every simulation is compared. Returns when the dialog has closed.
+void openSettingsDialog(SimulationPanel& tab, const GuiServices& services,
+                        OpenRocketDocument& document, const std::shared_ptr<Simulation>& simulation)
+{
+    tab.table().selectSimulations({simulation});
+    EXPECT_EQ(tab.editSimulationAction()->isEnabled(), tab.hasValidConfig());
+    if (tab.editSimulationAction()->isEnabled())
+    {
+        tab.editButton()->click();
+        return;
+    }
+    SimulationDialogs* const dialogs = services.simulationDialogs();
+    ASSERT_NE(dialogs, nullptr);
+    dialogs->editSimulations(&tab, document,
+                             {.simulations          = {simulation},
+                              .tab                  = SimulationDialogs::Tab::LAUNCH_CONDITIONS,
+                              .newSimulation        = false,
+                              .cancelBackgroundRuns = {},
+                              .pauseBackgroundRuns  = {}});
+}
+
+/// Snapshots of @p simulations (SimulationSnapshot), in their order.
+[[nodiscard]] std::vector<std::unique_ptr<SimulationSnapshot>> snapshotsOf(
+    const std::vector<std::shared_ptr<Simulation>>& simulations)
+{
+    std::vector<std::unique_ptr<SimulationSnapshot>> snapshots;
+    snapshots.reserve(simulations.size());
+    for (const std::shared_ptr<Simulation>& simulation : simulations)
+    {
+        snapshots.push_back(std::make_unique<SimulationSnapshot>(*simulation));
+    }
+    return snapshots;
+}
+
+/// The simulations of @p simulations that differ from their @p snapshots, as "<index>: <what>".
+[[nodiscard]] std::vector<std::string> changedSimulations(
+    const std::vector<std::unique_ptr<SimulationSnapshot>>& snapshots,
+    const std::vector<std::shared_ptr<Simulation>>&         simulations)
+{
+    std::vector<std::string> changed;
+    for (std::size_t index = 0; index < simulations.size() && index < snapshots.size(); ++index)
+    {
+        for (const std::string& what : changesSince(*snapshots[index], *simulations[index]))
+        {
+            changed.push_back(std::to_string(index) + ": " + what);
+        }
+    }
+    return changed;
+}
+
+/// The document's state as OpenRocket's (@p undo, @p statuses): its undo state, saved state and
+/// the statuses of its simulations.
+void expectDocumentStateAsJava(const OpenRocketDocument&                 document,
+                               const Gui::Test::SimulationDialogPinUndo& undo,
+                               const std::vector<std::string>&           statuses)
+{
+    EXPECT_EQ(undoStateText(undoStateOf(document)), undoStateText(undo));
+    EXPECT_EQ(statusNamesOf(document), statuses);
+}
+
+/// The settings dialog of the simulation of @p pin (of @p pins) of @p window, opened through
+/// @p tab (openSettingsDialog()), compared with OpenRocket's and cancelled (SettingsDialogCheck);
+/// before it and after its Cancel the document's undo state, saved state and statuses are
+/// OpenRocket's, the simulations fired OpenRocket's change events meanwhile (none), and its Cancel
+/// left every simulation as it was.
+void editAndCancel(const MainWindow& window, SimulationPanel& tab, const GuiServices& services,
+                   const Gui::Test::SimulationDialogPins&          pins,
+                   const Gui::Test::SimulationDialogPinSimulation& pin)
+{
+    OpenRocketDocument&                            document    = window.document();
+    const std::vector<std::shared_ptr<Simulation>> simulations = document.getSimulations();
+    ASSERT_LT(pin.index, simulations.size());
+    const std::shared_ptr<Simulation>& simulation = simulations[pin.index];
+    EXPECT_EQ(simulation->getName(), pin.name);
+    expectDocumentStateAsJava(document, pin.undoBefore, pin.statusesBefore);
+    const std::vector<std::unique_ptr<SimulationSnapshot>> snapshots = snapshotsOf(simulations);
+    {
+        const SimulationChangeCounter    changes(simulations);
+        const Gui::Test::NextModalDialog dialog(
+            SettingsDialogCheck(pins, pin, *simulation, simulation->getStatus()));
+        openSettingsDialog(tab, services, document, simulation);
+        EXPECT_EQ(changes.counts(), pin.changes);
+    }
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    expectDocumentStateAsJava(document, pin.undoAfter, pin.statusesAfter);
+    EXPECT_EQ(document.getSimulations(), simulations);
+    EXPECT_EQ(changedSimulations(snapshots, simulations), std::vector<std::string>{});
+}
+
+/// editAndCancel() of every simulation of @p design (of @p pins) of @p window, in order.
+void editAndCancelEach(const MainWindow& window, SimulationPanel& tab, const GuiServices& services,
+                       const Gui::Test::SimulationDialogPins&      pins,
+                       const Gui::Test::SimulationDialogPinDesign& design)
+{
+    for (const Gui::Test::SimulationDialogPinSimulation& simulation : design.simulations)
+    {
+        SCOPED_TRACE(testing::Message()
+                     << "simulation " << simulation.index << " (" << simulation.name << ")");
+        editAndCancel(window, tab, services, pins, simulation);
+    }
+}
+
+TEST_P(OpenDesignsExitGolden, ShowsEverySimulationInItsDialogAndCancels)
+{
+    // Every simulation's settings dialog as the user opens it through the tab after File > Open
+    // (its row selected, Edit), against OpenRocket's (SimulationDialogProbe: its
+    // SimulationConfigDialog over each simulation of the loaded design in turn), then cancelled.
+    const Gui::Test::SimulationDialogPins* const pins = Gui::Test::simulationDialogPinsOrFail();
+    ASSERT_NE(pins, nullptr);
+    const Gui::Test::SimulationDialogPinDesign* const pin = pins->findDesign(GetParam().name);
+    ASSERT_NE(pin, nullptr) << "no pins of OpenRocket's settings dialog";
+    MainWindow* const window = open();
+    ASSERT_NE(window, nullptr);
+    window->selectTab(MainWindow::kSimulationTab);
+    // The tab takes the spotlight in the next turn of the event loop (Java's invokeLater()).
+    settle();
+    SimulationPanel* const tab = window->componentSimulationPanel();
+    ASSERT_NE(tab, nullptr);
+    const OpenRocketDocument& document = window->document();
+    ASSERT_EQ(document.getSimulationCount(), pin->simulations.size());
+    editAndCancelEach(*window, *tab, services(), *pins, *pin);
+
+    // The dialogs changed nothing, asked no question and ran nothing.
     EXPECT_TRUE(document.isSaved());
     EXPECT_FALSE(window->isWindowModified());
     EXPECT_FALSE(document.isUndoAvailable());

@@ -25,6 +25,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
 | `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`, `SimulationPanelTests.cpp`, `SimulationTableCsvExportTests.cpp`, `SimulationEditingTests.cpp`, `simulations_window_tests.cpp`, `open_designs_exit_tests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
+| `simulation-dialog` | `tests/data/goldens/gui/simulation-dialog/simulation-dialog.json` | `SimulationDialogProbe` | `gen_simulation_dialog_pins.py` (and `open-designs/designs.py`) | `tests/gui/dialogs/simulation/SimulationDialogPins.h`: `open_designs_exit_tests.cpp` (through `SimulationDialogPinChecks.h`) |
 | `plot-dialog` | values pinned by hand | `PlotDialogProbe`, `PlotTabProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp`, `PlotTypeSelectorTests.cpp`, `SimulationPlotTypeSelectorTests.cpp`, `SimulationPlotPanelTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
@@ -352,6 +353,25 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   Enter and Shift+Enter do (`selectNextRowCell`, `selectPreviousRowCell` run through the action maps from
   selections made with `changeSelection()`), and the sort keys after mouse events dispatched to the header. The
   tests pin its whole transcript by hand (`SimulationColumnVisibilityTests.cpp`, `SimulationTableViewTests.cpp`).
+- `simulation-dialog`: OpenRocket's simulation settings dialog (`SimulationConfigDialog`, Milestone 4, run 3,
+  part Y2, the exit check E4), over every simulation of every design of `OpenDesignsExitGolden` (the list
+  `open-designs/designs.py` writes), each design loaded as `simulation-table` loads it (the same motors, presets,
+  `MotorNameColumn` false, FlatLaf Light, the UUIDs seeded from the design's name) and left as `OpenFileWorker`
+  leaves a document File > Open loads (its file set, saved), with one `SwingPreferences` (`Scopes.SINGLETON`, as
+  OpenRocket's `GuiModule` binds it). For each simulation in the document's order, on the one document, it makes
+  the dialog the tab's Edit opens (`SimulationPanel.openDialog()`: the settings tab; never shown, so the probe runs
+  under `xvfb-run`) and prints its title, its walk in the form of `tools/openrocket-probes/simulation-options`'s
+  and `simulation-warnings`' walks (the top rows, the line of the tabs, each tab's title with the pages of the
+  Launch conditions, Simulation options and Warnings tabs, the buttons), each tab's title, enabled state and
+  tooltip, the icons of each extension's buttons, and for a multi-level wind the wind editor's table (the dialog
+  "Edit levels" opens, `MultiLevelWindEditDialog`, made over the settings dialog, never shown: the
+  `tools/openrocket-probes/wind-editor` probe's HEADER, ROW and MODEL lines); then whether the dialog was modified,
+  its Cancel (`doClick()`; a dialog that would ask its discard question fails the probe, as the question would
+  block), the change events every simulation fired meanwhile, and the document's undo state (its private undo
+  fields, read by reflection), saved state and statuses before the dialog and after its Cancel. The table is JSON:
+  the walks share their lines ("lines" lists each distinct line once, a walk is the indices of its lines: 196
+  walks of about 23,000 lines, of which a few hundred differ), one simulation per line; read once per test
+  process by `tests/gui/dialogs/simulation/SimulationDialogPins.h`.
 - `plot-dialog`: OpenRocket's plot dialog (`PlotDialog` and `SimulationPlotDialog`, Milestone 4, run 2, part
   G4), made through `SimulationPlotDialog.getPlot()` as the plot tab's `doPlot()` makes it, over stored flights of
   the examples ("A simple model rocket" #1 under the first preset and the drag coefficients over the Mach number,
@@ -412,7 +432,7 @@ Requirements:
   `build.properties` on the class path (`<version>-SNAPSHOT-<short commit>`, stamped by OpenRocket's build)
   and refuses classes of another commit (`ALLOW_OTHER_COMMIT=1` overrides).
 - `python3`, `clang-format` and, for `rocket-panel`, `thrust-curves`, `flight-config`, `preset-chooser`,
-  `open-designs` and `simulation-table`, `xvfb-run`.
+  `open-designs`, `simulation-table`, `simulation-dialog` and `plot-dialog`, `xvfb-run`.
 
 ```sh
 OPENROCKET_DIR=/path/to/openrocket OPENROCKET_CLASSPATH=... tools/openrocket-gui-pins/generate.sh        # every family
@@ -537,6 +557,8 @@ each scenario (a new simulation and a new design draw UUIDs; the transcript name
 8 characters, all of them the files'); its one fresh flight's values are not in the table. Two runs gave the same
 table. Its `SimulationTableViewProbe` reseeds from the design's file name before each load and before each new
 design (it prints no UUID); two runs gave the same transcript.
+`simulation-dialog` (Milestone 4) reseeds from the design's name before each design (its loads draw no UUID the
+table shows); two runs gave the same table.
 
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
@@ -613,6 +635,11 @@ row without data last when descending (as `DefaultRowSorter` and QtRocket sort a
 the warnings column's orders (the designs' rows stayed byte for byte the same). Run 3's part Y1 passed it the
 whole list of `OpenDesignsExitGolden`'s 66 designs (the sixteen examples' tables stayed byte for byte the same), for
 the suite's test of the "Flight simulations" tab.
+
+Milestone 4's run 3, part Y2, added `simulation-dialog` (the M4 tests-exit scout's E4; the walk of the M4
+sim-config scout's `SimConfigDialogWalk` in the form of run 2's probes `simulation-options` and
+`simulation-warnings`, over every simulation of `OpenDesignsExitGolden`'s 66 designs as the tab's Edit opens it,
+then cancelled), for the suite's test of the settings dialog of every simulation.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

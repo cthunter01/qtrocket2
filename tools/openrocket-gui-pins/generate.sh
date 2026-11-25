@@ -42,6 +42,9 @@
 #                      and the values tests/gui/simulation/SimulationColumnVisibilityTests.cpp and
 #                      SimulationTableViewTests.cpp pin by hand (checked only, see README.md; both probes run
 #                      under xvfb-run)
+#   simulation-dialog  tests/data/goldens/gui/simulation-dialog/simulation-dialog.json (the simulation settings dialog
+#                      of every simulation of each design of OpenDesignsExitGolden, as the tab's Edit opens it, and
+#                      its Cancel; the probe runs under xvfb-run)
 #   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp,
 #                      tests/gui/plot/DataPlotTests.cpp and the plot tab's tests (PlotTypeSelectorTests.cpp,
 #                      SimulationPlotTypeSelectorTests.cpp, SimulationPlotPanelTests.cpp of tests/gui/dialogs/plot/)
@@ -79,12 +82,12 @@
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
 # .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser, open-designs,
-# simulation-table and plot-dialog, xvfb-run.
+# simulation-table, simulation-dialog and plot-dialog, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser open-designs plot-widgets simulation-table plot-dialog)
+    preset-chooser open-designs plot-widgets simulation-table simulation-dialog plot-dialog)
 
 check=false
 families=()
@@ -143,7 +146,7 @@ for tool in python3 "${clang_format}"; do
     fi
 done
 for family in rocket-panel thrust-curves flight-config preset-chooser open-designs simulation-table \
-    plot-dialog; do
+    simulation-dialog plot-dialog; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -529,6 +532,17 @@ for family in "${families[@]}"; do
             "${repo}/data/components" "${examples}"
         file=tests/data/goldens/gui/simulation-table/simulation-table.json
         python3 -I "${here}/${family}/gen_simulation_table_pins.py" "${work}/SimulationTableProbe.txt" \
+            "${out}/$(basename "${file}")" "${commit}"
+        ;;
+    simulation-dialog)
+        # The designs of OpenDesignsExitGolden (the open-designs family's list), in its order; OpenRocket's
+        # SimulationConfigDialog and the wind editor it opens are JDialogs, which a headless AWT refuses to make
+        # (they are never shown). The six presets of the example designs come from the bundled presets' directory.
+        python3 -I "${here}/open-designs/designs.py" "${repo}" > "${work}/simulation-dialog-designs.txt"
+        run_probe "${family}" SimulationDialogProbe xvfb "${work}/simulation-dialog-designs.txt" \
+            "${repo}/data/components"
+        file=tests/data/goldens/gui/simulation-dialog/simulation-dialog.json
+        python3 -I "${here}/${family}/gen_simulation_dialog_pins.py" "${work}/SimulationDialogProbe.txt" \
             "${out}/$(basename "${file}")" "${commit}"
         ;;
     plot-dialog)
