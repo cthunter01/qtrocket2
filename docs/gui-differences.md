@@ -248,12 +248,12 @@ The "Flight simulations" tab:
 
 The simulation's settings:
 
-29. **An edit of the launch into the wind, the standard atmosphere, the geodetic calculations or a lookup table.**
-    OpenRocket does not count an edit of only "Always launch directly up-wind or down-wind", "Use International
-    Standard Atmosphere", "Geodetic calculations" or the file of an aerodynamic lookup table as a change: the
-    simulation stays "Up to date" with results that no longer match, and the dialog's Cancel undoes the design
-    change made before the dialog opened instead of the edit. QtRocket counts these edits, so the results are out
-    of date and Cancel undoes the edit (`simulation/SimulationOptions.h` in the core).
+29. **An edit of the launch into the wind, the standard atmosphere or the geodetic calculations.** OpenRocket
+    does not count an edit of only "Always launch directly up-wind or down-wind", "Use International Standard
+    Atmosphere" or "Geodetic calculations" as a change: the simulation stays "Up to date" with results that no
+    longer match, and the dialog's Cancel undoes the design change made before the dialog opened instead of the
+    edit. QtRocket counts these edits, so the results are out of date and Cancel undoes the edit
+    (`simulation/SimulationOptions.h` in the core).
 
 The launch conditions and the wind editor:
 
@@ -279,8 +279,8 @@ The launch conditions and the wind editor:
     field's message is the key "simedtdlg.error.temperatureTooLow", a text missing from its translations.
     QtRocket shows "Extremely low temperature" (`dialogs/simulation/SimulationConditionsPanel.h`).
 36. **The summary of the multi-level wind.** OpenRocket's launch conditions write the summary of the wind levels
-    again only when the wind profile editor closes, so "Reset to default" or an undo leave it out of date, and the
-    highest altitude it shows is never below 0 m ("Altitude range: -50 m - 0 m" for levels at -50 m and -10 m).
+    again only when the wind profile editor closes, so "Reset to default" leaves it out of date, and the highest
+    altitude it shows is never below 0 m ("Altitude range: -50 m - 0 m" for levels at -50 m and -10 m).
     QtRocket's summary follows every change of the levels, and shows "-50 m - -10 m"
     (`dialogs/simulation/WindLevelSummary.h`).
 37. **Importing wind levels from a file whose name does not end in ".csv".** OpenRocket adds ".csv" to the name of
@@ -292,9 +292,9 @@ New simulations and runs:
 38. **The Simulation page's "Geodetic calculations" and the Warnings page's three thresholds.** The Simulation
     page says that its settings apply to newly created simulations, but OpenRocket's new simulations start with
     fixed values for these four (the spherical approximation, 20, 30.48 and 15.24 m/s); only the "Reset to
-    default" buttons of the simulation's settings read the preferences. QtRocket's new simulations take them. So
-    does the Launch conditions tab's "Reset to default", which also resets these four: OpenRocket's resets them to
-    the fixed values (`simulation/DefaultSimulationOptionFactory.h` in the core).
+    default" buttons of the Simulation options and Warnings tabs read the preferences. QtRocket's new simulations
+    take them, and so does the Launch conditions tab's "Reset to default", which also resets these four:
+    OpenRocket's resets them to the fixed values (`simulation/DefaultSimulationOptionFactory.h` in the core).
 39. **The launch rod's direction into a multi-level wind above ground level.** With "Always launch directly
     up-wind or down-wind" and a multi-level wind whose altitudes are above ground level (AGL), OpenRocket points
     the rod into the wind at the launch site's altitude above sea level, counted from the ground: at a site 1000 m
@@ -346,7 +346,8 @@ The CSV options:
     stores, as "S". QtRocket shows the whole separator, and a stored "SPACE" or "TAB" as that item, the space or
     the tab (`widgets/FieldSeparatorComboBox.h`, `settings/CsvOptionPreferences.h`).
 51. **A stored number of decimal places outside 0 to 15.** OpenRocket's simulation dialog then fails with an
-    internal error for a simulation with results. QtRocket takes 0 or 15, whichever is nearer
+    internal error for a simulation with results, and so does "Export simulation table as CSV file", before its
+    file dialog opens. QtRocket's CSV options take 0 or 15, whichever is nearer
     (`settings/CsvOptionPreferences.h`).
 52. **A quantity whose name is longer than 80 characters.** OpenRocket's preferences refuse a key that long, and
     the CSV export stores whether each quantity is ticked under its name, so exporting a simulation that has such
@@ -477,8 +478,9 @@ component's wall, mass or sweep. Also:
   - After a step with the arrows, the text is selected.
 - Count fields refuse a key that cannot make a number in their range.
 - A unit selector opens on the press of any mouse button.
-- Combo boxes choose with the wheel only while they have the focus. The keys on a closed combo box follow the
-  platform.
+- Combo boxes, the quantity and line style boxes of the simulation's Plot data tab too, choose with the wheel
+  only while they have the focus. The keys on a closed combo box follow the platform, also on the quantity box,
+  whose Down opens a plain list of the quantities in OpenRocket (`widgets/EnumComboBox.h`, `DataTypeComboBox.h`).
 - The name field and the comment area show changes made elsewhere, unless they hold an edit. OpenRocket
   overwrites the name field even while it is edited, and never refreshes the comment area.
 - The material combo box's search lists every material that matches, including two whose names differ only in
@@ -546,24 +548,27 @@ component's wall, mass or sweep. Also:
 
 ## Plots
 
-The thrust curve preview of the motor chooser, its "Motor thrust curves" dialog, the simulation plot dialog
-and the wind editor's profile are drawn by [rocketplot](https://github.com/cthunter01/rocketplot), not
-JFreeChart (the user's decisions U-M3-6a and b, and U-M4-6):
+The thrust curve preview of the motor chooser, its "Motor thrust curves" dialog and the simulation plot dialog
+are drawn by [rocketplot](https://github.com/cthunter01/rocketplot), not JFreeChart, and so is the wind editor's
+profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and U-M4-6):
 
-- They follow the platform's light or dark scheme, with rocketplot's fonts and grid lines. OpenRocket's plots
-  in dialogs are always light (`plot/ThrustCurvePlot.h`, `DataPlot.h`, `WindProfilePlot.h`).
-- The mouse: a left drag zooms to the box dragged out, Shift and a left drag pans, a double click resets the
-  view, the wheel zooms about the pointer (over an axis that axis only; Ctrl and the wheel the time only, Shift
-  and the wheel the thrust only), a trackpad scrolls and, with Ctrl, zooms, a pinch zooms, and the back and
-  forward mouse buttons go through the views. JFreeChart restores the view after a drag up and to the left and
-  zooms with the wheel only over the data (`plot/PlotInputBindings.h`).
-- The right button opens rocketplot's menu (Back, Forward, Reset view, the crosshair, Copy image, Export...) in
-  place of JFreeChart's. Export... writes PNG, JPEG, SVG, PDF or CSV files, adds the suffix of the chosen kind
-  when the name has none of them, asks before replacing a file and says when the file cannot be written
-  (`plot/PlotExport.h`).
-- A legend entry of the dialog has a menu (the line width and markers, Visible, Show only this, Show all,
-  Remove, Theme color), which OpenRocket's legends do not have. A curve recoloured there keeps its colour when
-  the scheme changes.
+- They follow the platform's light or dark scheme, with rocketplot's fonts and grid lines. OpenRocket's plot
+  dialogs and its wind profile are always light; its motor chooser's preview follows its theme
+  (`plot/ThrustCurvePlot.h`, `DataPlot.h`, `WindProfilePlot.h`).
+- The motor chooser's preview and the wind profile take no zoom or pan gesture and have no menu or crosshair,
+  as in OpenRocket (the profile's dots have tool tips in both) (`plot/PlotInputBindings.h`).
+- The mouse in the two plot dialogs: a left drag zooms to the box dragged out, Shift and a left drag pans, a
+  double click resets the view, the wheel zooms about the pointer (over an axis that axis only; Ctrl and the
+  wheel the time only, Shift and the wheel the thrust only), a trackpad scrolls and, with Ctrl, zooms, a pinch
+  zooms, and the back and forward mouse buttons go through the views. JFreeChart restores the view after a drag
+  up and to the left and zooms with the wheel only over the data (`plot/PlotInputBindings.h`).
+- In the two plot dialogs, the right button opens rocketplot's menu (Back, Forward, Reset view, the crosshair,
+  Copy image, Export...) in place of JFreeChart's. Export... writes PNG, JPEG, SVG, PDF or CSV files, adds the
+  suffix of the chosen kind when the name has none of them, asks before replacing a file and says when the file
+  cannot be written (`plot/PlotExport.h`).
+- A legend entry of the two plot dialogs has a menu (the line width and markers, Visible, Show only this, Show
+  all, Remove, Theme color), which OpenRocket's legends do not have. A curve recoloured there keeps its colour
+  when the scheme changes.
 - In the simulation plot dialog, a click on a legend entry hides or shows the curves of its quantity, a double
   click shows only them, pointing at it brings them forward, and it has the menu above. While a stage is chosen,
   all of these act on that stage's curves only. OpenRocket's legend only highlights the curves, drawn wider,
@@ -588,10 +593,10 @@ JFreeChart (the user's decisions U-M3-6a and b, and U-M4-6):
   in the same place until the axes are zoomed apart (`plot/SimulationPlot.h`, `PlotEventGraphics.h`).
 - The data points of each stage have a shape of their own: rocketplot has 6, and a seventh stage takes the
   first again. JFreeChart has 10 (`plot/DataPlot.h`).
-- A colour of the Plot data tab is chosen in Qt's colour dialog, with an alpha channel, made anew at each
-  click, and reaches the button when the dialog closes with OK. OpenRocket's chooser shows each colour picked
-  in the button at once, puts the first back on Cancel, and keeps its recent colours from one click to the
-  next (`widgets/ColorChooserButton.h`).
+- A colour of the Plot data tab is chosen in Qt's colour dialog (with an alpha channel, as OpenRocket's), made
+  anew at each click, and reaches the button when the dialog closes with OK. OpenRocket's chooser shows each
+  colour picked in the button at once, puts the first back on Cancel, and keeps its recent colours from one
+  click to the next (`widgets/ColorChooserButton.h`).
 - "Export Image" says "Error writing file" when the PNG cannot be written. OpenRocket's says nothing
   (`dialogs/plot/PlotDialog.h`).
 - The plot dialog belongs to the simulation's settings dialog, which cannot be closed while the plot is open;
@@ -705,6 +710,16 @@ JFreeChart (the user's decisions U-M3-6a and b, and U-M4-6):
   (`dialogs/simulation/SimulationRunDialog.h`).
 - The errors of several failed runs are shown one at a time. OpenRocket's messages can open over each other
   (`util/SimulationBatch.h`).
+- A run that QtRocket refuses or stops fails with an ordinary error over the run dialog ("An error occurred
+  during the simulation:" and the reason), where OpenRocket shows its internal error dialog. The cases: launch
+  air of no positive density, with "Use International Standard Atmosphere" unticked (288.15 K at 50 % and 300 Pa,
+  or 400 K at 100 % and sea level pressure: OpenRocket's flight ends in a NaN); launch conditions that the
+  atmosphere model refuses (50 K at a site 10,000 m high: "Temperature must be positive (Kelvin)" in both); a
+  value outside the range a run takes, refused before the run starts (a launch temperature below 1 K, which the
+  field takes; OpenRocket fails at 0 K); and a flight whose numbers become NaN. A flight that needs more than
+  1,000,000 steps in one stage fails too ("Simulation needs more than 1000000 steps for one flight data
+  branch. ..."), where OpenRocket has no limit (`util/SimulationBatch.h`; `simulation/Simulation.h` and
+  `SimulationInputRanges.h` in the core).
 - While a simulation runs, the "Flight simulations" tab keeps showing its earlier results, until the run ends
   (the user's decision U-M4-6). OpenRocket drops them when the run starts (`simulation/SimulationRun.h` in the
   core).
@@ -785,6 +800,9 @@ These come with later milestones of QtRocket:
 
 Not planned for QtRocket: RASAero export, Wavefront OBJ export, Photo Studio, guided tours, translations
 (the language selector), the debug log, update checks, the motor search, download and database update of
-thrustcurve.org, the component preset editor, the "banana for scale", and the scripting extensions: a design's
-scripts are kept and saved but never run, and one that is enabled and holds code is disabled, with a warning,
-when the design is opened (`simulation/extension/impl/ScriptingExtension.h` in the core).
+thrustcurve.org, the component preset editor, the "banana for scale", and the scripting and Java code
+extensions: a design's scripts are kept and saved but never run, and one that is enabled and holds code is
+disabled, with a warning, when the design is opened (`simulation/extension/impl/ScriptingExtension.h` in the
+core); a Java listener's class is never loaded, so a simulation whose Java code extension names a class (every
+listener of an old design becomes one) fails with "Could not find class ..."
+(`simulation/extension/impl/JavaCode.h` in the core).

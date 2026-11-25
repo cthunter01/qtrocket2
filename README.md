@@ -70,15 +70,15 @@ cmake --workflow --preset dev-msvc     # configure + build + test, MSVC Debug
 | `msvc-debug`, `msvc-release` | Windows | Everyday builds |
 | `asan` | Linux, macOS | Clang Debug with AddressSanitizer + UndefinedBehaviorSanitizer |
 | `tsan` | Linux, macOS | Clang RelWithDebInfo with ThreadSanitizer |
-| `tidy` | Linux, macOS | Clang Debug running clang-tidy on every file; findings are errors |
+| `tidy` | Linux, macOS | Clang Debug running clang-tidy on every file; findings are errors. Its workflows `tidy-core` and `tidy-gui` build and test the core's and the GUI's halves, as CI does |
 | `coverage` | Linux, macOS | `cmake --workflow --preset coverage` writes `build/coverage/coverage/html/index.html` |
 | `ci-gcc`, `ci-clang`, `ci-msvc` | as their compiler | Release builds with warnings as errors, as run in CI |
 | `dist-linux`, `dist-macos`, `dist-windows` | Linux, macOS, Windows | The release archives (see [Releases](#releases)); no GUI yet |
 
 A preset exists only on the platforms it supports; `cmake --list-presets` shows the ones for this machine.
-Each workflow preset (`dev`, `dev-msvc`, `ci-gcc`, `ci-clang`, `ci-msvc`, `asan`, `tsan`, `tidy`, `coverage`)
-configures, builds and tests in one command, and the `dist-*` ones also package. Separate steps:
-`cmake --preset <p>`, `cmake --build --preset <p>`, `ctest --preset <p>`.
+Each workflow preset (`dev`, `dev-msvc`, `ci-gcc`, `ci-clang`, `ci-msvc`, `asan`, `tsan`, `tidy`, `tidy-core`,
+`tidy-gui`, `coverage`) configures, builds and tests in one command, and the `dist-*` ones also package.
+Separate steps: `cmake --preset <p>`, `cmake --build --preset <p>`, `ctest --preset <p>`.
 
 CI (GitHub Actions) builds and tests on all three in seven jobs: Linux (`ci-gcc`, `ci-clang`, `asan`, and `tidy`
 in two jobs, the workflows `tidy-core` and `tidy-gui`, which build and test the core's and the GUI's halves),
@@ -93,7 +93,8 @@ API docs: `cmake --build --preset clang-debug --target docs`, then open `build/c
 ## The GUI
 `QtRocket` is the graphical program. It follows OpenRocket's GUI: its windows, dialogs, texts and rules.
 Milestones 2 to 4 give it what OpenRocket's "Rocket design", "Motors & Configuration" and "Flight simulations"
-tabs offer but appearance, the 3D views and the analysis tools (Monte Carlo, component analysis, optimization)
+tabs offer but appearance, the 3D views, the analysis tools (Monte Carlo, component analysis, optimization),
+custom expressions and the configuration of simulation extensions
 ([docs/gui-differences.md](docs/gui-differences.md) lists what comes later):
 
 - A window per design: the component tree beside the buttons that add components, and below them the design view,
@@ -279,20 +280,23 @@ with the same steps (`tools/openrocket-gui-reference/`); `FlightConfigurationsEx
 buttons and tables, the ignition, deployment and separation dialogs, the motor chooser, renames, undo and redo,
 Save as; `OpenDesignsExitGolden` opens OpenRocket's 16 examples, the 49 re-saves of its golden harness and that
 reference design in QtRocket's windows and compares the tree, the dialogs' fields, the figure, the information
-overlay and the "Motors & Configuration" tab with OpenRocket's golden data and OpenRocket's own tab, and for the
-examples the parts library of every component that takes presets.
+overlay and the "Motors & Configuration" tab with OpenRocket's golden data and OpenRocket's own tab, and
+`OpenDesignsExitGoldenPartsLibrary` opens the parts library of every component of the examples that takes
+presets and compares it with OpenRocket's.
 
 The simulations are compared with what OpenRocket's own classes make of the examples' stored simulations: the
 core's plot model with OpenRocket's plots of each of them in the nine presets (`SimulationPlotGolden`), and in the
 GUI the simulations table, its CSV text and Copy (`SimulationTableModelGolden`, `SimulationTableCsvExportGolden`
-and the other `SimulationTable*Golden` suites), the tab's actions (`SimulationPanelGolden`), the plot tab and the
-plot itself (`SimulationPlotPanelGolden`, `SimulationPlotChartGolden`) and the design view's flight block
-(`RocketInfoFlightGolden`). The suites that run simulations on threads of their own (the core's
-`SimulationRunner`, `SimulationThreading` and `RunSampleListener`, the GUI's `BackgroundSimulationThreadsTest`,
-`PollingSimulationExecutorTest` and `SimulationRunDialogThreadsTest`) have a time limit, so that a broken cancel
-fails a test instead of hanging the run; the `tsan` preset checks them for data races. The lint tests
-(`tests/lint/`) check rules of the source tree that the compiler cannot, such as the include order of the layers.
-Test data lives in `tests/data/`. ctest labels select parts of the suite:
+and the other `SimulationTable*Golden` suites), the tab's actions (`SimulationPanelGolden`), the tab in its window
+with the menu items' states (`SimulationsWindowGolden`), the plot tab and the plot itself
+(`SimulationPlotPanelGolden`, `SimulationPlotChartGolden`), the design view's flight block
+(`RocketInfoFlightGolden`) and what its flight estimate runs and shows (`BackgroundSimulationGolden`). The suites
+that run simulations on threads of their own (the core's `SimulationRunner`, `SimulationThreading` and
+`RunSampleListener`, the GUI's `BackgroundSimulationThreadsTest`, `PollingSimulationExecutorTest` and
+`SimulationRunDialogThreadsTest`) have a time limit, so that a broken cancel fails a test instead of hanging the
+run; the `tsan` preset checks them for data races. The lint tests (`tests/lint/`) check rules of the source tree
+that the compiler cannot, such as the include order of the layers. Test data lives in `tests/data/`. ctest labels
+select parts of the suite:
 
 ```sh
 ctest --preset clang-debug                 # everything
