@@ -22,6 +22,18 @@ rocketplot::InputBindings PlotInputBindings::chartPanel()
     return bindings;
 }
 
+rocketplot::InputBindings PlotInputBindings::simulationChart()
+{
+    rocketplot::InputBindings bindings = chartPanel();
+    // A ChartPanel pans with Ctrl held (its pan mask) where its plot is pannable, as the
+    // simulation plots are.
+    bindings.bind(rocketplot::Gesture::DRAG, Qt::LeftButton, Qt::ControlModifier,
+                  rocketplot::PlotAction::PAN);
+    // OpenRocket bug 47: Ctrl and the wheel zoom the x axis alone, as chartPanel() (rocketplot's
+    // defaults) binds them already; SimulationChart's wheel handler zooms both axes.
+    return bindings;
+}
+
 rocketplot::InputBindings PlotInputBindings::none()
 {
     return {};

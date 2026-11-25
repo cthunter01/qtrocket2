@@ -1,6 +1,7 @@
 # GUI area 7, figure: the widgets that draw the rocket and the fins (the geometry is the core's figure/).
 # Each source with its header (${gui_include_dir}/figure/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    BackgroundSimulation.cpp ${gui_include_dir}/figure/BackgroundSimulation.h
     Caret.cpp ${gui_include_dir}/figure/Caret.h
     CGCaret.cpp ${gui_include_dir}/figure/CGCaret.h
     CPCaret.cpp ${gui_include_dir}/figure/CPCaret.h

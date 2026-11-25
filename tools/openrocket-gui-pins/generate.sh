@@ -7,7 +7,8 @@
 #
 # The families (all of them when none is named):
 #   figure-paint       tests/gui/figure/RocketFigurePaintPins.h
-#   rocket-info        tests/gui/figure/RocketInfoPins.h
+#   rocket-info        tests/gui/figure/RocketInfoPins.h and tests/data/goldens/gui/rocket-info/flight-blocks.json
+#                      (the overlay's flight block for each design of OpenDesignsExitGolden)
 #   ribbon             tests/gui/widgets/RibbonPins.h
 #   rocket-panel       tests/gui/figure/RocketPanelPins.h (the probe runs under xvfb-run)
 #   preferences        tests/gui/dialogs/PreferencesPagePins.h
@@ -40,6 +41,10 @@
 #                      the sixteen examples and a new design, two status scenarios and a Copy), and the values
 #                      tests/gui/simulation/SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp
 #                      pin by hand (checked only, see README.md; both probes run under xvfb-run)
+#   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp,
+#                      tests/gui/plot/DataPlotTests.cpp and the plot tab's tests (PlotTypeSelectorTests.cpp,
+#                      SimulationPlotTypeSelectorTests.cpp, SimulationPlotPanelTests.cpp of tests/gui/dialogs/plot/)
+#                      pin by hand (checked only, see README.md; the probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -47,7 +52,7 @@
 # OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
-# never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser and plot-widgets.
+# never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser, plot-widgets and plot-dialog.
 #
 # Environment:
 #   OPENROCKET_DIR        the OpenRocket checkout (default: "openrocket" next to the main working tree of the
@@ -72,13 +77,13 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser, open-designs and
-# simulation-table, xvfb-run.
+# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser, open-designs,
+# simulation-table and plot-dialog, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser open-designs plot-widgets simulation-table)
+    preset-chooser open-designs plot-widgets simulation-table plot-dialog)
 
 check=false
 families=()
@@ -136,7 +141,8 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves flight-config preset-chooser open-designs simulation-table; do
+for family in rocket-panel thrust-curves flight-config preset-chooser open-designs simulation-table \
+    plot-dialog; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -340,9 +346,19 @@ for family in "${families[@]}"; do
         ;;
     rocket-info)
         run_probe "${family}" RocketInfoProbe headless "${examples}"
-        file=tests/gui/figure/RocketInfoPins.h
+        info=tests/gui/figure/RocketInfoPins.h
         python3 -I "${here}/${family}/gen_rocket_info_pins.py" "${work}/RocketInfoProbe.txt" \
-            "$(generated "${file}")" "${commit}"
+            "$(generated "${info}")" "${commit}"
+        finish "${info}"
+        # The flight block of the overlay for each design of OpenDesignsExitGolden (the open-designs family's list),
+        # with the six presets of the example designs from the bundled presets' directory, and the probe's own
+        # states. A JSON document, written whole (nothing to copy first).
+        python3 -I "${here}/open-designs/designs.py" "${repo}" > "${work}/rocket-info-designs.txt"
+        run_probe "${family}" RocketInfoFlightProbe headless "${work}/rocket-info-designs.txt" \
+            "${repo}/data/components"
+        file=tests/data/goldens/gui/rocket-info/flight-blocks.json
+        python3 -I "${here}/${family}/gen_rocket_info_flight_pins.py" "${work}/RocketInfoFlightProbe.txt" \
+            "${out}/$(basename "${file}")" "${commit}"
         ;;
     ribbon)
         run_probe "${family}" RibbonProbe headless "${examples}"
@@ -513,6 +529,18 @@ for family in "${families[@]}"; do
         file=tests/data/goldens/gui/simulation-table/simulation-table.json
         python3 -I "${here}/${family}/gen_simulation_table_pins.py" "${work}/SimulationTableProbe.txt" \
             "${out}/$(basename "${file}")" "${commit}"
+        ;;
+    plot-dialog)
+        # OpenRocket's SimulationPlotDialog is a JDialog, which a headless AWT refuses to make (it is never
+        # shown); its plots are of stored simulations of the examples. Then the plot tab, SimulationPlotPanel,
+        # of such flights (in a JFrame that is packed, never shown), whose transcript follows the dialog's in the
+        # family's one snapshot. The tests pin the whole transcript by hand.
+        run_probe "${family}" PlotDialogProbe xvfb "${examples}"
+        run_probe "${family}" PlotTabProbe xvfb "${examples}"
+        cat "${work}/PlotTabProbe.txt" >> "${work}/PlotDialogProbe.txt"
+        check_hand_pins "${family}" PlotDialogProbe \
+            "tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp, tests/gui/plot/DataPlotTests.cpp and the plot tab's tests of tests/gui/dialogs/plot/"
+        continue
         ;;
     esac
     finish "${file}"

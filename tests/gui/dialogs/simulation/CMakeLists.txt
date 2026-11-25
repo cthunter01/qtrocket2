@@ -13,6 +13,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     SimulationDialogWalk.cpp
     SimulationExtensionListTests.cpp
     SimulationOptionsPanelTests.cpp
+    SimulationRunDialogTests.cpp
     SimulationWarningsPanelTests.cpp
     TurbulenceIntensityTextTests.cpp
     wind_levels_import_tests.cpp

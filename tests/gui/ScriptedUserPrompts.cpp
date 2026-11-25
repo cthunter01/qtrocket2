@@ -1,5 +1,6 @@
 #include "ScriptedUserPrompts.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -12,11 +13,14 @@
 #include <QString>
 #include <QStringList>
 #include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
 
 #include <gtest/gtest.h>
 
+#include "ManualSimulationExecutor.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationBatch.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -34,6 +38,74 @@ namespace QtRocket::Gui::Test
 
 namespace
 {
+
+/// How long the scripted run dialog waits for the runs of its batch: a safety net that only a
+/// defect reaches (a run of the short flights the tests run takes milliseconds).
+constexpr int kBatchSafetyNetMilliseconds = 120000;
+
+/// Whether @p request can be run: a document, an executor and simulations, none of them null.
+[[nodiscard]] bool isRunnable(const UserPrompts::RunSimulationsRequest& request)
+{
+    return request.document != nullptr && request.executor != nullptr &&
+           !request.simulations.empty() &&
+           std::ranges::none_of(
+               request.simulations,
+               [](const std::shared_ptr<Simulation>& simulation) { return simulation == nullptr; });
+}
+
+/// Waits in the event loop until @p batch is finished, at most the safety net; whether it is.
+[[nodiscard]] bool waitUntilFinished(const SimulationBatch& batch)
+{
+    return batch.isFinished() ||
+           QTest::qWaitFor([&batch] { return batch.isFinished(); }, kBatchSafetyNetMilliseconds);
+}
+
+/// The scripted run dialog's run of @p request when the script does not answer it: the batch of
+/// the run dialog (SimulationBatch), whose failures go to @p prompts, run to its end through the
+/// request's executor. The tests' executor (ManualSimulationExecutor) runs the jobs in the next
+/// turn of the event loop in its IMMEDIATE mode, at once (runAll()) in its STEPPED mode, and
+/// never in its NEVER mode, which fails the test and cancels the batch. A request that cannot be
+/// run fails the test, and the answer is a cancelled batch.
+[[nodiscard]] UserPrompts::RunSimulationsAnswer runScriptedBatch(
+    UserPrompts& prompts, QWidget* parent, const UserPrompts::RunSimulationsRequest& request)
+{
+    if (!isRunnable(request))
+    {
+        ADD_FAILURE() << "a RUN_SIMULATIONS question without a document, an executor or a "
+                         "simulation to run";
+        return {.cancelled = true, .allSuccessful = false};
+    }
+    SimulationBatch batch(prompts, request);
+    batch.setMessageParent(parent);
+    batch.start();
+    if (auto* const manual = dynamic_cast<ManualSimulationExecutor*>(request.executor);
+        manual != nullptr)
+    {
+        switch (manual->mode())
+        {
+            case ManualSimulationExecutor::Mode::IMMEDIATE:
+                break;
+            case ManualSimulationExecutor::Mode::STEPPED:
+                static_cast<void>(manual->runAll());
+                break;
+            case ManualSimulationExecutor::Mode::NEVER:
+                ADD_FAILURE() << "a RUN_SIMULATIONS question whose executor runs nothing (its "
+                                 "NEVER mode): the runs are cancelled";
+                batch.cancel();
+                break;
+        }
+    }
+    if (!waitUntilFinished(batch))
+    {
+        ADD_FAILURE() << "the runs of the scripted run dialog did not end: they are cancelled";
+        batch.cancel();
+        if (!waitUntilFinished(batch))
+        {
+            ADD_FAILURE() << "the cancelled runs of the scripted run dialog did not end";
+        }
+    }
+    return batch.answer();
+}
 
 [[nodiscard]] QString insertPositionQuestionName(UserPrompts::InsertPositionQuestion question)
 {
@@ -550,10 +622,15 @@ UserPrompts::RunSimulationsAnswer ScriptedUserPrompts::runSimulations(
                                             : QtStrings::fromUtf8(simulation->getName()));
     }
     m_runSimulationsQuestions.push_back(question);
-    const RunScript run =
-        next(makePrompt(Kind::RUN_SIMULATIONS, {}, question.simulationNames),
-             RunScript{.answer = {.cancelled = true, .allSuccessful = false}, .action = {}});
-    return run.action ? run.action(parent, request) : run.answer;
+    m_prompts.push_back(makePrompt(Kind::RUN_SIMULATIONS, {}, question.simulationNames));
+    if (!m_script.empty() && m_script.front().kind == Kind::RUN_SIMULATIONS)
+    {
+        const RunScript run = std::get<RunScript>(std::move(m_script.front().answer));
+        m_script.pop_front();
+        return run.action ? run.action(parent, request) : run.answer;
+    }
+    // Not scripted: the simulations run, through the request's executor (O-M4-8).
+    return runScriptedBatch(*this, parent, request);
 }
 
 std::optional<UserPrompts::WindCsvImportSettings> ScriptedUserPrompts::askWindCsvImportSettings(

@@ -1,15 +1,12 @@
 #include "QtRocket/gui/util/EnumText.h"
 
-#include <string>
-
 #include <QChar>
-#include <QCoreApplication>
 #include <QString>
-#include <QTranslator>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "KeyTranslator.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/TransitionShape.h"
@@ -21,42 +18,8 @@ namespace QtRocket::Gui
 namespace
 {
 
-using EnumTextTest = Test::GuiTest;
-
-/// A translator that knows every enum text: "<key>|<English text>", and records what it was
-/// asked.
-class KeyTranslator : public QTranslator
-{
-public:
-    [[nodiscard]] QString translate(const char* context, const char* sourceText,
-                                    const char* disambiguation, int /*n*/) const override
-    {
-        if (context == nullptr || std::string(context) != kEnumTextContext ||
-            disambiguation == nullptr)
-        {
-            return {};
-        }
-        return QString::fromUtf8(disambiguation) + QStringLiteral("|") +
-               QString::fromUtf8(sourceText);
-    }
-
-    [[nodiscard]] bool isEmpty() const override { return false; }
-};
-
-/// Installs a translator for as long as it lives.
-class InstalledTranslator
-{
-public:
-    InstalledTranslator() { QCoreApplication::installTranslator(&m_translator); }
-    ~InstalledTranslator() { QCoreApplication::removeTranslator(&m_translator); }
-    InstalledTranslator(const InstalledTranslator&)            = delete;
-    InstalledTranslator& operator=(const InstalledTranslator&) = delete;
-    InstalledTranslator(InstalledTranslator&&)                 = delete;
-    InstalledTranslator& operator=(InstalledTranslator&&)      = delete;
-
-private:
-    KeyTranslator m_translator;
-};
+using EnumTextTest        = Test::GuiTest;
+using InstalledTranslator = Test::InstalledKeyTranslator;
 
 TEST_F(EnumTextTest, IsTheEnglishTextWithoutATranslator)
 {

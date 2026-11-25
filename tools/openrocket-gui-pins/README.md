@@ -8,7 +8,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | Family | Table | Probe | Generator | Read by |
 |---|---|---|---|---|
 | `figure-paint` | `tests/gui/figure/RocketFigurePaintPins.h` | `FigurePaintProbe` | `gen_rocket_figure_paint_pins.py` | `rocket_figure_paint_golden_tests.cpp` |
-| `rocket-info` | `tests/gui/figure/RocketInfoPins.h` | `RocketInfoProbe` | `gen_rocket_info_pins.py` | `rocket_info_golden_tests.cpp` |
+| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` (through `RocketInfoFlightPins.h`) |
 | `ribbon` | `tests/gui/widgets/RibbonPins.h` | `RibbonProbe` | `gen_ribbon_pins.py` | `ribbon_golden_tests.cpp` |
 | `rocket-panel` | `tests/gui/figure/RocketPanelPins.h` | `RocketPanelProbe` | `gen_rocket_panel_pins.py` | `rocket_panel_golden_tests.cpp` |
 | `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp`, `SimulationPreferencesPanelTests.cpp`, `WarningsPreferencesPanelTests.cpp`, `LaunchPreferencesPanelTests.cpp` |
@@ -25,6 +25,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
 | `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
+| `plot-dialog` | values pinned by hand | `PlotDialogProbe`, `PlotTabProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp`, `PlotTypeSelectorTests.cpp`, `SimulationPlotTypeSelectorTests.cpp`, `SimulationPlotPanelTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -35,7 +36,7 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
 (`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`,
-`flight-config`, `motor-chooser`, `plot-widgets`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
+`flight-config`, `motor-chooser`, `plot-widgets`, `plot-dialog`) bind `SwingPreferences`, at their defaults (a fresh `java.util.prefs` store),
 and apply FlatLaf Light, as the application does (`thrust-curves` switches to FlatLaf Dark for its dark charts
 and back); `open-designs` binds `SwingPreferences` with one value changed (its parts-library probe: at their
 defaults) and FlatLaf Light (below);
@@ -55,7 +56,20 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   stages, tube fins, `TestRockets.makeBeta` and a new design.
 - `rocket-info`: `RocketInfoContextHelper.computePhysics()` and `RocketInfo.paint()` (the overlay of the
   design view) on the 16 examples, the 13 test rockets and a few designs of its own: every text with its
-  font, colour and row, the carets, CG and CP, the warnings.
+  font, colour and row, the carets, CG and CP, the warnings. Its second probe, `RocketInfoFlightProbe`
+  (Milestone 4, run 2, part G2), pins the overlay's flight block (`RocketInfo.drawFlightInformation()`) for
+  each design of `OpenDesignsExitGolden` (the open-designs family's `designs.py`, loaded as
+  `OpenDesignsTabProbe` loads them: the seven synthetic motors for the test rockets' re-saves, the six presets
+  of the example designs, `MotorNameColumn` false) and seven states of its own (a simple design calculating,
+  after a failed run, without flight data, in imperial units; the aborted stored flight of the coverage
+  re-save with its configuration selected, calculating and not): the state `RocketPanel.updateExtras()` gives
+  the overlay when the design is opened with the estimate on and `AutoRunSimulations` off, replayed line by
+  line without starting the worker (which simulations `updateSims(false)` and `updateSims(true)` would run,
+  calculating or not, the shown simulation), every simulation's status and maxima, and the texts of the block
+  after those of a paint without flight data, each with its font, colour, row above the bottom one and column
+  (the left margin or the values' column), which do not depend on the font. No fresh flight: the four
+  designs whose estimate would run show their stored values, dimmed. The generator writes JSON
+  (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, the design files relative to the repository).
 - `ribbon`: `StageSelector` and `ConfigurationComboBox`, made as `RocketPanel` makes them, on the 16
   examples, the 13 test rockets and five designs of its own: the stage buttons (text, state, tooltip), each
   enabled button clicked twice on a fresh design, every configuration picked, with the rocket's events and
@@ -338,6 +352,28 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   Enter and Shift+Enter do (`selectNextRowCell`, `selectPreviousRowCell` run through the action maps from
   selections made with `changeSelection()`), and the sort keys after mouse events dispatched to the header. The
   tests pin its whole transcript by hand (`SimulationColumnVisibilityTests.cpp`, `SimulationTableViewTests.cpp`).
+- `plot-dialog`: OpenRocket's plot dialog (`PlotDialog` and `SimulationPlotDialog`, Milestone 4, run 2, part
+  G4), made through `SimulationPlotDialog.getPlot()` as the plot tab's `doPlot()` makes it, over stored flights of
+  the examples ("A simple model rocket" #1 under the first preset and the drag coefficients over the Mach number,
+  "Three stage low power rocket" #1, and a copy of that flight with an abort added to its first and last stage):
+  the window (title, modality, close operation, Escape, the default button), the panel's components in order
+  (kind, text, icon, visibility, state, MigLayout constraints, the stage box's items), the chart's size after
+  `pack()`, the gap below it, the row's order and gaps (after the layout that hides "Show errors"), then what
+  "Show data points", "Show events", "Show errors", each stage and the zoom buttons (with and without Alt) do to
+  the chart and the preferences, and what the dialog remembers of its size and place. It prints nothing that
+  depends on the fonts (no bounds but the chart's; the ranges after a zoom, which ChartPanel computes in pixels,
+  to 6 digits). The dialog is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
+  `-Djava.awt.headless=false`; no window is shown. Its second probe, `PlotTabProbe` (part G5), prints OpenRocket's
+  plot tab (`PlotPanel`, `PlotTypeSelector`, `SimulationPlotPanel` and `SimulationPlotTypeSelector`) made by
+  `SimulationPlotPanel.create()` of "A simple model rocket" #1, "Three stage low power rocket" #1 and the flight
+  of `SimulationChartTest`'s colour test, in a `JFrame` that is packed and never shown: the panel's components with
+  their MigLayout constraints, the gaps between them after `pack()` (no bounds that depend on the fonts), the
+  preset box's items, the rows (type, unit, axis, colour, line style, the appearance buttons' states), the events
+  table, the marker style and the description; then what each preset, the X axis type and unit, a row's type,
+  unit, axis, colour and line style, New Y axis plot type, the remove buttons, All, None, a click on an event's
+  name, the marker style, Set as default, Reset to factory default and `doPlot()` do, set as Swing sets them
+  (`setSelectedItem()`, `setSelectedIndex()`, `doClick()`), with the configuration the next tab starts from.
+  Its transcript is appended to `PlotDialogProbe`'s. The tests pin the whole transcript by hand.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -439,6 +475,9 @@ and its `hand-pinned.txt` is that transcript.
 JSON table) has no table either: `SimulationColumnVisibilityTests.cpp` pins its COLS and MENU lines and
 `SimulationTableViewTests.cpp` its BIND, KEY and HEADER lines, by hand, and the family's `hand-pinned.txt` is its
 whole transcript.
+
+`PlotDialogProbe` and `PlotTabProbe` (`plot-dialog`) have no table either: the tests above pin their whole
+transcripts by hand, and the family's `hand-pinned.txt` is the two, `PlotTabProbe`'s after `PlotDialogProbe`'s.
 
 `PresetGuiProbe`, `ConfigPresetRowProbe` and `PresetShownProbe` (`preset-chooser`; its other probe,
 `PresetChooserProbe`, writes `PresetChooserPins.h`) have no table: the tests pin their whole transcripts by hand

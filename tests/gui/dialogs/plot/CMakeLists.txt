@@ -2,4 +2,14 @@
 # dialogs: XTests.cpp for the class X, lower_snake_case_tests.cpp for tests about no one class, and their helpers, in
 # alphabetical order (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
+    FlightEventTableModelTests.cpp
+    PlotDialogTests.cpp
+    PlotDialogTestSupport.cpp
+    PlotPanelTests.cpp
+    PlotPanelTestSupport.cpp
+    PlotTypeSelectorTests.cpp
+    simulation_plot_panel_golden_tests.cpp
+    SimulationPlotDialogTests.cpp
+    SimulationPlotPanelTests.cpp
+    SimulationPlotTypeSelectorTests.cpp
 )

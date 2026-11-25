@@ -24,6 +24,7 @@ add_executable(QtRocket_gui_tests
     ScopedApplicationPalette.cpp
     ScriptedUserPrompts.cpp
     ScriptedUserPromptsTests.cpp
+    SimulationRunTestSupport.cpp
     TestGuiServices.cpp
     TestGuiServicesTests.cpp
 )
@@ -58,8 +59,17 @@ include(GoogleTest)
 # the discovered ones included): a list given to gtest_discover_tests' PROPERTIES loses its escaped ";" on the way
 # into the generated test file, so that LABELS "gui;golden" became the label gui alone and a property named golden.
 set_property(DIRECTORY PROPERTY LABELS gui)
+# The suites that run simulations on threads of their own (the application's executor, the run dialog over it) carry
+# a TIMEOUT, as the core's threaded suites do (tests/core/CMakeLists.txt): their waits have safety nets, and a defect
+# that breaks them fails the test instead of hanging ctest.
+set(QTROCKET_GUI_THREADED_SUITES
+    "BackgroundSimulationThreadsTest.*:PollingSimulationExecutorTest.*:SimulationRunDialogThreadsTest.*")
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
-    TEST_FILTER "-*Golden*.*:WidgetFileDialogTest.*" PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+    TEST_FILTER "-*Golden*.*:WidgetFileDialogTest.*:${QTROCKET_GUI_THREADED_SUITES}"
+    PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "${QTROCKET_GUI_THREADED_SUITES}"
+    PROPERTIES TIMEOUT 600 ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
     PROPERTIES LABELS golden ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 # The tests that show Qt's own file dialog run one at a time. QFileDialog keeps its history and last directory in the

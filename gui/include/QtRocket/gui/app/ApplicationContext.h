@@ -68,12 +68,13 @@ class SettingsPreferences;
 /// 9. the questions and messages (the UserPrompts it is given: the dialogs of the application,
 ///    a scripted double in a test);
 /// 10. the simulations' services (Milestone 4): the executor that runs them for every window
-///    (GuiServices::simulationExecutor(); until Milestone 4's runner adapter replaces it, one that
-///    runs nothing and drops every job in the next turn of the event loop), the last plotted
-///    configuration
+///    (GuiServices::simulationExecutor(): a PollingSimulationExecutor, the core's
+///    SimulationRunner of max(1, hardware_concurrency()) threads polled by a timer of the GUI
+///    thread), the last plotted configuration
 ///    (GuiServices::plotDefaults(), MemoryPlotDefaults: OpenRocket's static of the process) and
-///    the simulation dialogs (GuiServices::simulationDialogs(); until Milestone 4's settings and
-///    plot dialogs replace them, ones that open nothing).
+///    the simulation dialogs (GuiServices::simulationDialogs(): the plot dialog,
+///    SimulationPlotDialog::showPlot() over these services; the settings dialog opens nothing
+///    until Milestone 4's run 3 makes it).
 /// The user's files that could not be loaded and that OpenRocket shows a warning for are kept for
 /// the user (databaseProblems(): the start shows them after its first window).
 ///
@@ -202,10 +203,13 @@ private:
     SimulationExtensionRegistry                              m_extensions;
     DocumentLoadingContext                                   m_loadingContext;
     /// Step 10. Declared after the store and the databases, so destroyed before them: the
-    /// executor's destructor cancels its jobs and waits for the running ones, which may read them.
+    /// executor's destructor cancels its jobs and waits for the running ones, which read the
+    /// preference store (the runner's thread contract), and whatever an extra listener of a job
+    /// refers to is declared before it too.
     std::unique_ptr<SimulationExecutor> m_simulationExecutor;
     MemoryPlotDefaults                  m_plotDefaults;
-    std::unique_ptr<SimulationDialogs>  m_simulationDialogs;
+    /// Made in the constructor, after the services it refers to (their pointer to it is set then).
+    std::unique_ptr<SimulationDialogs> m_simulationDialogs;
     /// Declared before the services, which refer to it.
     GuiServices::StartupData m_startupData;
     GuiServices              m_services;

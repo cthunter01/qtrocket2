@@ -35,6 +35,7 @@ class Preferences;
 namespace QtRocket::Gui
 {
 
+class BackgroundSimulation;
 class ConfigurationComboBox;
 class DesignPhysics;
 class RocketFigure;
@@ -42,6 +43,7 @@ class RulerUnitSelector;
 class ScaleScrollArea;
 class ScaleSelector;
 class ScrollAreaZoomModel;
+class SimulationExecutor;
 class SingleRowScrollArea;
 class StageSelector;
 class ViewRotationControl;
@@ -66,7 +68,12 @@ class ViewRotationControl;
 ///   preference RocketPanel.showWarnings, true when unset, written back when it is toggled).
 /// The numbers, the carets and the overlay are a DesignPhysics of the figure, computed whenever
 /// the figure caught up with the rocket's change events; the scroll area fits the figure again
-/// then (Java's componentResized() in the rocket's listener).
+/// then (Java's componentResized() in the rocket's listener). The overlay's flight block, at the
+/// bottom left of the figure, is the panel's BackgroundSimulation (backgroundSimulation(): the
+/// flight part of Java's updateExtras() and its background worker), which estimates again
+/// whenever the numbers are computed and follows the document's simulations; it runs nothing
+/// until the panel has an executor (setSimulationExecutor(): the design window gives it the
+/// application's).
 ///
 /// The mouse over the figure (the scroll pane's mouse listeners of RocketPanel):
 /// - A left drag rotates the figure about the rocket's axis by the vertical distance from the
@@ -97,8 +104,10 @@ class ViewRotationControl;
 ///
 /// Deviations from OpenRocket:
 /// - The 3D views, the pan mode and its button (Milestone 6), the calipers, "View settings" and
-///   "Capture" (Milestone 5), the CP conditions of the component analysis (Milestone 7) and the
-///   background simulation with the flight data of the overlay (Milestone 4) are not here.
+///   "Capture" (Milestone 5) and the CP conditions of the component analysis (Milestone 7) are not
+///   here.
+/// - The estimate's own deviations are BackgroundSimulation's (OpenRocket bugs 54 and 55, the
+///   pause while a simulation dialog is open, the adoption of a duplicate's run).
 /// - A double-click is Qt's: the platform's interval and distance, and the button's own clicks
 ///   only, where Java counts the clicks of every button in the 600 ms after the first
 ///   (CustomClickCountListener); a third quick click is a click of its own here (Java: a
@@ -150,7 +159,18 @@ public:
     [[nodiscard]] RocketFigure&       figure() const noexcept { return *m_figure; }
     [[nodiscard]] ScaleScrollArea&    scrollArea() const noexcept { return *m_scrollArea; }
     /// The numbers, the carets and the overlay (extraCG, extraCP, extraText).
-    [[nodiscard]] DesignPhysics&       physics() const noexcept { return *m_physics; }
+    [[nodiscard]] DesignPhysics& physics() const noexcept { return *m_physics; }
+    /// The estimate of the flight shown in the overlay (the background simulation): its pause,
+    /// its Simulations tab flag, cancelFor() for the run dialog's batch.
+    [[nodiscard]] BackgroundSimulation& backgroundSimulation() const noexcept
+    {
+        return *m_background;
+    }
+    /// The executor of the estimate's runs, whose jobs belong to the panel's window (window():
+    /// the design window abandons them as it closes); null (the default) for none: no estimate
+    /// (BackgroundSimulation::setExecutor()). The design window gives it the application's
+    /// (GuiServices::simulationExecutor()).
+    void                               setSimulationExecutor(SimulationExecutor* executor);
     [[nodiscard]] ViewRotationControl& rotationControl() const noexcept { return *m_rotation; }
     /// The view combo box ("viewSelector").
     [[nodiscard]] QComboBox&     viewSelector() const noexcept { return *m_viewSelector; }
@@ -260,6 +280,7 @@ private:
     RulerUnitSelector*               m_rulerUnit{nullptr};
     DesignPhysics*                   m_physics{nullptr};
     ViewRotationControl*             m_rotation{nullptr};
+    BackgroundSimulation*            m_background{nullptr};
     QComboBox*                       m_viewSelector{nullptr};
     ScrollAreaZoomModel*             m_zoomModel{nullptr};
     ScaleSelector*                   m_scaleSelector{nullptr};

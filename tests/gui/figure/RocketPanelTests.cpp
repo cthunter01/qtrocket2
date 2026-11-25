@@ -7,8 +7,10 @@
 
 #include "QtRocket/gui/figure/RocketPanel.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <numbers>
 #include <optional>
 #include <string>
@@ -32,20 +34,25 @@
 #include <QSize>
 #include <QString>
 #include <QStringList>
+#include <QTest>
 #include <QToolButton>
 #include <QWheelEvent>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "ManualSimulationExecutor.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/figure/FigureView.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
 #include "QtRocket/gui/figure/DesignPhysics.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
+#include "QtRocket/gui/figure/RocketInfo.h"
 #include "QtRocket/gui/figure/RulerUnitSelector.h"
 #include "QtRocket/gui/figure/ScaleScrollArea.h"
 #include "QtRocket/gui/figure/ScaleSelector.h"
@@ -63,9 +70,12 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Uuid.h"
+#include "SimulationRunTestSupport.h"
 #include "figure/FigureMouse.h"
 #include "tree/ProbeDesign.h"
 #include "widgets/RibbonTestSupport.h"
@@ -587,6 +597,46 @@ TEST_F(RocketPanelTest, OutlivesItsSelectionModel)
     EXPECT_EQ(shown.panel.selectionModel(), nullptr);
     Gui::Test::clickAt(shown.figure(), pixel);
     EXPECT_TRUE(shown.requests.empty());
+}
+
+/// Waits until the run @p background asked for has started (its debounce is over).
+[[nodiscard]] bool waitForTheStartOf(const BackgroundSimulation& background)
+{
+    return QTest::qWaitFor([&background] { return !background.isStartPending(); });
+}
+
+TEST_F(RocketPanelTest, ItsFlightEstimateRunsOnTheExecutorItIsGiven)
+{
+    // The overlay's flight block is the panel's BackgroundSimulation, which runs nothing until the
+    // panel has an executor (the design window gives it the application's): then it shows the
+    // stored flight of the selected configuration, and runs a simulation that is not up to date
+    // as a job of the panel's window.
+    const Gui::Test::ExampleDesign design(Gui::Test::ExampleDesign::kSimpleModelRocket);
+    InMemoryPreferences            preferences;
+    RocketPanel                    panel(design.document(), preferences, nullptr);
+    BackgroundSimulation&          background = panel.backgroundSimulation();
+    EXPECT_EQ(background.executor(), nullptr);
+    EXPECT_FALSE(panel.physics().info().flightData().has_value());
+
+    Gui::Test::ManualSimulationExecutor executor(
+        Gui::Test::ManualSimulationExecutor::Mode::STEPPED);
+    panel.setSimulationExecutor(&executor);
+    EXPECT_EQ(background.executor(), &executor);
+    EXPECT_TRUE(panel.physics().info().flightData().has_value());
+
+    background.setDebounceInterval(std::chrono::milliseconds(0));
+    const std::shared_ptr<Simulation> first = design.simulation(0);
+    first->getOptions().setLaunchRodLength(first->getOptions().getLaunchRodLength() + 0.5);
+    design.document().getRocket().setSelectedConfiguration(first->getFlightConfigurationId());
+    QCoreApplication::sendPostedEvents(&panel.figure(), QEvent::MetaCall);
+    EXPECT_TRUE(panel.physics().info().isCalculatingData());
+    ASSERT_TRUE(waitForTheStartOf(background));
+    ASSERT_EQ(executor.submittedJobs().size(), 1U);
+    EXPECT_EQ(executor.submittedJobs().front().window, &panel);
+
+    panel.setSimulationExecutor(nullptr);
+    EXPECT_EQ(executor.abandonedJobs().size(), 1U);
+    EXPECT_FALSE(panel.physics().info().flightData().has_value());
 }
 
 }  // namespace

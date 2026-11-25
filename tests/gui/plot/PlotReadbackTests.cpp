@@ -1,23 +1,35 @@
 #include "plot/PlotReadback.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <QColor>
+#include <QIcon>
+#include <QImage>
 #include <QLocale>
+#include <QPixmap>
+#include <QPointF>
+#include <QSize>
 #include <QString>
 #include <QStringList>
+#include <Qt>
 #include <QtContainerFwd>
 
 #include <gtest/gtest.h>
+#include <rocketplot/Annotation.h>
 #include <rocketplot/Axis.h>
+#include <rocketplot/EventMarker.h>
+#include <rocketplot/IconAnnotation.h>
 #include <rocketplot/Legend.h>
 #include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/Range.h>
+#include <rocketplot/ReferenceLine.h>
 #include <rocketplot/Series.h>
+#include <rocketplot/TextAnnotation.h>
 #include <rocketplot/enums.h>
 #include <rocketplot/text.h>
 
@@ -227,6 +239,127 @@ TEST_F(PlotReadbackTest, TheYAxisLabelIsRotatedAndTheTitleIsNot)
     // The title starts above the plot area, the y axis' label left of it.
     EXPECT_LT(title.position.y(), plot.plotArea().top());
     EXPECT_LT(label.position.x(), plot.plotArea().left());
+}
+
+TEST_F(PlotReadbackTest, ReadsTheSubtitleAndTheSecondaryAxis)
+{
+    rocketplot::PlotWidget plot;
+    plot.resize(kPlotWidth, kPlotHeight);
+    plot.setSubtitle(rocketplot::literalText(QStringLiteral("Vertical motion vs. time")));
+    const rocketplot::LineSeries* const left  = addCurve(plot, QStringLiteral("Left"), 1.0, 10.0);
+    rocketplot::LineSeries* const       right = addCurve(plot, QStringLiteral("Right"), 1.0, 50.0);
+    plot.yAxis2()->setLabel(rocketplot::literalText(QStringLiteral("Right axis")));
+    {
+        const Gui::Test::PlotReadback read = Gui::Test::readPlot(plot);
+        EXPECT_EQ(read.subtitle,
+                  rocketplot::literalText(QStringLiteral("Vertical motion vs. time")));
+        EXPECT_FALSE(read.yAxis2Shown);
+    }
+    right->setYAxis(plot.yAxis2());
+    right->setDashPattern({6.0, 4.0});
+    right->setCapStyle(Qt::FlatCap);
+    const Gui::Test::PlotReadback read = Gui::Test::readPlot(plot);
+    EXPECT_TRUE(read.yAxis2Shown);
+    EXPECT_EQ(read.yAxis2.label, rocketplot::literalText(QStringLiteral("Right axis")));
+    EXPECT_EQ(read.yAxis2.max, plot.yAxis2()->max());
+    EXPECT_EQ(Gui::Test::readSeriesLine(*left),
+              (Gui::Test::SeriesLineReadback{
+                  .secondaryYAxis = false, .dashPattern = {}, .capStyle = Qt::RoundCap}));
+    EXPECT_EQ(Gui::Test::readSeriesLine(*right),
+              (Gui::Test::SeriesLineReadback{
+                  .secondaryYAxis = true, .dashPattern = {6.0, 4.0}, .capStyle = Qt::FlatCap}));
+}
+
+TEST_F(PlotReadbackTest, ReadsTheAnnotationsByKind)
+{
+    rocketplot::PlotWidget plot;
+    plot.resize(kPlotWidth, kPlotHeight);
+    static_cast<void>(addCurve(plot, QStringLiteral("Curve"), 1.0, 10.0));
+    QPixmap red(16, 16);
+    red.fill(Qt::red);
+    const QIcon                    icon(red);
+    rocketplot::EventMarker* const event =
+        plot.addEvent(0.5, rocketplot::literalText(QStringLiteral("Apogee")));
+    event->setColor(QColor::fromRgb(15, 120, 15));
+    event->setIcon(icon);
+    rocketplot::IconAnnotation* const marker = plot.addIcon(0.25, 5.0, icon);
+    marker->setYAxis(plot.yAxis2());
+    marker->setToolTip(QStringLiteral("<html>Apogee</html>"));
+    static_cast<void>(plot.addIcon(0.0, 0.0, QIcon()));
+    rocketplot::TextAnnotation* const text = plot.addText(0.01, 0.02, QStringLiteral("Abort"));
+    text->setCoordinates(rocketplot::AnnotationCoordinates::PLOT_AREA);
+    rocketplot::ReferenceLine* const zero = plot.addHorizontalLine(0.0);
+    zero->setLineWidth(0.5);
+    static_cast<void>(plot.addVerticalSpan(0.1, 0.2));
+
+    const Gui::Test::AnnotationsReadback read = Gui::Test::readAnnotations(plot);
+    ASSERT_EQ(read.events.size(), 1U);
+    EXPECT_EQ(read.events[0].x, 0.5);
+    EXPECT_EQ(read.events[0].label, rocketplot::literalText(QStringLiteral("Apogee")));
+    EXPECT_EQ(read.events[0].color, QColor::fromRgb(15, 120, 15));
+    EXPECT_EQ(read.events[0].icon, Gui::Test::iconImage(icon));
+    ASSERT_EQ(read.icons.size(), 1U);
+    EXPECT_EQ(read.icons[0].position, QPointF(0.25, 5.0));
+    EXPECT_TRUE(read.icons[0].secondaryYAxis);
+    EXPECT_EQ(read.icons[0].toolTip, QStringLiteral("<html>Apogee</html>"));
+    EXPECT_FALSE(read.icons[0].icon.isNull());
+    // An icon annotation without an icon draws nothing.
+    ASSERT_EQ(read.blankIcons.size(), 1U);
+    EXPECT_TRUE(read.blankIcons[0].icon.isNull());
+    ASSERT_EQ(read.texts.size(), 1U);
+    EXPECT_EQ(read.texts[0].text, QStringLiteral("Abort"));
+    EXPECT_EQ(read.texts[0].coordinates, rocketplot::AnnotationCoordinates::PLOT_AREA);
+    EXPECT_EQ(read.texts[0].position, QPointF(0.01, 0.02));
+    ASSERT_EQ(read.lines.size(), 1U);
+    EXPECT_EQ(read.lines[0].orientation, Qt::Horizontal);
+    EXPECT_EQ(read.lines[0].lineWidth, 0.5);
+    EXPECT_EQ(read.lines[0].lineStyle, Qt::DashLine);
+    EXPECT_EQ(read.others, 1U);
+}
+
+TEST_F(PlotReadbackTest, ReadsTheLegendsEntriesWithTheirSeries)
+{
+    rocketplot::PlotWidget        plot;
+    rocketplot::LineSeries* const first = addCurve(plot, QStringLiteral("Altitude (m)"), 1.0, 1.0);
+    rocketplot::LineSeries* const second =
+        addCurve(plot, QStringLiteral("Booster: Altitude (m)"), 1.0, 2.0);
+    static_cast<void>(addCurve(plot, QStringLiteral("Velocity"), 1.0, 3.0));
+    first->setLegendGroup(QStringLiteral("altitude"));
+    second->setLegendGroup(QStringLiteral("altitude"));
+    second->setVisible(false);
+    const std::vector<Gui::Test::LegendEntryReadback> entries = Gui::Test::readLegend(plot);
+    ASSERT_EQ(entries.size(), 2U);
+    EXPECT_EQ(entries[0], (Gui::Test::LegendEntryReadback{
+                              .name    = rocketplot::literalText(QStringLiteral("Altitude (m)")),
+                              .group   = QStringLiteral("altitude"),
+                              .series  = {0, 1},
+                              .visible = true}));
+    EXPECT_EQ(entries[1].series, (std::vector<std::size_t>{2}));
+    EXPECT_TRUE(entries[1].group.isEmpty());
+}
+
+TEST_F(PlotReadbackTest, MovesTheCrosshairOntoThePointNearThePointer)
+{
+    rocketplot::PlotWidget plot;
+    plot.resize(kPlotWidth, kPlotHeight);
+    static_cast<void>(addCurve(plot, QStringLiteral("Low"), 1.0, 10.0));
+    static_cast<void>(addCurve(plot, QStringLiteral("High"), 2.0, 40.0));
+    plot.setCrosshairEnabled(true);
+    plot.setCrosshairMode(rocketplot::CrosshairMode::SNAP);
+    EXPECT_EQ(Gui::Test::moveCrosshairToPoint(plot, 1, 1, QPointF(3.0, -2.0)),
+              (Gui::Test::CrosshairReadback{.series = 1, .point = 1}));
+    // Far from every point: on none.
+    EXPECT_EQ(Gui::Test::moveCrosshairTo(plot, plot.plotArea().topLeft() + QPointF(1.0, 1.0)),
+              (Gui::Test::CrosshairReadback{}));
+}
+
+TEST_F(PlotReadbackTest, ANullIconHasANullImage)
+{
+    EXPECT_TRUE(Gui::Test::iconImage(QIcon()).isNull());
+    QPixmap blue(32, 32);
+    blue.fill(Qt::blue);
+    const QImage image = Gui::Test::iconImage(QIcon(blue));
+    EXPECT_EQ(image.size(), QSize(16, 16));
 }
 
 }  // namespace

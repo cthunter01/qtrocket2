@@ -9,6 +9,7 @@
 #include <QtContainerFwd>
 
 #include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/plot/SimulationPlotConfiguration.h"
 
 class QWidget;
 
@@ -16,15 +17,15 @@ namespace QtRocket
 {
 class OpenRocketDocument;
 class Simulation;
-class SimulationPlotConfiguration;
 }  // namespace QtRocket
 
 namespace QtRocket::Gui::Test
 {
 
 /// The SimulationDialogs of the tests (TestGuiServices'): it shows no dialog, records what was
-/// asked for (as values: the simulations by their names), and for a settings dialog calls the
-/// test's edit, if it has one, as the user would edit while the dialog is open.
+/// asked for (as values: the simulations by their names, a plot's configuration as a copy), and for
+/// a settings dialog calls the test's edit, if it has one, as the user would edit while the dialog
+/// is open.
 class RecordingSimulationDialogs final : public SimulationDialogs
 {
 public:
@@ -69,14 +70,23 @@ public:
     /// Every request so far, in order.
     [[nodiscard]] const std::vector<Request>& requests() const noexcept { return m_requests; }
 
+    /// The configuration of each PLOT request so far, in order (a copy, as the plot dialog keeps
+    /// its own).
+    [[nodiscard]] const std::vector<SimulationPlotConfiguration>& plotConfigurations()
+        const noexcept
+    {
+        return m_plotConfigurations;
+    }
+
     void editSimulations(QWidget* parent, OpenRocketDocument& document,
                          const EditRequest& request) override;
     void plotSimulation(QWidget* parent, std::shared_ptr<Simulation> simulation,
                         const SimulationPlotConfiguration& configuration) override;
 
 private:
-    Edit                 m_edit;
-    std::vector<Request> m_requests;
+    Edit                                     m_edit;
+    std::vector<Request>                     m_requests;
+    std::vector<SimulationPlotConfiguration> m_plotConfigurations;
 };
 
 }  // namespace QtRocket::Gui::Test

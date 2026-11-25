@@ -1,0 +1,1252 @@
+{
+ "schema": 1,
+ "openrocket": "5f164fd0e05d6e188857b0185601293b7a6e9eaf",
+ "generator": "tools/openrocket-gui-pins/generate.sh rocket-info (RocketInfoFlightProbe)",
+ "colours": {"FLIGHTDATA_TEXT_ACTIVE": [0, 0, 127, 255], "FLIGHTDATA_TEXT_INACTIVE": [0, 0, 127, 127], "ERROR": [255, 0, 0, 255], "TEXT": [0, 0, 0, 255]},
+ "scenarios": [
+  {"name": "example_3d_printable_nose_cone_and_fins", "kind": "example", "file": "data/examples/3D printable nose cone and fins.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[B6-4]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 38.733, "velocity": 24.764, "machNumber": 0.073, "acceleration": 124.056}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 112.011, "velocity": 48.501, "machNumber": 0.143, "acceleration": 152.721}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 243.099, "velocity": 83.142, "machNumber": 0.245, "acceleration": 167.793}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 271.985, "velocity": 83.16, "machNumber": 0.245, "acceleration": 167.807}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 272.559, "velocity": 83.143, "machNumber": 0.245, "acceleration": 167.808}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[B6-4]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "112 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "48.5 m/s  (Mach 0.143)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "153 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_a_simple_model_rocket", "kind": "example", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "317 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_arc_payload_rocket", "kind": "example", "file": "data/examples/ARC payload rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 451.359, "velocity": 150.261, "machNumber": 0.442, "acceleration": 196.76}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; F50-9]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "150 m/s  (Mach 0.442)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "197 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_airstart_timing", "kind": "example", "file": "data/examples/Airstart timing.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1316.026, "velocity": 186.296, "machNumber": 0.549, "acceleration": 119.185}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1289.023, "velocity": 190.063, "machNumber": 0.56, "acceleration": 125.637}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1290.97, "velocity": 177.545, "machNumber": 0.524, "acceleration": 94.145}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1297.763, "velocity": 155.681, "machNumber": 0.46, "acceleration": 61.523}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 1265.477, "velocity": 136.5, "machNumber": 0.404, "acceleration": 63.822}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "airstart @6s", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "1265 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "136 m/s  (Mach 0.404)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "63.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_chute_release", "kind": "example", "file": "data/examples/Chute release.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 307.726, "velocity": 72.071, "machNumber": 0.212, "acceleration": 62.139}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 487.936, "velocity": 106.285, "machNumber": 0.313, "acceleration": 88.677}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[G80-10]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "88.7 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_clustered_motors", "kind": "example", "file": "data/examples/Clustered motors.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[4\u00d7 C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 57.857, "velocity": 32.36, "machNumber": 0.095, "acceleration": 158.48}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 142.209, "velocity": 57.628, "machNumber": 0.17, "acceleration": 200.808}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 279.136, "velocity": 98.494, "machNumber": 0.29, "acceleration": 208.827}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 306.964, "velocity": 98.493, "machNumber": 0.29, "acceleration": 208.813}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 307.265, "velocity": 98.465, "machNumber": 0.29, "acceleration": 208.81}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[4\u00d7 C6-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "307 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "98.5 m/s  (Mach 0.290)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "209 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_deployable_payload", "kind": "example", "file": "data/examples/Deployable payload.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 31.783, "velocity": 21.802, "machNumber": 0.065, "acceleration": 110.942}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 95.512, "velocity": 40.945, "machNumber": 0.121, "acceleration": 143.134}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 231.182, "velocity": 77.292, "machNumber": 0.228, "acceleration": 151.733}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 262.499, "velocity": 77.285, "machNumber": 0.228, "acceleration": 151.737}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 263.275, "velocity": 77.271, "machNumber": 0.228, "acceleration": 151.731}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; C6-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "263 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "77.3 m/s  (Mach 0.228)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "152 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_dual_parachute_deployment", "kind": "example", "file": "data/examples/Dual parachute deployment.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H999-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 592.721, "velocity": 135.387, "machNumber": 0.398, "acceleration": 721.905}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 697.16, "velocity": 140.914, "machNumber": 0.415, "acceleration": 144.068}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 2223.846, "velocity": 388.569, "machNumber": 1.147, "acceleration": 504.582}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 897.473, "velocity": 190.816, "machNumber": 0.561, "acceleration": 1003.51}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1158.663, "velocity": 242.744, "machNumber": 0.714, "acceleration": 867.184}},
+    {"name": "Simulation 6", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 226.185, "velocity": 58.427, "machNumber": 0.172, "acceleration": 61.849}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[H999-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "897 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "191 m/s  (Mach 0.561)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "1004 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_parallel_booster_staging", "kind": "example", "file": "data/examples/Parallel booster staging.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[I115-10; None]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1120.361, "velocity": 210.802, "machNumber": 0.622, "acceleration": 132.783}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 848.398, "velocity": 188.761, "machNumber": 0.557, "acceleration": 116.692}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[I115-10; None]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "848 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "189 m/s  (Mach 0.557)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "117 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_pods_airframes_and_winglets", "kind": "example", "file": "data/examples/Pods--airframes and winglets.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 2}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 31.928, "velocity": 24.753, "machNumber": 0.073, "acceleration": 123.728}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 89.669, "velocity": 45.58, "machNumber": 0.135, "acceleration": 149.634}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 197.536, "velocity": 71.885, "machNumber": 0.212, "acceleration": 164.48}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 206.121, "velocity": 102.6, "machNumber": 0.302, "acceleration": 174.705}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 244.023, "velocity": 126.858, "machNumber": 0.373, "acceleration": 216.152}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "198 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "71.9 m/s  (Mach 0.212)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "164 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_pods_powered_with_recovery_deployment", "kind": "example", "file": "data/examples/Pods--powered with recovery deployment.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 A10-3, A8-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 90.703729, "velocity": 43.272946, "machNumber": 0.127581, "acceleration": 264.36964}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[2\u00d7 A10-3, A8-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "90.7 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "43.3 m/s  (Mach 0.128)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "264 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_simulation_extensions", "kind": "example", "file": "data/examples/Simulation extensions.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2462.535, "velocity": 240.707, "machNumber": 0.715, "acceleration": 52.815}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2461.954, "velocity": 240.707, "machNumber": 0.715, "acceleration": 52.812}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2916.968, "velocity": 258.911, "machNumber": 0.771, "acceleration": 46.964}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2463 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_simulation_scripting", "kind": "example", "file": "data/examples/Simulation scripting.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2465.451, "velocity": 240.709, "machNumber": 0.715, "acceleration": 52.804}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2460.83, "velocity": 240.692, "machNumber": 0.715, "acceleration": 52.811}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2460.598, "velocity": 240.708, "machNumber": 0.715, "acceleration": 52.808}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2465 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_three_stage_low_power_rocket", "kind": "example", "file": "data/examples/Three stage low power rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 268.347, "velocity": 78.37, "machNumber": 0.232, "acceleration": 127.66}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 479.475, "velocity": 119.935, "machNumber": 0.354, "acceleration": 173.798}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 644.89, "velocity": 129.625, "machNumber": 0.385, "acceleration": 143.679}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5; B6-0; B6-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "479 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "120 m/s  (Mach 0.354)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "174 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_tube_fin_rocket", "kind": "example", "file": "data/examples/Tube fin rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 282.234, "velocity": 119.326, "machNumber": 0.351, "acceleration": 388.603}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "282 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "119 m/s  (Mach 0.351)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "389 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "example_two_stage_high_power_rocket", "kind": "example", "file": "data/examples/Two stage high power rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H148R-0; H148R-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 675.97, "velocity": 158.916, "machNumber": 0.469, "acceleration": 110.229}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1378.355, "velocity": 175.735, "machNumber": 0.519, "acceleration": 116.584}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[H148R-0; H148R-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "676 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "159 m/s  (Mach 0.469)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "110 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_3d_printable_nose_cone_and_fins", "kind": "example-resave", "file": "tests/data/goldens/example-3d-printable-nose-cone-and-fins/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[B6-4]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 38.733, "velocity": 24.764, "machNumber": 0.073, "acceleration": 124.056}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 112.011, "velocity": 48.501, "machNumber": 0.143, "acceleration": 152.721}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 243.099, "velocity": 83.142, "machNumber": 0.245, "acceleration": 167.793}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 271.985, "velocity": 83.16, "machNumber": 0.245, "acceleration": 167.807}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 272.559, "velocity": 83.143, "machNumber": 0.245, "acceleration": 167.808}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[B6-4]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "112 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "48.5 m/s  (Mach 0.143)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "153 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_a_simple_model_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-a-simple-model-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "317 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_arc_payload_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-arc-payload-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 451.359, "velocity": 150.261, "machNumber": 0.442, "acceleration": 196.76}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; F50-9]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "150 m/s  (Mach 0.442)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "197 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_airstart_timing", "kind": "example-resave", "file": "tests/data/goldens/example-airstart-timing/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1316.026, "velocity": 186.296, "machNumber": 0.549, "acceleration": 119.185}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1289.023, "velocity": 190.063, "machNumber": 0.56, "acceleration": 125.637}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1290.97, "velocity": 177.545, "machNumber": 0.524, "acceleration": 94.145}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1297.763, "velocity": 155.681, "machNumber": 0.46, "acceleration": 61.523}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 1265.477, "velocity": 136.5, "machNumber": 0.404, "acceleration": 63.822}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "airstart @6s", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "1265 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "136 m/s  (Mach 0.404)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "63.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_chute_release", "kind": "example-resave", "file": "tests/data/goldens/example-chute-release/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 307.726, "velocity": 72.071, "machNumber": 0.212, "acceleration": 62.139}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 487.936, "velocity": 106.285, "machNumber": 0.313, "acceleration": 88.677}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[G80-10]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "88.7 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_clustered_motors", "kind": "example-resave", "file": "tests/data/goldens/example-clustered-motors/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[4\u00d7 C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 57.857, "velocity": 32.36, "machNumber": 0.095, "acceleration": 158.48}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 142.209, "velocity": 57.628, "machNumber": 0.17, "acceleration": 200.808}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 279.136, "velocity": 98.494, "machNumber": 0.29, "acceleration": 208.827}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 306.964, "velocity": 98.493, "machNumber": 0.29, "acceleration": 208.813}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 307.265, "velocity": 98.465, "machNumber": 0.29, "acceleration": 208.81}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[4\u00d7 C6-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "307 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "98.5 m/s  (Mach 0.290)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "209 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_deployable_payload", "kind": "example-resave", "file": "tests/data/goldens/example-deployable-payload/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; C6-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 31.783, "velocity": 21.802, "machNumber": 0.065, "acceleration": 110.942}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 95.512, "velocity": 40.945, "machNumber": 0.121, "acceleration": 143.134}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 231.182, "velocity": 77.292, "machNumber": 0.228, "acceleration": 151.733}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 262.499, "velocity": 77.285, "machNumber": 0.228, "acceleration": 151.737}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 263.275, "velocity": 77.271, "machNumber": 0.228, "acceleration": 151.731}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; C6-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "263 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "77.3 m/s  (Mach 0.228)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "152 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_dual_parachute_deployment", "kind": "example-resave", "file": "tests/data/goldens/example-dual-parachute-deployment/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H999-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 592.721, "velocity": 135.387, "machNumber": 0.398, "acceleration": 721.905}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 697.16, "velocity": 140.914, "machNumber": 0.415, "acceleration": 144.068}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 2223.846, "velocity": 388.569, "machNumber": 1.147, "acceleration": 504.582}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 897.473, "velocity": 190.816, "machNumber": 0.561, "acceleration": 1003.51}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1158.663, "velocity": 242.744, "machNumber": 0.714, "acceleration": 867.184}},
+    {"name": "Simulation 6", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 226.185, "velocity": 58.427, "machNumber": 0.172, "acceleration": 61.849}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[H999-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "897 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "191 m/s  (Mach 0.561)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "1004 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_parallel_booster_staging", "kind": "example-resave", "file": "tests/data/goldens/example-parallel-booster-staging/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[I115-10; None]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1120.361, "velocity": 210.802, "machNumber": 0.622, "acceleration": 132.783}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 848.398, "velocity": 188.761, "machNumber": 0.557, "acceleration": 116.692}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[I115-10; None]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "848 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "189 m/s  (Mach 0.557)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "117 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_pods_airframes_and_winglets", "kind": "example-resave", "file": "tests/data/goldens/example-pods-airframes-and-winglets/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 2}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 31.928, "velocity": 24.753, "machNumber": 0.073, "acceleration": 123.728}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 89.669, "velocity": 45.58, "machNumber": 0.135, "acceleration": 149.634}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 197.536, "velocity": 71.885, "machNumber": 0.212, "acceleration": 164.48}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 206.121, "velocity": 102.6, "machNumber": 0.302, "acceleration": 174.705}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 244.023, "velocity": 126.858, "machNumber": 0.373, "acceleration": 216.152}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "198 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "71.9 m/s  (Mach 0.212)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "164 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_pods_powered_with_recovery_deployment", "kind": "example-resave", "file": "tests/data/goldens/example-pods-powered-with-recovery-deployment/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 A10-3, A8-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 90.703729, "velocity": 43.272946, "machNumber": 0.127581, "acceleration": 264.36964}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[2\u00d7 A10-3, A8-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "90.7 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "43.3 m/s  (Mach 0.128)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "264 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_simulation_extensions", "kind": "example-resave", "file": "tests/data/goldens/example-simulation-extensions/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2462.535, "velocity": 240.707, "machNumber": 0.715, "acceleration": 52.815}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2461.954, "velocity": 240.707, "machNumber": 0.715, "acceleration": 52.812}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2916.968, "velocity": 258.911, "machNumber": 0.771, "acceleration": 46.964}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2463 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_simulation_scripting", "kind": "example-resave", "file": "tests/data/goldens/example-simulation-scripting/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2465.451, "velocity": 240.709, "machNumber": 0.715, "acceleration": 52.804}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2460.83, "velocity": 240.692, "machNumber": 0.715, "acceleration": 52.811}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2460.598, "velocity": 240.708, "machNumber": 0.715, "acceleration": 52.808}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2465 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "241 m/s  (Mach 0.715)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_three_stage_low_power_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-three-stage-low-power-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 268.347, "velocity": 78.37, "machNumber": 0.232, "acceleration": 127.66}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 479.475, "velocity": 119.935, "machNumber": 0.354, "acceleration": 173.798}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 644.89, "velocity": 129.625, "machNumber": 0.385, "acceleration": 143.679}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5; B6-0; B6-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "479 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "120 m/s  (Mach 0.354)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "174 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_tube_fin_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-tube-fin-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 282.234, "velocity": 119.326, "machNumber": 0.351, "acceleration": 388.603}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "282 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "119 m/s  (Mach 0.351)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "389 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "resave_example_two_stage_high_power_rocket", "kind": "example-resave", "file": "tests/data/goldens/example-two-stage-high-power-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[H148R-0; H148R-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 675.97, "velocity": 158.916, "machNumber": 0.469, "acceleration": 110.229}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1378.355, "velocity": 175.735, "machNumber": 0.519, "acceleration": 116.584}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[H148R-0; H148R-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "676 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "159 m/s  (Mach 0.469)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "110 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_estes_alpha_iii", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null},
+    {"name": "[A8-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[B4-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-7]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5] RK6 stepper", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5] WGS84 geodetics", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5] multi-level wind", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_beta", "kind": "testrocket", "file": "tests/data/goldens/testrocket-beta/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[B4-3; D21-0]"}, "runs": {"current": [2], "all": [1, 2, 3, 4, 5]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 2}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": null},
+    {"name": "[A8-0; None]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[B4-3; D21-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-3; None]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5; None]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-7; None]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[B4-3; D21-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "testrocket_simple_2_stage", "kind": "testrocket", "file": "tests/data/goldens/testrocket-simple-2-stage/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": null},
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_big_blue", "kind": "testrocket", "file": "tests/data/goldens/testrocket-big-blue/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_iso_haisu", "kind": "testrocket", "file": "tests/data/goldens/testrocket-iso-haisu/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_falcon_9_heavy", "kind": "testrocket", "file": "tests/data/goldens/testrocket-falcon-9-heavy/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; M1350-0; 8\u00d7 G77-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": null},
+    {"name": "[None; M1350-0; 8\u00d7 G77-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; M1350-0; 8\u00d7 G77-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "testrocket_multi_stage_event_test_rocket", "kind": "testrocket", "file": "tests/data/goldens/testrocket-multi-stage-event-test-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; C6-0; 2\u00d7 A10-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": null},
+    {"name": "[C6-5; C6-0; 2\u00d7 A10-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5; C6-0; 2\u00d7 A10-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "testrocket_end_plate_rocket", "kind": "testrocket", "file": "tests/data/goldens/testrocket-end-plate-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_estes_alpha_iii_with_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null},
+    {"name": "[A8-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[B4-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-7]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_estes_alpha_iii_with_motor_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null},
+    {"name": "[2\u00d7 A10-0, A8-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[2\u00d7 A10-0, B4-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[2\u00d7 A10-0, C6-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[2\u00d7 A10-0, C6-5]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[2\u00d7 A10-0, C6-7]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_estes_alpha_iii_with_second_motor", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null},
+    {"name": "[A10-5, A8-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[A10-5, B4-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[A10-5, C6-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[A10-5, C6-5]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[A10-5, C6-7]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_estes_alpha_iii_with_inline_pod", "kind": "testrocket", "file": "tests/data/goldens/testrocket-estes-alpha-iii-with-inline-pod/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": null},
+    {"name": "[A8-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[B4-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-3]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-5]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null},
+    {"name": "[C6-7]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "testrocket_cluster_pods", "kind": "testrocket", "file": "tests/data/goldens/testrocket-cluster-pods/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[2\u00d7 C6-0; 12\u00d7 C6-0]"}, "runs": {"current": [1], "all": [1]}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 1}, "status": {"status": "NOT_SIMULATED", "text": "Not simulated yet Click Run simulations to simulate."},
+   "simulations": [
+    {"name": "[No motors]", "status": "CANT_RUN", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": null},
+    {"name": "[2\u00d7 C6-0; 12\u00d7 C6-0]", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[2\u00d7 C6-0; 12\u00d7 C6-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "legacy_simplerocket", "kind": "legacy", "file": "tests/data/goldens/legacy-simplerocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[A8-3]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 47.272, "velocity": 27.47, "machNumber": 0.08071, "acceleration": 134.82}},
+    {"name": "Simulation 2", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": {"altitude": 121.7, "velocity": 51.842, "machNumber": 0.15236, "acceleration": 74.381}},
+    {"name": "Simulation 3 - too short delay", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": {"altitude": 248.39, "velocity": 87.962, "machNumber": 0.25871, "acceleration": 155.95}},
+    {"name": "Simulation 4", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": {"altitude": 270.8, "velocity": 88.849, "machNumber": 0.26131, "acceleration": 155.97}},
+    {"name": "Simulation 5", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": {"altitude": 272.2, "velocity": 89.145, "machNumber": 0.26218, "acceleration": 155.99}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[A8-3]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "47.3 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "27.5 m/s  (Mach 0.081)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "135 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_0_roll_stabilized", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-0-roll-stabilized/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 282.99, "velocity": 87.952, "machNumber": 0.25864, "acceleration": 141.29}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "283 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "88 m/s  (Mach 0.259)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "141 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_4_roll_stabilized", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-4-roll-stabilized/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 286.66, "velocity": 88.591, "machNumber": 0.26047, "acceleration": 178.36}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_5_preset_usage", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-5-preset-usage/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 307.94, "velocity": 118.82, "machNumber": 0.34978, "acceleration": 300.09}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "308 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "119 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "300 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_a_simple_model_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-a-simple-model-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.488, "velocity": 29.199, "machNumber": 0.086339, "acceleration": 142.11}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 134.19, "velocity": 53.105, "machNumber": 0.15645, "acceleration": 180.06}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 276.13, "velocity": 94.7, "machNumber": 0.27911, "acceleration": 188.25}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 311.19, "velocity": 94.615, "machNumber": 0.2789, "acceleration": 188.23}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 314.14, "velocity": 94.701, "machNumber": 0.27899, "acceleration": 188.25}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "311 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "94.6 m/s  (Mach 0.279)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "188 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_apocd", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-apocd/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_boosted_dart", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-boosted-dart/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "Separation @1s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "Simulation 1", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": false, "maxima": {"altitude": 1907.2, "velocity": 293.54, "machNumber": 0.86414, "acceleration": 381.46}},
+    {"name": "Simulation 2", "status": "CANT_RUN", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": false, "maxima": {"altitude": 2009.5, "velocity": 293.38, "machNumber": 0.86375, "acceleration": 381.46}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "Separation @1s", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_high_power_airstart", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-high-power-airstart/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "airstart @6s"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 4}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1303.4, "velocity": 183.19, "machNumber": 0.54008, "acceleration": 113.13}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1275.1, "velocity": 186.99, "machNumber": 0.55147, "acceleration": 141.9}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1274.4, "velocity": 174.43, "machNumber": 0.51487, "acceleration": 116.28}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 1273.2, "velocity": 153.26, "machNumber": 0.45339, "acceleration": 80.916}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 1232.8, "velocity": 134.4, "machNumber": 0.3983, "acceleration": 82.622}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "airstart @6s", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "1233 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "134 m/s  (Mach 0.398)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "82.6 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_preset_usage_decals_first", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-preset-usage-decals-first/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 307.94, "velocity": 118.82, "machNumber": 0.34978, "acceleration": 300.09}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "308 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "119 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "300 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_simulation_listeners", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-simulation-listeners/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2449.7, "velocity": 238.68, "machNumber": 0.7085, "acceleration": 52.189}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2449.9, "velocity": 238.66, "machNumber": 0.70841, "acceleration": 52.145}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 3565.4, "velocity": 243.69, "machNumber": 0.73202, "acceleration": 52.803}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2450 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "239 m/s  (Mach 0.709)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.2 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_tarc_payloader", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-tarc-payloader/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; F50-9]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 450.23, "velocity": 148.48, "machNumber": 0.43693, "acceleration": 187.88}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; F50-9]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "450 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "148 m/s  (Mach 0.437)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "188 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_6_three_stage_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-6-three-stage-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5; B6-0; B6-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 241.24, "velocity": 76.852, "machNumber": 0.22729, "acceleration": 118.1}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 465.98, "velocity": 118.08, "machNumber": 0.34965, "acceleration": 159.99}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 617.64, "velocity": 127.49, "machNumber": 0.37795, "acceleration": 147.73}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5; B6-0; B6-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "466 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "118 m/s  (Mach 0.350)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "160 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_7_simulation_extensions_and_scripting", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-7-simulation-extensions-and-scripting/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[L540-P]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "No controlling", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2450.6, "velocity": 238.68, "machNumber": 0.70855, "acceleration": 52.188}},
+    {"name": "Active roll control", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2446.3, "velocity": 238.64, "machNumber": 0.70844, "acceleration": 52.18}},
+    {"name": "Roll control + air-start", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 3564.5, "velocity": 243.69, "machNumber": 0.73203, "acceleration": 52.772}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[L540-P]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2451 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "239 m/s  (Mach 0.709)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "52.2 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_7_tube_fin", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-7-tube-fin/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[D12-7]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 237.55, "velocity": 99.4, "machNumber": 0.2927, "acceleration": 302.82}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[D12-7]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "238 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "99.4 m/s  (Mach 0.293)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "303 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_8_logo_rocket", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-logo-rocket/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_8_parallel_staging_example", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-parallel-staging-example/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; I132-0; 3\u00d7 D21-4]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 1251.0, "velocity": 317.18, "machNumber": 0.93747, "acceleration": 1301.5}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; I132-0; 3\u00d7 D21-4]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "1251 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "317 m/s  (Mach 0.937)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "1302 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_8_pods_example", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-8-pods-example/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[None; 4\u00d7 D21-4, I132-0]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 71.796, "velocity": 162.53, "machNumber": 0.47623, "acceleration": 1097.0}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[None; 4\u00d7 D21-4, I132-0]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "71.8 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "163 m/s  (Mach 0.476)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "1097 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "legacy_v1_9_chute_release", "kind": "legacy", "file": "tests/data/goldens/legacy-v1-9-chute-release/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[G80-10]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 1}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 307.494, "velocity": 72.045, "machNumber": 0.212, "acceleration": 59.816}},
+    {"name": "Simulation 3", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 488.238, "velocity": 106.302, "machNumber": 0.313, "acceleration": 87.807}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[G80-10]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "488 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "106 m/s  (Mach 0.313)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "87.8 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "coverage_kitchen_sink", "kind": "coverage", "file": "tests/data/goldens/coverage-kitchen-sink/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "Kitchen sink", "status": "NOT_SIMULATED", "hasData": false, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": null}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "coverage_stored_flight", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "Stored flight", "status": "ABORTED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 2.25, "velocity": "NaN", "machNumber": "NaN", "acceleration": "NaN"}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "gui_from_scratch", "kind": "gui", "file": "tests/data/goldens/gui/from-scratch/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": false, "name": "[No motors]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": null}, "status": null,
+   "simulations": [],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[No motors]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "special:simple-calculating", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": true, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "317 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "95.3 m/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "191 m/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "special:simple-failed", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "special:simple-failed-calculating", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NAN", "calculating": true, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"}
+   ]
+  },
+  {"name": "special:simple-calculating-without-data", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "NONE", "calculating": true, "simulation": null}, "status": null,
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 0, "column": "LEFT"}
+   ]
+  },
+  {"name": "special:simple-imperial", "kind": "special", "file": "data/examples/A simple model rocket.ork", "setup": {"estimated": true, "units": "imperial", "selectConfigurationOf": null}, "configuration": {"hasMotors": true, "name": "[C6-5]"}, "runs": {"current": [], "all": []}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 3}, "status": {"status": "LOADED", "text": "Loaded from file"},
+   "simulations": [
+    {"name": "Simulation 1", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 50.59, "velocity": 29.249, "machNumber": 0.086, "acceleration": 143.649}},
+    {"name": "Simulation 2", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 135.071, "velocity": 53.178, "machNumber": 0.157, "acceleration": 182.862}},
+    {"name": "Simulation 3 - too short delay", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 278.656, "velocity": 95.284, "machNumber": 0.281, "acceleration": 191.326}},
+    {"name": "Simulation 4", "status": "LOADED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 316.583, "velocity": 95.282, "machNumber": 0.281, "acceleration": 191.302}},
+    {"name": "Simulation 5", "status": "LOADED", "hasData": true, "selectedConfiguration": false, "configurationHasMotors": true, "maxima": {"altitude": 319.75, "velocity": 95.278, "machNumber": 0.281, "acceleration": 191.316}}
+   ],
+   "texts": [
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-5]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "1039 ft", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "313 ft/s  (Mach 0.281)", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "628 ft/s\u00b2", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  },
+  {"name": "special:stored-flight-aborted", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": true, "units": "metric", "selectConfigurationOf": 0}, "configuration": {"hasMotors": true, "name": "[C6-3]"}, "runs": {"current": [0], "all": [0]}, "overlay": {"shown": "DATA", "calculating": true, "simulation": 0}, "status": {"status": "ABORTED", "text": "Simulation Aborted: No motors ignited"},
+   "simulations": [
+    {"name": "Stored flight", "status": "ABORTED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2.25, "velocity": "NaN", "machNumber": "NaN", "acceleration": "NaN"}}
+   ],
+   "texts": [
+    {"text": "Simulation Aborted: No motors ignited", "font": "BOLD", "colour": "ERROR", "rgba": [255, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"},
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-3]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2.25 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_INACTIVE", "rgba": [0, 0, 127, 127], "rowFromBottom": 0, "column": "VALUE"},
+    {"text": "Calculating\u2026", "font": "REGULAR", "colour": "TEXT", "rgba": [0, 0, 0, 255], "rowFromBottom": 5, "column": "LEFT"}
+   ]
+  },
+  {"name": "special:stored-flight-aborted-shown", "kind": "coverage", "file": "tests/data/goldens/coverage-stored-flight/resave/rocket.ork", "setup": {"estimated": false, "units": "metric", "selectConfigurationOf": 0}, "configuration": {"hasMotors": true, "name": "[C6-3]"}, "runs": {"current": [0], "all": [0]}, "overlay": {"shown": "DATA", "calculating": false, "simulation": 0}, "status": {"status": "ABORTED", "text": "Simulation Aborted: No motors ignited"},
+   "simulations": [
+    {"name": "Stored flight", "status": "ABORTED", "hasData": true, "selectedConfiguration": true, "configurationHasMotors": true, "maxima": {"altitude": 2.25, "velocity": "NaN", "machNumber": "NaN", "acceleration": "NaN"}}
+   ],
+   "texts": [
+    {"text": "Simulation Aborted: No motors ignited", "font": "BOLD", "colour": "ERROR", "rgba": [255, 0, 0, 255], "rowFromBottom": 4, "column": "LEFT"},
+    {"text": "Flight configuration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "LEFT"},
+    {"text": "Apogee: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "LEFT"},
+    {"text": "Max. velocity: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "LEFT"},
+    {"text": "Max. acceleration: ", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "LEFT"},
+    {"text": "[C6-3]", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 3, "column": "VALUE"},
+    {"text": "2.25 m", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 2, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 1, "column": "VALUE"},
+    {"text": "N/A", "font": "REGULAR", "colour": "FLIGHTDATA_TEXT_ACTIVE", "rgba": [0, 0, 127, 255], "rowFromBottom": 0, "column": "VALUE"}
+   ]
+  }
+ ]
+}

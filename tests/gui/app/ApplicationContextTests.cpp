@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -14,25 +15,41 @@
 #include <vector>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QCoreApplication>
 #include <QDir>
+#include <QEvent>
 #include <QObject>
+#include <QPoint>
+#include <QPointer>
+#include <QPushButton>
 #include <QString>
 #include <QStringList>
+#include <QTest>
 #include <QTextDocument>
+#include <QThread>
+#include <QWidget>
+#include <Qt>
 #include <QtContainerFwd>
+#include <QtCore/qtestsupport_core.h>
+#include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/dialogs/plot/SimulationPlotDialog.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
+#include "QtRocket/gui/plot/SimulationPlot.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MemoryPlotDefaults.h"
+#include "QtRocket/gui/util/PollingSimulationExecutor.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/SimulationExecutor.h"
@@ -41,16 +58,23 @@
 #include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
+#include "QtRocket/plot/PlotPreferences.h"
+#include "QtRocket/plot/SimulationPlotConfiguration.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationRun.h"
+#include "QtRocket/simulation/SimulationRunner.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "ScriptedUserPrompts.h"
+#include "SimulationRunTestSupport.h"
 #include "TestPaths.h"
 #include "TestTempDir.h"
 #include "unit/DefaultUnitsGuard.h"
@@ -160,56 +184,127 @@ TEST_F(ApplicationContextTest, TheServicesAreTheContextsObjects)
               QDir::fromNativeSeparators(preferencesFile()));
 }
 
-/// A job's finished() that notes how it ended.
-struct NoteEnding
-{
-    std::optional<SimulationExecutor::Ending>* ending;
+/// How long a test waits for a run of the application's executor: a safety net only a defect
+/// reaches (the run of a design without a motor ends at once).
+constexpr int kRunSafetyNetMilliseconds = 120000;
 
-    void operator()(SimulationExecutor::Ending ended) const { *ending = ended; }
+/// Waits in the event loop until @p flag is set, at most the safety net.
+[[nodiscard]] bool waitUntilTrue(const bool& flag)
+{
+    return QTest::qWaitFor([&flag] { return flag; }, kRunSafetyNetMilliseconds);
+}
+
+/// Waits in the event loop until @p executor polls no more, at most the safety net.
+[[nodiscard]] bool waitUntilIdle(const PollingSimulationExecutor& executor)
+{
+    return QTest::qWaitFor([&executor] { return !executor.isPolling(); },
+                           kRunSafetyNetMilliseconds);
+}
+
+/// A job's finished() that notes that it came, and whether it came on the GUI thread.
+struct NoteTheEnd
+{
+    bool* ended;
+    bool* onTheGuiThread;
+
+    void operator()(const std::exception_ptr& /*exception*/) const
+    {
+        *ended          = true;
+        *onTheGuiThread = QThread::currentThread() == QCoreApplication::instance()->thread();
+    }
 };
 
-/// A job's work that notes that it ran.
-struct NoteWork
+/// A simulation of a new design, without a motor (a run of it ends at once, aborted), with its
+/// own preference store.
+struct MotorlessDesign
 {
-    bool* ran;
-
-    void operator()(const std::stop_token& /*stop*/) const { *ran = true; }
+    InMemoryPreferences                 preferences;
+    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+    Simulation                          simulation{document->getRocket(), preferences};
 };
 
 TEST_F(ApplicationContextTest, TheServicesHaveTheSimulationsServices)
 {
-    ApplicationContext& context  = makeContext();
-    const GuiServices&  services = context.services();
+    // The runs of the executor read the design's preference store: every run has ended before
+    // the design goes (the waits below), though the context (the fixture's) goes after it.
+    const MotorlessDesign design;
+    ApplicationContext&   context  = makeContext();
+    const GuiServices&    services = context.services();
     EXPECT_EQ(services.simulationExecutor(), &context.simulationExecutor());
     EXPECT_EQ(services.plotDefaults(), &context.plotDefaults());
     EXPECT_EQ(services.simulationDialogs(), &context.simulationDialogs());
     EXPECT_EQ(context.plotDefaults().lastPlotted(), nullptr);
 
-    // Until the runner adapter of Milestone 4 comes, the executor runs nothing: a job is dropped
-    // in the next turn of the event loop, never inside submit().
-    SimulationExecutor&                       executor = context.simulationExecutor();
-    std::optional<SimulationExecutor::Ending> ending;
-    bool                                      ran = false;
-    const SimulationExecutor::JobId           job =
-        executor.submit(nullptr, NoteWork{.ran = &ran},
-                        {.progressed = {}, .finished = NoteEnding{.ending = &ending}});
+    // The executor is the core runner's adapter: its threads, a poll of the GUI thread every
+    // 20 ms while a job is pending, none while none is.
+    SimulationExecutor& executor = context.simulationExecutor();
+    const auto* const   polling  = dynamic_cast<const PollingSimulationExecutor*>(&executor);
+    ASSERT_NE(polling, nullptr);
+    EXPECT_EQ(polling->threadCount(), SimulationRunner::defaultThreadCount());
+    EXPECT_EQ(polling->pollInterval(), PollingSimulationExecutor::kPollInterval);
+    EXPECT_FALSE(polling->isPolling());
+
+    // A job runs on a thread of the runner; its end comes on the GUI thread, at a poll, never
+    // inside submit().
+    const auto                      run   = std::make_shared<SimulationRun>(design.simulation);
+    bool                            ended = false;
+    bool                            onTheGuiThread = false;
+    const SimulationExecutor::JobId job            = executor.submit(
+        nullptr, run, nullptr, {}, std::stop_source{},
+        {.progressed = {},
+         .finished   = NoteTheEnd{.ended = &ended, .onTheGuiThread = &onTheGuiThread}});
     EXPECT_NE(job, SimulationExecutor::kNoJob);
-    EXPECT_FALSE(ending.has_value());
+    EXPECT_FALSE(ended);
     EXPECT_TRUE(executor.isPending(job));
-    // An abandoned job is dropped without a callback.
-    const QObject                             window;
-    std::optional<SimulationExecutor::Ending> abandonedEnding;
-    const SimulationExecutor::JobId           abandoned =
-        executor.submit(&window, NoteWork{.ran = &ran},
-                        {.progressed = {}, .finished = NoteEnding{.ending = &abandonedEnding}});
+    EXPECT_TRUE(polling->isPolling());
+    EXPECT_TRUE(waitUntilTrue(ended));
+    EXPECT_TRUE(onTheGuiThread);
+    EXPECT_EQ(run->getOutcome(), SimulationRun::Outcome::SUCCEEDED);
+    EXPECT_FALSE(executor.isPending(job));
+
+    // An abandoned job ends without a callback, and the poll stops when no job is left.
+    const QObject                   window;
+    bool                            abandonedEnded = false;
+    const SimulationExecutor::JobId abandoned      = executor.submit(
+        &window, std::make_shared<SimulationRun>(design.simulation), nullptr, {},
+        std::stop_source{},
+        {.progressed = {},
+         .finished   = NoteTheEnd{.ended = &abandonedEnded, .onTheGuiThread = &onTheGuiThread}});
     executor.abandonAll(&window);
     EXPECT_FALSE(executor.isPending(abandoned));
-    QCoreApplication::processEvents();
-    EXPECT_EQ(ending,
-              std::optional<SimulationExecutor::Ending>(SimulationExecutor::Ending::DROPPED));
-    EXPECT_FALSE(abandonedEnding.has_value());
-    EXPECT_FALSE(ran);
-    EXPECT_FALSE(executor.isPending(job));
+    EXPECT_TRUE(waitUntilIdle(*polling));
+    EXPECT_FALSE(abandonedEnded);
+}
+
+TEST_F(ApplicationContextTest, TheSimulationDialogsOpenThePlotDialogOverTheContextsServices)
+{
+    const Gui::Test::ExampleDesign design(Gui::Test::ExampleDesign::kSimpleModelRocket);
+    const ApplicationContext&      context = makeContext();
+    PlotPreferences::setShowEvents(context.preferences(), false);
+    QWidget parent;
+    parent.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&parent));
+    SimulationPlotConfiguration preset =
+        SimulationPlotConfiguration::defaultConfigurations().front();
+    preset.resetUnits();
+
+    // SimulationPlotDialog.getPlot(parent, simulation, configuration).setVisible(true): open and
+    // back at once.
+    context.simulationDialogs().plotSimulation(&parent, design.simulation(0), preset);
+    auto* const dialog = parent.findChild<SimulationPlotDialog*>();
+    ASSERT_NE(dialog, nullptr);
+    const QPointer<SimulationPlotDialog> shown(dialog);
+    dialog->plot().setReadoutHook([](const QPoint& /*position*/, const QString& /*text*/) { });
+    EXPECT_TRUE(dialog->isVisible());
+    EXPECT_EQ(dialog->windowModality(), Qt::WindowModal);
+    EXPECT_EQ(dialog->windowTitle(), QStringLiteral("Simulation 1"));
+    // The context's preferences.
+    EXPECT_FALSE(dialog->showEventsBox().isChecked());
+
+    // Closed, it goes.
+    dialog->closeButton().click();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(shown.isNull());
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)

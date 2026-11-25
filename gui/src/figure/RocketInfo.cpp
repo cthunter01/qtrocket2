@@ -1,7 +1,10 @@
 #include "QtRocket/gui/figure/RocketInfo.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <optional>
 #include <vector>
 
 #include <QColor>
@@ -17,6 +20,7 @@
 
 #include "QtRocket/gui/figure/Caret.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationStatusColors.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
@@ -24,6 +28,8 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/StabilityUnits.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -197,7 +203,68 @@ void addWarningItems(const Frame& frame, const std::vector<QString>& texts, cons
     }
 }
 
+/// The rows of the flight block above the bottom one (drawFlightData(): y2 - 3 line ... y2), the
+/// status line's and the block's height with it.
+constexpr std::array<double, 4> kFlightRows{3.0, 2.0, 1.0, 0.0};
+constexpr double                kStatusRow       = 4.0;
+constexpr double                kFlightBlockRows = 4.0;
+
+/// drawFlightData(): the four labels at the left margin and their values @p kFlightValueGap right
+/// of the widest label's visual width, on the bottom rows, in @p colour; above them, when
+/// @p status is set, the status line in the bold font (@p bold) and @p statusColour. Returns the
+/// block's height.
+double addFlightDataItems(const Frame& frame, const QFontMetricsF& bold,
+                          const std::array<QString, 4>& labels,
+                          const std::array<QString, 4>& values,
+                          const std::optional<QString>& status, const QColor& statusColour,
+                          const QColor& colour, std::vector<RocketInfo::Item>& items)
+{
+    using Item    = RocketInfo::Item;
+    double width  = 0;
+    double height = kFlightBlockRows * frame.line;
+    for (const QString& label : labels)
+    {
+        width = MathUtil::max(width, visualWidth(*frame.regular, label));
+    }
+    width += RocketInfo::kFlightValueGap;
+
+    // Sim status. Only show on aborts
+    if (status.has_value())
+    {
+        items.push_back(textItem(Item::FontRole::BOLD, bold, statusColour, *status,
+                                 {frame.x1, frame.y2 - (kStatusRow * frame.line)}));
+        height += frame.line;
+    }
+    for (std::size_t row = 0; row < labels.size(); ++row)
+    {
+        items.push_back(textItem(Item::FontRole::REGULAR, *frame.regular, colour, labels.at(row),
+                                 {frame.x1, frame.y2 - (kFlightRows.at(row) * frame.line)}));
+    }
+    for (std::size_t row = 0; row < values.size(); ++row)
+    {
+        items.push_back(
+            textItem(Item::FontRole::REGULAR, *frame.regular, colour, values.at(row),
+                     {frame.x1 + width, frame.y2 - (kFlightRows.at(row) * frame.line)}));
+    }
+    return height;
+}
+
 }  // namespace
+
+/// The texts of the flight block: the four labels (each with its space) and their values.
+struct RocketInfo::FlightTexts
+{
+    std::array<QString, 4> labels;
+    std::array<QString, 4> values;
+};
+
+RocketInfo::FlightSummary RocketInfo::FlightSummary::of(const FlightData& data) noexcept
+{
+    return {.maxAltitude     = data.getMaxAltitude(),
+            .maxVelocity     = data.getMaxVelocity(),
+            .maxMachNumber   = data.getMaxMachNumber(),
+            .maxAcceleration = data.getMaxAcceleration()};
+}
 
 RocketInfo::RocketInfo(const FlightConfiguration& configuration, const Preferences& preferences)
   : m_preferences(&preferences), m_mach(preferences.getDefaultMach())
@@ -208,6 +275,7 @@ RocketInfo::RocketInfo(const FlightConfiguration& configuration, const Preferenc
 void RocketInfo::setCurrentConfig(const FlightConfiguration& configuration)
 {
     m_rocketName              = QtStrings::fromUtf8(configuration.getRocket().getName());
+    m_configurationName       = QtStrings::fromUtf8(configuration.getName(*m_preferences));
     m_hasMotors               = configuration.hasMotors();
     m_stabilityUnits          = StabilityUnits::stabilityUnits(configuration);
     m_secondaryStabilityUnits = StabilityUnits::secondaryStabilityUnits(configuration);
@@ -376,7 +444,59 @@ std::vector<RocketInfo::Item> RocketInfo::layout(const QRect& visible, const QFo
         // Keep error color from theme for warnings
         addWarningItems(frame, warnings, ThemeColors::color(ThemeColors::Key::ERROR), items);
     }
+
+    // drawFlightInformation()
+    double height = 0;
+    if (m_flightData.has_value())
+    {
+        const QFontMetricsF bold(fonts.bold, device);
+        const FlightTexts   texts = flightTexts(*m_flightData);
+        height = addFlightDataItems(frame, bold, texts.labels, texts.values, m_abortedStatus,
+                                    SimulationStatusColors::color(Simulation::Status::ABORTED),
+                                    flightDataTextColor(), items);
+    }
+    if (m_calculatingData)
+    {
+        //: RocketInfo.Calculating
+        items.push_back(textItem(Item::FontRole::REGULAR, regular, text, tr("Calculating\u2026"),
+                                 {frame.x1, frame.y2 - height}));
+    }
     return items;
+}
+
+RocketInfo::FlightTexts RocketInfo::flightTexts(const FlightSummary& data) const
+{
+    FlightTexts texts;
+    //: RocketInfo.FlightConfig
+    texts.labels.at(0) = tr("Flight configuration:") + QLatin1Char(' ');
+    //: RocketInfo.Apogee
+    texts.labels.at(1) = tr("Apogee:") + QLatin1Char(' ');
+    //: RocketInfo.Maxvelocity
+    texts.labels.at(2) = tr("Max. velocity:") + QLatin1Char(' ');
+    //: RocketInfo.Maxacceleration
+    texts.labels.at(3) = tr("Max. acceleration:") + QLatin1Char(' ');
+
+    texts.values.at(0) = m_configurationName;
+    //: RocketInfo.apogeeValue
+    texts.values.at(1) = std::isnan(data.maxAltitude)
+                             ? tr("N/A")
+                             : QtStrings::defaultUnitText(UnitGroupId::DISTANCE, data.maxAltitude);
+    //: RocketInfo.velocityValue
+    texts.values.at(2) =
+        std::isnan(data.maxVelocity)
+            ? tr("N/A")
+            : QtStrings::defaultUnitText(UnitGroupId::VELOCITY, data.maxVelocity) +
+                  //: RocketInfo.Mach
+                  QStringLiteral("  ") + tr("(Mach") + QLatin1Char(' ') +
+                  QtStrings::unitText(unitGroup(UnitGroupId::COEFFICIENT).getDefaultUnit(),
+                                      data.maxMachNumber) +
+                  QLatin1Char(')');
+    //: RocketInfo.accelerationValue
+    texts.values.at(3) =
+        std::isnan(data.maxAcceleration)
+            ? tr("N/A")
+            : QtStrings::defaultUnitText(UnitGroupId::ACCELERATION, data.maxAcceleration);
+    return texts;
 }
 
 void RocketInfo::paint(QPainter& painter, double /*scale*/, const QRect& visible)
@@ -418,6 +538,16 @@ QColor RocketInfo::dimTextColor() const
 {
     return m_customTextColor.isValid() ? m_customTextColor
                                        : ThemeColors::color(ThemeColors::Key::TEXT_DIM);
+}
+
+QColor RocketInfo::flightDataTextColor() const
+{
+    if (m_customTextColor.isValid())
+    {
+        return m_customTextColor;
+    }
+    return ThemeColors::color(m_calculatingData ? ThemeColors::Key::FLIGHTDATA_TEXT_INACTIVE
+                                                : ThemeColors::Key::FLIGHTDATA_TEXT_ACTIVE);
 }
 
 }  // namespace QtRocket::Gui
