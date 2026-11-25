@@ -206,6 +206,190 @@ More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
   window, cannot hang on them (`file/preset/ComponentPresetDatabaseLoader.h` and
   `file/motor/MotorDatabaseLoader.h` in the core).
 
+### Simulations, plots and CSV files
+
+These go on from the numbers of the list above, as the source's comments give them ("OpenRocket bug 23"). The
+user decided to fix them (U-M4-4).
+
+The "Flight simulations" tab:
+
+22. **A simulation pasted into another design.** OpenRocket's pasted simulation still reports its changes to the
+    design it was copied from: renaming it or changing its settings marks that design as changed and leaves its
+    own design saved, so closing its own design does not ask to save the change. In QtRocket it belongs to the
+    design it was pasted into (`simulation/SimulationEditing.h`; `document/SimulationCopy.h` in the core).
+23. **Sorting by the Warnings column.** A click on its header leaves OpenRocket's order as it was. QtRocket sorts
+    by the number of critical warnings, then of normal ones, then of informational ones; a simulation without
+    results comes first in the ascending order (`simulation/SimulationColumns.h`).
+24. **New, Duplicate, Paste and Plot / Export in a sorted table.** With the table sorted, OpenRocket's Paste puts
+    the simulations elsewhere in the list than after the selected one, and New, Duplicate, Paste and Plot / Export
+    then select other simulations than the new or the plotted ones. QtRocket pastes after the simulation of the
+    topmost selected row and selects the new or the plotted simulations themselves
+    (`simulation/SimulationEditing.h`, `SimulationPanel.h`).
+25. **The statuses that Copy puts on the clipboard.** Copy also puts the selected simulations on the system
+    clipboard as text, with a Status column. A simulation without results has no line there, and OpenRocket then
+    gives every later line the status of the simulation before it and leaves out the last statuses. In QtRocket
+    each line has its own simulation's status (`simulation/SimulationTableCsvExport.h`).
+26. **Clicks after columns were hidden or moved.** OpenRocket goes by the place of the column clicked: after the
+    Status or the Warnings column is hidden or moved, a click in whatever column comes first runs an out-of-date
+    simulation, and a double click in the second column opens the Warnings tab. QtRocket goes by the column
+    itself, wherever it is (`simulation/SimulationTableView.h`).
+27. **Paste without a selected simulation.** OpenRocket pastes simulations only while one is selected, so never
+    into a design without simulations. QtRocket's Paste needs only simulations on the clipboard: without a
+    selected one, they go to the end of the list (while the tab shows its table, which it hides while no flight
+    configuration has motors). The Edit menu's Paste does the same while the Flight simulations tab is shown
+    (`simulation/SimulationPanel.h`, `main/RocketActions.h`).
+28. **The selection in a sorted table.** When a change reorders a sorted table, such as a run that changes the
+    statuses or the values the table is sorted by, OpenRocket selects the same row numbers again, which then show
+    other simulations; and when the tab is shown again with nothing selected, it selects the row numbers that
+    were selected when the tab was left. QtRocket keeps the selection on its simulations, and selects them again
+    when the tab is shown again. Only after an undo or a redo that adds or removes simulations, which replaces
+    them all, does it select the same row numbers, as OpenRocket does (`simulation/SimulationTableModel.h`,
+    `SimulationTableView.h`, `SimulationPanel.h`).
+
+The simulation's settings:
+
+29. **An edit of the launch into the wind, the standard atmosphere, the geodetic calculations or a lookup table.**
+    OpenRocket does not count an edit of only "Always launch directly up-wind or down-wind", "Use International
+    Standard Atmosphere", "Geodetic calculations" or the file of an aerodynamic lookup table as a change: the
+    simulation stays "Up to date" with results that no longer match, and the dialog's Cancel undoes the design
+    change made before the dialog opened instead of the edit. QtRocket counts these edits, so the results are out
+    of date and Cancel undoes the edit (`simulation/SimulationOptions.h` in the core).
+
+The launch conditions and the wind editor:
+
+31. **Two wind levels at one altitude.** OpenRocket's wind profile editor takes an altitude that another level
+    already has. Deleting one of the two then deletes both, and a design saved with the two cannot be opened again
+    ("Wind level already exists for altitude"). QtRocket's editor refuses that altitude, and a row's Delete
+    removes that row's level alone (`dialogs/simulation/MultiLevelWindTableModel.h`).
+32. **The order of the wind levels.** After an altitude edit, OpenRocket's wind profile editor sorts its rows but
+    not the levels themselves, so the wind is interpolated between the wrong levels until the design is saved and
+    opened again. QtRocket sorts the levels themselves, and the launch conditions (the rod's direction when the
+    rocket is launched into a multi-level wind) follow the new order at once
+    (`dialogs/simulation/MultiLevelWindTableModel.h`).
+33. **"Delete level" with the mouse.** OpenRocket's wind profile editor deselects the row when the button takes the
+    focus, which disables the button before the mouse button is released, so "Delete level" never deletes with
+    the mouse. QtRocket's table keeps its selection when it loses the focus, so the button deletes the selected
+    level; the profile keeps that level highlighted meanwhile (`dialogs/simulation/MultiLevelWindTableView.h`).
+34. **Wind levels imported with the separator SPACE or TAB.** OpenRocket splits the lines at the word "SPACE" or
+    "TAB" itself, so the import fails ('altitude column "altitude" not found in header row.'), and it stores the
+    word as the CSV export's separator, which the export then shows as "S" or "T". QtRocket splits at the space or
+    the tab, and stores that (`dialogs/simulation/CsvImportSettingsDialog.h`, `MultiLevelWindEditDialog.h`).
+35. **An extremely low temperature.** For a launch temperature of -80 degrees Celsius or less, with "Use
+    International Standard Atmosphere" unticked, OpenRocket reports an internal error the first time, and the
+    field's message is the key "simedtdlg.error.temperatureTooLow", a text missing from its translations.
+    QtRocket shows "Extremely low temperature" (`dialogs/simulation/SimulationConditionsPanel.h`).
+36. **The summary of the multi-level wind.** OpenRocket's launch conditions write the summary of the wind levels
+    again only when the wind profile editor closes, so "Reset to default" or an undo leave it out of date, and the
+    highest altitude it shows is never below 0 m ("Altitude range: -50 m - 0 m" for levels at -50 m and -10 m).
+    QtRocket's summary follows every change of the levels, and shows "-50 m - -10 m"
+    (`dialogs/simulation/WindLevelSummary.h`).
+37. **Importing wind levels from a file whose name does not end in ".csv".** OpenRocket adds ".csv" to the name of
+    the file chosen ("wind.txt" becomes "wind.txt.csv") and then cannot load it. QtRocket imports the file chosen
+    (`dialogs/simulation/MultiLevelWindEditDialog.h`).
+
+New simulations and runs:
+
+38. **The Simulation page's "Geodetic calculations" and the Warnings page's three thresholds.** The Simulation
+    page says that its settings apply to newly created simulations, but OpenRocket's new simulations start with
+    fixed values for these four (the spherical approximation, 20, 30.48 and 15.24 m/s); only the "Reset to
+    default" buttons of the simulation's settings read the preferences. QtRocket's new simulations take them. So
+    does the Launch conditions tab's "Reset to default", which also resets these four: OpenRocket's resets them to
+    the fixed values (`simulation/DefaultSimulationOptionFactory.h` in the core).
+39. **The launch rod's direction into a multi-level wind above ground level.** With "Always launch directly
+    up-wind or down-wind" and a multi-level wind whose altitudes are above ground level (AGL), OpenRocket points
+    the rod into the wind at the launch site's altitude above sea level, counted from the ground: at a site 1000 m
+    above sea level, the wind 1000 m up. QtRocket points it into the wind at the ground, where the rocket leaves
+    the rod. A design saved so stores that direction as the rod's, and so does "Save as default" (OpenRocket stores
+    the other one); the stored direction matters only once the box is unticked (`simulation/SimulationOptions.h`
+    in the core).
+40. **Cancel in the run dialog.** OpenRocket keeps the part of the flight simulated before the Cancel as the
+    simulation's results, marked up to date, and its earlier results are lost. QtRocket keeps the earlier results
+    and status (`dialogs/simulation/SimulationRunDialog.h`; `simulation/SimulationRun.h` in the core).
+
+Plots:
+
+41. **Events drawn together.** OpenRocket's plot draws the events within 0.05 s of the first of them as one line
+    (or one icon) with one label: at the time of one of them taken at random, with their names in a random order,
+    both of which change from one run of OpenRocket to the next. QtRocket draws them at the first event's time,
+    with the names in time order (`plot/SimulationPlotModel.h` in the core).
+42. **The colours of a plot of several stages.** OpenRocket draws every quantity of an axis, and its legend entry,
+    in the colour of the axis's first quantity, while the Plot data tab shows each quantity in its own colour.
+    QtRocket draws each in the colour the tab shows (`plot/SimulationPlotModel.h` in the core).
+43. **The label of the x axis.** When the last event lies within 1 % of the end of the x axis, as in the time
+    plots of every flight longer than 49.5 s, OpenRocket's plot loses the label of its x axis, and each stage
+    chosen and each "Show events" widens the axis again. QtRocket keeps the label and widens the axis once
+    (`plot/SimulationPlot.h`; `plot/SimulationPlotModel.h` in the core).
+44. **The box of an aborted simulation.** OpenRocket's plot dialog hides the "Simulation Abort" box when it opens,
+    though "Show errors" is ticked; the box appears once "Show errors" is unticked and ticked again, or a stage is
+    chosen. QtRocket shows it from the start (`plot/SimulationPlot.h`).
+45. **A right axis of infinite range.** When a plot's left axis starts or ends at exactly zero and the data of its
+    right axis span zero, OpenRocket gives the right axis an infinite range. QtRocket keeps the right axis's
+    range, so its automatic choice of the axes can differ from OpenRocket's. Of the plots of the examples' stored
+    simulations, one differs: "Dual parachute deployment"'s first simulation with the preset "Simulation time step
+    and computation time", where QtRocket puts the time step on the right (`plot/PlotConfiguration.h` in the core).
+46. **A stage without a quantity of the plot.** When one stage's flight data lack a quantity that the plot shows,
+    OpenRocket's plot fails with an internal error, and its automatic ranges leave that quantity out. QtRocket
+    plots the quantity for the stages that have it, in the range of their data (`plot/PlotConfiguration.h` and
+    `plot/SimulationPlotModel.h` in the core).
+47. **Ctrl and the mouse wheel.** OpenRocket's plot dialog says "ctrl-mouse wheel to zoom x axis only" but zooms
+    both axes. QtRocket zooms the x axis alone, as its own help text says ("cmd" on macOS, where Ctrl is the
+    Command key) (`plot/PlotInputBindings.h`).
+48. **A stage without data points.** OpenRocket matches the legend entries, the colours, the point shapes and the
+    stages to the curves by counting, so a stage without points gives the curves after it the entries, colours,
+    shapes and stages of others. QtRocket gives each curve those of its own quantity and stage
+    (`plot/SimulationPlotModel.h` in the core).
+
+The CSV options:
+
+50. **A field separator of several characters.** OpenRocket's CSV dialogs show a stored separator by its first
+    character only, so the next export writes another one: "<->" comes back as "<", and "SPACE", which bug 34
+    stores, as "S". QtRocket shows the whole separator, and a stored "SPACE" or "TAB" as that item, the space or
+    the tab (`widgets/FieldSeparatorComboBox.h`, `settings/CsvOptionPreferences.h`).
+51. **A stored number of decimal places outside 0 to 15.** OpenRocket's simulation dialog then fails with an
+    internal error for a simulation with results. QtRocket takes 0 or 15, whichever is nearer
+    (`settings/CsvOptionPreferences.h`).
+52. **A quantity whose name is longer than 80 characters.** OpenRocket's preferences refuse a key that long, and
+    the CSV export stores whether each quantity is ticked under its name, so exporting a simulation that has such
+    a quantity (a custom expression's, or one a file brought) fails with an internal error after the file was
+    chosen, before anything is written. QtRocket's preferences take keys of any length
+    (`settings/CsvOptionPreferences.h`).
+
+The design view's flight estimate:
+
+54. **Turning the estimate off and on.** After "Update estimated flight parameters in design window" (Preferences,
+    Design) is unticked and ticked again, OpenRocket's design view shows no flight estimate until the design
+    changes. QtRocket shows it again when the Preferences dialog refreshes the design windows
+    (`figure/BackgroundSimulation.h`).
+55. **A flight configuration without a simulation.** When the selected flight configuration has no simulation,
+    OpenRocket's design view shows N/A, but keeps the line "Simulation Aborted: ..." of the simulation it showed
+    before, one of another configuration (and, with "Run out-dated simulations when you open the simulation tab"
+    while that tab is shown, that simulation's values too). QtRocket shows N/A alone
+    (`figure/BackgroundSimulation.h`).
+
+More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
+
+- **The columns of the simulations table, all shown.** OpenRocket reads a stored empty list of hidden columns as
+  no choice. So a design saved with every column shown (the "Sim. Stepper" column too) opens with that column
+  hidden again, or with the columns that "Save as default" hid; and "Save as default" with every column shown
+  makes new designs hide the stepper column all the same. A design whose stored choice is not a text (a file
+  edited by hand) makes OpenRocket fail with an internal error. QtRocket keeps the choice as it was stored, and
+  ignores one that is not a text (`simulation/SimulationColumnVisibility.h`).
+- **Removing the last plot of the Plot data tab.** OpenRocket fails with an internal error when the last row of
+  "Y axis types" is removed. QtRocket removes it (`dialogs/plot/PlotPanel.h`; `plot/PlotConfiguration.h` in the
+  core).
+- **Stage names such as "A", "A(1)" and "A".** OpenRocket numbers repeated stage names for its plot dialog and
+  its Export data tab, and fails with an internal error for such names. QtRocket's plot dialog numbers them
+  "A(1)", "A(1)(1)" and "A(2)" (`plot/PlotUtil.h` in the core).
+- **A value below about 5.6e-309 in a plot's tool tip.** OpenRocket's tool tip fails with an internal error.
+  QtRocket shows the value's first digits (`util/DecimalFormatter.h` in the core).
+- **"Load from file...", the reload button and "Clear" of the aerodynamic lookup tables.** Each of them shows
+  both of OpenRocket's tables again, which throws away an edit of the other table's text: its "(modified)" goes,
+  and OK keeps the old rows. QtRocket leaves the other table alone while it holds an edit
+  (`dialogs/simulation/AerodynamicLookupDialog.h`).
+- **A stored column index below zero for the wind import.** OpenRocket's "Wind Data Import Settings" dialog, and
+  with it the import, fails with an internal error until the preferences are reset. QtRocket starts that index
+  at 0 (`dialogs/simulation/CsvImportSettingsDialog.h`).
+
 ## Editing several components at once
 
 In OpenRocket, a dialog for several selected components forwards each edit to the other components. Values
@@ -375,6 +559,10 @@ The thrust curve preview of the motor chooser and its "Motor thrust curves" dial
 - A legend entry of the dialog has a menu (the line width and markers, Visible, Show only this, Show all,
   Remove, Theme color), which OpenRocket's legends do not have. A curve recoloured there keeps its colour when
   the scheme changes.
+- In the simulation plot dialog, a click on a legend entry hides or shows the curves of its quantity, a double
+  click shows only them, pointing at it brings them forward, and it has the menu above. While a stage is chosen,
+  all of these act on that stage's curves only. OpenRocket's legend only highlights the curves, drawn wider,
+  while the mouse is over an entry or after a click on it (`plot/SimulationPlot.h`, `DataPlot.h`).
 
 ## The parts library
 
@@ -400,6 +588,13 @@ The thrust curve preview of the motor chooser and its "Motor thrust curves" dial
   `ComponentPresetDatabaseLoader.h` in the core).
 - A file whose document type declares anything (an XML entity) is refused, as design files are.
 - A directory's files are read in the order of their names. OpenRocket's order is the system's.
+
+## The "Flight simulations" tab
+
+- The table shows a change of the default units when the Preferences dialog refreshes the design windows, and a
+  change of the motor chooser's name column (designations or common names, which the Configuration column shows
+  too) when the chooser closes. OpenRocket's table shows both at its next repaint, a unit changed on the Units
+  page even before Apply (`simulation/SimulationTableModel.h`, `main/MainWindow.h`).
 
 ## Preferences
 
