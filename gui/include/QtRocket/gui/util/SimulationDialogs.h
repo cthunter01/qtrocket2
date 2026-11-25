@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <span>
 #include <vector>
 
 class QWidget;
@@ -57,6 +59,19 @@ public:
         /// The simulation was just added (New simulation): Cancel asks whether to undo adding it
         /// (SimulationConfigDialog.CancelOperation.msg.undoAdd) and undoes the addition.
         bool newSimulation = false;
+        /// What cancels the window's background estimate (figure/BackgroundSimulation::
+        /// cancelFor()) of the simulations the dialog's OK runs: handed on to the run's request
+        /// (UserPrompts::RunSimulationsRequest::cancelBackgroundRuns). Filled by the opener from
+        /// the window's design view (O-M4-16); may be empty: nothing is cancelled then.
+        std::function<void(std::span<const std::shared_ptr<Simulation>> simulations)>
+            cancelBackgroundRuns;
+        /// What pauses the window's background estimate while the dialog is open
+        /// (figure/BackgroundSimulation::setPaused(), O-M4-16: no estimate starts or is adopted
+        /// while a simulation dialog of the window is open): the dialog calls it with true as the
+        /// last step of its making (after its undo position; never when its making fails), and
+        /// with false once when it has closed (after the undo of a Cancel), never when it is
+        /// destroyed open with its window. Filled by the opener; may be empty.
+        std::function<void(bool paused)> pauseBackgroundRuns;
     };
 
     SimulationDialogs()                                    = default;

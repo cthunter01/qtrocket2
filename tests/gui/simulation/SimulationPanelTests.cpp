@@ -1,19 +1,27 @@
 // SimulationPanel: the "Flight simulations" tab (Java: SimulationPanel's constructor, its actions
 // and their enable rules, the popup menu, the help card and its switch, the mouse listener's
-// rules, openDialog(), runSimulation(), plotSimulation(), activating(), takeTheSpotlight() and
-// updatePreviousSelection()). OpenRocket has no JUnit test of the panel. The actions' states for
-// no row, the first row and the first two rows of every pinned design are those OpenRocket's own
-// panel has (the simulation-table pins' "actions", SimulationTableProbe); the rest follows the
-// Java source. The operations themselves are SimulationEditing's (its tests); the dialogs are
-// recorded (RecordingSimulationDialogs) and the run dialog scripted (ScriptedUserPrompts), so
-// nothing runs.
+// rules, openDialog(), runSimulation(), plotSimulation(), activating(), takeTheSpotlight(),
+// updatePreviousSelection() and the table's CSV export, exportSimulationsToCSV() with
+// setUpSimExportCSVFileChooser()). OpenRocket has no JUnit test of the panel (nor one of the
+// table export's file: SimulationTableCSVExportTest mocks the table, not ported by O-M4-11). The
+// actions' states for no row, the first row and the first two rows of every pinned design are those
+// OpenRocket's own panel has (the simulation-table pins' "actions", SimulationTableProbe); the rest
+// follows the Java source. The operations themselves are SimulationEditing's (its tests); the
+// dialogs are recorded (RecordingSimulationDialogs) and the run dialog scripted
+// (ScriptedUserPrompts), so nothing runs.
 
 #include "QtRocket/gui/simulation/SimulationPanel.h"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -44,6 +52,7 @@
 
 #include <gtest/gtest.h>
 
+#include "ForwardingUserPrompts.h"
 #include "GuiTestSupport.h"
 #include "QtRocket/document/ComponentCopy.h"
 #include "QtRocket/document/OpenRocketDocument.h"
@@ -52,9 +61,13 @@
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/gui/settings/CsvOptionPreferences.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
+#include "QtRocket/gui/simulation/SimulationTableCsvExport.h"
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/simulation/SimulationTableView.h"
+#include "QtRocket/gui/util/CsvOptionValues.h"
+#include "QtRocket/gui/util/FileNames.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -62,14 +75,19 @@
 #include "QtRocket/gui/util/TableSortKeys.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/IconButton.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "RecordingSimulationDialogs.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "simulation/SimulationTablePins.h"
 #include "simulation/SimulationTableTestSupport.h"
 #include "tree/TreeViewMouse.h"
@@ -732,12 +750,16 @@ TEST_F(SimulationPanelTest, TheExportActionsAskForTheirExports)
     const QSignalSpy       exports(&panel, &SimulationPanel::csvExportRequested);
     EXPECT_TRUE(panel.exportSimulationTableAction()->isEnabled());
     EXPECT_FALSE(panel.exportSelectedSimulationsAction()->isEnabled());
+    // The panel answers each request with its export, whose file question is cancelled here.
+    tab->prompts().answerSaveFile(std::nullopt);
     panel.exportSimulationTableAction()->trigger();
     tab->selectRows({3});
+    tab->prompts().answerSaveFile(std::nullopt);
     panel.exportSelectedSimulationsAction()->trigger();
     ASSERT_EQ(exports.count(), 2);
     EXPECT_FALSE(exports.at(0).at(0).toBool());
     EXPECT_TRUE(exports.at(1).at(0).toBool());
+    EXPECT_EQ(tab->prompts().saveFileRequests().size(), 2U);
 }
 
 TEST_F(SimulationPanelTest, TheExportOfTheTableNeedsRows)
@@ -1168,6 +1190,508 @@ TEST_F(SimulationPanelTest, TheSpotlightGivesTheTableTheFocus)
     tab->panel().takeTheSpotlight();
     QCoreApplication::processEvents();
     EXPECT_EQ(tab->panel().focusWidget(), &tab->view());
+}
+
+// =================================================================== the window's estimate
+
+/// What a tab's window does with its background estimate (SimulationPanel::BackgroundRuns), noted
+/// in order with what the test notes: "pause", "resume", "cancel [names]".
+class EstimateNotes
+{
+public:
+    /// Hooks that note into this object, which must outlive the panel they are given to.
+    [[nodiscard]] SimulationPanel::BackgroundRuns hooks()
+    {
+        return {.cancel =
+                    [this](std::span<const std::shared_ptr<Simulation>> simulations) {
+                        note("cancel " + namesOf(simulations));
+                    },
+                .pause = [this](bool paused) { note(paused ? "pause" : "resume"); }};
+    }
+
+    void note(std::string text) { m_notes.push_back(std::move(text)); }
+
+    [[nodiscard]] const Names& notes() const noexcept { return m_notes; }
+
+    /// "[A, B]" of @p simulations.
+    [[nodiscard]] static std::string namesOf(
+        std::span<const std::shared_ptr<Simulation>> simulations)
+    {
+        std::string text = "[";
+        for (const std::shared_ptr<Simulation>& simulation : simulations)
+        {
+            text += (text.size() > 1 ? ", " : "") + simulation->getName();
+        }
+        return text + "]";
+    }
+
+private:
+    Names m_notes;
+};
+
+/// The run dialog of the scripted questions, as far as the window's estimate sees it: notes "run
+/// [names]", takes the simulations out of the estimate's hands as the batch does
+/// (RunSimulationsRequest::cancelBackgroundRuns), and answers that every run succeeded (none
+/// runs).
+struct RunAsTheBatchDoes
+{
+    EstimateNotes* notes;
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
+    {
+        notes->note("run " + EstimateNotes::namesOf(request.simulations));
+        if (request.cancelBackgroundRuns)
+        {
+            request.cancelBackgroundRuns(request.simulations);
+        }
+        return {.cancelled = false, .allSuccessful = true};
+    }
+};
+
+/// The settings dialog as far as the window's estimate sees it (RecordingSimulationDialogs'
+/// edit): notes "edit [names]", or "edit [names] without the estimate" when its request lacks a
+/// hook, then pauses the estimate as it opens, takes its simulations out of the estimate's hands
+/// as its OK's run does, and resumes the estimate as it closes.
+struct EditAsTheDialogDoes
+{
+    EstimateNotes* notes;
+
+    void operator()(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                    const SimulationDialogs::EditRequest& request) const
+    {
+        const std::string names = EstimateNotes::namesOf(request.simulations);
+        if (!request.pauseBackgroundRuns || !request.cancelBackgroundRuns)
+        {
+            notes->note("edit " + names + " without the estimate");
+            return;
+        }
+        notes->note("edit " + names);
+        request.pauseBackgroundRuns(true);
+        request.cancelBackgroundRuns(request.simulations);
+        request.pauseBackgroundRuns(false);
+    }
+};
+
+TEST_F(SimulationPanelTest, EveryRunPausesTheWindowsEstimateAndTakesItsSimulations)
+{
+    // O-M4-16: the estimate is paused while the run dialog is open, and the batch takes the
+    // simulations it runs out of its hands: the Run action, the status click, the auto-run and
+    // Plot / Export of a simulation without data.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->panel().setBackgroundRuns(notes.hooks());
+    outdate(*tab, 3);
+    tab->show();
+    tab->selectRows({4, 0});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().runSimulationAction()->trigger();
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->clickCell(3, Column::STATUS);
+    tab->services().preferences().setAutoRunSimulations(true);
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().activating();
+    const std::shared_ptr<Simulation> fresh = appendNewSimulation(*tab);
+    tab->view().selectSimulations({fresh});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->panel().plotSimulationAction()->trigger();
+    EXPECT_EQ(
+        notes.notes(),
+        (Names{"pause", "run [Simulation 1, Simulation 5]", "cancel [Simulation 1, Simulation 5]",
+               "resume", "pause", "run [Simulation 4]", "cancel [Simulation 4]", "resume", "pause",
+               "run [Simulation 4]", "cancel [Simulation 4]", "resume", "pause",
+               "run [Simulation 6]", "cancel [Simulation 6]", "resume"}));
+}
+
+TEST_F(SimulationPanelTest, EverySettingsDialogGetsTheWindowsEstimate)
+{
+    // The settings dialog pauses the estimate while it is open and gives its OK's run the cancel
+    // (SimulationDialogs::EditRequest): New, Edit, Plot / Export and both double clicks.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->panel().setBackgroundRuns(notes.hooks());
+    tab->services().simulationDialogs().whileEditing(EditAsTheDialogDoes{&notes});
+    tab->show();
+    tab->selectRows({1, 3});
+    tab->panel().editSimulationAction()->trigger();
+    tab->selectRows({2});
+    tab->panel().plotSimulationAction()->trigger();
+    tab->doubleClickCell(0, Column::WARNINGS);
+    tab->doubleClickCell(4, Column::NAME);
+    tab->panel().newSimulationAction()->trigger();
+    EXPECT_EQ(notes.notes(), (Names{"edit [Simulation 2, Simulation 4]",
+                                    "pause",
+                                    "cancel [Simulation 2, Simulation 4]",
+                                    "resume",
+                                    "edit [Simulation 3 - too short delay]",
+                                    "pause",
+                                    "cancel [Simulation 3 - too short delay]",
+                                    "resume",
+                                    "edit [Simulation 1]",
+                                    "pause",
+                                    "cancel [Simulation 1]",
+                                    "resume",
+                                    "edit [Simulation 5]",
+                                    "pause",
+                                    "cancel [Simulation 5]",
+                                    "resume",
+                                    "edit [Simulation 6]",
+                                    "pause",
+                                    "cancel [Simulation 6]",
+                                    "resume"}));
+}
+
+TEST_F(SimulationPanelTest, APanelOfNoWindowGivesItsDialogsNoEstimate)
+{
+    // Without the window's hooks (setBackgroundRuns()), the requests carry none: nothing is
+    // paused or cancelled.
+    EstimateNotes                        notes;
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    EXPECT_FALSE(tab->panel().backgroundRuns().cancel);
+    EXPECT_FALSE(tab->panel().backgroundRuns().pause);
+    tab->services().simulationDialogs().whileEditing(EditAsTheDialogDoes{&notes});
+    tab->prompts().answerRunSimulationsWith(RunAsTheBatchDoes{&notes});
+    tab->selectRows({0});
+    tab->panel().editSimulationAction()->trigger();
+    tab->panel().runSimulationAction()->trigger();
+    EXPECT_EQ(notes.notes(),
+              (Names{"edit [Simulation 1] without the estimate", "run [Simulation 1]"}));
+}
+
+// ==================================================================== the table's CSV export
+
+using PromptKind = Gui::Test::ScriptedUserPrompts::Kind;
+
+/// CSV options other than the defaults: ";", 2 decimal places, no exponential notation, "%".
+[[nodiscard]] CsvOptionValues tableExportOptions()
+{
+    CsvOptionValues options;
+    options.fieldSeparator      = QStringLiteral(";");
+    options.decimalPlaces       = 2;
+    options.exponentialNotation = false;
+    options.commentCharacter    = QStringLiteral("%");
+    return options;
+}
+
+/// The answer of the table export's file question: @p name in @p directory, with the CSV options
+/// @p options.
+[[nodiscard]] UserPrompts::SaveFileAnswer tableExportAnswer(
+    const QtRocket::Test::TempDir& directory, std::string_view name,
+    const std::optional<CsvOptionValues>& options)
+{
+    return {.file               = directory.resolve(std::string(name)),
+            .directory          = directory.path(),
+            .saveSimulationData = std::nullopt,
+            .selectedNameFilter = FileNames::csvFilter(),
+            .csvOptions         = options};
+}
+
+/// The text of the file @p file; empty, with a test failure, when it cannot be read.
+[[nodiscard]] std::string exportedText(const std::filesystem::path& file)
+{
+    const Result<std::vector<std::byte>> bytes = readFile(file);
+    if (!bytes.has_value())
+    {
+        ADD_FAILURE() << bytes.error().toString();
+        return {};
+    }
+    return bytesToString(*bytes);
+}
+
+/// The table text of @p simulations of @p tab's table with @p options
+/// (SimulationTableCsvExport::tableText()).
+[[nodiscard]] std::string tableTextOf(const SimulationTab&                            tab,
+                                      const std::vector<std::shared_ptr<Simulation>>& simulations,
+                                      const CsvOptionValues&                          options)
+{
+    return SimulationTableCsvExport::tableText(tab.model(), simulations,
+                                               QtStrings::toUtf8(options.fieldSeparator),
+                                               options.decimalPlaces, options.exponentialNotation);
+}
+
+/// The kinds of the questions and messages of @p prompts, in order.
+[[nodiscard]] std::vector<PromptKind> promptKindsOf(const Gui::Test::ScriptedUserPrompts& prompts)
+{
+    std::vector<PromptKind> kinds;
+    for (const Gui::Test::ScriptedUserPrompts::Prompt& prompt : prompts.prompts())
+    {
+        kinds.push_back(prompt.kind);
+    }
+    return kinds;
+}
+
+/// Whether @p preferences hold the table export's options (one of the keys CsvOptionPanel.
+/// storePreferences() writes).
+[[nodiscard]] bool storesTableExportOptions(const Preferences& preferences)
+{
+    return preferences.get("ExportFieldSeparator").has_value();
+}
+
+TEST_F(SimulationPanelTest, TheTableExportAsksForItsFileAsOpenRocketsChooser)
+{
+    // setUpSimExportCSVFileChooser(): "Save as CSV file", the CSV filter alone, the default
+    // directory, "<rocket name>.csv", a SaveFileChooser, and its accessory CsvOptionPanel(
+    // SimulationTableCSVExport.class), whose options the question asks after the file (U-M4-6).
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    Preferences&                       preferences = tab->services().preferences();
+    const UserPrompts::SaveFileRequest request =
+        SimulationPanel::csvExportRequest(tab->document(), preferences);
+    EXPECT_EQ(request.title, QStringLiteral("Save as CSV file"));
+    EXPECT_EQ(request.nameFilters, QStringList{QStringLiteral("Comma Separated Files (*.csv)")});
+    EXPECT_TRUE(request.directory.empty());
+    EXPECT_EQ(request.fileName, QStringLiteral("A simple model rocket.csv"));
+    EXPECT_EQ(request.saveSimulationData, std::nullopt);
+    EXPECT_TRUE(request.refuseIllegalNames);
+    // Nothing stored: the panel's defaults, no comment options.
+    EXPECT_EQ(request.csvOptions, std::optional(CsvOptionValues{}));
+
+    // Stored: the directory, and the options (OpenRocket bug 50: a separator of several
+    // characters whole).
+    const QtRocket::Test::TempDir directory;
+    preferences.setDefaultDirectory(directory.path());
+    CsvOptionValues stored = tableExportOptions();
+    stored.fieldSeparator  = QStringLiteral("<->");
+    CsvOptionPreferences::store(preferences, CsvOptionPreferences::kSimulationTableCsvExport,
+                                stored);
+    tab->prompts().answerSaveFile(std::nullopt);
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(false));
+    ASSERT_EQ(tab->prompts().saveFileRequests().size(), 1U);
+    const UserPrompts::SaveFileRequest& asked = tab->prompts().saveFileRequests().front();
+    EXPECT_EQ(asked.title, request.title);
+    EXPECT_EQ(asked.nameFilters, request.nameFilters);
+    EXPECT_EQ(asked.directory, directory.path());
+    EXPECT_EQ(asked.fileName, request.fileName);
+    EXPECT_TRUE(asked.refuseIllegalNames);
+    EXPECT_EQ(asked.csvOptions, std::optional(stored));
+}
+
+TEST_F(SimulationPanelTest, TheTableExportWritesEveryRowAsOpenRocketDoes)
+{
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    const Gui::Test::SimulationTablePins* pins = Gui::Test::simulationTablePinsOrFail();
+    ASSERT_NE(pins, nullptr);
+    const Gui::Test::SimulationTablePinDesign* pin =
+        pins->findDesign("example_a_simple_model_rocket");
+    ASSERT_NE(pin, nullptr);
+    const QtRocket::Test::TempDir directory;
+    // The options of the pins' text (",", 3 decimal places, plain); the name without the
+    // extension, which the export adds (FileHelper.forceExtension()).
+    CsvOptionValues options = tableExportOptions();
+    options.fieldSeparator  = QStringLiteral(",");
+    options.decimalPlaces   = 3;
+    tab->prompts().answerSaveFile(tableExportAnswer(directory, "table", options));
+    // The File menu's item.
+    tab->panel().exportSimulationTableAction()->trigger();
+    const std::string written = exportedText(directory.resolve("table.csv"));
+    // OpenRocket's own text of the table (SimulationTableProbe), byte for byte.
+    EXPECT_EQ(written, pin->csv.value_or(std::string()));
+    EXPECT_EQ(written, tableTextOf(*tab, tab->model().simulations(), options));
+    EXPECT_EQ(promptKindsOf(tab->prompts()), std::vector<PromptKind>{PromptKind::SAVE_FILE});
+
+    // The options answered are stored as the table export's (CsvOptionPanel.storePreferences()),
+    // and the default directory is not (Java's export does not store it).
+    const Preferences& preferences = tab->services().preferences();
+    EXPECT_EQ(preferences.get("ExportFieldSeparator"), std::optional<std::string>(","));
+    EXPECT_EQ(preferences.get("ExportDecimalPlaces"), std::optional<std::string>("3"));
+    EXPECT_EQ(preferences.get("ExportExponentialNotation"), std::optional<std::string>("false"));
+    EXPECT_EQ(preferences.get("ExportCommentCharacter"), std::optional<std::string>("%"));
+    EXPECT_EQ(preferences.getDefaultDirectory(), std::nullopt);
+}
+
+TEST_F(SimulationPanelTest, TheTableExportOfTheSelectionWritesItInTheTablesOrder)
+{
+    // The popup's "Export simulation(s) as CSV file": the selected rows (getSelectedRows()), in
+    // the view's order of a sorted table, with a tab, no decimal places and exponential notation.
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->model().setSortKeys({SortKey{.column = SimulationColumns::indexOf(Column::NAME),
+                                      .order  = SortOrder::DESCENDING}});
+    tab->selectRows({3, 0});
+    ASSERT_EQ(tab->selectedNames(), (Names{"Simulation 5", "Simulation 2"}));
+    const QtRocket::Test::TempDir directory;
+    CsvOptionValues               options = tableExportOptions();
+    options.fieldSeparator                = QStringLiteral("\t");
+    options.decimalPlaces                 = 0;
+    options.exponentialNotation           = true;
+    tab->prompts().answerSaveFile(tableExportAnswer(directory, "selection.csv", options));
+    tab->panel().exportSelectedSimulationsAction()->trigger();
+    const std::string written = exportedText(directory.resolve("selection.csv"));
+    EXPECT_EQ(written, tableTextOf(*tab, tab->view().selectedSimulations(), options));
+    // The header and the two rows, Simulation 5 first.
+    EXPECT_EQ(std::ranges::count(written, '\n'), 2);
+    EXPECT_LT(written.find("\tSimulation 5\t"), written.find("\tSimulation 2\t"));
+    EXPECT_EQ(tab->services().preferences().get("ExportFieldSeparator"),
+              std::optional<std::string>("\t"));
+}
+
+TEST_F(SimulationPanelTest, WithoutRowsTheTableExportSaysSoAndAsksNothing)
+{
+    // simpanel.dlg.no.simulation.table.rows, in JOptionPane's plain message.
+    const std::unique_ptr<SimulationTab> tab = newDesign();
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(false));
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(true));
+    const std::vector<Gui::Test::ScriptedUserPrompts::Prompt>& shown = tab->prompts().prompts();
+    ASSERT_EQ(shown.size(), 2U);
+    EXPECT_EQ(shown[0].kind, PromptKind::MESSAGE);
+    EXPECT_EQ(shown[0].title, QStringLiteral("Message"));
+    EXPECT_EQ(
+        shown[0].texts,
+        (QStringList{QStringLiteral("INFORMATION"),
+                     QStringLiteral("Simulation table has no entries\u2026 Please run a simulation "
+                                    "first.")}));
+    EXPECT_EQ(shown[1].texts, shown[0].texts);
+    EXPECT_FALSE(storesTableExportOptions(tab->services().preferences()));
+}
+
+TEST_F(SimulationPanelTest, TheTableExportReplacesAFileOnlyAfterYes)
+{
+    // FileHelper.confirmWrite(): No ends the export before anything is stored or written.
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    const QtRocket::Test::TempDir directory;
+    const std::filesystem::path   file = directory.write("table.csv", "old");
+    tab->prompts().answerSaveFile(tableExportAnswer(directory, "table.csv", tableExportOptions()));
+    tab->prompts().answerOverwrite(false);
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(false));
+    EXPECT_EQ(exportedText(file), "old");
+    EXPECT_FALSE(storesTableExportOptions(tab->services().preferences()));
+    ASSERT_EQ(tab->prompts().prompts().size(), 2U);
+    EXPECT_EQ(tab->prompts().prompts()[1].kind, PromptKind::OVERWRITE);
+    EXPECT_EQ(tab->prompts().prompts()[1].texts, QStringList{QStringLiteral("table.csv")});
+
+    tab->prompts().answerSaveFile(tableExportAnswer(directory, "table", tableExportOptions()));
+    tab->prompts().answerOverwrite(true);
+    EXPECT_TRUE(tab->panel().exportSimulationsToCsv(false));
+    EXPECT_EQ(exportedText(file),
+              tableTextOf(*tab, tab->model().simulations(), tableExportOptions()));
+}
+
+TEST_F(SimulationPanelTest, ACancelledTableExportStoresAndWritesNothing)
+{
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    tab->prompts().answerSaveFile(std::nullopt);
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(false));
+    EXPECT_EQ(promptKindsOf(tab->prompts()), std::vector<PromptKind>{PromptKind::SAVE_FILE});
+    EXPECT_FALSE(storesTableExportOptions(tab->services().preferences()));
+}
+
+TEST_F(SimulationPanelTest, ATableExportThatCannotBeWrittenShowsErrorWritingFile)
+{
+    // Java's dumpDataToFile() shows the IOException's message alone; here "Error writing file"
+    // with the reason. The options are stored before the file is written, as Java stores them.
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    const QtRocket::Test::TempDir directory;
+    UserPrompts::SaveFileAnswer   answer =
+        tableExportAnswer(directory, "table", tableExportOptions());
+    answer.file = directory.resolve("missing") / "table";
+    tab->prompts().answerSaveFile(answer);
+    EXPECT_FALSE(tab->panel().exportSimulationsToCsv(false));
+    EXPECT_FALSE(std::filesystem::exists(directory.resolve("missing")));
+    const std::vector<Gui::Test::ScriptedUserPrompts::Prompt>& shown = tab->prompts().prompts();
+    ASSERT_EQ(shown.size(), 2U);
+    EXPECT_EQ(shown[1].kind, PromptKind::MESSAGE);
+    EXPECT_EQ(shown[1].title, QStringLiteral("Error writing file"));
+    ASSERT_EQ(shown[1].texts.size(), 3);
+    EXPECT_EQ(shown[1].texts[0], QStringLiteral("ERROR"));
+    EXPECT_EQ(shown[1].texts[1], QStringLiteral("An error occurred while writing to the file:"));
+    EXPECT_TRUE(shown[1].texts[2].contains(QStringLiteral("table.csv")))
+        << shown[1].texts[2].toStdString();
+    EXPECT_TRUE(storesTableExportOptions(tab->services().preferences()));
+}
+
+TEST_F(SimulationPanelTest, AFileAnswerWithoutTheCsvOptionsAskedIsABug)
+{
+    // UserPrompts' contract: a save with CSV options answers them.
+    const std::unique_ptr<SimulationTab> tab = simpleModelRocket();
+    ASSERT_NE(tab, nullptr);
+    const QtRocket::Test::TempDir directory;
+    tab->prompts().answerSaveFile(tableExportAnswer(directory, "table", std::nullopt));
+    EXPECT_THROW(tab->panel().exportSimulationsToCsv(false), BugError);
+    EXPECT_FALSE(std::filesystem::exists(directory.resolve("table.csv")));
+}
+
+/// The question in which TableClosingPrompts closes the panel's window.
+enum class ClosingQuestion
+{
+    FILE,
+    OVERWRITE,
+};
+
+/// The test's prompts, which close the window (destroy the panel's holder) when @p question is
+/// asked, before the answer of the script.
+class TableClosingPrompts final : public Gui::Test::ForwardingUserPrompts
+{
+public:
+    TableClosingPrompts(UserPrompts& delegate, ClosingQuestion question,
+                        std::unique_ptr<QWidget>& window)
+      : ForwardingUserPrompts(delegate), m_question(question), m_window(&window)
+    {
+    }
+
+    [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(QWidget*               parent,
+                                                            const SaveFileRequest& request) override
+    {
+        if (m_question == ClosingQuestion::FILE)
+        {
+            m_window->reset();
+        }
+        return delegate().askSaveFile(parent, request);
+    }
+
+    [[nodiscard]] bool askOverwrite(QWidget* parent, const QString& fileName) override
+    {
+        if (m_question == ClosingQuestion::OVERWRITE)
+        {
+            m_window->reset();
+        }
+        return delegate().askOverwrite(parent, fileName);
+    }
+
+private:
+    ClosingQuestion           m_question;
+    std::unique_ptr<QWidget>* m_window;
+};
+
+/// A panel whose window goes during @p question: the export ends there, and nothing is stored
+/// or written.
+void expectNoTableExportAfterThePanelWent(ClosingQuestion question)
+{
+    SCOPED_TRACE(question == ClosingQuestion::FILE ? "the file question"
+                                                   : "the overwrite question");
+    Gui::Test::TestGuiServices                services;
+    OpenRocketClipboard                       clipboard;
+    const std::unique_ptr<OpenRocketDocument> document =
+        Gui::Test::loadSimulationExample("A simple model rocket.ork");
+    ASSERT_NE(document, nullptr);
+    const QtRocket::Test::TempDir directory;
+    const std::filesystem::path   existing = directory.write("table.csv", "old");
+    auto                          window   = std::make_unique<QWidget>();
+    TableClosingPrompts           prompts(services.prompts(), question, window);
+    const GuiServices             closing = services.services().withPrompts(prompts);
+    auto* const panel = makeChild<SimulationPanel>(window.get(), *document, closing, clipboard);
+    services.prompts().answerSaveFile(tableExportAnswer(directory, "table", tableExportOptions()));
+    if (question == ClosingQuestion::OVERWRITE)
+    {
+        services.prompts().answerOverwrite(true);
+    }
+    EXPECT_FALSE(panel->exportSimulationsToCsv(false));
+    EXPECT_EQ(window, nullptr);
+    EXPECT_EQ(exportedText(existing), "old");
+    EXPECT_FALSE(storesTableExportOptions(services.preferences()));
+}
+
+TEST_F(SimulationPanelTest, ThePanelGoingDuringAQuestionEndsTheTableExport)
+{
+    // A question runs an event loop, in which the panel may go with its window.
+    expectNoTableExportAfterThePanelWent(ClosingQuestion::FILE);
+    expectNoTableExportAfterThePanelWent(ClosingQuestion::OVERWRITE);
 }
 
 }  // namespace

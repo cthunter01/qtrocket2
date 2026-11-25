@@ -45,13 +45,17 @@ class RocketPanel;
 ///   makes it: its table's selection and the tree's exclusive across the tabs, as Java's
 ///   DocumentSelectionModel keeps them; the Edit menu's Edit, Cut, Copy, Paste, Duplicate and
 ///   Delete doing its operations while simulations are selected, RocketActions; the File menu's
-///   "Export simulation table as CSV file" tied to its action) and its design view (a RocketPanel
-///   below the tabs: its clicks select in the tree's selection, its figure draws the design
-///   panel's highlight, its right-click shows the actions' popup menu, its double-click asks for
-///   the window's configuration dialog), its size and the remembered
-///   geometry (MainWindow), then 30 pixels right of and below the window opened before it
-///   (WindowGeometry::cascade()), then shown. Every window's design panel and simulations tab
-///   share the clipboard of components and simulations (the application's,
+///   "Export simulation table as CSV file" tied to its action; its dialogs pausing the design
+///   view's estimate while open, and its runs taking their simulations out of the estimate's
+///   hands: SimulationPanel::setBackgroundRuns() with MainWindow::pauseBackgroundRuns() and
+///   cancelBackgroundRuns(), O-M4-16) and its design view (a RocketPanel below the tabs: its
+///   clicks select in the tree's selection, its figure draws the design panel's highlight, its
+///   right-click shows the actions' popup menu, its double-click asks for the window's
+///   configuration dialog, and its estimate of the flight (BackgroundSimulation) runs on the
+///   services' executor as jobs of the window: RocketPanel::setSimulationExecutor()), its size
+///   and the remembered geometry (MainWindow), then 30 pixels right of and below the window
+///   opened before it (WindowGeometry::cascade()), then shown. Every window's design panel and
+///   simulations tab share the clipboard of components and simulations (the application's,
 ///   OpenRocketClipboard::instance(), unless the manager was made with another one).
 /// - A window of a new design is "replaceable": a New or an Open from it while its design is
 ///   still saved closes it, and the new window takes its place (closeIfReplaceable()). As in

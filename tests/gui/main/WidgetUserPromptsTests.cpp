@@ -35,6 +35,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QSettings>
+#include <QSpinBox>
 #include <QString>
 #include <QStringList>
 #include <QTest>
@@ -64,11 +65,13 @@
 #include "QtRocket/gui/dialogs/SeparationSelectionDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
+#include "QtRocket/gui/dialogs/simulation/CsvOptionsDialog.h"
 #include "QtRocket/gui/util/CsvOptionValues.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/gui/widgets/CsvOptionPanel.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
 #include "QtRocket/motor/IgnitionEvent.h"
@@ -710,20 +713,6 @@ TEST_F(WidgetUserPromptsTest, AnUntouchedColourDialogKeepsTheColourWithItsAlpha)
     }
     EXPECT_EQ(seen.initial, QColor(10, 20, 30, 40));
     EXPECT_EQ(chosen, std::optional<QColor>(QColor(10, 20, 30, 40)));
-}
-
-TEST_F(WidgetUserPromptsTest, TheQuestionsWhoseDialogsComeLaterCancelWithoutADialog)
-{
-    // Milestone 4's table export's CSV options are not there yet: its question cancels at once (a
-    // dialog would wait here for an answer that never comes). (The CSV import settings:
-    // CsvImportSettingsDialogTest.WidgetUserPromptsAsksWithTheDialog; the run dialog:
-    // dialogs/simulation/SimulationRunDialogTests.cpp.)
-    WidgetUserPrompts            prompts;
-    UserPrompts::SaveFileRequest tableExport;
-    tableExport.title      = QStringLiteral("Save as CSV file");
-    tableExport.fileName   = QStringLiteral("Rocket.csv");
-    tableExport.csvOptions = CsvOptionValues{};
-    EXPECT_FALSE(prompts.askSaveFile(nullptr, tableExport).has_value());
 }
 
 TEST_F(WidgetUserPromptsTest, AsksWhetherToOverwriteAFile)
@@ -1539,6 +1528,117 @@ TEST_F(WidgetFileDialogTest, AFileQuestionWhoseParentIsDestroyedAsksNothingMore)
         const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
         EXPECT_EQ(prompts.askDecalFile(parent.get(), QStringLiteral("gone"), directory().path()),
                   std::nullopt);
+    }
+    EXPECT_EQ(parent, nullptr);
+}
+
+/// What the CSV options question looked like.
+struct CsvOptionsSeen
+{
+    QString         title;
+    CsvOptionValues values;
+};
+
+/// Records the CSV options question, chooses 2 decimal places in it and OK, or Cancel when
+/// @p cancel.
+struct ChooseCsvOptions
+{
+    bool            cancel = false;
+    CsvOptionsSeen* seen   = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<CsvOptionsDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            seen->title  = dialog->windowTitle();
+            seen->values = dialog->values();
+        }
+        dialog->optionPanel().decimalPlacesSpinBox()->setValue(2);
+        (cancel ? dialog->cancelButton() : dialog->okButton())->click();
+    }
+};
+
+/// The CSV options of @p answer, nullopt without an answer.
+[[nodiscard]] std::optional<CsvOptionValues> csvOptionsOf(
+    const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->csvOptions : std::nullopt;
+}
+
+/// The simulation table export's request (SimulationPanel::csvExportRequest()) in @p directory,
+/// with the CSV options ";", 7 decimal places, no exponential notation and "%".
+[[nodiscard]] UserPrompts::SaveFileRequest tableExportRequest(
+    const std::filesystem::path& directory)
+{
+    CsvOptionValues options;
+    options.fieldSeparator      = QStringLiteral(";");
+    options.decimalPlaces       = 7;
+    options.exponentialNotation = false;
+    options.commentCharacter    = QStringLiteral("%");
+    UserPrompts::SaveFileRequest request;
+    request.title              = QStringLiteral("Save as CSV file");
+    request.nameFilters        = {QStringLiteral("Comma Separated Files (*.csv)")};
+    request.directory          = directory;
+    request.fileName           = QStringLiteral("Rocket.csv");
+    request.refuseIllegalNames = true;
+    request.csvOptions         = options;
+    return request;
+}
+
+TEST_F(WidgetFileDialogTest, ASaveWithCsvOptionsAsksForThemAfterTheFile)
+{
+    // The simulation table's export (U-M4-6): the file dialog, then the CSV options question
+    // titled as the save, starting from the request's options; its OK answers both.
+    WidgetUserPrompts                          prompts;
+    std::optional<Gui::Test::NextModalDialog>  options;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    FileDialogSeen                             seen;
+    CsvOptionsSeen                             optionsSeen;
+    const UserPrompts::SaveFileRequest         request = tableExportRequest(directory().path());
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("table.csv"), .seen = &seen},
+                     .second = ChooseCsvOptions{.cancel = false, .seen = &optionsSeen},
+                     .next   = &options});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isSamePath(savedFileOf(answer).parent_path(), directory().path()));
+    EXPECT_EQ(savedFileOf(answer).filename(), "table.csv");
+    EXPECT_EQ(storageOf(answer), std::nullopt);
+    EXPECT_EQ(seen.title, QStringLiteral("Save as CSV file"));
+    EXPECT_EQ(seen.nameFilters, QStringList{QStringLiteral("Comma Separated Files (*.csv)")});
+    EXPECT_EQ(optionsSeen.title, QStringLiteral("Save as CSV file"));
+    EXPECT_EQ(optionsSeen.values, request.csvOptions.value_or(CsvOptionValues{}));
+    CsvOptionValues chosen = request.csvOptions.value_or(CsvOptionValues{});
+    chosen.decimalPlaces   = 2;
+    EXPECT_EQ(csvOptionsOf(answer), std::optional(chosen));
+    options.reset();
+
+    // Cancel in the CSV options cancels the save.
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("table.csv"), .seen = nullptr},
+                     .second = ChooseCsvOptions{.cancel = true, .seen = nullptr},
+                     .next   = &options});
+        EXPECT_EQ(prompts.askSaveFile(nullptr, request), std::nullopt);
+    }
+    options.reset();
+
+    // A cancelled file dialog asks no options (NextModalDialog fails a test on a dialog it does
+    // not answer).
+    {
+        const Gui::Test::NextModalDialog cancel(ChooseFile{.file = QString(), .seen = nullptr});
+        EXPECT_EQ(prompts.askSaveFile(nullptr, request), std::nullopt);
+    }
+
+    // The file dialog goes with its parent: no options are asked after it.
+    auto parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(prompts.askSaveFile(parent.get(), request), std::nullopt);
     }
     EXPECT_EQ(parent, nullptr);
 }

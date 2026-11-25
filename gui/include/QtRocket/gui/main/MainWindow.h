@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -22,7 +23,8 @@ class QWidget;
 namespace QtRocket
 {
 class OpenRocketDocument;
-}
+class Simulation;
+}  // namespace QtRocket
 
 namespace QtRocket::Gui
 {
@@ -84,6 +86,15 @@ class WindowGeometry;
 ///   window is destroyed, before the objects it owns go, it abandons them
 ///   (SimulationExecutor::abandonAll()), so that no callback of a job reaches the objects of a
 ///   window that is gone.
+/// - The design view's estimate of the flight (a RocketPanel's BackgroundSimulation) knows
+///   whether the Flight simulations tab is the current one (setSimulationsTabSelected(): Java's
+///   RocketPanel asks BasicFrame.getSelectedTab() at each updateExtras()), set at every change of
+///   the current tab and when a RocketPanel takes its place. It is paused while a simulation
+///   dialog or the run dialog of the window is open (pauseBackgroundRuns(), counted: the
+///   settings dialog runs its OK's simulations while it is open), and a run dialog's batch takes
+///   the simulations it runs out of its hands (cancelBackgroundRuns()): decision O-M4-16, the
+///   critic's G4. The WindowManager hands both to the window's SimulationPanel
+///   (SimulationPanel::setBackgroundRuns()), which opens those dialogs.
 ///
 /// Deviations: an "[*]" in the rocket's name is shown with a zero-width space after the "*"
 /// ("[*\u200B]"), since Qt takes every "[*]" of a title for the place of the modified mark; the
@@ -165,8 +176,26 @@ public:
     /// way, in place of the simulations panel there.
     void setSimulationPanel(QWidget* panel);
     /// Puts @p panel (not null) below the tabs, which takes it over, in place of the rocket
-    /// panel there, which is deleted later.
+    /// panel there, which is deleted later. A RocketPanel's estimate is told whether the Flight
+    /// simulations tab is the current one and is paused while the window's pauses last (see the
+    /// class comment).
     void setRocketPanel(QWidget* panel);
+
+    /// Pauses (@p paused) the estimate of the flight of the window's design view
+    /// (BackgroundSimulation::setPaused() of componentRocketPanel()), or ends one pause (false):
+    /// the pauses are counted, and the estimate runs again once each has ended (the settings
+    /// dialog pauses it while it is open, the Simulations tab around each run dialog it opens,
+    /// the settings dialog's OK runs while it is open). Nothing is paused but the count while the
+    /// window has no RocketPanel; one that takes its place later is paused as the count says.
+    /// @throws BugError when @p paused is false and no pause lasts
+    void pauseBackgroundRuns(bool paused);
+    /// How many pauses of pauseBackgroundRuns() last.
+    [[nodiscard]] int backgroundRunPauses() const noexcept { return m_backgroundRunPauses; }
+    /// Takes @p simulations out of the hands of the design view's estimate
+    /// (BackgroundSimulation::cancelFor() of componentRocketPanel(); nothing without a
+    /// RocketPanel): the run dialog's batch, which runs them (UserPrompts::RunSimulationsRequest::
+    /// cancelBackgroundRuns).
+    void cancelBackgroundRuns(std::span<const std::shared_ptr<Simulation>> simulations) const;
 
     /// Makes the tab @p tab (kDesignTab, kFlightConfigurationTab, kSimulationTab) the current one
     /// (BasicFrame.selectTab()); its panel takes the spotlight when it was not the current one
@@ -240,6 +269,9 @@ private:
     void replaceTab(QWidget*& slot, QWidget* panel);
     /// The tab @p index became the current one (BasicFrame.stateChanged()).
     void tabChanged(int index);
+    /// Tells the estimate of a RocketPanel below the tabs whether the Flight simulations tab is
+    /// the current one, and pauses it as the count says (see the class comment).
+    void updateBackgroundRuns() const;
 
     OpenRocketDocument*                                  m_document;
     GuiServices                                          m_services;
@@ -257,6 +289,8 @@ private:
     bool m_replacingTab{false};
     /// The tab that was the current one before the last change (BasicFrame's previousTab).
     int m_previousTab{kDesignTab};
+    /// The pauses of the design view's estimate that last (pauseBackgroundRuns()).
+    int m_backgroundRunPauses{0};
 };
 
 }  // namespace QtRocket::Gui

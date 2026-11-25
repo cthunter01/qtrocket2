@@ -1,6 +1,9 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <span>
+#include <utility>
 #include <vector>
 
 #include <QObject>
@@ -11,6 +14,7 @@
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 
 class QAction;
@@ -21,6 +25,7 @@ class QStackedWidget;
 namespace QtRocket
 {
 class OpenRocketDocument;
+class Preferences;
 class Simulation;
 }  // namespace QtRocket
 
@@ -66,9 +71,9 @@ class SimulationTableView;
 /// - Export simulation table as CSV file ("simTableExportAction", SIM_TABLE_EXPORT): the table
 ///   has rows; the File menu's item (BasicFrame takes it from
 ///   getExportSimulationTableAsCSVAction()). Triggered, it asks for the export
-///   (csvExportRequested(false)).
+///   (csvExportRequested(false)), which the panel answers itself (exportSimulationsToCsv()).
 /// - Export simulation(s) as CSV file ("selectedSimsExportAction", SIM_TABLE_EXPORT): the table
-///   has rows and a row is selected; csvExportRequested(true).
+///   has rows and a row is selected; csvExportRequested(true), exportSimulationsToCsv(true).
 /// Their states follow their rules at every change those read (updateActions(): the table's
 /// selection, its rows, the clipboard, the configurations' motors). The keys are only shown: the
 /// actions are added to the popup menu alone, whose keys Qt answers nowhere (the window's Edit
@@ -119,6 +124,23 @@ class SimulationTableView;
 /// question runs an event loop: when the panel goes meanwhile, nothing more is done; a
 /// simulation that left the document meanwhile gets no dialog.
 ///
+/// THE TABLE'S CSV EXPORT (exportSimulationsToCsv(): SimulationPanel.exportSimulationsToCSV(),
+/// setUpSimExportCSVFileChooser() and SimulationTableCSVExport.export()): without a row of the
+/// table, the message "Simulation table has no entries... Please run a simulation first." (with
+/// Java's ellipsis character; INFORMATION, JOptionPane's own title "Message") and nothing more.
+/// Otherwise the file question (csvExportRequest(): "Save as CSV file", the CSV filter alone, the
+/// default directory, "<rocket name>.csv" proposed, illegal names refused, and the CSV options of
+/// the table export as stored, which the question asks once the file is chosen), the file given the
+/// extension ".csv" (FileNames::forceExtension()), the overwrite question for a file that exists,
+/// then the options answered stored (CsvOptionPreferences::store() under
+/// "SimulationTableCSVExport"; the default directory is not stored, as Java's export does not store
+/// it), and the file written: the bytes of SimulationTableCsvExport::tableText() with the
+/// separator, decimal places and notation answered, of every row of the table or of the selected
+/// ones, in the table's order (as the table reads when the questions are answered), UTF-8,
+/// replacing the file. A file that cannot be written shows "Error writing file" (ERROR: "An error
+/// occurred while writing to the file:" and the reason); a cancelled question, or No to the
+/// overwrite, ends the export with nothing stored or written.
+///
 /// THE WINDOW'S PART (BasicFrame.stateChanged()): updatePreviousSelection() when the tab stops
 /// being the current one; takeTheSpotlight() and then activating() when it becomes it.
 /// activating() runs every simulation of the table that is NOT_SIMULATED or OUTDATED, in the
@@ -135,6 +157,19 @@ class SimulationTableView;
 /// place of the table while no flight configuration of the rocket has motors
 /// (Rocket::hasMotors() of each id); the table, with every button that needs a configuration
 /// with motors enabled again, once one has.
+///
+/// THE WINDOW'S ESTIMATE (decision O-M4-16, the critic's G4): the design view's background
+/// estimate of the flight (figure/BackgroundSimulation) neither starts nor adopts a run while a
+/// simulation dialog or the run dialog of the window is open, and a run dialog's batch takes the
+/// simulations it runs out of its hands. The panel opens both dialogs of the window, so the window
+/// hands it what does that (setBackgroundRuns(): MainWindow::pauseBackgroundRuns() and
+/// cancelBackgroundRuns(), which the WindowManager connects): the panel pauses the estimate around
+/// each run dialog it opens (Run, the status click, the auto-run, Plot / Export of a simulation
+/// without data; the pause ends also when a BugError leaves the run dialog) and gives every run's
+/// request the cancel (RunSimulationsRequest::cancelBackgroundRuns), and it gives the settings
+/// dialog both (EditRequest::pauseBackgroundRuns, which the dialog calls while it is open, and
+/// cancelBackgroundRuns, for the run of its OK).
+/// Without them (a panel of no window) nothing is paused or cancelled.
 ///
 /// The panel keeps no simulation across a document change but the ones a running operation holds
 /// (std::shared_ptr) and the remembered selection (std::weak_ptr). The document, the services'
@@ -169,6 +204,11 @@ class SimulationTableView;
 ///   first simulation came.
 /// - Java's simTableExportButton ("Run then Dump simulations") is made but never shown; it is
 ///   left out.
+/// - The table's CSV export asks its CSV options after the file, in a question of their own
+///   (WidgetUserPrompts: CsvOptionsDialog), where Java's file chooser shows them beside the files
+///   (its accessory CsvOptionPanel(SimulationTableCSVExport.class); the user's decision U-M4-6);
+///   Cancel there ends the export. A file that cannot be written shows "Error writing file" with
+///   the reason, where Java shows the IOException's message alone in a plain message ("Message").
 class SimulationPanel final : public QWidget
 {
     Q_OBJECT
@@ -179,6 +219,21 @@ public:
     /// MigLayout's "para" gap (M2's rule: 12 pixels): between the buttons, and between them and
     /// the card.
     static constexpr int kParagraphGap = 12;
+
+    /// What the panel does to its window's background estimate of the flight (see the class
+    /// comment); either may be empty: nothing is done then.
+    struct BackgroundRuns
+    {
+        /// Takes the given simulations out of the estimate's hands (BackgroundSimulation::
+        /// cancelFor()): the request of every run dialog the panel or its settings dialog opens
+        /// carries it (UserPrompts::RunSimulationsRequest::cancelBackgroundRuns), and the batch
+        /// calls it with the simulations it runs.
+        std::function<void(std::span<const std::shared_ptr<Simulation>> simulations)> cancel;
+        /// Pauses the estimate (true) or ends a pause (false), counted (MainWindow::
+        /// pauseBackgroundRuns()): around each run dialog the panel opens, and from the settings
+        /// dialog while it is open (SimulationDialogs::EditRequest::pauseBackgroundRuns).
+        std::function<void(bool paused)> pause;
+    };
 
     /// The tab of @p document, asking through @p services and copying to and pasting from
     /// @p clipboard (the application's OpenRocketClipboard), all of which outlive it.
@@ -277,6 +332,11 @@ public:
     /// Shows the popup menu at @p globalPosition (doPopup()).
     void showPopupMenu(const QPoint& globalPosition);
 
+    /// What pauses and cancels the window's background estimate from now on (see the class
+    /// comment; the WindowManager gives every window's panel its window's). None by default.
+    void setBackgroundRuns(BackgroundRuns runs) { m_backgroundRuns = std::move(runs); }
+    [[nodiscard]] const BackgroundRuns& backgroundRuns() const noexcept { return m_backgroundRuns; }
+
     // ------------------------------------------------------------------ the operations
 
     /// New simulation (see the class comment).
@@ -293,6 +353,22 @@ public:
     void pasteSimulations();
     void duplicateSimulations();
     void deleteSimulations();
+    /// The table's CSV export (see the class comment) of the selected rows' simulations when
+    /// @p onlySelected, else of every row: whether the file was written (false without a row, or
+    /// when a question was cancelled, the panel went during it, or the file could not be
+    /// written).
+    /// @throws BugError when the file question answers no CSV options
+    bool exportSimulationsToCsv(bool onlySelected);
+
+    /// The file question of the table's CSV export of @p document (setUpSimExportCSVFileChooser()):
+    /// titled "Save as CSV file" (simpanel.pop.exportToCSV.save.dialog.title), the CSV filter
+    /// alone (FileNames::csvFilter(); Java's chooser has no accept-all filter), the default
+    /// directory of @p preferences (empty when none is stored), the rocket's name with ".csv"
+    /// proposed, illegal names refused (a SaveFileChooser), and the CSV options of the table export
+    /// stored in @p preferences (CsvOptionPreferences::load() of "SimulationTableCSVExport", no
+    /// comment options: the panel Java's chooser holds).
+    [[nodiscard]] static UserPrompts::SaveFileRequest csvExportRequest(
+        const OpenRocketDocument& document, const Preferences& preferences);
 
 Q_SIGNALS:
     /// An export of the table as a CSV file was asked for (exportSimulationsToCSV(onlySelected)):
@@ -334,9 +410,15 @@ private:
     /// sims)), then the selection kept and the spotlight taken.
     void openDialog(SimulationDialogs::Tab tab, bool newSimulation,
                     std::vector<std::shared_ptr<Simulation>> simulations);
-    /// The run dialog of @p simulations (new SimulationRunDialog(window, document, sims)); false
-    /// when the panel went during it.
+    /// The run dialog of @p simulations (new SimulationRunDialog(window, document, sims)), with
+    /// the window's estimate paused while it is open and the cancel of its simulations in its
+    /// request (see the class comment); false when the panel went during it.
     bool runSimulations(std::vector<std::shared_ptr<Simulation>> simulations);
+    /// The settings dialog's request of @p simulations on @p tab, with the window's estimate's
+    /// pause and cancel (see the class comment).
+    [[nodiscard]] SimulationDialogs::EditRequest editRequest(
+        std::vector<std::shared_ptr<Simulation>> simulations, SimulationDialogs::Tab tab,
+        bool newSimulation) const;
     /// fireMaintainSelection(): the table read again; its selection stays on its simulations.
     void maintainSelection();
     /// Whether the status @p row's simulation had at the table's last reading is one a click on
@@ -374,6 +456,7 @@ private:
     IconButton*                             m_plotButton{nullptr};
     bool                                    m_hasValidConfig{false};
     PreviousSelection                       m_previousSelection;
+    BackgroundRuns                          m_backgroundRuns;
     ComponentChangeSignal::ScopedConnection m_rocketChanges;
 };
 

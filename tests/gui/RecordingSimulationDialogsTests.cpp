@@ -56,13 +56,19 @@ TEST_F(RecordingSimulationDialogsTest, RecordsTheSettingsDialogsAndEditsAsTheTes
     QWidget parent;
 
     RecordingSimulationDialogs dialogs;
-    dialogs.editSimulations(
-        nullptr, *document,
-        {.simulations = {first, second}, .tab = Tab::WARNINGS, .newSimulation = false});
+    dialogs.editSimulations(nullptr, *document,
+                            {.simulations          = {first, second},
+                             .tab                  = Tab::WARNINGS,
+                             .newSimulation        = false,
+                             .cancelBackgroundRuns = {},
+                             .pauseBackgroundRuns  = {}});
     dialogs.whileEditing(RenameFirst{.name = "Renamed"});
-    dialogs.editSimulations(
-        &parent, *document,
-        {.simulations = {second}, .tab = Tab::LAUNCH_CONDITIONS, .newSimulation = true});
+    dialogs.editSimulations(&parent, *document,
+                            {.simulations          = {second},
+                             .tab                  = Tab::LAUNCH_CONDITIONS,
+                             .newSimulation        = true,
+                             .cancelBackgroundRuns = {},
+                             .pauseBackgroundRuns  = {}});
 
     ASSERT_EQ(dialogs.requests().size(), 2U);
     const RecordingSimulationDialogs::Request& warnings = dialogs.requests().front();
@@ -112,9 +118,12 @@ TEST_F(RecordingSimulationDialogsTest, RecordsThePlotDialogWithACopyOfItsConfigu
     EXPECT_EQ(&recorded.getDomainAxisType(),
               &FlightDataType::builtin(FlightDataTypeId::TYPE_POSITION_X));
     // A settings dialog has no configuration.
-    dialogs.editSimulations(
-        nullptr, *document,
-        {.simulations = {simulation}, .tab = Tab::PLOT_DATA, .newSimulation = false});
+    dialogs.editSimulations(nullptr, *document,
+                            {.simulations          = {simulation},
+                             .tab                  = Tab::PLOT_DATA,
+                             .newSimulation        = false,
+                             .cancelBackgroundRuns = {},
+                             .pauseBackgroundRuns  = {}});
     EXPECT_EQ(dialogs.requests().size(), 2U);
     EXPECT_EQ(dialogs.plotConfigurations().size(), 1U);
 }

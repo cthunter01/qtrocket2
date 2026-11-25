@@ -51,6 +51,8 @@
 #include "QtRocket/gui/dialogs/DefaultUnitSelector.h"  // IWYU pragma: keep
 #include "QtRocket/gui/dialogs/PreferencesDialog.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
+#include "QtRocket/gui/figure/BackgroundSimulation.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
@@ -61,10 +63,13 @@
 #include "QtRocket/gui/simulation/SimulationClipboard.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
 #include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableCsvExport.h"
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/simulation/SimulationTableView.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/CsvOptionValues.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -76,9 +81,13 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
+#include "RecordingGuardHook.h"
 #include "RecordingSimulationDialogs.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
+#include "TestTempDir.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
@@ -300,17 +309,48 @@ TEST_F(SimulationsWindowTest, EveryWindowHasTheTabWiredToItsDesign)
     EXPECT_EQ(wiringOf(second, clipboard()),
               "tab=2 text='Flight simulations' panel document clipboard actions window");
     // The File menu's "Export simulation table as CSV file" is the tab's action: enabled while the
-    // table has rows, and triggered it asks the tab for the export of every row.
+    // table has rows, and triggered it asks the tab for the export of every row (whose file
+    // question is cancelled here).
     EXPECT_TRUE(first->menus().exportSimulationTableAction()->isEnabled());
     EXPECT_FALSE(second.menus().exportSimulationTableAction()->isEnabled());
     const QSignalSpy exports(&simulationsOf(*first), &SimulationPanel::csvExportRequested);
+    prompts().answerSaveFile(std::nullopt);
     first->menus().exportSimulationTableAction()->trigger();
     ASSERT_EQ(exports.count(), 1);
     EXPECT_FALSE(exports.at(0).at(0).toBool());
+    EXPECT_EQ(prompts().saveFileRequests().size(), 1U);
     deleteEverySimulation(*first);
     EXPECT_FALSE(first->menus().exportSimulationTableAction()->isEnabled());
     first->menus().undoAction()->trigger();
     EXPECT_TRUE(first->menus().exportSimulationTableAction()->isEnabled());
+}
+
+TEST_F(SimulationsWindowTest, TheFileMenuWritesTheTableOfTheWindowsDesign)
+{
+    // BasicFrame's File item, the tab's getExportSimulationTableAsCSVAction(): the file question
+    // over the window's tab, then the table's text in the file.
+    const MainWindow* const window = openExample();
+    ASSERT_NE(window, nullptr);
+    const QtRocket::Test::TempDir directory;
+    CsvOptionValues               options;
+    options.fieldSeparator      = QStringLiteral(";");
+    options.decimalPlaces       = 4;
+    options.exponentialNotation = false;
+    prompts().answerSaveFile(UserPrompts::SaveFileAnswer{.file      = directory.resolve("rocket"),
+                                                         .directory = directory.path(),
+                                                         .saveSimulationData = std::nullopt,
+                                                         .selectedNameFilter = QString(),
+                                                         .csvOptions         = options});
+    window->menus().exportSimulationTableAction()->trigger();
+    ASSERT_EQ(prompts().saveFileRequests().size(), 1U);
+    EXPECT_EQ(prompts().saveFileRequests().front().fileName,
+              QStringLiteral("A simple model rocket.csv"));
+    const SimulationPanel&               tab  = simulationsOf(*window);
+    const Result<std::vector<std::byte>> file = readFile(directory.resolve("rocket.csv"));
+    ASSERT_TRUE(file.has_value()) << file.error().toString();
+    EXPECT_EQ(bytesToString(file.value_or(std::vector<std::byte>())),
+              SimulationTableCsvExport::tableText(tab.tableModel(), tab.tableModel().simulations(),
+                                                  ";", 4, false));
 }
 
 // ============================================================================ the tab switches
@@ -382,6 +422,132 @@ TEST_F(SimulationsWindowTest, ChoosingTheTabRunsTheOutdatedSimulationsWhenThePre
     EXPECT_EQ(run.window, &window);
     EXPECT_EQ(run.document, &window.document());
     EXPECT_EQ(run.executor, &services().executor());
+}
+
+// =================================================================== the design view's estimate
+
+/// The design view's estimate of the flight of @p window.
+[[nodiscard]] BackgroundSimulation& estimateOf(const MainWindow& window)
+{
+    const RocketPanel* const panel = window.componentRocketPanel();
+    QTROCKET_ASSERT(panel != nullptr);
+    return panel->backgroundSimulation();
+}
+
+/// The run dialog and the settings dialog as far as the window's estimate sees them: each notes
+/// "run" or "edit", then the window's pauses and whether the estimate is paused while it is open
+/// ("pauses=1 paused"), and whether its request takes its simulations out of the estimate's hands
+/// (" cancels"). The settings dialog pauses the estimate as it opens and resumes it as it closes,
+/// as the application's does (SimulationConfigDialog); the run dialog runs nothing.
+struct NoteTheEstimate
+{
+    const MainWindow*         window;
+    std::vector<std::string>* seen;
+
+    [[nodiscard]] std::string state() const
+    {
+        return "pauses=" + std::to_string(window->backgroundRunPauses()) +
+               (estimateOf(*window).isPaused() ? " paused" : " running");
+    }
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& request) const
+    {
+        seen->push_back("run " + state() + (request.cancelBackgroundRuns ? " cancels" : ""));
+        return {.cancelled = false, .allSuccessful = true};
+    }
+
+    void operator()(QWidget* /*parent*/, OpenRocketDocument& /*document*/,
+                    const SimulationDialogs::EditRequest& request) const
+    {
+        if (!request.pauseBackgroundRuns)
+        {
+            seen->emplace_back("edit without a pause");
+            return;
+        }
+        request.pauseBackgroundRuns(true);
+        seen->push_back("edit " + state() + (request.cancelBackgroundRuns ? " cancels" : ""));
+        request.pauseBackgroundRuns(false);
+    }
+};
+
+TEST_F(SimulationsWindowTest, TheDesignViewEstimatesOnTheServicesExecutorAndKnowsTheTab)
+{
+    // WindowManager gives the design view the services' executor (its jobs the window's), and
+    // the window tells it whether the Flight simulations tab is the current one (Java's
+    // RocketPanel asks BasicFrame.getSelectedTab() at each updateExtras()).
+    MainWindow* const shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    MainWindow&                 window   = *shown;
+    const BackgroundSimulation& estimate = estimateOf(window);
+    EXPECT_EQ(estimate.executor(), &services().executor());
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    showTab(window, MainWindow::kSimulationTab);
+    EXPECT_TRUE(estimate.isSimulationsTabSelected());
+    showTab(window, MainWindow::kFlightConfigurationTab);
+    EXPECT_FALSE(estimate.isSimulationsTabSelected());
+    // A New design's window too.
+    const MainWindow& other = manager().newDesign();
+    EXPECT_EQ(estimateOf(other).executor(), &services().executor());
+}
+
+TEST_F(SimulationsWindowTest, TheTabsDialogsPauseTheWindowsEstimateWhileOpen)
+{
+    // O-M4-16: the tab hands the window's pause and cancel to the run dialog it opens and to the
+    // settings dialog; once they have closed, the estimate runs again.
+    const MainWindow* const shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    const MainWindow&        window = *shown;
+    std::vector<std::string> seen;
+    const NoteTheEstimate    note{.window = &window, .seen = &seen};
+    services().simulationDialogs().whileEditing(note);
+    SimulationPanel& tab = simulationsOf(window);
+    tab.table().selectSimulations({rowOf(window, 0)});
+    prompts().answerRunSimulationsWith(note);
+    tab.runSimulation();
+    tab.editSimulation();
+    EXPECT_EQ(seen, (std::vector<std::string>{"run pauses=1 paused cancels",
+                                              "edit pauses=1 paused cancels"}));
+    EXPECT_EQ(window.backgroundRunPauses(), 0);
+    EXPECT_FALSE(estimateOf(window).isPaused());
+}
+
+/// The run dialog failing on a programming error, as SimulationRunDialog::run() does while the
+/// executor is handing over: notes the window's pauses while it is open (NoteTheEstimate's
+/// state()), then raises a BugError.
+struct FailOnABug
+{
+    NoteTheEstimate note;
+
+    UserPrompts::RunSimulationsAnswer operator()(
+        QWidget* /*parent*/, const UserPrompts::RunSimulationsRequest& /*request*/) const
+    {
+        note.seen->push_back("run " + note.state());
+        bug("The test's run dialog fails");
+    }
+};
+
+TEST_F(SimulationsWindowTest, ARunDialogThatFailsOnABugStillEndsItsPauseOfTheEstimate)
+{
+    // A BugError out of the run dialog (Guard reports it, the application goes on) ends the tab's
+    // pause of the window's estimate all the same: the estimate is not paused for good.
+    const Gui::Test::RecordingGuardHook guardHook;
+    const MainWindow* const             shown = openExample();
+    ASSERT_NE(shown, nullptr);
+    const MainWindow&        window = *shown;
+    std::vector<std::string> seen;
+    const SimulationPanel&   tab = simulationsOf(window);
+    tab.table().selectSimulations({rowOf(window, 0)});
+    prompts().answerRunSimulationsWith(
+        FailOnABug{.note = NoteTheEstimate{.window = &window, .seen = &seen}});
+    tab.runSimulationAction()->trigger();
+    EXPECT_EQ(seen, std::vector<std::string>{"run pauses=1 paused"});
+    ASSERT_EQ(guardHook.failures().size(), 1U);
+    EXPECT_EQ(guardHook.failures().front().kind, Guard::Failure::Kind::BUG);
+    EXPECT_TRUE(guardHook.failures().front().message.contains(
+        QStringLiteral("The test's run dialog fails")));
+    EXPECT_EQ(window.backgroundRunPauses(), 0);
+    EXPECT_FALSE(estimateOf(window).isPaused());
 }
 
 // ============================================================================ the selection

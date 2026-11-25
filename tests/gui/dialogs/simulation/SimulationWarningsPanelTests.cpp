@@ -37,6 +37,7 @@
 #include <QRect>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QTabWidget>
@@ -54,8 +55,10 @@
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/dialogs/MessageList.h"
 #include "QtRocket/gui/dialogs/simulation/RecoveryWarningsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConfigDialog.h"
 #include "QtRocket/gui/dialogs/simulation/SimulationOptionsPanel.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/CollapsiblePanel.h"
@@ -711,6 +714,62 @@ TEST_F(SimulationWarningsPanelTest, DescriptionsWrapToAvailableWidth)
     EXPECT_LT(expectDescriptionsWrapAt(tab, minimumWidth + 700, descriptions), narrowHeight);
     // "Narrowing again must restore all wrapped lines"
     EXPECT_EQ(expectDescriptionsWrapAt(tab, minimumWidth + 100, descriptions), narrowHeight);
+}
+
+/// One size of testWarningsResizeInsideSimulationDialog: @p dialog at @p size, the viewport of
+/// @p scrollPane not empty, and every widget from @p scrollPane up to the dialog inside its parent.
+void expectWarningsFitInside(SimulationConfigDialog& dialog, const QScrollArea& scrollPane,
+                             QSize size)
+{
+    dialog.resize(size);
+    settle();
+    // A Qt window is never smaller than its layout's minimum (a Swing one is): the dialog takes
+    // the size only while its parts allow it, which the check of the ancestors relies on.
+    EXPECT_EQ(dialog.size(), size);
+    EXPECT_GT(scrollPane.viewport()->width(), 0) << size.width() << " x " << size.height();
+    EXPECT_GT(scrollPane.viewport()->height(), 0) << size.width() << " x " << size.height();
+    // "Every ancestor must fit: testing only the inner panel misses outer-tab clipping."
+    for (const QWidget* child = &scrollPane; child != &dialog; child = child->parentWidget())
+    {
+        const QWidget* const parent = child->parentWidget();
+        ASSERT_NE(parent, nullptr);
+        // "Warnings must fit horizontally" and "Warnings must fit vertically"
+        EXPECT_TRUE(insideOf(*child, *parent)) << QtStrings::toUtf8(child->objectName()) << " in "
+                                               << QtStrings::toUtf8(parent->objectName()) << " at "
+                                               << size.width() << " x " << size.height();
+    }
+}
+
+TEST_F(SimulationWarningsPanelTest, WarningsResizeInsideSimulationDialog)
+{
+    // Port of RecoveryWarningsPanelTest.testWarningsResizeInsideSimulationDialog, as relational
+    // geometry of the settings dialog shown offscreen: SimulationConfigDialog(null, document,
+    // false, simulation) of a new rocket's simulation, on its Warnings tab, the Configuration
+    // tab selected and the dual deployment section expanded.
+    const Gui::Test::TestGuiServices          services;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    const auto simulation = std::make_shared<Simulation>(document.get(), document->getRocket());
+    SimulationConfigDialog dialog(services.services(), *document,
+                                  {.simulations          = {simulation},
+                                   .tab                  = SimulationDialogs::Tab::WARNINGS,
+                                   .newSimulation        = false,
+                                   .cancelBackgroundRuns = {},
+                                   .pauseBackgroundRuns  = {}});
+    dialog.show();
+    settle();
+    const SimulationWarningsPanel& warnings = dialog.warningsPanel();
+    warnings.tabs().setCurrentIndex(1);
+    warnings.recoveryWarnings().dualDeploymentSection().setExpanded(true);
+    const auto* const scrollPane =
+        qobject_cast<const QScrollArea*>(warnings.tabs().currentWidget());
+    ASSERT_NE(scrollPane, nullptr);
+    expectWarningsFitInside(dialog, *scrollPane, QSize(1000, 800));
+    expectWarningsFitInside(dialog, *scrollPane, QSize(600, 800));
+    expectWarningsFitInside(dialog, *scrollPane, QSize(1000, 350));
+    expectWarningsFitInside(dialog, *scrollPane, QSize(600, 350));
+    expectWarningsFitInside(dialog, *scrollPane, QSize(1000, 800));
+    dialog.cancel();
 }
 
 }  // namespace

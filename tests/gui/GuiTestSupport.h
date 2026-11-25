@@ -18,9 +18,12 @@
 // estimate (the preference backgroundFlight, true by default, as in OpenRocket) is off in the test
 // services and in the tests of the application over a preferences file (ApplicationSessionTests,
 // design_window_integration_tests.cpp, FromScratchScenario and so FlightConfigurationScenario),
-// which turn it off before the application starts; the tests of the estimate turn it on. The
-// services a test makes of its own objects (the open-designs replay's, ...) have no simulation
-// executor (GuiServices::simulationExecutor() is null), and without one nothing runs a simulation.
+// which turn it off before the application starts, and in the open-designs replay's preferences;
+// the tests of the estimate turn it on. The services a test makes of its own objects (the
+// open-designs replay's, ...) have no simulation executor (GuiServices::simulationExecutor() is
+// null), and without one nothing runs a simulation. Every design window's view estimates on the
+// executor of its services (WindowManager), so a window of the test services or of the
+// application runs the estimate once the preference is on.
 // The test services' executor runs a job on the GUI thread in the next turn of the event loop
 // (ManualSimulationExecutor, IMMEDIATE: QCoreApplication::processEvents(), or its runAll()), so a
 // test that runs simulations needs no sleep and no thread; fresh runs use only the

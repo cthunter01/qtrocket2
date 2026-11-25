@@ -24,9 +24,9 @@ class SimulationTableModel;
 /// The text of OpenRocket's simulations table (swing file/SimulationTableCSVExport.java's
 /// generateCSVData(), and SimulationPanel's copySimulationValues() with its addStatusColumn()):
 /// what the table's CSV export writes into its file (the File menu's "Export simulation table as
-/// CSV file" and the popup's "Export simulation(s) as CSV file", Milestone 4's run 3) and what
-/// Copy puts on the system clipboard beside the simulations (SimulationEditing). Not the file
-/// export itself: the file, the options and the messages are the caller's.
+/// CSV file" and the popup's "Export simulation(s) as CSV file") and what Copy puts on the system
+/// clipboard beside the simulations (SimulationEditing). Not the file export itself: the file, the
+/// options and the messages are SimulationPanel's (exportSimulationsToCsv()).
 ///
 /// The table text (tableText(), Java's generateCSVData()): the header line, then a line for each
 /// simulation given that has summary data, in the order given (the table's: all its rows, or the

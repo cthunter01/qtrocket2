@@ -4,13 +4,17 @@
 target_sources(QtRocket_gui_tests PRIVATE
     AerodynamicLookupDialogTests.cpp
     CsvImportSettingsDialogTests.cpp
+    CsvOptionsDialogTests.cpp
     MultiLevelWindEditDialogTests.cpp
     MultiLevelWindTableModelTests.cpp
     MultiLevelWindTableViewTests.cpp
     RandomSeedControlsTests.cpp
     RecoveryWarningsPanelTests.cpp
+    simulation_export_golden_tests.cpp
     SimulationConditionsPanelTests.cpp
+    SimulationConfigDialogTests.cpp
     SimulationDialogWalk.cpp
+    SimulationExportPanelTests.cpp
     SimulationExtensionListTests.cpp
     SimulationOptionsPanelTests.cpp
     SimulationRunDialogTests.cpp
