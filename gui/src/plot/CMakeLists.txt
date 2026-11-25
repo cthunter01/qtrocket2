@@ -9,4 +9,5 @@ target_sources(QtRocket_gui PRIVATE
     PlotTheme.cpp ${gui_include_dir}/plot/PlotTheme.h
     ThrustCurvePlot.cpp ${gui_include_dir}/plot/ThrustCurvePlot.h
     ThrustCurvePreview.cpp ${gui_include_dir}/plot/ThrustCurvePreview.h
+    WindProfilePlot.cpp ${gui_include_dir}/plot/WindProfilePlot.h
 )

@@ -1,0 +1,209 @@
+== the default model (one level from the preferences' average wind)
+HEADER 0 [Altitude MSL] tip=Altitude above mean sea level unit=[m]
+HEADER 1 [Speed] unit=[m/s]
+HEADER 2 [Direction] tip=<html>Wind direction.<br>0 degrees is wind coming North, blowing South,<br>90 degrees is coming East,<br>180 degrees is coming South,<br>and 270 degrees is coming West.</html> unit=[°]
+HEADER 3 [Deviation] unit=[m/s]
+HEADER 4 [Turbulence] unit=[%]
+HEADER 5 [Intensity] unit=[none]
+HEADER 6 [Delete] unit=[none]
+ROW 0 [0] [2] [90] [0.2] [10] intensity=[Medium] delete=disabled
+MODEL 0.0
+PREFERENCES average=2.0 direction=1.5707963267948966 deviation=0.2
+== three levels
+ROW 0 [0] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+TIP MSL m 0.0 [<html>Altitude MSL: 0 m<br>Speed: 3 m/s<br>Direction: 90°<br>Deviation: 0.3 m/s</html>]
+TIP MSL m 500.0 [<html>Altitude MSL: 500 m<br>Speed: 7.5 m/s<br>Direction: 180°<br>Deviation: 1 m/s</html>]
+TIP MSL m 1250.5 [<html>Altitude MSL: 1250 m<br>Speed: 12.2 m/s<br>Direction: 0°<br>Deviation: 3 m/s</html>]
+WALK CHECK Show wind direction vectors selected=true
+STEP AGL
+HEADER 0 [Altitude AGL] tip=Altitude above ground level (the launch site) unit=[m]
+HEADER 1 [Speed] unit=[m/s]
+HEADER 2 [Direction] tip=<html>Wind direction.<br>0 degrees is wind coming North, blowing South,<br>90 degrees is coming East,<br>180 degrees is coming South,<br>and 270 degrees is coming West.</html> unit=[°]
+HEADER 3 [Deviation] unit=[m/s]
+HEADER 4 [Turbulence] unit=[%]
+HEADER 5 [Intensity] unit=[none]
+HEADER 6 [Delete] unit=[none]
+TIP AGL m 0.0 [<html>Altitude AGL: 0 m<br>Speed: 3 m/s<br>Direction: 90°<br>Deviation: 0.3 m/s</html>]
+TIP AGL m 500.0 [<html>Altitude AGL: 500 m<br>Speed: 7.5 m/s<br>Direction: 180°<br>Deviation: 1 m/s</html>]
+TIP AGL m 1250.5 [<html>Altitude AGL: 1250 m<br>Speed: 12.2 m/s<br>Direction: 0°<br>Deviation: 3 m/s</html>]
+STEP MSL
+HEADER 0 [Altitude MSL] tip=Altitude above mean sea level unit=[m]
+HEADER 1 [Speed] unit=[m/s]
+HEADER 2 [Direction] tip=<html>Wind direction.<br>0 degrees is wind coming North, blowing South,<br>90 degrees is coming East,<br>180 degrees is coming South,<br>and 270 degrees is coming West.</html> unit=[°]
+HEADER 3 [Deviation] unit=[m/s]
+HEADER 4 [Turbulence] unit=[%]
+HEADER 5 [Intensity] unit=[none]
+HEADER 6 [Delete] unit=[none]
+== the units
+STEP units altitude=[ft] speed=[mph] direction=[rad] deviation=[km/h] turbulence=[‰]
+HEADER 0 [Altitude MSL] tip=Altitude above mean sea level unit=[ft]
+HEADER 1 [Speed] unit=[mph]
+HEADER 2 [Direction] tip=<html>Wind direction.<br>0 degrees is wind coming North, blowing South,<br>90 degrees is coming East,<br>180 degrees is coming South,<br>and 270 degrees is coming West.</html> unit=[rad]
+HEADER 3 [Deviation] unit=[km/h]
+HEADER 4 [Turbulence] unit=[‰]
+HEADER 5 [Intensity] unit=[none]
+HEADER 6 [Delete] unit=[none]
+ROW 0 [0] [6.71] [1.57] [1.08] [100] intensity=[Low] delete=enabled
+ROW 1 [1640] [16.8] [3.14] [3.6] [133] intensity=[Medium] delete=enabled
+ROW 2 [4103] [27.4] [0.00] [10.8] [245] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+TIP MSL ft 0.0 [<html>Altitude MSL: 0 ft<br>Speed: 6.71 mph<br>Direction: 1.57 rad<br>Deviation: 1.08 km/h</html>]
+TIP MSL ft 500.0 [<html>Altitude MSL: 1640 ft<br>Speed: 16.8 mph<br>Direction: 3.14 rad<br>Deviation: 3.6 km/h</html>]
+TIP MSL ft 1250.5 [<html>Altitude MSL: 4103 ft<br>Speed: 27.4 mph<br>Direction: 0.00 rad<br>Deviation: 10.8 km/h</html>]
+STEP units altitude=[m] speed=[m/s] direction=[°] deviation=[m/s] turbulence=[%]
+HEADER 0 [Altitude MSL] tip=Altitude above mean sea level unit=[m]
+HEADER 1 [Speed] unit=[m/s]
+HEADER 2 [Direction] tip=<html>Wind direction.<br>0 degrees is wind coming North, blowing South,<br>90 degrees is coming East,<br>180 degrees is coming South,<br>and 270 degrees is coming West.</html> unit=[°]
+HEADER 3 [Deviation] unit=[m/s]
+HEADER 4 [Turbulence] unit=[%]
+HEADER 5 [Intensity] unit=[none]
+HEADER 6 [Delete] unit=[none]
+ROW 0 [0] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+== the cells' bounds and couplings
+STEP row 0 column 0 typed=[-200]
+ROW 0 [-100] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL -100.0 500.0 1250.5
+STEP row 0 column 0 typed=[0]
+ROW 0 [0] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 1 typed=[-5]
+ROW 0 [0] [0] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 1 typed=[6]
+ROW 0 [0] [6] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 2 typed=[400]
+ROW 0 [0] [6] [0] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 2 typed=[-30]
+ROW 0 [0] [6] [0] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 2 typed=[90]
+ROW 0 [0] [6] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 3 typed=[10]
+ROW 0 [0] [6] [90] [6] [100] intensity=[Extreme] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 3 typed=[1.2]
+ROW 0 [0] [6] [90] [1.2] [20] intensity=[High] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 4 typed=[150]
+ROW 0 [0] [6] [90] [6] [100] intensity=[Extreme] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 4 typed=[4]
+ROW 0 [0] [6] [90] [0.24] [4] intensity=[Very low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 4 typed=[12]
+ROW 0 [0] [6] [90] [0.72] [12] intensity=[Medium] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 4 typed=[22]
+ROW 0 [0] [6] [90] [1.32] [22] intensity=[Very high] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 1 typed=[0]
+ROW 0 [0] [0] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 0 column 1 typed=[3]
+ROW 0 [0] [3] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 1 column 0 typed=[2*300]
+ROW 0 [0] [3] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [600] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 600.0 1250.5
+STEP row 1 column 0 typed=[abc]
+ROW 0 [0] [3] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [600] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 600.0 1250.5
+== add a level
+STEP addRow
+ROW 0 [0] [3] [90] [0] [0] intensity=[None] delete=enabled
+ROW 1 [600] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+ROW 3 [1350] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 600.0 1250.5 1350.5
+== an altitude edit that reorders the rows (M4's bug 32)
+STEP row 0 column 0 typed=[800]
+ROW 0 [600] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 1 [800] [3] [90] [0] [0] intensity=[None] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+ROW 3 [1350] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 800.0 600.0 1250.5 1350.5
+SORTED false
+== the delete buttons
+STEP delete button of row 1
+ROW 0 [600] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 1 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+ROW 2 [1350] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 600.0 1250.5 1350.5
+== two levels at one altitude, then a delete (M4's bug 31)
+ROW 0 [0] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [500] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 500.0 1250.5
+STEP row 1 column 0 typed=[0]
+ROW 0 [0] [3] [90] [0.3] [10] intensity=[Low] delete=enabled
+ROW 1 [0] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 2 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 0.0 0.0 1250.5
+STEP delete button of row 0
+ROW 0 [0] [7.5] [180] [1] [13.3] intensity=[Medium] delete=enabled
+ROW 1 [1250] [12.2] [0] [3] [24.5] intensity=[Very high] delete=enabled
+MODEL 1250.5
+== delete down to one level
+ROW 0 [0] [2] [0] [0.1] [5] intensity=[Low] delete=enabled
+ROW 1 [100] [4] [57.3] [0.2] [5] intensity=[Low] delete=enabled
+MODEL 0.0 100.0
+STEP delete button of row 0
+ROW 0 [100] [4] [57.3] [0.2] [5] intensity=[Low] delete=disabled
+MODEL 100.0
+STEP delete button of row 0
+ROW 0 [100] [4] [57.3] [0.2] [5] intensity=[Low] delete=disabled
+MODEL 100.0
+== add to a table of one level
+ROW 0 [-50] [5.5] [114.6] [0.5] [9.09] intensity=[Low] delete=disabled
+MODEL -50.0
+STEP addRow
+ROW 0 [-50] [5.5] [114.6] [0.5] [9.09] intensity=[Low] delete=enabled
+ROW 1 [50] [5.5] [114.6] [0.5] [9.09] intensity=[Low] delete=enabled
+MODEL -50.0 50.0
+== reset levels
+STEP resetLevels
+ROW 0 [0] [2] [90] [0.2] [10] intensity=[Medium] delete=enabled
+MODEL 0.0

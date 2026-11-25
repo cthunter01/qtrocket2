@@ -11,6 +11,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     GeneralPreferencesPanelTests.cpp
     IgnitionSelectionDialogTests.cpp
     InternalErrorDialogTests.cpp
+    LaunchPreferencesPanelTests.cpp
     MessageListTests.cpp
     ModalDialogTests.cpp
     OptionDialogTests.cpp
@@ -22,10 +23,12 @@ target_sources(QtRocket_gui_tests PRIVATE
     RenameConfigDialogTests.cpp
     SaveDesignInfoDialogTests.cpp
     SeparationSelectionDialogTests.cpp
+    SimulationPreferencesPanelTests.cpp
     StorageOptionsDialogTests.cpp
     ThrustCurveMotorPlotDialogTests.cpp
     UnitsPreferencesPanelTests.cpp
     WarningDialogTests.cpp
+    WarningsPreferencesPanelTests.cpp
 )
 
 # The motor chooser (dialogs/motor/).

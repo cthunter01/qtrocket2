@@ -3,4 +3,17 @@
 # subdirectory of the area. It comes before the area simulation (the tab), which it never includes.
 # Each source with its header (${gui_include_dir}/dialogs/simulation/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    AerodynamicLookupDialog.cpp ${gui_include_dir}/dialogs/simulation/AerodynamicLookupDialog.h
+    CsvImportSettingsDialog.cpp ${gui_include_dir}/dialogs/simulation/CsvImportSettingsDialog.h
+    MultiLevelWindEditDialog.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindEditDialog.h
+    MultiLevelWindTableModel.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableModel.h
+    MultiLevelWindTableView.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableView.h
+    RandomSeedControls.cpp ${gui_include_dir}/dialogs/simulation/RandomSeedControls.h
+    RecoveryWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/RecoveryWarningsPanel.h
+    SimulationConditionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationConditionsPanel.h
+    SimulationExtensionList.cpp ${gui_include_dir}/dialogs/simulation/SimulationExtensionList.h
+    SimulationOptionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationOptionsPanel.h
+    SimulationWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationWarningsPanel.h
+    TurbulenceIntensityText.cpp ${gui_include_dir}/dialogs/simulation/TurbulenceIntensityText.h
+    WindLevelSummary.cpp ${gui_include_dir}/dialogs/simulation/WindLevelSummary.h
 )

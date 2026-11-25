@@ -12,6 +12,7 @@
 
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/dialogs/PrefChoiceSelector.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -144,6 +145,41 @@ DesignPreferencesPanel::DesignPreferencesPanel(Preferences& preferences, Binding
             guarded([this](bool checked) { m_preferences->setShowDiscardConfirmation(checked); },
                     context()));
     layout->addWidget(m_discard, row++, 0, 1, 2);
+
+    // // Show confirmation dialog for discarding simulation configuration changes
+    m_discardSimulation = makeChild<QCheckBox>(
+        //: pref.dlg.checkbox.ShowDiscardSimulationConfirmation
+        this, tr("Show confirmation dialog for discarding simulation changes"));
+    m_discardSimulation->setObjectName(
+        QtStrings::fromUtf8(PreferenceKeys::kShowDiscardSimulationConfirmation));
+    m_discardSimulation->setChecked(preferences.isShowDiscardSimulationConfirmation());
+    // OpenRocket's typo "want really want" verbatim.
+    //: pref.dlg.checkbox.ShowDiscardSimulationConfirmation.ttip
+    m_discardSimulation->setToolTip(
+        tr("If checked, you will be asked if you want really want to discard "
+           "simulation configuration changes."));
+    connect(
+        m_discardSimulation, &QCheckBox::toggled, this,
+        guarded(
+            [this](bool checked) { m_preferences->setShowDiscardSimulationConfirmation(checked); },
+            context()));
+    layout->addWidget(m_discardSimulation, row++, 0, 1, 2);
+
+    // // Update flight estimates in the design window
+    // Java's ActionListener: the user's clicks only.
+    m_updateEstimates = makeChild<QCheckBox>(
+        //: pref.dlg.checkbox.Updateestimates
+        this, tr("Update estimated flight parameters in design window"));
+    m_updateEstimates->setObjectName(QtStrings::fromUtf8(GuiPreferenceKeys::kBackgroundFlight));
+    m_updateEstimates->setChecked(preferences.getBoolean(
+        GuiPreferenceKeys::kBackgroundFlight, GuiPreferenceKeys::kBackgroundFlightDefault));
+    connect(m_updateEstimates, &QCheckBox::clicked, this,
+            guarded(
+                [this](bool checked) {
+                    m_preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, checked);
+                },
+                context()));
+    layout->addWidget(m_updateEstimates, row++, 0, 1, 2);
 
     // Java's ActionListener: the user's clicks only.
     //: pref.dlg.checkbox.Markers

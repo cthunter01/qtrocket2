@@ -1,0 +1,2 @@
+CsvImportSettingsProbe makes CSVImportSettingsDialog, a JDialog, which headless Swing refuses: run.sh runs it
+under xvfb-run with java.awt.headless=false (the dialog is packed, never shown).

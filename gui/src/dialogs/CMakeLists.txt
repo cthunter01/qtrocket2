@@ -12,6 +12,7 @@ target_sources(QtRocket_gui PRIVATE
     GeneralPreferencesPanel.cpp ${gui_include_dir}/dialogs/GeneralPreferencesPanel.h
     IgnitionSelectionDialog.cpp ${gui_include_dir}/dialogs/IgnitionSelectionDialog.h
     InternalErrorDialog.cpp ${gui_include_dir}/dialogs/InternalErrorDialog.h
+    LaunchPreferencesPanel.cpp ${gui_include_dir}/dialogs/LaunchPreferencesPanel.h
     MessageList.cpp ${gui_include_dir}/dialogs/MessageList.h
     OptionDialog.cpp ${gui_include_dir}/dialogs/OptionDialog.h
     PrefChoiceSelector.cpp ${gui_include_dir}/dialogs/PrefChoiceSelector.h
@@ -20,10 +21,12 @@ target_sources(QtRocket_gui PRIVATE
     RenameConfigDialog.cpp ${gui_include_dir}/dialogs/RenameConfigDialog.h
     SaveDesignInfoDialog.cpp ${gui_include_dir}/dialogs/SaveDesignInfoDialog.h
     SeparationSelectionDialog.cpp ${gui_include_dir}/dialogs/SeparationSelectionDialog.h
+    SimulationPreferencesPanel.cpp ${gui_include_dir}/dialogs/SimulationPreferencesPanel.h
     StorageOptionsDialog.cpp ${gui_include_dir}/dialogs/StorageOptionsDialog.h
     ThrustCurveMotorPlotDialog.cpp ${gui_include_dir}/dialogs/ThrustCurveMotorPlotDialog.h
     UnitsPreferencesPanel.cpp ${gui_include_dir}/dialogs/UnitsPreferencesPanel.h
     WarningDialog.cpp ${gui_include_dir}/dialogs/WarningDialog.h
+    WarningsPreferencesPanel.cpp ${gui_include_dir}/dialogs/WarningsPreferencesPanel.h
 )
 
 # The motor chooser (dialogs/motor/).

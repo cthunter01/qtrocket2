@@ -18,6 +18,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/dialogs/PrefChoiceSelector.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
@@ -169,6 +170,51 @@ TEST_F(DesignPreferencesPanelTest, TheCheckBoxesStoreTheirStates)
     EXPECT_EQ(m_page->showDiscardConfirmation()->objectName(),
               QStringLiteral("IgnoreDiscardEditingWarning"));
     EXPECT_EQ(m_page->showMarkers()->objectName(), QStringLiteral("ShowMarkers"));
+}
+
+TEST_F(DesignPreferencesPanelTest, TheSimulationBoxesStoreTheirStates)
+{
+    // Milestone 4's two boxes: the simulations' discard confirmation (Java's ItemListener: every
+    // change of the state) and the design view's flight estimate (Java's ActionListener: the
+    // user's clicks only).
+    QCheckBox& discard = *m_page->showDiscardSimulationConfirmation();
+    EXPECT_TRUE(discard.isChecked());
+    EXPECT_EQ(discard.text(),
+              QStringLiteral("Show confirmation dialog for discarding simulation changes"));
+    EXPECT_EQ(discard.toolTip(),
+              QStringLiteral("If checked, you will be asked if you want really want to discard "
+                             "simulation configuration changes."));
+    EXPECT_EQ(discard.objectName(), QStringLiteral("IgnoreDiscardSimulationEditingWarning"));
+    discard.click();
+    EXPECT_EQ(m_preferences.get(PreferenceKeys::kShowDiscardSimulationConfirmation), "false");
+    discard.setChecked(true);
+    EXPECT_EQ(m_preferences.get(PreferenceKeys::kShowDiscardSimulationConfirmation), "true");
+
+    QCheckBox& estimates = *m_page->updateEstimates();
+    EXPECT_TRUE(estimates.isChecked());
+    EXPECT_EQ(estimates.text(),
+              QStringLiteral("Update estimated flight parameters in design window"));
+    EXPECT_EQ(estimates.toolTip(), QString());
+    EXPECT_EQ(estimates.objectName(), QStringLiteral("backgroundFlight"));
+    estimates.click();
+    EXPECT_EQ(m_preferences.get(GuiPreferenceKeys::kBackgroundFlight), "false");
+    estimates.setChecked(true);
+    EXPECT_EQ(m_preferences.get(GuiPreferenceKeys::kBackgroundFlight), "false");
+    estimates.click();
+    estimates.click();
+    EXPECT_EQ(m_preferences.get(GuiPreferenceKeys::kBackgroundFlight), "true");
+}
+
+TEST_F(DesignPreferencesPanelTest, TheSimulationBoxesShowTheStoredStates)
+{
+    m_preferences.setShowDiscardSimulationConfirmation(false);
+    m_preferences.putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
+    QWidget                      window;
+    BindingScope                 scope(window, nullptr);
+    const DesignPreferencesPanel page(m_preferences, scope, &window);
+    EXPECT_FALSE(page.showDiscardSimulationConfirmation()->isChecked());
+    EXPECT_FALSE(page.updateEstimates()->isChecked());
+    scope.release();
 }
 
 TEST_F(DesignPreferencesPanelTest, AStoredMachOutOfBoundsIsShownAsJavasGetterGivesIt)
