@@ -175,20 +175,6 @@ TEST_F(SimulationDialogPinChecks, TheExpectedExtensionButtonsHaveNoConfigureButt
               std::vector<std::string>{});
 }
 
-TEST_F(SimulationDialogPinChecks, TheExportPlaceholderIsDisabledWhereOpenRocketsTabIsEnabled)
-{
-    // Until the export panel comes, the dialog's Export data tab is a disabled placeholder
-    // (SimulationConfigDialog's documented deviation); OpenRocket's disabled tab is kept.
-    Gui::Test::SimulationDialogPinSimulation simulation = simulationPins({});
-    EXPECT_EQ(Gui::Test::expectedSettingsDialogTabStates(simulation, true).back(),
-              "Export data disabled");
-    EXPECT_EQ(Gui::Test::expectedSettingsDialogTabStates(simulation, false).back(),
-              "Export data enabled");
-    simulation.tabs.back() = "Export data disabled tip=Simulation has no data to export";
-    EXPECT_EQ(Gui::Test::expectedSettingsDialogTabStates(simulation, true).back(),
-              "Export data disabled tip=Simulation has no data to export");
-}
-
 /// The number of the pins' simulations, and of those with a multi-level wind's levels.
 struct PinnedSimulationCounts
 {

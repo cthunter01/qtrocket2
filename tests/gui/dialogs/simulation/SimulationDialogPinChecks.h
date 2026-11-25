@@ -59,10 +59,4 @@ struct SimulationDialogPinSimulation;
 [[nodiscard]] std::vector<std::string> expectedSettingsDialogExtensionButtons(
     const SimulationDialogPinSimulation& simulation);
 
-/// The pinned tab states of @p simulation's dialog, but the Export data tab's disabled without a
-/// tooltip where OpenRocket's is enabled when @p exportPlaceholder (the dialog shows its export
-/// placeholder until the export panel comes: SimulationConfigDialog's documented deviation).
-[[nodiscard]] std::vector<std::string> expectedSettingsDialogTabStates(
-    const SimulationDialogPinSimulation& simulation, bool exportPlaceholder);
-
 }  // namespace QtRocket::Gui::Test

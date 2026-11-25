@@ -349,20 +349,4 @@ std::vector<std::string> expectedSettingsDialogExtensionButtons(
     return panels;
 }
 
-std::vector<std::string> expectedSettingsDialogTabStates(
-    const SimulationDialogPinSimulation& simulation, bool exportPlaceholder)
-{
-    constexpr auto           kExport = static_cast<std::size_t>(SimulationConfigDialog::kExportTab);
-    std::vector<std::string> states  = simulation.tabs;
-    if (exportPlaceholder && states.size() > kExport)
-    {
-        std::string& exportState = states[kExport];
-        if (exportState == "Export data enabled")
-        {
-            exportState = "Export data disabled";
-        }
-    }
-    return states;
-}
-
 }  // namespace QtRocket::Gui::Test

@@ -2894,11 +2894,7 @@ void expectSettingsDialogAsJava(const SimulationConfigDialog& dialog, const Simu
                                Gui::Test::expectedSettingsDialogWalk(pins, pin, status));
     EXPECT_EQ(Gui::Test::settingsDialogExtensionButtons(dialog),
               Gui::Test::expectedSettingsDialogExtensionButtons(pin));
-    const bool exportPlaceholder =
-        dialog.tabs().widget(SimulationConfigDialog::kExportTab)->objectName() ==
-        QStringLiteral("exportPlaceholder");
-    EXPECT_EQ(Gui::Test::settingsDialogTabStates(dialog.tabs()),
-              Gui::Test::expectedSettingsDialogTabStates(pin, exportPlaceholder));
+    EXPECT_EQ(Gui::Test::settingsDialogTabStates(dialog.tabs()), pin.tabs);
 }
 
 /// The settings dialog of a simulation as it opened (the NextModalDialog's), against OpenRocket's
