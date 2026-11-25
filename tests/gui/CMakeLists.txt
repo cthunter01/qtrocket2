@@ -70,8 +70,19 @@ gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOU
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
     TEST_FILTER "${QTROCKET_GUI_THREADED_SUITES}"
     PROPERTIES TIMEOUT 600 ENVIRONMENT QT_QPA_PLATFORM=offscreen)
-gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
+# The exit suite SimulationPlotPresetsGolden (dialogs/plot/simulation_plot_presets_golden_tests.cpp: every stored
+# flight of the examples with every preset plot, 486 tests) runs as one test of ctest, in one process: in a process of
+# its own each of them would read the motor database, the plot goldens and its example again (some seconds under the
+# sanitizers for a plot of a tenth of one), where one process loads each example once. It fails when its filter selects
+# no test (the suite renamed, say).
+set(QTROCKET_GUI_ONE_PROCESS_SUITE "StoredSimulations/SimulationPlotPresetsGolden")
+gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
+    TEST_FILTER "*Golden*.*-${QTROCKET_GUI_ONE_PROCESS_SUITE}.*"
     PROPERTIES LABELS golden ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+add_test(NAME ${QTROCKET_GUI_ONE_PROCESS_SUITE}
+    COMMAND QtRocket_gui_tests "--gtest_filter=${QTROCKET_GUI_ONE_PROCESS_SUITE}.*" --gtest_fail_if_no_test_selected)
+set_tests_properties(${QTROCKET_GUI_ONE_PROCESS_SUITE} PROPERTIES LABELS "gui;golden" TIMEOUT 1500
+    ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 # The tests that show Qt's own file dialog run one at a time. QFileDialog keeps its history and last directory in the
 # native settings (QSettings(UserScope, "QtProject")), which QSettings::setPath() redirects to main()'s temporary
 # directory only where the native format is an INI file: on Windows (the registry) and macOS (CFPreferences) one test
