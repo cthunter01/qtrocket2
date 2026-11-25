@@ -75,11 +75,13 @@ void GuiTest::TearDown()
         clipboard->clear();
     }
 
-    // The application's component clipboard is process-wide too (a test makes its own).
-    if (OpenRocketClipboard& components = OpenRocketClipboard::instance(); !components.isEmpty())
+    // The application's clipboard of components and simulations is process-wide too (a test
+    // makes its own).
+    if (OpenRocketClipboard& application = OpenRocketClipboard::instance(); !application.isEmpty())
     {
-        ADD_FAILURE() << "the test left components on the application's component clipboard";
-        components.clear();
+        ADD_FAILURE() << "the test left components or simulations on the application's clipboard "
+                         "(OpenRocketClipboard::instance())";
+        application.clear();
     }
 
     // The fixture's DefaultUnitsGuard puts the defaults back afterwards.

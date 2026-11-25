@@ -304,12 +304,14 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   configuration renamed and selected, a motor change, a body tube change with its undo and redo, a colour, a run
   of "Simulation 1" (the only fresh flight QtRocket's tests may make of the design: plan 11.6), a new simulation
   with its undo and redo, motors removed, motors that never ignite and a run that aborts) with every status, the
-  undo and redo descriptions and the saved state after each step, and the rows and the status column's orders
-  after the last step (a simulation the scenario ran has no cells, warnings or counts in the table: no value of a
-  fresh flight is pinned); and a Copy of every row of a table whose rows include one without data. Where QtRocket
+  undo and redo descriptions and the saved state after each step, and the rows and the status and warnings
+  columns' orders after the last step (a simulation the scenario ran has no cells, warnings or counts in the
+  table: no value of a fresh flight is pinned; the first scenario's warnings orders put its new simulation, which
+  has no data, among simulations with data); and a Copy of every row of a table whose rows include one without data. Where QtRocket
   fixes one of OpenRocket's bugs the table holds QtRocket's answer, derived with OpenRocket's own data, and
   OpenRocket's beside it: the warnings column's orders (bug 23: by the critical, then the normal, then the
-  informational count, from OpenRocket's `WarningSet`, a row without data first; OpenRocket's own orders, which
+  informational count, from OpenRocket's `WarningSet`, a row without data first ascending and last descending,
+  as `DefaultRowSorter` sorts a missing value; OpenRocket's own orders, which
   keep the model's order, under `openRocket:warnings`) and the Copy whose statuses OpenRocket pairs with the
   lines by position (bug 25: QtRocket's pairs each line with its own simulation; OpenRocket's own under
   `openRocketCopy`). The table is JSON (one design, scenario or row per line), read once per test process by
@@ -555,7 +557,9 @@ Milestone 4's run 2, part T1, added `simulation-table` (from the M4 sim-tab scou
 status scenarios, taking a list of designs, seeded, the scenarios' runs moved to the one simulation tests may run,
 QtRocket's answers for bugs 23 and 25 beside OpenRocket's), the first family whose table is JSON
 (`tests/data/goldens/gui/`) rather than a C++ header. Part T2 added its `SimulationTableViewProbe` (the column
-chooser, the keys and the header of the table view; pinned by hand).
+chooser, the keys and the header of the table view; pinned by hand). Its review gave QtRocket's warnings order a
+row without data last when descending (as `DefaultRowSorter` and QtRocket sort a missing value) and the scenarios
+the warnings column's orders (the designs' rows stayed byte for byte the same).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

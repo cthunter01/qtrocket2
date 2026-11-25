@@ -12,7 +12,6 @@
 #include <vector>
 
 #include <QAction>
-#include <QItemSelectionModel>
 #include <QMenu>
 #include <QMetaObject>
 #include <QObject>
@@ -239,7 +238,7 @@ void RocketActions::setSimulationPanel(SimulationPanel* panel, std::function<boo
         const auto update =
             guarded([this] { updateEditActions(); }, QStringLiteral("Rocket actions"));
         m_simulationConnections.push_back(connect(
-            panel->table().selectionModel(), &QItemSelectionModel::selectionChanged, this, update));
+            &panel->table(), &SimulationTableView::selectedSimulationsChanged, this, update));
         for (const QAction* action : simulationEditActions(*panel))
         {
             m_simulationConnections.push_back(

@@ -123,9 +123,11 @@ class SimulationTableView;
 /// being the current one; takeTheSpotlight() and then activating() when it becomes it.
 /// activating() runs every simulation of the table that is NOT_SIMULATED or OUTDATED, in the
 /// table's order, through the run dialog, while the preferences ask for it
-/// (Preferences::getAutoRunSimulations()). The table's selection model
-/// (table().selectionModel(): getSimulationListSelectionModel(),
-/// addSimulationTableListSelectionListener()) tells of every change of the selection.
+/// (Preferences::getAutoRunSimulations()). The table's SimulationTableView::
+/// selectedSimulationsChanged() (Java's addSimulationTableListSelectionListener()) tells of every
+/// change of the selected simulations, also of those a change of the document makes without the
+/// selection model's selectionChanged() (table().selectionModel(),
+/// getSimulationListSelectionModel(), which a listener of the selection must not rely on).
 ///
 /// The help (updateMotorState(), at its making and at each MOTOR or TREE change of the rocket,
 /// an undo among them): "No configuration with motors defined. Please create a valid

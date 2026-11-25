@@ -30,6 +30,7 @@
 #include <QGuiApplication>
 #include <QKeySequence>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QSignalSpy>
 #include <QString>
 #include <QStringList>
@@ -43,6 +44,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/document/SimulationCopy.h"
@@ -54,6 +56,7 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/RocketActions.h"
+#include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/simulation/SimulationClipboard.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
@@ -66,6 +69,8 @@
 #include "QtRocket/gui/util/SimulationDialogs.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
@@ -645,6 +650,69 @@ TEST_F(SimulationsWindowTest, ThePreferencesDialogsRefreshReadsEveryTableAgain)
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_EQ(apogeeUnitOf(*first), "m");
     EXPECT_EQ(apogeeUnitOf(*second), "m");
+}
+
+// ======================================================================== the motor chooser
+
+/// The first motor mount of @p rocket that is one and has a motor (null when there is none).
+[[nodiscard]] const MotorMount* firstMountWithMotorOf(const Rocket& rocket)
+{
+    for (const RocketComponent& component : rocket.subtree())
+    {
+        if (const auto* mount = dynamic_cast<const MotorMount*>(&component);
+            mount != nullptr && mount->isMotorMount() && mount->hasMotor())
+        {
+            return mount;
+        }
+    }
+    return nullptr;
+}
+
+/// The motor chooser's answer: "Use manufacturer's designation", then Cancel.
+void chooseDesignationsAndCancel(const QWidget& dialog)
+{
+    auto* designation = dialog.findChild<QRadioButton*>(QStringLiteral("designation"));
+    auto* cancel      = dialog.findChild<QPushButton*>(QStringLiteral("cancelButton"));
+    if (designation == nullptr || cancel == nullptr)
+    {
+        bug("the modal dialog is no motor chooser");
+    }
+    designation->click();
+    cancel->click();
+}
+
+TEST_F(SimulationsWindowTest, TheMotorChoosersNameColumnShowsInEveryTable)
+{
+    // The chooser's name column (a motor by its common name or its designation) names the motors
+    // of the tables' configurations too, which OpenRocket's tables paint anew: the tables are read
+    // again when the chooser's question ends, even cancelled (no document event tells of it).
+    preferences().setMotorNameColumn(false);
+    // "[G40-7]" by the common name, "[G40W-7]" by the designation.
+    const MainWindow* const first = openExample("Chute release.ork");
+    ASSERT_NE(first, nullptr);
+    const MainWindow* const second = openExample("Chute release.ork");
+    ASSERT_NE(second, nullptr);
+    const SimulationTableModel&       model      = simulationsOf(*first).tableModel();
+    const std::shared_ptr<Simulation> simulation = model.simulation(0);
+    const QString                     commonName = model.cellText(0, Column::CONFIGURATION);
+    const MotorMount* const           mount = firstMountWithMotorOf(first->document().getRocket());
+    ASSERT_NE(mount, nullptr);
+
+    WidgetUserPrompts widgets;
+    {
+        const Gui::Test::NextModalDialog answer(chooseDesignationsAndCancel);
+        EXPECT_EQ(
+            widgets.chooseMotor(first->tabs(), services().services(), *mount, simulation->getId()),
+            std::nullopt);
+    }
+    EXPECT_TRUE(preferences().getMotorNameColumn());
+    const QString designation = QtStrings::fromUtf8(first->document()
+                                                        .getRocket()
+                                                        .getFlightConfiguration(simulation->getId())
+                                                        .getName(preferences()));
+    EXPECT_NE(designation, commonName);
+    EXPECT_EQ(model.cellText(0, Column::CONFIGURATION), designation);
+    EXPECT_EQ(simulationsOf(*second).tableModel().cellText(0, Column::CONFIGURATION), designation);
 }
 
 // ======================================================================== every pinned design

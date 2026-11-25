@@ -77,10 +77,13 @@ namespace QtRocket::Gui
 ///
 /// Deviations from OpenRocket (each fixed where OpenRocket's table works by view rows):
 /// - OpenRocket bug 23: the warnings column sorts (SimulationColumns).
-/// - OpenRocket bug 28 (the selection after a new order): OpenRocket's fireMaintainSelection()
-///   selects the same view row numbers again after every document event and sort, so a re-sort
-///   (statuses changing in a table sorted by status) moves the selection to other simulations;
-///   here the selection stays on its simulations (the persistent indexes follow them).
+/// - OpenRocket bug 28 (the selection after a document event): after every document event
+///   OpenRocket's fireMaintainSelection() calls fireTableDataChanged(), which clears JTable's
+///   selection and sorts the rows again, and then selects the same view row numbers again; so in a
+///   sorted table a change that reorders the rows (statuses or values changing, a simulation
+///   added or removed) moves the selection to other simulations. Here the selection stays on its
+///   simulations (the persistent indexes follow them). A header click keeps the selection on its
+///   simulations in OpenRocket too (JTable keeps it by model row across a new sort order).
 /// - The statuses are read once per document event (see above), not at every paint.
 /// - The cells' units are those of the last reading: OpenRocket's cells take the default units
 ///   of each paint (a units change shows at once; here at the next document event or refresh()).

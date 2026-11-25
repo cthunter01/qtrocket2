@@ -112,7 +112,8 @@ import javax.swing.table.TableColumnModel;
  * toggleSortOrder() of the column, OpenRocket's own)</li>
  * <li>SQ 1 asc|desc order (the order QtRocket gives the warnings column, which OpenRocket does not sort: its bug
  * 23. The rows by their critical, then normal, then informational count, from OpenRocket's own WarningSet, a row
- * without data first as a missing value, equal rows in the model's order; descending reverses each comparison)</li>
+ * without data first as a missing value, equal rows in the model's order; descending reverses each comparison, the
+ * missing value's too, so that a row without data comes last)</li>
  * <li>A selection action=0|1 ... (the panel's twelve actions with nothing, row 0 and rows 0 and 1 selected)</li>
  * <li>CSV text, COPY text, CSVE text (SimulationTableCSVExport.generateCSVData(",", 3, false, false), the Copy
  * text of every row, generateCSVData("\t", 6, false, true) through SimulationPanel.addStatusColumn(), and
@@ -124,7 +125,8 @@ import javax.swing.table.TableColumnModel;
  * undo and redo descriptions and isSaved())</li>
  * <li>FRESH row (a simulation the scenario ran: its R line follows, but no W, WS or C line, since QtRocket's tests
  * pin no value of a fresh flight)</li>
- * <li>R, W, WS, C lines of the simulations after the last step, and S 0 asc|desc, the status column's orders</li>
+ * <li>R, W, WS, C lines of the simulations after the last step, S 0 asc|desc and S 1 asc|desc, the status and
+ * the warnings columns' orders, and SQ 1 asc|desc, QtRocket's of the warnings column</li>
  * <li>PAIRING name file (the Copy of a table whose rows include one without data; then its lines, up to END)</li>
  * <li>COPY text (OpenRocket's, which pairs the statuses with the exporter's lines by position: bug 25) and COPYQ
  * text (QtRocket's: each line with its own simulation's status), every row selected</li>
@@ -393,15 +395,19 @@ public class SimulationTableProbe {
 		Comparator<Integer> counts = (a, b) -> {
 			WarningSet wa = doc.getSimulation(a).getSimulatedWarnings();
 			WarningSet wb = doc.getSimulation(b).getSimulatedWarnings();
+			int result;
 			if (wa == null || wb == null) {
-				return Boolean.compare(wa != null, wb != null);
-			}
-			int result = Integer.compare(wa.getNrOfCriticalWarnings(), wb.getNrOfCriticalWarnings());
-			if (result == 0) {
-				result = Integer.compare(wa.getNrOfNormalWarnings(), wb.getNrOfNormalWarnings());
-			}
-			if (result == 0) {
-				result = Integer.compare(wa.getNrOfInformationalWarnings(), wb.getNrOfInformationalWarnings());
+				// A row without data is a missing value: first ascending, last descending (DefaultRowSorter's
+				// null, which it compares before the comparator and reverses with it).
+				result = Boolean.compare(wa != null, wb != null);
+			} else {
+				result = Integer.compare(wa.getNrOfCriticalWarnings(), wb.getNrOfCriticalWarnings());
+				if (result == 0) {
+					result = Integer.compare(wa.getNrOfNormalWarnings(), wb.getNrOfNormalWarnings());
+				}
+				if (result == 0) {
+					result = Integer.compare(wa.getNrOfInformationalWarnings(), wb.getNrOfInformationalWarnings());
+				}
 			}
 			return ascending ? result : -result;
 		};
@@ -476,7 +482,7 @@ public class SimulationTableProbe {
 		return doc;
 	}
 
-	/** The rows of @p doc after a scenario: R (W, WS, C) of each, and the status column's orders. */
+	/** The rows of @p doc after a scenario: R (W, WS, C) of each, and the status and warnings columns' orders. */
 	static void scenarioRows(OpenRocketDocument doc, Set<Simulation> fresh) throws Exception {
 		SimulationPanel panel = new SimulationPanel(null, doc);
 		ColumnTableModel model = (ColumnTableModel) field(panel, "simulationTableModel");
@@ -489,12 +495,17 @@ public class SimulationTableProbe {
 			row(panel, model, doc, r, isFresh);
 		}
 		RowSorter<?> sorter = table.getRowSorter();
+		for (int c = 0; c <= 1; c++) {
+			sorter.setSortKeys(null);
+			sorter.toggleSortOrder(c);
+			line("S", c, "asc", order(table));
+			sorter.toggleSortOrder(c);
+			line("S", c, "desc", order(table));
+		}
 		sorter.setSortKeys(null);
-		sorter.toggleSortOrder(0);
-		line("S", 0, "asc", order(table));
-		sorter.toggleSortOrder(0);
-		line("S", 0, "desc", order(table));
-		sorter.setSortKeys(null);
+		// The warnings column's orders: rows without data beside rows with data in the first scenario.
+		line("SQ", 1, "asc", warningsOrder(doc, true));
+		line("SQ", 1, "desc", warningsOrder(doc, false));
 		line("END");
 	}
 

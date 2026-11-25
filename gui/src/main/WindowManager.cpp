@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <QAction>
-#include <QItemSelectionModel>
 #include <QLayout>
 #include <QMenuBar>
 #include <QObject>
@@ -121,8 +120,7 @@ void coupleSelections(DocumentSelectionModel& components, SimulationTableView& s
                              }
                          },
                          QStringLiteral("Selection")));
-    QObject::connect(simulations.selectionModel(), &QItemSelectionModel::selectionChanged,
-                     &components,
+    QObject::connect(&simulations, &SimulationTableView::selectedSimulationsChanged, &components,
                      guarded(
                          [&components, &simulations] {
                              // The simulation list's listener: clearComponentSelection().

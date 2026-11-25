@@ -400,7 +400,9 @@ TEST_F(SimulationTableModelTest, SortsByTheHeaderClicks)
 
 TEST_F(SimulationTableModelTest, KeepsTheSelectionOnItsSimulationsAcrossANewOrder)
 {
-    // OpenRocket bug 28, fixed: OpenRocket selects the same view rows again after a re-sort.
+    // A header click keeps the selection on its simulations, as JTable does. OpenRocket bug 28,
+    // fixed: after a document event that reorders the rows (below) OpenRocket selects the same view
+    // rows again.
     const std::unique_ptr<Table> table = simpleModelRocket();
     ASSERT_NE(table, nullptr);
     SimulationTableModel& model = table->model();
@@ -821,7 +823,10 @@ TEST_F(SimulationTableScenarioGolden, ShowsEveryStatusOfASimpleModelRocketsEdits
     runsAndNewSimulation(table, replay);
     replay.finish();
     expectRows(table, pin->simulations);
-    // The status column's orders (the aborted "Simulation 1" sorts by its abort's text).
+    // The status column's orders (the aborted "Simulation 1" sorts by its abort's text), and the
+    // warnings column's with "Simulation 6", which has no data, first ascending and last
+    // descending (a missing value, as TableSortKeys sorts one).
+    EXPECT_TRUE(pin->orders.contains("warnings"));
     expectOrders(table, pin->orders);
 }
 

@@ -6,7 +6,9 @@
 #include <span>
 #include <vector>
 
+#include <QApplication>
 #include <QCloseEvent>
+#include <QList>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QObject>
@@ -236,6 +238,18 @@ void MainWindow::refreshSimulationTable() const
     if (const SimulationPanel* const panel = componentSimulationPanel(); panel != nullptr)
     {
         panel->tableModel().refresh();
+    }
+}
+
+void MainWindow::refreshEverySimulationTable()
+{
+    const QList<QWidget*> windows = QApplication::topLevelWidgets();
+    for (const QWidget* const widget : windows)
+    {
+        if (const auto* const window = qobject_cast<const MainWindow*>(widget); window != nullptr)
+        {
+            window->refreshSimulationTable();
+        }
     }
 }
 

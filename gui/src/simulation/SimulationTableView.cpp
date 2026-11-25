@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
@@ -142,10 +143,13 @@ SimulationTableView::SimulationTableView(SimulationTableModel& model, QWidget* p
 
     connect(&header, &QHeaderView::sectionResized, this,
             guarded([this](int section) { keepMinimumWidth(section); }, context()));
+    // The selection model was made by setModel(): it heard of a layout change before the view.
+    connect(selectionModel(), &QItemSelectionModel::selectionChanged, this,
+            guarded([this] { selectionModelChanged(); }, context()));
     connect(&model, &QAbstractItemModel::layoutAboutToBeChanged, this,
             guarded([this] { rememberRows(); }, context()));
     connect(&model, &QAbstractItemModel::layoutChanged, this,
-            guarded([this] { reselectReplacedRows(); }, context()));
+            guarded([this] { layoutChangedByModel(); }, context()));
 }
 
 SimulationTableView::~SimulationTableView() = default;
@@ -332,25 +336,57 @@ void SimulationTableView::selectSimulations(
                                       QItemSelectionModel::NoUpdate);
 }
 
+std::vector<std::shared_ptr<Simulation>> SimulationTableView::selectionByIdentity() const
+{
+    std::vector<std::shared_ptr<Simulation>> simulations = selectedSimulations();
+    std::ranges::sort(simulations, [](const std::shared_ptr<Simulation>& a,
+                                      const std::shared_ptr<Simulation>& b) {
+        return std::less<const Simulation*>{}(a.get(), b.get());
+    });
+    return simulations;
+}
+
+void SimulationTableView::selectionModelChanged()
+{
+    ++m_selectionChanges;
+    Q_EMIT selectedSimulationsChanged();
+}
+
 void SimulationTableView::rememberRows()
 {
     const QModelIndex current = currentIndex();
-    m_before                  = Before{.simulations   = m_model->simulations(),
-                                       .selectedRows  = selectedRows(),
-                                       .currentColumn = current.isValid() ? current.column() : -1};
+    m_before                  = Before{.simulations      = m_model->simulations(),
+                                       .selectedRows     = selectedRows(),
+                                       .currentColumn    = current.isValid() ? current.column() : -1,
+                                       .selected         = selectionByIdentity(),
+                                       .selectionChanges = m_selectionChanges};
 }
 
-void SimulationTableView::reselectReplacedRows()
+void SimulationTableView::layoutChangedByModel()
 {
     const std::optional<Before> before = std::exchange(m_before, std::nullopt);
-    if (!before.has_value() || before->selectedRows.empty() ||
-        !selectionModel()->selection().isEmpty())
+    if (!before.has_value())
+    {
+        return;
+    }
+    reselectReplacedRows(*before);
+    // The selection model tells of no row a layout change takes away (the simulations of the
+    // rows before are still held: no address was given to another simulation meanwhile).
+    if (m_selectionChanges == before->selectionChanges && selectionByIdentity() != before->selected)
+    {
+        selectionModelChanged();
+    }
+}
+
+void SimulationTableView::reselectReplacedRows(const Before& before)
+{
+    if (before.selectedRows.empty() || !selectionModel()->selection().isEmpty())
     {
         return;
     }
     // Only when the list was replaced as a whole (an undo or a redo that changed the number of
     // simulations): a simulation still in the table keeps its own selection.
-    for (const std::shared_ptr<Simulation>& simulation : before->simulations)
+    for (const std::shared_ptr<Simulation>& simulation : before.simulations)
     {
         if (m_model->rowOf(*simulation) >= 0)
         {
@@ -361,7 +397,7 @@ void SimulationTableView::reselectReplacedRows()
     QItemSelection selection;
     int            last    = -1;
     const int      columns = m_model->columnCount();
-    for (const int row : before->selectedRows)
+    for (const int row : before.selectedRows)
     {
         if (row >= m_model->rowCount())
         {
@@ -375,7 +411,7 @@ void SimulationTableView::reselectReplacedRows()
         return;
     }
     selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
-    selectionModel()->setCurrentIndex(m_model->index(last, leadSection(before->currentColumn)),
+    selectionModel()->setCurrentIndex(m_model->index(last, leadSection(before.currentColumn)),
                                       QItemSelectionModel::NoUpdate);
 }
 

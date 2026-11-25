@@ -92,8 +92,9 @@ class WindowGeometry;
 /// Configuration"), since Qt reads an "&" as the mark of a mnemonic, where Swing shows the text
 /// as it is; a simulations table shows a change of the units or of a preference it shows, which
 /// no document event tells, once it is read again (refreshSimulationTable(), which the
-/// preferences dialog's refresh of the design views calls through the WindowManager: critic G6),
-/// where Java's table renders its cells anew at every paint.
+/// preferences dialog's refresh of the design views calls through the WindowManager: critic G6;
+/// and refreshEverySimulationTable(), which the motor chooser's question calls when its name
+/// column changed), where Java's table renders its cells anew at every paint.
 class MainWindow final : public QMainWindow
 {
     Q_OBJECT
@@ -184,6 +185,13 @@ public:
     /// nothing while the tab holds no SimulationPanel. The WindowManager calls it whenever the
     /// preferences dialog refreshes the design views (critic G6).
     void refreshSimulationTable() const;
+
+    /// refreshSimulationTable() of every MainWindow of the application (its top-level widgets):
+    /// after a change of a preference the tables show, which no document event tells, made where
+    /// no window is known. WidgetUserPrompts::chooseMotor() calls it when the motor chooser
+    /// changed its name column (Preferences::setMotorNameColumn(): a motor by its designation or
+    /// its common name, also in the configurations' names of the tables).
+    static void refreshEverySimulationTable();
 
     /// The title of the window of @p document, with Qt's modified mark: "[*]<rocket name>" and
     /// " (<file name>)" when the document has a file (BasicFrame.setTitle()).

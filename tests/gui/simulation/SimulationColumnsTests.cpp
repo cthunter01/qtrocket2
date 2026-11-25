@@ -498,10 +498,23 @@ TEST_F(SimulationColumnsTest, DescribesAnAbortedSimulationByEachBranchsAbort)
     EXPECT_EQ(SimulationColumns::statusSortText(Status::ABORTED, *simulation),
               QStringLiteral("Simulation Aborted: No motors ignited-Simulation Aborted: Stage "
                              "began to tumble under thrust.--"));
-    // Without data an aborted status describes nothing (Status.getDescription()'s empty builder).
+}
+
+TEST_F(SimulationColumnsTest, DescribesAnAbortWithoutAnAbortEventByTheStatusAlone)
+{
+    // Status.getDescription(): "It shouldn't be possible to abort without an abort event. But just
+    // in case...": the plain description, for data without a SIM_ABORT event and without data.
+    const Alpha                       s;
+    const QString                     plain = QStringLiteral("<i><b>Simulation Aborted</b></i>");
+    const std::unique_ptr<Simulation> withoutAborts =
+        loaded(s.rocket(), "Aborted", Status::UPTODATE, abortedData({std::nullopt, std::nullopt}));
+    EXPECT_EQ(SimulationColumns::statusDescription(Status::ABORTED, *withoutAborts), plain);
     const std::unique_ptr<Simulation> withoutData =
         loaded(s.rocket(), "Aborted", Status::NOT_SIMULATED, nullptr);
-    EXPECT_TRUE(SimulationColumns::statusDescription(Status::ABORTED, *withoutData).isEmpty());
+    EXPECT_EQ(SimulationColumns::statusDescription(Status::ABORTED, *withoutData), plain);
+    // The status tooltip and the sort text read the same description.
+    EXPECT_EQ(SimulationColumns::statusSortText(Status::ABORTED, *withoutAborts),
+              QStringLiteral("Simulation Aborted-"));
 }
 
 TEST_F(SimulationColumnsTest, ListsTheWarningsOfEachPriorityInItsColour)

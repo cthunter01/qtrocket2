@@ -34,6 +34,7 @@
 #include <QModelIndex>
 #include <QObject>
 #include <QPoint>
+#include <QSignalSpy>
 #include <QStyleOptionViewItem>
 #include <QTest>
 #include <Qt>
@@ -619,6 +620,31 @@ TEST_F(SimulationTableViewTest, MovesFromRowToRowWithTabAndTheArrows)
     EXPECT_EQ(table->selectedNames(), (std::vector<std::string>{"Simulation 3 - too short delay"}));
 }
 
+TEST_F(SimulationTableViewTest, AddsTheCurrentRowWithSpaceAndDoesNothingWithEscapeOrF2)
+{
+    // The probe's BIND lines: SPACE is JTable's addToSelection (the lead row added to the
+    // selection, which keeps its other rows), ESCAPE its cancel and F2 its startEditing, which do
+    // nothing in a table without an editable cell.
+    const std::unique_ptr<Table> table = simpleModelRocket();
+    ASSERT_NE(table, nullptr);
+    SimulationTableView& view = table->view();
+    view.selectSimulations({table->model().simulation(1)});
+    // Ctrl+Down moves the current row alone (JTable's selectNextRowChangeLead).
+    QTest::keyClick(&view, Qt::Key_Down, Qt::ControlModifier);
+    ASSERT_EQ(view.currentIndex().row(), 2);
+    ASSERT_EQ(table->selectedNames(), (std::vector<std::string>{"Simulation 2"}));
+    const std::vector<std::string> both{"Simulation 2", "Simulation 3 - too short delay"};
+    QTest::keyClick(&view, Qt::Key_Space);
+    EXPECT_EQ(table->selectedNames(), both);
+    // A row that is selected already stays selected.
+    QTest::keyClick(&view, Qt::Key_Space);
+    EXPECT_EQ(table->selectedNames(), both);
+    QTest::keyClick(&view, Qt::Key_Escape);
+    QTest::keyClick(&view, Qt::Key_F2);
+    EXPECT_EQ(table->selectedNames(), both);
+    EXPECT_EQ(view.currentIndex().row(), 2);
+}
+
 /// A step of the probe's KEY lines: what is done, then the selection it leaves (selectionText();
 /// not compared without one).
 struct KeyStep
@@ -840,7 +866,9 @@ TEST_F(SimulationTableViewTest, SelectsSimulationsByIdentity)
 
 TEST_F(SimulationTableViewTest, KeepsTheSelectionOnItsSimulationsAcrossASortAndAnUndo)
 {
-    // OpenRocket bug 28, fixed: OpenRocket selects the same view rows again.
+    // A header click keeps the selection on its simulations, as JTable does. OpenRocket bug 28,
+    // fixed: after an edit that reorders the rows (below) OpenRocket selects the same view rows
+    // again.
     const std::unique_ptr<Table> table = simpleModelRocket();
     ASSERT_NE(table, nullptr);
     table->show();
@@ -907,6 +935,60 @@ TEST_F(SimulationTableViewTest, SelectsTheSameRowsAfterAnUndoThatReplacesTheSimu
     document.addUndoPosition("Delete Simulation 5");
     document.removeSimulation(*document.getSimulation(3));
     EXPECT_TRUE(table->selectedNames().empty());
+}
+
+TEST_F(SimulationTableViewTest, TellsOfEveryChangeOfTheSelectedSimulations)
+{
+    // Java's addSimulationTableListSelectionListener() hears of every new selection, also of the
+    // one fireMaintainSelection() makes after a change of the document; the selection model tells
+    // of no row a layout change of the model takes away, the view does.
+    const std::unique_ptr<Table> table = simpleModelRocket();
+    ASSERT_NE(table, nullptr);
+    table->show();
+    OpenRocketDocument&        document = table->document();
+    const SimulationTableView& view     = table->view();
+    QSignalSpy                 told(&view, &SimulationTableView::selectedSimulationsChanged);
+    QSignalSpy selections(view.selectionModel(), &QItemSelectionModel::selectionChanged);
+    clickCell(*table, 1, Column::NAME);
+    clickCell(*table, 2, Column::NAME, Qt::ControlModifier);
+    EXPECT_EQ(told.count(), 2);
+    EXPECT_EQ(told.count(), selections.count());
+
+    // A new order of the same simulations: nothing more than the selection model tells.
+    told.clear();
+    selections.clear();
+    clickHeader(*table, Column::APOGEE);
+    clickHeader(*table, Column::APOGEE);
+    table->model().setSortKeys({});
+    EXPECT_EQ(told.count(), selections.count());
+    EXPECT_EQ(table->selectedNames(),
+              (std::vector<std::string>{"Simulation 2", "Simulation 3 - too short delay"}));
+
+    // A selected simulation leaves the document: told once.
+    told.clear();
+    selections.clear();
+    document.removeSimulation(*document.getSimulation(2));
+    EXPECT_EQ(told.count(), 1);
+    EXPECT_EQ(table->selectedNames(), (std::vector<std::string>{"Simulation 2"}));
+    // Another one leaves: the selection stays as it is.
+    told.clear();
+    document.removeSimulation(*document.getSimulation(3));
+    EXPECT_EQ(told.count(), 0);
+    EXPECT_EQ(table->selectedNames(), (std::vector<std::string>{"Simulation 2"}));
+
+    // An undo that replaces every simulation with copies, whose selected row is no more: the
+    // view selects nothing again, and tells.
+    const auto added = std::make_shared<Simulation>(&document, document.getRocket());
+    added->setName(document.getNextSimulationName());
+    document.addUndoPosition("Add " + added->getName());
+    document.addSimulation(added);
+    table->view().selectSimulations({added});
+    ASSERT_EQ(table->selectedNames(), (std::vector<std::string>{added->getName()}));
+    told.clear();
+    document.undo();
+    ASSERT_EQ(document.getSimulationCount(), 3U);
+    EXPECT_TRUE(table->selectedNames().empty());
+    EXPECT_EQ(told.count(), 1);
 }
 
 // ------------------------------------------------------------------------------ the pins

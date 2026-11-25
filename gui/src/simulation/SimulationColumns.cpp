@@ -476,7 +476,8 @@ QString SimulationColumns::statusDescription(Simulation::Status status,
     const std::shared_ptr<FlightData>& data = simulation.getSimulatedData();
     if (data == nullptr)
     {
-        return text;
+        // Java: "It shouldn't be possible to abort without an abort event. But just in case..."
+        return statusText;
     }
     for (std::size_t branch = 0; branch < data->getBranchCount(); ++branch)
     {
@@ -491,7 +492,8 @@ QString SimulationColumns::statusDescription(Simulation::Status status,
         text += statusText + QLatin1String("<i>: ") +
                 (abort != nullptr ? abortText(*abort) : QString()) + QLatin1String("</i><br>");
     }
-    return text;
+    // Java: "It shouldn't be possible to abort without an abort event. But just in case..."
+    return text.isEmpty() ? statusText : text;
 }
 
 QString SimulationColumns::statusSortText(Simulation::Status status, const Simulation& simulation)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -66,12 +67,14 @@ class SimulationTableModel;
 ///   same simulation and column, after a double click on a column other than the status and the
 ///   warnings column made the first selected row the only selected one (the panel then opens
 ///   that simulation's dialog).
-/// The handlers are the panel's (Milestone 4's run 3): SimulationPanel runs the selected
-/// simulations after a click on the status column when the table's status of the signal's
-/// simulation (SimulationTableModel::status()) is NOT_SIMULATED or OUTDATED, opens the settings
-/// dialog on its warnings tab after a double click on the warnings column, nothing after one on
-/// the status column, and the dialog of the simulation (its plot tab when the data is up to
-/// date) after one on any other column.
+/// SimulationPanel handles them already (its cellClicked() and cellDoubleClicked(), connected
+/// when it makes the view; connect them nowhere else): it runs the selected simulations after a
+/// click on the status column when the table's status of the signal's simulation
+/// (SimulationTableModel::status()) is NOT_SIMULATED or OUTDATED, opens the settings dialog on
+/// its warnings tab after a double click on the warnings column, nothing after one on the status
+/// column, and the dialog of the simulation (its plot tab when the data is up to date) after one
+/// on any other column, through the services' UserPrompts::runSimulations() and
+/// SimulationDialogs, whose production implementations are Milestone 4's run 3's.
 /// - A click of the right button on a row selects that row alone when it is not selected, then
 ///   asks for the context menu (contextMenuRequested()); beside the rows it clears the
 ///   selection and asks for nothing.
@@ -98,6 +101,15 @@ class SimulationTableModel;
 /// the table before such a change is in it afterwards, the view selects the same row numbers
 /// again, as OpenRocket's fireMaintainSelection() does after every change, the last of them the
 /// current row.
+///
+/// selectedSimulationsChanged() tells of every change of the selected simulations (Java's
+/// addSimulationTableListSelectionListener(): listen to it, not to the selection model). The
+/// selection model's selectionChanged() does not tell of all of them: a layout change of the
+/// model that takes selected rows away (a selected simulation that left the document, an undo
+/// or a redo whose copies the view cannot select again) shrinks the selection without it, where
+/// OpenRocket's fireMaintainSelection() selects anew and its listeners hear of it. A new order of
+/// the same selected simulations is no change: the view tells nothing the selection model does
+/// not tell then.
 ///
 /// Deviations from OpenRocket:
 /// - OpenRocket bug 26, fixed: the status click and the double clicks are told with the
@@ -201,6 +213,10 @@ Q_SIGNALS:
     /// The context menu was asked for at @p globalPosition, the selected rows being its subject.
     void contextMenuRequested(const QPoint& globalPosition);
 
+    /// The selected simulations changed (see the class comment): after the selection model's
+    /// selectionChanged(), and after a layout change of the model that changed them without one.
+    void selectedSimulationsChanged();
+
 protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
@@ -227,6 +243,10 @@ private:
         std::vector<int> selectedRows;
         /// The current cell's column (a model column), -1 without one.
         int currentColumn = -1;
+        /// The selected simulations (selectionByIdentity()).
+        std::vector<std::shared_ptr<Simulation>> selected;
+        /// m_selectionChanges then.
+        std::size_t selectionChanges = 0;
     };
 
     /// ColumnTableModel.setColumnWidths().
@@ -248,16 +268,25 @@ private:
     /// @p section, or without one (-1) the first shown section (the first section when none is
     /// shown): the column of a current cell that the view makes.
     [[nodiscard]] int leadSection(int section) const;
+    /// The selected simulations, in the order of their addresses (a set, by identity).
+    [[nodiscard]] std::vector<std::shared_ptr<Simulation>> selectionByIdentity() const;
+    /// The selection model's selectionChanged: selectedSimulationsChanged().
+    void selectionModelChanged();
     /// The model's layoutAboutToBeChanged: remembers the rows and the selection.
     void rememberRows();
-    /// The model's layoutChanged: selects the same rows again when none of the rows' simulations
-    /// is in the table any more (see the class comment).
-    void reselectReplacedRows();
+    /// The model's layoutChanged: reselectReplacedRows(), then selectedSimulationsChanged() when
+    /// the selected simulations changed and the selection model did not tell.
+    void layoutChangedByModel();
+    /// Selects the same rows as @p before again when none of the rows' simulations is in the
+    /// table any more (see the class comment).
+    void reselectReplacedRows(const Before& before);
 
     SimulationTableModel* m_model;
     std::optional<Press>  m_press;
     std::optional<Before> m_before;
     bool                  m_resizing{false};
+    /// How often selectedSimulationsChanged() was emitted.
+    std::size_t m_selectionChanges{0};
 };
 
 }  // namespace QtRocket::Gui

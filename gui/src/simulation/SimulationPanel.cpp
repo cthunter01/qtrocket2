@@ -9,7 +9,6 @@
 #include <QAction>
 #include <QChar>
 #include <QHBoxLayout>
-#include <QItemSelectionModel>
 #include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
@@ -192,7 +191,6 @@ SimulationPanel::~SimulationPanel()
 {
     // The children go after this body (QWidget's destructor deletes them): none of their signals
     // may reach this object's slots then.
-    disconnect(m_table->selectionModel(), nullptr, this, nullptr);
     disconnect(m_table, nullptr, this, nullptr);
     disconnect(m_model, nullptr, this, nullptr);
     disconnect(m_clipboard, nullptr, this, nullptr);
@@ -324,7 +322,7 @@ void SimulationPanel::connectParts()
 
     // What the rules read: the selection (the selection listener), the rows, the clipboard.
     const auto update = guarded([this] { updateActions(); }, context());
-    connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged, this, update);
+    connect(m_table, &SimulationTableView::selectedSimulationsChanged, this, update);
     connect(m_model, &SimulationTableModel::refreshed, this, update);
     connect(m_clipboard, &SimulationClipboard::changed, this, update);
 
