@@ -5,7 +5,9 @@
 // (OpenRocket 5f164fd0e05d6e188857b0185601293b7a6e9eaf,
 // SwingPreferences, FlatLaf Light); do not edit. A page item is its kind (LABEL, CHECK,
 // COMBO, SPINNER, BUTTON, SEPARATOR, FIELD, TEXT) and its text, then selected=, items=
-// (the items joined by |), disabled and tip= as the probe writes them.
+// (the items joined by |), disabled and tip= as the probe writes them. The walks of the
+// pages of Milestone 4 are in the form of tests/gui/dialogs/simulation/SimulationDialogWalk.h
+// (the probe's WALK lines), their steps the probe's STEP lines, both without the prefix.
 
 #include <array>
 #include <string_view>
@@ -275,5 +277,406 @@ inline constexpr std::array<std::string_view, 36> kStoredUnitsWithLengthInches{
     "VELOCITY=m/s",
     "VOLTAGE=V",
     "WINDSPEED=m/s"};
+
+/// The Design page's two boxes of the simulations clicked twice each: "click '<text>'
+/// selected=<state> | <key>=<stored>".
+inline constexpr std::array<std::string_view, 4> kDesignPageSimulationSteps{
+    "click 'Show confirmation dialog for discarding simulation changes' selected=false | "
+    "IgnoreDiscardSimulationEditingWarning=false",
+    "click 'Update estimated flight parameters in design window' selected=false | "
+    "backgroundFlight=false",
+    "click 'Show confirmation dialog for discarding simulation changes' selected=true | "
+    "IgnoreDiscardSimulationEditingWarning=true",
+    "click 'Update estimated flight parameters in design window' selected=true | "
+    "backgroundFlight=true"};
+
+/// SimulationPreferencesPanel, in the form of the dialog walk (SimulationDialogWalk.h).
+inline constexpr std::array<std::string_view, 22> kSimulationPageWalk{
+    "CHECK Confirm deletion of simulations. selected=true",
+    "CHECK Run out-dated simulations when you open the simulation tab. selected=false",
+    "BORDER Simulator options",
+    "  LABEL <html>NOTE: the settings below apply only to newly created simulations. <br>To change "
+    "the settings for an existing simulation, select that simulation and edit it.</html> tip=You "
+    "would not be the first one to be confused by this :)",
+    "  LABEL Calculation method: tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Extended Barrowman tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Simulation method: tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL 6-DOF Runge-Kutta 4 tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL Geodetic calculations: tip=Relate to the calculation of coordinates on the earth.  "
+    "This also enables coriolis effect computations.",
+    "  COMBO selected=Spherical approximation items=Flat Earth|Spherical approximation|WGS84 "
+    "ellipsoid tip=<html>Perform geodetic computations assuming a spherical Earth. <br>This is "
+    "sufficiently accurate for almost all purposes.",
+    "  LABEL Gravity model: tip=Select the gravity model to use during the simulation.",
+    "  COMBO selected=WGS items=WGS|Constant tip=WGS84 ellipsoid gravity model (varies with "
+    "latitude and altitude)",
+    "  LABEL Time step: tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  SPINNER 0.05 tip=<html>The time between simulation steps. <br>A smaller time step results "
+    "in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is "
+    "quite accurate with a time step of 0.05 s.",
+    "  LABEL s tip=<html>The time between simulation steps. <br>A smaller time step results in a "
+    "more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is quite "
+    "accurate with a time step of 0.05 s.",
+    "  SLIDER 0..1000 at 210 tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  LABEL Maximum simulation time: tip=<html>The maximum time the simulation will run.",
+    "  SPINNER 1200 tip=<html>The maximum time the simulation will run.",
+    "  LABEL s tip=<html>The maximum time the simulation will run.",
+    "  CHECK Use fixed random seed: selected=false tip=Reuse the same random seed for reproducible "
+    "simulation runs.",
+    "  FIELD  disabled tip=A signed 32-bit integer used to initialize simulation randomness.",
+    "  BUTTON Reset to default tip=Reset the time step to its default value (0.05 s)."};
+
+/// The Simulation page's check boxes clicked, the geodetic computations chosen, then the constant
+/// gravity.
+inline constexpr std::array<std::string_view, 6> kSimulationPageSteps{
+    "click 'Confirm deletion of simulations.' selected=false | ConfirmDeleteSimulation=false "
+    "AutoRunSimulations=false",
+    "click 'Run out-dated simulations when you open the simulation tab.' selected=true | "
+    "ConfirmDeleteSimulation=false AutoRunSimulations=true",
+    "geodetic FLAT | geodetic=[Flat Earth] tip=Perform computations with a flat Earth "
+    "approximation.  Sufficient for low-altitude flights. | GeodeticComputationStrategy=FLAT "
+    "getter=FLAT",
+    "geodetic WGS84 | geodetic=[WGS84 ellipsoid] tip=<html>Perform geodetic computations on the "
+    "WGS84 reference ellipsoid using Vincenty's method. <br>Slower and unnecessary in most cases. "
+    "| GeodeticComputationStrategy=WGS84 getter=WGS84",
+    "geodetic SPHERICAL | geodetic=[Spherical approximation] tip=<html>Perform geodetic "
+    "computations assuming a spherical Earth. <br>This is sufficiently accurate for almost all "
+    "purposes. | GeodeticComputationStrategy=SPHERICAL getter=SPHERICAL",
+    "gravity CONSTANT | gravity=[Constant] tip=Constant gravity model (same value everywhere) | "
+    "GravityModel=CONSTANT | gravity value=[9.81] at 490"};
+
+/// The Simulation page after those steps.
+inline constexpr std::array<std::string_view, 26> kSimulationPageWalkConstantGravity{
+    "CHECK Confirm deletion of simulations. selected=false",
+    "CHECK Run out-dated simulations when you open the simulation tab. selected=true",
+    "BORDER Simulator options",
+    "  LABEL <html>NOTE: the settings below apply only to newly created simulations. <br>To change "
+    "the settings for an existing simulation, select that simulation and edit it.</html> tip=You "
+    "would not be the first one to be confused by this :)",
+    "  LABEL Calculation method: tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Extended Barrowman tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Simulation method: tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL 6-DOF Runge-Kutta 4 tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL Geodetic calculations: tip=Relate to the calculation of coordinates on the earth.  "
+    "This also enables coriolis effect computations.",
+    "  COMBO selected=Spherical approximation items=Flat Earth|Spherical approximation|WGS84 "
+    "ellipsoid tip=<html>Perform geodetic computations assuming a spherical Earth. <br>This is "
+    "sufficiently accurate for almost all purposes.",
+    "  LABEL Gravity model: tip=Select the gravity model to use during the simulation.",
+    "  COMBO selected=Constant items=WGS|Constant tip=Constant gravity model (same value "
+    "everywhere)",
+    "  LABEL Gravity value: tip=Constant gravitational acceleration value",
+    "  SPINNER 9.81 tip=Constant gravitational acceleration value",
+    "  LABEL m/s\u00B2 tip=Constant gravitational acceleration value",
+    "  SLIDER 0..1000 at 490 tip=Constant gravitational acceleration value",
+    "  LABEL Time step: tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  SPINNER 0.05 tip=<html>The time between simulation steps. <br>A smaller time step results "
+    "in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is "
+    "quite accurate with a time step of 0.05 s.",
+    "  LABEL s tip=<html>The time between simulation steps. <br>A smaller time step results in a "
+    "more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is quite "
+    "accurate with a time step of 0.05 s.",
+    "  SLIDER 0..1000 at 210 tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  LABEL Maximum simulation time: tip=<html>The maximum time the simulation will run.",
+    "  SPINNER 1200 tip=<html>The maximum time the simulation will run.",
+    "  LABEL s tip=<html>The maximum time the simulation will run.",
+    "  CHECK Use fixed random seed: selected=false tip=Reuse the same random seed for reproducible "
+    "simulation runs.",
+    "  FIELD  disabled tip=A signed 32-bit integer used to initialize simulation randomness.",
+    "  BUTTON Reset to default tip=Reset the time step to its default value (0.05 s)."};
+
+/// Then the gravity value, the time step and the maximum time typed, the seed's check box, field,
+/// focus loss and prepareForSave(), and "Reset to default" after edits of each value.
+inline constexpr std::array<std::string_view, 31> kSimulationPageSteps2{
+    "gravity typed=[-1] | gravity value=[0] at 0 | ConstantGravityValue=0.0",
+    "gravity typed=[0] | gravity value=[0] at 0 | ConstantGravityValue=0.0",
+    "gravity typed=[3.72] | gravity value=[3.72] at 186 | ConstantGravityValue=3.72",
+    "gravity typed=[30] | gravity value=[30] at 1000 | ConstantGravityValue=30.0",
+    "gravity typed=[150] | gravity value=[150] at 1000 | ConstantGravityValue=150.0",
+    "gravity typed=[9.807] | gravity value=[9.81] at 490 | ConstantGravityValue=9.807",
+    "gravity WGS | gravity=[WGS] tip=WGS84 ellipsoid gravity model (varies with latitude and "
+    "altitude) | GravityModel=WGS | gravity value=[9.81] at 490 hidden",
+    "time step typed=[0.001] | time step=[0.01] at 0 | SimulationTimeStep=0.01",
+    "time step typed=[0.01] | time step=[0.01] at 0 | SimulationTimeStep=0.01",
+    "time step typed=[0.02] | time step=[0.02] at 52 | SimulationTimeStep=0.02",
+    "time step typed=[0.2] | time step=[0.20] at 1000 | SimulationTimeStep=0.2",
+    "time step typed=[5] | time step=[1.00] at 1000 | SimulationTimeStep=1.0",
+    "time step typed=[0.05] | time step=[0.05] at 210 | SimulationTimeStep=0.05",
+    "maximum time typed=[0.5] | maximum time=[1] | SimulationMaxTime=1.0",
+    "maximum time typed=[1] | maximum time=[1] | SimulationMaxTime=1.0",
+    "maximum time typed=[600] | maximum time=[600] | SimulationMaxTime=600.0",
+    "maximum time typed=[5000000] | maximum time=[5.00E6] | SimulationMaxTime=5000000.0",
+    "maximum time typed=[1200] | maximum time=[1200] | SimulationMaxTime=1200.0",
+    "seed initial | check=false field=[] disabled | SimulationRandomSeedFixed=false",
+    "seed checked | check=true field=[the stored seed] | SimulationRandomSeedFixed=true",
+    "seed typed=[12345] | check=true field=[the stored seed] | SimulationRandomSeedFixed=true "
+    "seed==12345:true seed==-2147483648:false",
+    "seed typed=[ -2147483648 ] | check=true field=[ -2147483648 ] | "
+    "SimulationRandomSeedFixed=true seed==12345:false seed==-2147483648:true",
+    "seed typed=[2147483648] | check=true field=[2147483648] outline=ERROR | "
+    "SimulationRandomSeedFixed=true seed==12345:false seed==-2147483648:true",
+    "seed typed=[abc] | check=true field=[abc] outline=ERROR | SimulationRandomSeedFixed=true "
+    "seed==12345:false seed==-2147483648:true",
+    "seed typed=[] | check=true field=[] outline=ERROR | SimulationRandomSeedFixed=true "
+    "seed==12345:false seed==-2147483648:true",
+    "seed focus lost with [abc] | check=true field=[the stored seed] | "
+    "SimulationRandomSeedFixed=true",
+    "seed focus lost with [4711] | check=true field=[the stored seed] | "
+    "SimulationRandomSeedFixed=true seed==4711:true",
+    "seed prepareForSave with [  ] | check=false field=[] disabled | "
+    "SimulationRandomSeedFixed=false",
+    "seed prepareForSave with [ 99 ] | check=true field=[the stored seed] | "
+    "SimulationRandomSeedFixed=true seed==99:true",
+    "seed unchecked | check=false field=[] disabled | SimulationRandomSeedFixed=false "
+    "seed==99:true",
+    "reset | time step=[0.05] at 210 maximum time=[1200] geodetic=[Spherical approximation] "
+    "gravity=[WGS] gravity value=[9.81] at 490 | check=false field=[] disabled | "
+    "SimulationRandomSeedFixed=false seed==31:true | SimulationTimeStep=0.05 "
+    "SimulationMaxTime=1200.0 GeodeticComputationStrategy=SPHERICAL GravityModel=WGS "
+    "ConstantGravityValue=9.807 SimulationRandomSeedFixed=false"};
+
+/// The Simulation page after "Reset to default".
+inline constexpr std::array<std::string_view, 26> kSimulationPageWalkAfterReset{
+    "CHECK Confirm deletion of simulations. selected=false",
+    "CHECK Run out-dated simulations when you open the simulation tab. selected=true",
+    "BORDER Simulator options",
+    "  LABEL <html>NOTE: the settings below apply only to newly created simulations. <br>To change "
+    "the settings for an existing simulation, select that simulation and edit it.</html> tip=You "
+    "would not be the first one to be confused by this :)",
+    "  LABEL Calculation method: tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Extended Barrowman tip=<html>The Extended Barrowman method calculates aerodynamic "
+    "forces according  <br>to the Barrowman equations extended to accommodate more components.",
+    "  LABEL Simulation method: tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL 6-DOF Runge-Kutta 4 tip=<html>The six degree-of-freedom simulator allows the rocket "
+    "total freedom during flight. <br>Integration is performed using a 4<sup>th</sup> order "
+    "Runge-Kutta 4 numerical integration.",
+    "  LABEL Geodetic calculations: tip=Relate to the calculation of coordinates on the earth.  "
+    "This also enables coriolis effect computations.",
+    "  COMBO selected=Spherical approximation items=Flat Earth|Spherical approximation|WGS84 "
+    "ellipsoid tip=<html>Perform geodetic computations on the WGS84 reference ellipsoid using "
+    "Vincenty's method. <br>Slower and unnecessary in most cases.",
+    "  LABEL Gravity model: tip=Select the gravity model to use during the simulation.",
+    "  COMBO selected=WGS items=WGS|Constant tip=Constant gravity model (same value everywhere)",
+    "  LABEL Gravity value: tip=Constant gravitational acceleration value",
+    "  SPINNER 9.81 tip=Constant gravitational acceleration value",
+    "  LABEL m/s\u00B2 tip=Constant gravitational acceleration value",
+    "  SLIDER 0..1000 at 490 tip=Constant gravitational acceleration value",
+    "  LABEL Time step: tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  SPINNER 0.05 tip=<html>The time between simulation steps. <br>A smaller time step results "
+    "in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is "
+    "quite accurate with a time step of 0.05 s.",
+    "  LABEL s tip=<html>The time between simulation steps. <br>A smaller time step results in a "
+    "more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation method is quite "
+    "accurate with a time step of 0.05 s.",
+    "  SLIDER 0..1000 at 210 tip=<html>The time between simulation steps. <br>A smaller time step "
+    "results in a more accurate but slower simulation. <br>The 4<sup>th</sup> order simulation "
+    "method is quite accurate with a time step of 0.05 s.",
+    "  LABEL Maximum simulation time: tip=<html>The maximum time the simulation will run.",
+    "  SPINNER 1200 tip=<html>The maximum time the simulation will run.",
+    "  LABEL s tip=<html>The maximum time the simulation will run.",
+    "  CHECK Use fixed random seed: selected=false tip=Reuse the same random seed for reproducible "
+    "simulation runs.",
+    "  FIELD  disabled tip=A signed 32-bit integer used to initialize simulation randomness.",
+    "  BUTTON Reset to default tip=Reset the time step to its default value (0.05 s)."};
+
+/// WarningsPreferencesPanel.
+inline constexpr std::array<std::string_view, 6> kWarningsPageWalk{
+    "BUTTON Single Deployment Warnings icon",
+    "LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at "
+    "an unsafe speed. Warnings apply independently by stage.</body></html>",
+    "LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.",
+    "SPINNER 20 tip=Warn when a recovery device deploys above this speed.",
+    "LABEL m/s",
+    "BUTTON Dual Deployment Warnings icon"};
+
+/// The Warnings page's thresholds typed, the dual deployment section expanded.
+inline constexpr std::array<std::string_view, 12> kWarningsPageSteps{
+    "sections 2 expanded=true,false spinners=1",
+    "single high typed=[25] | [25] | RecoverySpeedWarning=25.0",
+    "single high typed=[-5] | [0] | RecoverySpeedWarning=0.0",
+    "single high typed=[20] | [20] | RecoverySpeedWarning=20.0",
+    "single high typed=[37] | [37] | RecoverySpeedWarning=37.0",
+    "expand dual | expanded=true spinners=3",
+    "dual low typed=[10] | [10] | RecoveryDrogueMainLowSpeedWarning=10.0",
+    "dual low typed=[-1] | [0] | RecoveryDrogueMainLowSpeedWarning=0.0",
+    "dual low typed=[12.5] | [12.5] | RecoveryDrogueMainLowSpeedWarning=12.5",
+    "dual high typed=[40] | [40] | RecoveryDrogueMainHighSpeedWarning=40.0",
+    "dual high typed=[0] | [0] | RecoveryDrogueMainHighSpeedWarning=0.0",
+    "dual high typed=[45] | [45] | RecoveryDrogueMainHighSpeedWarning=45.0"};
+
+/// The Warnings page after those steps.
+inline constexpr std::array<std::string_view, 14> kWarningsPageWalkExpanded{
+    "BUTTON Single Deployment Warnings icon",
+    "LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at "
+    "an unsafe speed. Warnings apply independently by stage.</body></html>",
+    "LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.",
+    "SPINNER 37 tip=Warn when a recovery device deploys above this speed.",
+    "LABEL m/s",
+    "BUTTON Dual Deployment Warnings icon",
+    "LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at "
+    "an unsafe speed. Warnings apply independently by stage.</body></html>",
+    "LABEL <html><body style='margin:0;'>Mark a recovery device as a drogue in the Recovery tab of "
+    "a Stage configuration dialog to enable dual-deployment warnings.</body></html>",
+    "LABEL Low Speed Threshold tip=Warn when a recovery device deploys below this speed.",
+    "SPINNER 12.5 tip=Warn when a recovery device deploys below this speed.",
+    "LABEL m/s",
+    "LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.",
+    "SPINNER 45 tip=Warn when a recovery device deploys above this speed.",
+    "LABEL m/s"};
+
+/// Then with the single deployment section collapsed.
+inline constexpr std::array<std::string_view, 10> kWarningsPageWalkSingleCollapsed{
+    "BUTTON Single Deployment Warnings icon",
+    "BUTTON Dual Deployment Warnings icon",
+    "LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at "
+    "an unsafe speed. Warnings apply independently by stage.</body></html>",
+    "LABEL <html><body style='margin:0;'>Mark a recovery device as a drogue in the Recovery tab of "
+    "a Stage configuration dialog to enable dual-deployment warnings.</body></html>",
+    "LABEL Low Speed Threshold tip=Warn when a recovery device deploys below this speed.",
+    "SPINNER 12.5 tip=Warn when a recovery device deploys below this speed.",
+    "LABEL m/s",
+    "LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.",
+    "SPINNER 45 tip=Warn when a recovery device deploys above this speed.",
+    "LABEL m/s"};
+
+/// LaunchPreferencesPanel.
+inline constexpr std::array<std::string_view, 60> kLaunchPageWalk{
+    "LABEL <html>NOTE: the settings below apply only to newly created simulations. <br>To change "
+    "the settings for an existing simulation, select that simulation and edit it.</html> tip=You "
+    "would not be the first one to be confused by this :)",
+    "BORDER Wind",
+    "  LABEL Average windspeed:",
+    "  SPINNER 2 tip=The average windspeed relative to the ground.",
+    "  LABEL m/s",
+    "  SLIDER 0..1000 at 200",
+    "  LABEL Standard deviation:",
+    "  SPINNER 0.2 tip=<html>The standard deviation of the windspeed. <br>The windspeed is within "
+    "twice the standard deviation from the average for 95% of the time.",
+    "  LABEL m/s",
+    "  SLIDER 0..1000 at 100",
+    "  LABEL Turbulence intensity:",
+    "  SPINNER 10 tip=<html>The turbulence intensity is the standard deviation divided by the "
+    "average windspeed. <br>Typical values range from 5 % to 20 %.",
+    "  LABEL %",
+    "  SLIDER 0..1000 at 100",
+    "  LABEL Medium tip=<html>The turbulence intensity is the standard deviation divided by the "
+    "average windspeed. <br>Typical values range from 5 % to 20 %.",
+    "  LABEL Wind direction:",
+    "  SPINNER 90 tip=<html>Wind direction, 0-360 degrees.   <br>0 means from the north, <br> 90 "
+    "is from the east",
+    "  LABEL \u00B0",
+    "  SLIDER 0..1000 at 250",
+    "BORDER Atmospheric conditions",
+    "  CHECK Use International Standard Atmosphere selected=true tip=<html>Select to use the "
+    "International Standard Atmosphere model. <br>This model has a temperature of 15.00\u00B0C and "
+    "a pressure of 1013.25 mbar at sea level.",
+    "  LABEL Temperature: disabled tip=The temperature at the launch site.",
+    "  SPINNER 15.00 disabled tip=The temperature at the launch site.",
+    "  LABEL \u00B0C disabled tip=The temperature at the launch site.",
+    "  SLIDER 0..1000 at 636 disabled tip=The temperature at the launch site.",
+    "  LABEL Pressure: disabled tip=The atmospheric pressure at the launch site.",
+    "  SPINNER 1013.25 disabled tip=The atmospheric pressure at the launch site.",
+    "  LABEL mbar disabled tip=The atmospheric pressure at the launch site.",
+    "  SLIDER 0..1000 at 632 disabled tip=The atmospheric pressure at the launch site.",
+    "  LABEL Relative humidity: disabled tip=The relative air humidity at the launch site.",
+    "  SPINNER 0 disabled tip=The relative air humidity at the launch site.",
+    "  LABEL % disabled tip=The relative air humidity at the launch site.",
+    "  SLIDER 0..1000 at 0 disabled tip=The relative air humidity at the launch site.",
+    "BORDER Launch site",
+    "  LABEL Latitude: tip=<html>The launch site latitude affects the gravitational pull of Earth. "
+    "<br>Positive values are on the Northern hemisphere, negative values on the Southern "
+    "hemisphere.",
+    "  SPINNER 28.61 tip=<html>The launch site latitude affects the gravitational pull of Earth. "
+    "<br>Positive values are on the Northern hemisphere, negative values on the Southern "
+    "hemisphere.",
+    "  LABEL \u00B0 N tip=<html>The launch site latitude affects the gravitational pull of Earth. "
+    "<br>Positive values are on the Northern hemisphere, negative values on the Southern "
+    "hemisphere.",
+    "  SLIDER 0..1000 at 658 tip=<html>The launch site latitude affects the gravitational pull of "
+    "Earth. <br>Positive values are on the Northern hemisphere, negative values on the Southern "
+    "hemisphere.",
+    "  LABEL Longitude: tip=<html>Required for weather prediction and elevation models.",
+    "  SPINNER -80.6 tip=<html>Required for weather prediction and elevation models.",
+    "  LABEL \u00B0 E tip=<html>Required for weather prediction and elevation models.",
+    "  SLIDER 0..1000 at 276 tip=<html>Required for weather prediction and elevation models.",
+    "  LABEL Altitude: tip=<html>The launch altitude above mean sea level. <br>This affects the "
+    "position of the rocket in the atmospheric model.",
+    "  SPINNER 0 tip=<html>The launch altitude above mean sea level. <br>This affects the position "
+    "of the rocket in the atmospheric model.",
+    "  LABEL m tip=<html>The launch altitude above mean sea level. <br>This affects the position "
+    "of the rocket in the atmospheric model.",
+    "  SLIDER 0..1000 at 0 tip=<html>The launch altitude above mean sea level. <br>This affects "
+    "the position of the rocket in the atmospheric model.",
+    "BORDER Launch rod",
+    "  LABEL Length: tip=The length of the launch rod.",
+    "  SPINNER 100 tip=The length of the launch rod.",
+    "  LABEL cm tip=The length of the launch rod.",
+    "  SLIDER 0..1000 at 500 tip=The length of the launch rod.",
+    "  CHECK Always launch directly up-wind or down-wind selected=true tip=<html>Makes the launch "
+    "rod point into the wind. <br> A zero launch rod angle will point directly up (vertical).  "
+    "<br>A negative launch rod angle will launch with the wind. <br>If you uncheck this box you "
+    "can point the launchrod any direction you please.",
+    "  LABEL Angle: tip=<html>The angle of the launch rod from vertical. <br> If set to always "
+    "launch up-wind or down-wind, positive angles are up-wind, negative angles down-wind. <br> If "
+    "set for a manual direction, positive angles towards the direction axis. <br> E.g. if "
+    "direction is set to 90\u00B0 (East of the wind), positive angles will point the launch rod "
+    "East. Negative angles will point the rod West.",
+    "  SPINNER 0 tip=<html>The angle of the launch rod from vertical. <br> If set to always launch "
+    "up-wind or down-wind, positive angles are up-wind, negative angles down-wind. <br> If set for "
+    "a manual direction, positive angles towards the direction axis. <br> E.g. if direction is set "
+    "to 90\u00B0 (East of the wind), positive angles will point the launch rod East. Negative "
+    "angles will point the rod West.",
+    "  LABEL \u00B0 tip=<html>The angle of the launch rod from vertical. <br> If set to always "
+    "launch up-wind or down-wind, positive angles are up-wind, negative angles down-wind. <br> If "
+    "set for a manual direction, positive angles towards the direction axis. <br> E.g. if "
+    "direction is set to 90\u00B0 (East of the wind), positive angles will point the launch rod "
+    "East. Negative angles will point the rod West.",
+    "  SLIDER 0..1000 at 500 tip=<html>The angle of the launch rod from vertical. <br> If set to "
+    "always launch up-wind or down-wind, positive angles are up-wind, negative angles down-wind. "
+    "<br> If set for a manual direction, positive angles towards the direction axis. <br> E.g. if "
+    "direction is set to 90\u00B0 (East of the wind), positive angles will point the launch rod "
+    "East. Negative angles will point the rod West.",
+    "  LABEL Direction: disabled tip=<html>Direction of the launch rod. <br>0\u00B0 - 360\u00B0. 0 "
+    "is North;  90\u00B0 is East.",
+    "  SPINNER 90 disabled tip=<html>Direction of the launch rod. <br>0\u00B0 - 360\u00B0. 0 is "
+    "North;  90\u00B0 is East.",
+    "  LABEL \u00B0 disabled tip=<html>Direction of the launch rod. <br>0\u00B0 - 360\u00B0. 0 is "
+    "North;  90\u00B0 is East.",
+    "  SLIDER 0..1000 at 250 disabled tip=<html>Direction of the launch rod. <br>0\u00B0 - "
+    "360\u00B0. 0 is North;  90\u00B0 is East."};
+
+/// The Launch page made, then its average wind, rod length and latitude typed.
+inline constexpr std::array<std::string_view, 4> kLaunchPageSteps{
+    "made | spinners 13 | WindAverage=2.0 WindTurbulence=0.1 WindDirection=1.5707963267948966 "
+    "LaunchRodDirection=1.5707963267948966",
+    "average wind typed=[5] | [5] | WindAverage=5.0 WindTurbulence=0.1 "
+    "WindDirection=1.5707963267948966",
+    "rod length typed=[150] | [150] | LaunchRodLength=1.5",
+    "latitude typed=[45] | [45] | LaunchLatitude=45.0"};
 
 }  // namespace QtRocket::Gui::Test::PreferencesPagePins

@@ -26,6 +26,8 @@
 
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
+#include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -197,6 +199,19 @@ void chooseItem(QComboBox& comboBox, int index)
 {
     comboBox.setCurrentIndex(index);
     Q_EMIT comboBox.activated(index);
+}
+
+std::string storedText(const Preferences& preferences, std::string_view key,
+                       std::string_view javaDefault)
+{
+    const std::optional<std::string> stored = preferences.get(key);
+    return std::string(key) + "=" + (stored.has_value() ? *stored : std::string(javaDefault));
+}
+
+std::string storedDouble(const Preferences& preferences, std::string_view key, double javaDefault)
+{
+    return std::string(key) + "=" +
+           Strings::javaDoubleToString(preferences.getDouble(key, javaDefault));
 }
 
 }  // namespace QtRocket::Gui::Test

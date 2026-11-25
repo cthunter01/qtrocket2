@@ -12,6 +12,11 @@
 class QComboBox;
 class QWidget;
 
+namespace QtRocket
+{
+class Preferences;
+}  // namespace QtRocket
+
 namespace QtRocket::Gui::Test
 {
 
@@ -54,5 +59,18 @@ struct TranscriptEdit
 /// Chooses the item @p index of @p comboBox as the user does (its popup, its keys): makes it the
 /// current item and tells QComboBox::activated().
 void chooseItem(QComboBox& comboBox, int index);
+
+/// "<key>=<text>" of the preference @p key of @p preferences as the probe's STEP lines print what
+/// OpenRocket's store holds: the stored text, or @p javaDefault when the key is absent (the getters
+/// of OpenRocket's SwingPreferences store their default when they read an absent key; QtRocket's do
+/// not).
+[[nodiscard]] std::string storedText(const Preferences& preferences, std::string_view key,
+                                     std::string_view javaDefault);
+
+/// storedText() of a double: the stored value (or @p javaDefault when the key is absent) in Java's
+/// Double.toString() (Strings::javaDoubleToString(), the spelling of OpenRocket's putDouble():
+/// "1.0", where QtRocket's store writes the shortest digits, "1").
+[[nodiscard]] std::string storedDouble(const Preferences& preferences, std::string_view key,
+                                       double javaDefault);
 
 }  // namespace QtRocket::Gui::Test

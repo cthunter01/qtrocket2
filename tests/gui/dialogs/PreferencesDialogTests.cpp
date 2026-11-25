@@ -33,12 +33,18 @@
 #include "QtRocket/gui/dialogs/DefaultUnitSelector.h"
 #include "QtRocket/gui/dialogs/DesignPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/GeneralPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/LaunchPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/PrefChoiceSelector.h"
+#include "QtRocket/gui/dialogs/SimulationPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/WarningsPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/simulation/RecoveryWarningsPanel.h"
+#include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
 #include "QtRocket/gui/figure/DesignPhysics.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/figure/ScaleScrollArea.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/ConfigurationComboBox.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
@@ -53,6 +59,7 @@
 #include "TestTempDir.h"
 #include "dialogs/PreferencesPagePins.h"
 #include "dialogs/PreferencesPageTranscript.h"
+#include "dialogs/simulation/SimulationDialogWalk.h"
 #include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
@@ -201,17 +208,27 @@ TEST_F(PreferencesDialogTest, HasJavasTitleTabsAndButtons)
     EXPECT_EQ(dialog.windowTitle(), QStringLiteral("Preferences"));
     EXPECT_EQ(dialog.windowModality(), Qt::ApplicationModal);
 
+    // Java's order, without its UI, Materials and Graphics tabs (Milestone 5).
     const QTabWidget& tabs = *dialog.tabs();
-    ASSERT_EQ(tabs.count(), 3);
+    ASSERT_EQ(tabs.count(), 6);
     EXPECT_EQ(tabs.tabText(0), QStringLiteral("General"));
     EXPECT_EQ(tabs.tabToolTip(0), QStringLiteral("Miscellaneous options"));
     EXPECT_EQ(tabs.widget(0), dialog.generalPage());
     EXPECT_EQ(tabs.tabText(1), QStringLiteral("Design"));
     EXPECT_EQ(tabs.tabToolTip(1), QStringLiteral("Design"));
     EXPECT_EQ(tabs.widget(1), dialog.designPage());
-    EXPECT_EQ(tabs.tabText(2), QStringLiteral("Units"));
-    EXPECT_EQ(tabs.tabToolTip(2), QStringLiteral("Default units"));
-    EXPECT_EQ(tabs.widget(2), dialog.unitsPage());
+    EXPECT_EQ(tabs.tabText(2), QStringLiteral("Simulation"));
+    EXPECT_EQ(tabs.tabToolTip(2), QStringLiteral("Simulation"));
+    EXPECT_EQ(tabs.widget(2), dialog.simulationPage());
+    EXPECT_EQ(tabs.tabText(3), QStringLiteral("Warnings"));
+    EXPECT_EQ(tabs.tabToolTip(3), QStringLiteral("Warnings"));
+    EXPECT_EQ(tabs.widget(3), dialog.warningsPage());
+    EXPECT_EQ(tabs.tabText(4), QStringLiteral("Launch"));
+    EXPECT_EQ(tabs.tabToolTip(4), QStringLiteral("Launch"));
+    EXPECT_EQ(tabs.widget(4), dialog.launchPage());
+    EXPECT_EQ(tabs.tabText(5), QStringLiteral("Units"));
+    EXPECT_EQ(tabs.tabToolTip(5), QStringLiteral("Default units"));
+    EXPECT_EQ(tabs.widget(5), dialog.unitsPage());
     EXPECT_EQ(tabs.currentIndex(), 0);
 
     EXPECT_EQ(dialog.cancelButton()->text(), QStringLiteral("Cancel"));
@@ -228,8 +245,22 @@ TEST_F(PreferencesDialogTest, HasJavasTitleTabsAndButtons)
 
 TEST_F(PreferencesDialogTest, OpensOnTheTabAskedFor)
 {
-    const PreferencesDialog& dialog = makeDialog(Tab::UNITS);
-    EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.unitsPage());
+    {
+        const PreferencesDialog& dialog = makeDialog(Tab::UNITS);
+        EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.unitsPage());
+    }
+    {
+        const PreferencesDialog& dialog = makeDialog(Tab::SIMULATION);
+        EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.simulationPage());
+    }
+    {
+        const PreferencesDialog& dialog = makeDialog(Tab::WARNINGS);
+        EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.warningsPage());
+    }
+    {
+        const PreferencesDialog& dialog = makeDialog(Tab::LAUNCH);
+        EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.launchPage());
+    }
 }
 
 TEST_F(PreferencesDialogTest, ApplyStoresRefreshesAndTakesANewSnapshot)
@@ -398,8 +429,14 @@ TEST_F(PreferencesDialogTest, ResetAllPreferencesShowsThePreferencesAnew)
 {
     preferences().setAutoOpenLastDesignOnStartup(true);
     preferences().setDefaultMach(0.5);
-    const PreferencesDialog&                dialog = makeDialog(Tab::UNITS);
-    const QPointer<GeneralPreferencesPanel> oldGeneral(dialog.generalPage());
+    const PreferencesDialog&                   dialog = makeDialog(Tab::UNITS);
+    const QPointer<GeneralPreferencesPanel>    oldGeneral(dialog.generalPage());
+    const QPointer<SimulationPreferencesPanel> oldSimulation(dialog.simulationPage());
+    const QPointer<WarningsPreferencesPanel>   oldWarnings(dialog.warningsPage());
+    const QPointer<LaunchPreferencesPanel>     oldLaunch(dialog.launchPage());
+    preferences().setTimeStep(0.02);
+    preferences().setRecoverySpeedWarning(33);
+    preferences().setLaunchLatitude(45);
     ASSERT_TRUE(unitGroup(UnitGroupId::LENGTH).setDefaultUnit(std::string_view{"in"}));
 
     prompts().answerYesNo(true);
@@ -408,18 +445,101 @@ TEST_F(PreferencesDialogTest, ResetAllPreferencesShowsThePreferencesAnew)
     // show the reset store, and a new snapshot.
     EXPECT_FALSE(dialog.isClosed());
     EXPECT_NE(dialog.generalPage(), oldGeneral.data());
-    EXPECT_EQ(dialog.tabs()->count(), 3);
+    EXPECT_NE(dialog.simulationPage(), oldSimulation.data());
+    EXPECT_NE(dialog.warningsPage(), oldWarnings.data());
+    EXPECT_NE(dialog.launchPage(), oldLaunch.data());
+    EXPECT_EQ(dialog.tabs()->count(), 6);
     EXPECT_EQ(dialog.tabs()->currentWidget(), dialog.generalPage());
     EXPECT_FALSE(dialog.generalPage()->openLastDesign()->isChecked());
     EXPECT_EQ(dialog.designPage()->defaultMachSpinner()->text(), QStringLiteral("0.300"));
     EXPECT_EQ(dialog.unitsPage()->unitSelector(UnitGroupId::LENGTH)->currentText(),
               QStringLiteral("cm"));
-    // The store: the factory units, and the confirmation's preference written back on closing.
+    // The new pages of Milestone 4 show the reset store too.
+    EXPECT_EQ(dialog.simulationPage()->timeStep().spinBox->text(), QStringLiteral("0.05"));
+    EXPECT_EQ(dialog.warningsPage()->recoveryWarnings().highSpeedThreshold().spinBox->text(),
+              QStringLiteral("20"));
+    EXPECT_EQ(dialog.launchPage()->conditions().latitude().spinBox->text(),
+              QStringLiteral("28.61"));
+    // The store: the factory units, and the confirmation's preference written back on closing
+    // (the new launch preferences found the factory wind and stored nothing).
     EXPECT_EQ(preferences().keys(), std::vector<std::string>{"IgnoreDiscardPreferencesWarning"});
     EXPECT_EQ(preferences().childrenNames(), std::vector<std::string>{"units"});
     EXPECT_EQ(dialog.snapshot(), preferences());
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_TRUE(oldGeneral.isNull());
+    EXPECT_TRUE(oldSimulation.isNull());
+    EXPECT_TRUE(oldWarnings.isNull());
+    EXPECT_TRUE(oldLaunch.isNull());
+}
+
+TEST_F(PreferencesDialogTest, OkResolvesTheSeedAndApplyDoesNot)
+{
+    // Java: the windowClosed listener calls the Simulation page's prepareForSave(); Apply does
+    // not.
+    const PreferencesDialog&          dialog = makeDialog(Tab::SIMULATION);
+    const SimulationPreferencesPanel& page   = *dialog.simulationPage();
+    page.randomSeedCheckBox().click();
+    page.randomSeedField().setText(QStringLiteral("abc"));
+    dialog.applyButton()->click();
+    EXPECT_TRUE(preferences().isRandomSeedFixed());
+    EXPECT_EQ(page.randomSeedField().text(), QStringLiteral("abc"));
+    dialog.okButton()->click();
+    EXPECT_TRUE(dialog.isClosed());
+    // No seed in the field: unfixed.
+    EXPECT_FALSE(preferences().isRandomSeedFixed());
+
+    m_dialog.reset();
+    const PreferencesDialog& next = makeDialog(Tab::SIMULATION);
+    next.simulationPage()->randomSeedCheckBox().click();
+    next.simulationPage()->randomSeedField().setText(QStringLiteral(" 77 "));
+    next.okButton()->click();
+    EXPECT_TRUE(preferences().isRandomSeedFixed());
+    EXPECT_EQ(preferences().getRandomSeed(), 77);
+}
+
+TEST_F(PreferencesDialogTest, ResetAllPreferencesDoesNotResolveTheOldSeed)
+{
+    // The class comment's deviation: Java resolves the old page's seed after the new dialog has
+    // read the store; here the reset store is what the new pages show and keep.
+    const PreferencesDialog& dialog = makeDialog(Tab::SIMULATION);
+    dialog.simulationPage()->randomSeedCheckBox().click();
+    dialog.simulationPage()->randomSeedField().setText(QStringLiteral("31"));
+    ASSERT_TRUE(preferences().isRandomSeedFixed());
+    prompts().answerYesNo(true);
+    EXPECT_TRUE(dialog.generalPage()->resetAllPreferences());
+    EXPECT_FALSE(preferences().isRandomSeedFixed());
+    EXPECT_FALSE(dialog.simulationPage()->randomSeedCheckBox().isChecked());
+    EXPECT_EQ(preferences().get(PreferenceKeys::kSimulationRandomSeed), std::nullopt);
+}
+
+TEST_F(PreferencesDialogTest, TheLaunchPreferencesAreMadeBeforeTheSnapshot)
+{
+    // What they store of the average wind they load is in the snapshot, which a Cancel restores
+    // with the page's edits undone.
+    preferences().setShowDiscardPreferencesConfirmation(false);
+    PreferencesDialog& dialog = makeDialog(Tab::LAUNCH);
+    EXPECT_EQ(dialog.snapshot(), preferences());
+    static_cast<void>(
+        Gui::Test::enterText(*dialog.launchPage()->conditions().averageWind().spinBox, "5"));
+    EXPECT_EQ(preferences().getWindAverage(), 5.0);
+    EXPECT_TRUE(dialog.cancel());
+    EXPECT_EQ(preferences().getWindAverage(), 2.0);
+    EXPECT_EQ(preferences().get(PreferenceKeys::kWindAverage), std::nullopt);
+}
+
+TEST_F(PreferencesDialogTest, CancelRestoresTheSimulationPages)
+{
+    preferences().setShowDiscardPreferencesConfirmation(false);
+    PreferencesDialog& dialog = makeDialog(Tab::SIMULATION);
+    static_cast<void>(Gui::Test::enterText(*dialog.simulationPage()->timeStep().spinBox, "0.02"));
+    static_cast<void>(Gui::Test::enterText(
+        *dialog.warningsPage()->recoveryWarnings().highSpeedThreshold().spinBox, "33"));
+    dialog.designPage()->updateEstimates()->click();
+    EXPECT_EQ(preferences().getTimeStep(), 0.02);
+    EXPECT_TRUE(dialog.cancel());
+    EXPECT_EQ(preferences().getTimeStep(), 0.05);
+    EXPECT_EQ(preferences().getRecoverySpeedWarning(), 20.0);
+    EXPECT_EQ(preferences().get(GuiPreferenceKeys::kBackgroundFlight), "false");
 }
 
 TEST_F(PreferencesDialogTest, EveryGeneralPageIsMadeInTheDialogsEnvironment)

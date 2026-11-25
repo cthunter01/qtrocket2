@@ -20,8 +20,8 @@ class DoubleBinding;
 class PrefChoiceSelector;
 class UnitSpinBox;
 
-/// The Design page of the preferences dialog (OpenRocket's DesignPreferencesPanel), with its
-/// items of Milestone 2, each written to the preferences at once:
+/// The Design page of the preferences dialog (OpenRocket's DesignPreferencesPanel), each item
+/// written to the preferences at once:
 /// - "Position to insert new body components:" and "Position to insert new stages:" (Always ask,
 ///   Insert in middle, Add to end: BodyComponentInsertPosition, StageInsertPosition) and "Size of
 ///   text in rocket design panel: " (Small, Medium, Large: RocketInfoFontSize), each a
@@ -29,14 +29,16 @@ class UnitSpinBox;
 /// - "Default Mach Number for C.P. Estimate:", a spin box of Preferences::getDefaultMach() from
 ///   0.1 to 0.9 (Java: DoubleModel(preferences, "DefaultMach", 1.0, UNITS_COEFFICIENT, 0.1, 0.9));
 /// - the check boxes "Always open leftmost tab when opening a component edit dialog",
-///   "Show confirmation dialog for discarding component changes" and "Only show pod set/booster
-///   markers when the pod set/booster is selected"; a change of the last one is told by
-///   showMarkersChanged(), on which the dialog brings the figure of every window up to date
-///   (Java: updateFigures() of every BasicFrame's rocket panel).
-///
-/// Left out until Milestone 4 (where Java has them, below the markers' box's place): "Show
-/// confirmation dialog for discarding simulation changes" and "Update estimated flight
-/// parameters in design window" (the simulations and the design view's flight estimate).
+///   "Show confirmation dialog for discarding component changes", "Show confirmation dialog for
+///   discarding simulation changes" (IgnoreDiscardSimulationEditingWarning: whether the simulation
+///   settings dialog's Cancel asks before it discards, Milestone 4), "Update estimated flight
+///   parameters in design window" (GuiPreferenceKeys::kBackgroundFlight: whether the design view
+///   computes the flight of its configuration in the background and shows the flight block,
+///   Milestone 4; stored by the user's clicks, as Java's ActionListener; the design views read it
+///   when the dialog refreshes them, on Apply and OK) and "Only show pod set/booster markers when
+///   the pod set/booster is selected"; a change of the last one is told by showMarkersChanged(),
+///   on which the dialog brings the figure of every window up to date (Java: updateFigures() of
+///   every BasicFrame's rocket panel).
 ///
 /// The spin box's binding and its listener are kept by the dialog's BindingScope: the dialog
 /// commits a pending edit before Apply and OK (BindingScope::commitAll()) and releases the scope
@@ -84,6 +86,13 @@ public:
     }
     [[nodiscard]] QCheckBox* alwaysOpenLeftmostTab() const noexcept { return m_leftmostTab; }
     [[nodiscard]] QCheckBox* showDiscardConfirmation() const noexcept { return m_discard; }
+    /// "Show confirmation dialog for discarding simulation changes".
+    [[nodiscard]] QCheckBox* showDiscardSimulationConfirmation() const noexcept
+    {
+        return m_discardSimulation;
+    }
+    /// "Update estimated flight parameters in design window".
+    [[nodiscard]] QCheckBox* updateEstimates() const noexcept { return m_updateEstimates; }
     [[nodiscard]] QCheckBox* showMarkers() const noexcept { return m_markers; }
 
 Q_SIGNALS:
@@ -102,6 +111,8 @@ private:
     UnitSpinBox*                   m_machSpinner{nullptr};
     QCheckBox*                     m_leftmostTab{nullptr};
     QCheckBox*                     m_discard{nullptr};
+    QCheckBox*                     m_discardSimulation{nullptr};
+    QCheckBox*                     m_updateEstimates{nullptr};
     QCheckBox*                     m_markers{nullptr};
 };
 

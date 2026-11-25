@@ -8,10 +8,12 @@ target_sources(QtRocket_gui_tests PRIVATE
     MultiLevelWindTableModelTests.cpp
     MultiLevelWindTableViewTests.cpp
     RandomSeedControlsTests.cpp
+    RecoveryWarningsPanelTests.cpp
     SimulationConditionsPanelTests.cpp
     SimulationDialogWalk.cpp
     SimulationExtensionListTests.cpp
     SimulationOptionsPanelTests.cpp
+    SimulationWarningsPanelTests.cpp
     TurbulenceIntensityTextTests.cpp
     WindEditorTranscript.cpp
     wind_levels_import_tests.cpp

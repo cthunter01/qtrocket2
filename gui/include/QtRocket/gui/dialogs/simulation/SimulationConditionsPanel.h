@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include <QObject>
 #include <QWidget>
@@ -30,6 +31,7 @@ class BindingScope;
 class BoolCheckBox;
 class FieldValidator;
 class ObjectSelection;
+class UserPrompts;
 class WindLevelSummary;
 
 /// The launch conditions (OpenRocket's SimulationConditionsPanel, swing gui/simulation/): the
@@ -141,6 +143,13 @@ public:
     /// @throws BugError for Variant::SIMULATION with a target that is no SimulationOptions
     SimulationConditionsPanel(SimulationOptionsInterface& target, Variant variant,
                               const GuiServices& services, BindingScope& scope, QWidget* parent);
+    /// The Launch preference page's conditions (Variant::LAUNCH_PREFERENCES) of @p target, the
+    /// launch preferences (LaunchPreferences), with the easter egg's message asked through
+    /// @p prompts, which must outlive the panel: for the preferences dialog, which has no
+    /// GuiServices (the Launch page needs neither the default buttons' preferences nor the wind
+    /// editor's services).
+    SimulationConditionsPanel(SimulationOptionsInterface& target, UserPrompts& prompts,
+                              BindingScope& scope, QWidget* parent);
     ~SimulationConditionsPanel() override;
     SimulationConditionsPanel(const SimulationConditionsPanel&)            = delete;
     SimulationConditionsPanel& operator=(const SimulationConditionsPanel&) = delete;
@@ -276,6 +285,8 @@ private:
         std::shared_ptr<ObjectSelection> averageWind;
     };
 
+    /// Makes the panel over @p target (both constructors).
+    void build(SimulationOptionsInterface& target, BindingScope& scope);
     void buildWind(const Contexts& contexts, BindingScope& scope);
     void buildWindModelChoice(QWidget& parent);
     void buildAverageWind(QWidget& card, const Contexts& contexts, BindingScope& scope);
@@ -298,8 +309,12 @@ private:
     /// The options of Variant::SIMULATION while their selection is valid; null otherwise.
     [[nodiscard]] SimulationOptions* liveOptions() const noexcept;
 
-    Variant                          m_variant;
-    GuiServices                      m_services;
+    Variant m_variant;
+    /// The services of the default buttons and the wind editor (Variant::SIMULATION); none on the
+    /// Launch page.
+    std::optional<GuiServices> m_services;
+    /// The prompts of the easter egg's message.
+    UserPrompts*                     m_prompts;
     SimulationOptions*               m_options{nullptr};
     std::shared_ptr<ObjectSelection> m_targetSelection;
 

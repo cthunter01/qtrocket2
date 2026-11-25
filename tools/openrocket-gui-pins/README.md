@@ -11,7 +11,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `rocket-info` | `tests/gui/figure/RocketInfoPins.h` | `RocketInfoProbe` | `gen_rocket_info_pins.py` | `rocket_info_golden_tests.cpp` |
 | `ribbon` | `tests/gui/widgets/RibbonPins.h` | `RibbonProbe` | `gen_ribbon_pins.py` | `ribbon_golden_tests.cpp` |
 | `rocket-panel` | `tests/gui/figure/RocketPanelPins.h` | `RocketPanelProbe` | `gen_rocket_panel_pins.py` | `rocket_panel_golden_tests.cpp` |
-| `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp` |
+| `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp`, `SimulationPreferencesPanelTests.cpp`, `WarningsPreferencesPanelTests.cpp`, `LaunchPreferencesPanelTests.cpp` |
 | `scale-figure` | `kFigureRows` in `tests/gui/figure/ScaleFigureTests.cpp` | `ScaleProbe` | `figure_rows.py`, `splice_figure_rows.py` | that file |
 | `material-binding` | the six row and group tables of `tests/gui/binding/MaterialBindingTests.cpp` | `B2Probe` | `rows.py`, `splice_material_rows.py` | that file |
 | `material-combo` | the groups and searches of `tests/gui/widgets/MaterialComboBoxTests.cpp` (checked, not written) | `B4Probe` | `rows.py`, `check_combo_rows.py` | that file |
@@ -68,7 +68,19 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
 - `preferences`: the Units, Design and General pages of OpenRocket's preferences dialog for a cleared store,
   the Units page after "Default imperial" and "Default metric", the choice and Mach number steps, stored
   out-of-range values and the units node after `storeAndApplyPreferences()`. The probe's home directory
-  (`user.home`, a fresh one in the work directory) is written `<home>`.
+  (`user.home`, a fresh one in the work directory) is written `<home>`. Milestone 4 (run 2, part S5) added
+  the pages of the simulations, each over a store just cleared: the Design page's two boxes of the
+  simulations clicked twice (`STEPS DESIGN`); the Simulation, Warnings and Launch pages in the form of the
+  dialog walk of `tools/openrocket-probes`' simulation probes (`WALKPAGE`, the GUI tests'
+  `SimulationDialogWalk.h`), and what a user does on them (`STEPS`: the check boxes, the geodetic and gravity
+  combo boxes, the numbers typed on the spinner models, the seed's check box, field, focus loss and
+  `prepareForSave()` by reflection, "Reset to default", the thresholds typed and the dual deployment section
+  expanded and the single one collapsed, the Launch page's wind, rod length and latitude) with the keys
+  they store; a seed Java draws is never printed. The probe binds one `SwingPreferences` for itself and every
+  page, as OpenRocket's `GuiModule` does (`Scopes.SINGLETON`): each instance keeps a cache of the stored keys,
+  and a getter of one that missed a key another instance stored writes the default over it. The getters of
+  `SwingPreferences` store the default they read; QtRocket's do not, so the tests print an absent key with
+  the default the probe saw stored.
 - `scale-figure`: `RocketFigure`'s fit scale, user scale, preferred size, size, subject origin and auto-zoom
   point for "A simple model rocket", "Two stage high power rocket" and a new `Rocket`, in each view, for seven
   visible areas. The probe also prints the scale selector's items and texts and the ruler's ticks, which

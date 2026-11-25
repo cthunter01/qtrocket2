@@ -18,8 +18,11 @@
 
 #include "QtRocket/gui/dialogs/DesignPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/GeneralPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/LaunchPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/PreferencesStore.h"
+#include "QtRocket/gui/dialogs/SimulationPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
+#include "QtRocket/gui/dialogs/WarningsPreferencesPanel.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -29,6 +32,7 @@
 // The complete type of the snapshot, which m_snapshot deletes.
 #include "QtRocket/preferences/InMemoryPreferences.h"  // IWYU pragma: keep
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/simulation/LaunchPreferences.h"
 #include "QtRocket/unit/UnitGroup.h"
 
 namespace QtRocket::Gui
@@ -54,6 +58,8 @@ PreferencesDialog::PreferencesDialog(Preferences& preferences, UserPrompts& prom
     m_prompts(&prompts),
     m_rocketPanels(std::move(rocketPanels)),
     m_general(std::move(general)),
+    // Before the snapshot: the adapter stores the average wind it loads (see the class comment).
+    m_launchPreferences(std::make_shared<LaunchPreferences>(preferences)),
     // Java keeps a rollback point before it makes the pages.
     m_snapshot(PreferencesStore::snapshot(preferences)),
     m_tabs(makeChild<QTabWidget>(this))
@@ -206,8 +212,9 @@ void PreferencesDialog::reopen()
         return;
     }
     // Java: showPreferences() disposes this dialog (its windowClosed listener stores) and makes a
-    // new one, which takes its snapshot first.
-    finishSession(true);
+    // new one, which takes its snapshot first. The old Simulation page's seed is not resolved
+    // (see the class comment).
+    finishSession(true, false);
     while (m_tabs->count() > 0)
     {
         QWidget* const page = m_tabs->widget(0);
@@ -215,7 +222,10 @@ void PreferencesDialog::reopen()
         // Not at once: the General page's button is still in its clicked().
         page->deleteLater();
     }
-    m_snapshot = PreferencesStore::snapshot(*m_preferences);
+    // The old Launch page keeps its launch preferences until it goes; the new pages get new ones,
+    // of the reset store.
+    m_launchPreferences = std::make_shared<LaunchPreferences>(*m_preferences);
+    m_snapshot          = PreferencesStore::snapshot(*m_preferences);
     buildPages(Tab::GENERAL);
 }
 
@@ -241,6 +251,26 @@ void PreferencesDialog::buildPages(Tab selectedTab)
     connect(m_design, &DesignPreferencesPanel::showMarkersChanged, this,
             guarded([this] { updateFigures(); }, context()));
 
+    m_simulation = makeChild<SimulationPreferencesPanel>(m_tabs, *m_preferences, *m_scope);
+    //: pref.dlg.tab.Simulation
+    m_tabs->addTab(m_simulation, tr("Simulation"));
+    //: pref.dlg.tab.Simulation
+    m_tabs->setTabToolTip(m_tabs->indexOf(m_simulation), tr("Simulation"));
+
+    // Warning threshold defaults
+    m_warnings = makeChild<WarningsPreferencesPanel>(m_tabs, *m_preferences, *m_scope);
+    //: SimulationConfigDialog.tab.Warnings
+    m_tabs->addTab(m_warnings, tr("Warnings"));
+    //: SimulationConfigDialog.tab.Warnings
+    m_tabs->setTabToolTip(m_tabs->indexOf(m_warnings), tr("Warnings"));
+
+    // Launch options
+    m_launch = makeChild<LaunchPreferencesPanel>(m_tabs, m_launchPreferences, *m_prompts, *m_scope);
+    //: pref.dlg.tab.Launch
+    m_tabs->addTab(m_launch, tr("Launch"));
+    //: pref.dlg.tab.Launch
+    m_tabs->setTabToolTip(m_tabs->indexOf(m_launch), tr("Launch"));
+
     m_units = makeChild<UnitsPreferencesPanel>(m_tabs, *m_preferences);
     //: pref.dlg.tab.Units
     m_tabs->addTab(m_units, tr("Units"));
@@ -250,7 +280,7 @@ void PreferencesDialog::buildPages(Tab selectedTab)
     m_tabs->setCurrentIndex(static_cast<int>(selectedTab));
 }
 
-void PreferencesDialog::finishSession(bool store)
+void PreferencesDialog::finishSession(bool store, bool resolveSeed)
 {
     // A late commit of a field (the focus leaving it as the dialog hides) stores nothing now.
     m_scope->release();
@@ -258,6 +288,10 @@ void PreferencesDialog::finishSession(bool store)
     const bool showDiscardConfirmation = m_preferences->isShowDiscardPreferencesConfirmation();
     if (store)
     {
+        if (resolveSeed)
+        {
+            m_simulation->prepareForSave();
+        }
         storeAndApplyPreferences(*m_preferences, rocketPanels());
     }
     else

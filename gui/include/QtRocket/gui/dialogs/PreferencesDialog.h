@@ -17,6 +17,7 @@ class QWidget;
 namespace QtRocket
 {
 class InMemoryPreferences;
+class LaunchPreferences;
 class Preferences;
 }  // namespace QtRocket
 
@@ -25,22 +26,28 @@ namespace QtRocket::Gui
 
 class BindingScope;
 class DesignPreferencesPanel;
+class LaunchPreferencesPanel;
 class RocketPanel;
+class SimulationPreferencesPanel;
 class UnitsPreferencesPanel;
 class UserPrompts;
+class WarningsPreferencesPanel;
 
 /// OpenRocket's preferences dialog (PreferencesDialog): modal for the whole application, titled
-/// "Preferences", with the tabs General, Design and Units (GeneralPreferencesPanel,
-/// DesignPreferencesPanel, UnitsPreferencesPanel) in Java's order and the buttons Cancel, Apply
-/// and OK in the platform's order (MigLayout's button tags; QDialogButtonBox's roles).
+/// "Preferences", with the tabs General, Design, Simulation, Warnings, Launch and Units
+/// (GeneralPreferencesPanel, DesignPreferencesPanel, SimulationPreferencesPanel,
+/// WarningsPreferencesPanel, LaunchPreferencesPanel, UnitsPreferencesPanel) in Java's order and
+/// the buttons Cancel, Apply and OK in the platform's order (MigLayout's button tags;
+/// QDialogButtonBox's roles).
 ///
 /// The pages write the preferences (and the process-wide default units) at once. A snapshot of
 /// the whole store is taken when the dialog opens and after every Apply:
 /// - Apply stores the default units and refreshes the design view of every design window
 ///   (storeAndApplyPreferences()), then takes a new snapshot: a later Cancel goes back to here.
 /// - OK, and so the Escape key and the close button too (Java disposes the dialog on Escape and on
-///   closing, and its windowClosed listener stores), stores and refreshes as Apply does and
-///   closes the dialog.
+///   closing, and its windowClosed listener stores), resolves the Simulation page's seed
+///   (SimulationPreferencesPanel::prepareForSave()), stores and refreshes as Apply does and closes
+///   the dialog. (Apply leaves the seed's field as it is, as Java's.)
 /// - Cancel asks "Discard Preference Changes" (UserPrompts::askDiscardChanges(),
 ///   PREFERENCE_CHANGES) unless "Show confirmation dialog when discarding preferences" is off
 ///   ("Don't ask me again" turns it off whatever the answer); on discarding, the snapshot is
@@ -56,18 +63,30 @@ class UserPrompts;
 ///
 /// "Reset all preferences" on the General page empties the store and resets the default units;
 /// then the dialog does what Java's PreferencesDialog.showPreferences() does to the open dialog
-/// (reopen()): it is closed as by OK and shown anew on the General tab, with new pages and a new
-/// snapshot. Each General page is made in the dialog's General environment (the default
-/// directories of the user's files and the open documents: GeneralPreferencesPanel::
-/// Environment).
+/// (reopen()): it is closed as by OK and shown anew on the General tab, with new pages (the
+/// Simulation, Warnings and Launch pages too) and a new snapshot. Each General page is made in the
+/// dialog's General environment (the default directories of the user's files and the open
+/// documents: GeneralPreferencesPanel::Environment).
+///
+/// The Launch page edits the launch preferences through the core's adapter (LaunchPreferences),
+/// which the dialog makes before it takes its snapshot (and again, after the reset, before the
+/// new snapshot): the adapter loads the average wind from the preferences and stores what it
+/// loaded (its wind keys, where they differ from what the store holds), as Java's preferences
+/// load their wind model once and store it; so a Cancel keeps what it stored, as Java's import of
+/// its snapshot keeps it.
 ///
 /// The design views are those of rocketPanels(), asked whenever they are refreshed (the
 /// WindowManager gives every window's; none in a test). A design view's refresh is
 /// refreshRocketPanels(): Java's refreshParentFrame() and the configuration combo box's names.
 ///
 /// Deviations from OpenRocket:
-/// - The tabs of later milestones are left out: UI (Milestone 5), Simulation, Warnings and Launch
-///   (Milestone 4), Materials and Graphics (Milestone 5); Java's dead Display page too.
+/// - The tabs of later milestones are left out: UI (Milestone 5), Materials and Graphics
+///   (Milestone 5); Java's dead Display page too.
+/// - "Reset all preferences" does not resolve the old Simulation page's seed (prepareForSave()):
+///   Java's old dialog does it in its windowClosed listener, which runs after the new dialog has
+///   read the store and taken its snapshot, so that its new page shows an unfixed seed while the
+///   store holds the old page's fixed one until the new dialog's OK unfixes it or its Cancel
+///   restores the snapshot; here the reset store is what the new pages show and keep.
 /// - Apply, OK and Cancel refresh the design view of every design window (Java: the parent frame
 ///   only), and also the names of the flight configurations in each view's combo box, which a
 ///   change of the default configuration name or the motor naming preference does not tell
@@ -94,11 +113,15 @@ class PreferencesDialog final : public QDialog
     Q_OBJECT
 
 public:
-    /// The tabs, in their order (Java's TAB_GENERAL, TAB_DESIGN, TAB_UNITS).
+    /// The tabs, in their order (Java's TAB_GENERAL, TAB_DESIGN, TAB_SIMULATION, TAB_WARNINGS,
+    /// TAB_LAUNCH, TAB_UNITS; Java's TAB_UI comes with Milestone 5).
     enum class Tab
     {
         GENERAL,
         DESIGN,
+        SIMULATION,
+        WARNINGS,
+        LAUNCH,
         UNITS,
     };
 
@@ -136,13 +159,19 @@ public:
     /// combo box's names (ConfigurationComboBox::refresh()).
     static void refreshRocketPanels(std::span<RocketPanel* const> rocketPanels);
 
-    [[nodiscard]] QTabWidget*              tabs() const noexcept { return m_tabs; }
-    [[nodiscard]] GeneralPreferencesPanel* generalPage() const noexcept { return m_generalPage; }
-    [[nodiscard]] DesignPreferencesPanel*  designPage() const noexcept { return m_design; }
-    [[nodiscard]] UnitsPreferencesPanel*   unitsPage() const noexcept { return m_units; }
-    [[nodiscard]] QPushButton*             cancelButton() const noexcept { return m_cancel; }
-    [[nodiscard]] QPushButton*             applyButton() const noexcept { return m_apply; }
-    [[nodiscard]] QPushButton*             okButton() const noexcept { return m_ok; }
+    [[nodiscard]] QTabWidget*                 tabs() const noexcept { return m_tabs; }
+    [[nodiscard]] GeneralPreferencesPanel*    generalPage() const noexcept { return m_generalPage; }
+    [[nodiscard]] DesignPreferencesPanel*     designPage() const noexcept { return m_design; }
+    [[nodiscard]] SimulationPreferencesPanel* simulationPage() const noexcept
+    {
+        return m_simulation;
+    }
+    [[nodiscard]] WarningsPreferencesPanel* warningsPage() const noexcept { return m_warnings; }
+    [[nodiscard]] LaunchPreferencesPanel*   launchPage() const noexcept { return m_launch; }
+    [[nodiscard]] UnitsPreferencesPanel*    unitsPage() const noexcept { return m_units; }
+    [[nodiscard]] QPushButton*              cancelButton() const noexcept { return m_cancel; }
+    [[nodiscard]] QPushButton*              applyButton() const noexcept { return m_apply; }
+    [[nodiscard]] QPushButton*              okButton() const noexcept { return m_ok; }
     /// The snapshot Cancel goes back to.
     [[nodiscard]] const InMemoryPreferences& snapshot() const noexcept { return *m_snapshot; }
     /// Whether the dialog was closed (by OK, Cancel, Escape or its close button).
@@ -163,11 +192,13 @@ public:
     void reopen();
 
 private:
-    /// Makes the three pages (and the binding scope of their fields) on @p selectedTab.
+    /// Makes the pages (and the binding scope of their fields) on @p selectedTab.
     void buildPages(Tab selectedTab);
-    /// Java's windowClosed listener: stores and refreshes (@p store), or restores the snapshot
-    /// and the units and refreshes; then writes the confirmation's preference back.
-    void finishSession(bool store);
+    /// Java's windowClosed listener: resolves the Simulation page's seed (unless the session ends
+    /// for a reset: @p resolveSeed false, see the class comment), stores and refreshes (@p store),
+    /// or restores the snapshot and the units and refreshes; then writes the confirmation's
+    /// preference back.
+    void finishSession(bool store, bool resolveSeed = true);
     /// Java's closeDialog(): finishSession(@p store), then closes.
     void closeDialog(bool store);
     /// The design views now (rocketPanels()).
@@ -179,11 +210,16 @@ private:
     UserPrompts*                         m_prompts;
     RocketPanels                         m_rocketPanels;
     GeneralPreferencesPanel::Environment m_general;
+    /// The Launch page's launch preferences, made before the snapshot (see the class comment).
+    std::shared_ptr<LaunchPreferences>   m_launchPreferences;
     std::unique_ptr<InMemoryPreferences> m_snapshot;
     std::unique_ptr<BindingScope>        m_scope;
     QTabWidget*                          m_tabs{nullptr};
     GeneralPreferencesPanel*             m_generalPage{nullptr};
     DesignPreferencesPanel*              m_design{nullptr};
+    SimulationPreferencesPanel*          m_simulation{nullptr};
+    WarningsPreferencesPanel*            m_warnings{nullptr};
+    LaunchPreferencesPanel*              m_launch{nullptr};
     UnitsPreferencesPanel*               m_units{nullptr};
     QPushButton*                         m_cancel{nullptr};
     QPushButton*                         m_apply{nullptr};

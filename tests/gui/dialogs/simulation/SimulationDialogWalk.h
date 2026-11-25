@@ -14,6 +14,11 @@
 
 class QWidget;
 
+namespace QtRocket::Gui
+{
+class UnitSpinBox;
+}  // namespace QtRocket::Gui
+
 namespace QtRocket::Gui::ConfigFields
 {
 struct NumberWidgets;
@@ -37,9 +42,12 @@ namespace QtRocket::Gui::Test
 /// JLabel with an icon); a QPlainTextEdit as "TEXTAREA <text>" (Java's JTextArea); a QTabWidget
 /// as "TABS [<title>] [<title>]... selected=<index>", then for each page "TAB <title>" and the
 /// lines of the page (shown or not) indented by two spaces (the probe
-/// tools/openrocket-probes/simulation-options's walk of a JTabbedPane). Each line but BORDER and
-/// SEPARATOR ends with " disabled" when the widget is disabled and " tip=<tooltip>" when it has a
-/// tooltip, line breaks written as "\n".
+/// tools/openrocket-probes/simulation-options's walk of a JTabbedPane); a QListWidget as
+/// "LIST <row> | <row>... icon=<name>", the name the Qt::UserRole data of its rows gives (Icons::
+/// name() of their icon, as SimulationWarningsPanel's lists carry it; "none" without; names
+/// joined by ',' when they differ), the probe tools/openrocket-probes/simulation-warnings's JList.
+/// Each line but BORDER and SEPARATOR ends with " disabled" when the widget is disabled and "
+/// tip=<tooltip>" when it has a tooltip, line breaks written as "\n".
 /// @p root itself is walked too (a titled box is a BORDER).
 [[nodiscard]] std::vector<std::string> dialogWalk(const QWidget& root);
 
@@ -49,6 +57,10 @@ namespace QtRocket::Gui::Test
 /// " tip=<the spin box's tooltip>" when it has one.
 [[nodiscard]] std::string numberRowState(std::string_view                   name,
                                          const ConfigFields::NumberWidgets& row);
+
+/// The probe's typeSpinner(): its spinner model's setValue(@p text), the text in the current unit,
+/// committed through @p spinBox's binding (DoubleBinding::commitText()); whether it took a value.
+bool enterText(const UnitSpinBox& spinBox, std::string_view text);
 
 /// @p lines with every @p from replaced by @p to; the number of lines that held it must be
 /// @p count (a test failure otherwise), so that an edit of a pin cannot outlive the pin it was

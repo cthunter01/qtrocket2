@@ -174,7 +174,7 @@ void followCheckBox(BoolCheckBox& checkBox, const ConfigFields::NumberWidgets& r
 SimulationConditionsPanel::SimulationConditionsPanel(SimulationOptionsInterface& target,
                                                      Variant variant, const GuiServices& services,
                                                      BindingScope& scope, QWidget* parent)
-  : QWidget(parent), m_variant(variant), m_services(services)
+  : QWidget(parent), m_variant(variant), m_services(services), m_prompts(&services.prompts())
 {
     if (variant == Variant::SIMULATION)
     {
@@ -184,6 +184,19 @@ SimulationConditionsPanel::SimulationConditionsPanel(SimulationOptionsInterface&
             bug("The launch conditions of a simulation need its SimulationOptions");
         }
     }
+    build(target, scope);
+}
+
+SimulationConditionsPanel::SimulationConditionsPanel(SimulationOptionsInterface& target,
+                                                     UserPrompts& prompts, BindingScope& scope,
+                                                     QWidget* parent)
+  : QWidget(parent), m_variant(Variant::LAUNCH_PREFERENCES), m_prompts(&prompts)
+{
+    build(target, scope);
+}
+
+void SimulationConditionsPanel::build(SimulationOptionsInterface& target, BindingScope& scope)
+{
     setObjectName(QStringLiteral("simulationConditionsPanel"));
     const Contexts contexts{
         .target      = scope.keepContext(ObjectSelection::make<SimulationOptionsInterface>(target)),
@@ -260,12 +273,12 @@ void SimulationConditionsPanel::buildWind(const Contexts& contexts, BindingScope
 void SimulationConditionsPanel::editWindLevels()
 {
     SimulationOptions* const options = liveOptions();
-    if (options == nullptr)
+    if (options == nullptr || !m_services.has_value())
     {
         return;
     }
     ModalDialog<MultiLevelWindEditDialog> dialog(window(), options->getMultiLevelWindModel(),
-                                                 m_services);
+                                                 *m_services);
     dialog.exec();
 }
 
@@ -749,20 +762,21 @@ void SimulationConditionsPanel::commitEdits()
 void SimulationConditionsPanel::resetToDefault()
 {
     commitEdits();
-    if (SimulationOptions* options = liveOptions(); options != nullptr)
+    if (SimulationOptions* options = liveOptions(); options != nullptr && m_services.has_value())
     {
         // Java: everything copyConditionsFrom() copies, not only what the tab shows.
         options->copyConditionsFrom(
-            DefaultSimulationOptionFactory(m_services.preferences()).getDefault());
+            DefaultSimulationOptionFactory(m_services->preferences()).getDefault());
     }
 }
 
 void SimulationConditionsPanel::saveAsDefault()
 {
     commitEdits();
-    if (const SimulationOptions* options = liveOptions(); options != nullptr)
+    if (const SimulationOptions* options = liveOptions();
+        options != nullptr && m_services.has_value())
     {
-        DefaultSimulationOptionFactory(m_services.preferences()).saveDefault(*options);
+        DefaultSimulationOptionFactory(m_services->preferences()).saveDefault(*options);
     }
 }
 
@@ -824,7 +838,7 @@ bool SimulationConditionsPanel::eventFilter(QObject* watched, QEvent* event)
             Guard::run(
                 [this] {
                     // Java's literals, not in messages.properties.
-                    m_services.prompts().showMessage(
+                    m_prompts->showMessage(
                         this, UserPrompts::Message{
                                   .severity = UserPrompts::Severity::INFORMATION,
                                   .title    = QStringLiteral("42"),

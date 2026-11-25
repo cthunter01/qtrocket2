@@ -18,6 +18,8 @@
 #include <QLayout>
 #include <QLayoutItem>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QObject>
 #include <QPixmap>
 #include <QPlainTextEdit>
@@ -25,11 +27,15 @@
 #include <QScrollArea>
 #include <QSlider>
 #include <QString>
+#include <QStringList>
 #include <QTabWidget>
 #include <QWidget>
+#include <Qt>
+#include <QtContainerFwd>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/FieldValidator.h"
@@ -69,23 +75,53 @@ namespace
     return on ? QStringLiteral(" selected=true") : QStringLiteral(" selected=false");
 }
 
+/// "COMBO selected=<text> items=<item>|<item>..." of @p combo, " editable" when it is.
+[[nodiscard]] QString comboLine(const QComboBox& combo)
+{
+    QString items;
+    for (int index = 0; index < combo.count(); ++index)
+    {
+        items += (index > 0 ? QStringLiteral("|") : QString()) + combo.itemText(index);
+    }
+    return QStringLiteral("COMBO selected=") + clean(combo.currentText()) +
+           QStringLiteral(" items=") + items +
+           (combo.isEditable() ? QStringLiteral(" editable") : QString());
+}
+
+/// Java's JList (the probe tools/openrocket-probes/simulation-warnings): its rows, and the names
+/// of the icons the rows carry as their Qt::UserRole data (Icons::name()), "none" without.
+[[nodiscard]] QString listLine(const QListWidget& list)
+{
+    QString     rows;
+    QStringList icons;
+    for (int row = 0; row < list.count(); ++row)
+    {
+        const QListWidgetItem& item = *list.item(row);
+        rows += (row > 0 ? QStringLiteral(" | ") : QString()) + clean(item.text());
+        const QString stored = item.data(Qt::UserRole).toString();
+        const QString icon   = stored.isEmpty() ? QStringLiteral("none") : stored;
+        if (!icons.contains(icon))
+        {
+            icons.append(icon);
+        }
+    }
+    return QStringLiteral("LIST ") + rows + QStringLiteral(" icon=") + icons.join(u',');
+}
+
 /// The line of @p widget without its state; nullopt for a container the walk enters.
 [[nodiscard]] std::optional<QString> describe(const QWidget& widget)
 {
+    if (const auto* const list = qobject_cast<const QListWidget*>(&widget))
+    {
+        return listLine(*list);
+    }
     if (const auto* const spinner = qobject_cast<const QAbstractSpinBox*>(&widget))
     {
         return QStringLiteral("SPINNER ") + clean(spinner->text());
     }
     if (const auto* const combo = qobject_cast<const QComboBox*>(&widget))
     {
-        QString items;
-        for (int index = 0; index < combo->count(); ++index)
-        {
-            items += (index > 0 ? QStringLiteral("|") : QString()) + combo->itemText(index);
-        }
-        return QStringLiteral("COMBO selected=") + clean(combo->currentText()) +
-               QStringLiteral(" items=") + items +
-               (combo->isEditable() ? QStringLiteral(" editable") : QString());
+        return comboLine(*combo);
     }
     if (const auto* const field = qobject_cast<const QLineEdit*>(&widget))
     {
@@ -250,6 +286,12 @@ std::string numberRowState(std::string_view name, const ConfigFields::NumberWidg
         state += QStringLiteral(" tip=") + clean(spinBox.toolTip());
     }
     return QtStrings::toUtf8(state);
+}
+
+bool enterText(const UnitSpinBox& spinBox, std::string_view text)
+{
+    DoubleBinding& binding = *spinBox.binding();
+    return binding.commitText(text);
 }
 
 std::vector<std::string> replacedIn(std::vector<std::string> lines, std::string_view from,

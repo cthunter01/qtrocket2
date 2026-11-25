@@ -9,9 +9,11 @@ target_sources(QtRocket_gui PRIVATE
     MultiLevelWindTableModel.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableModel.h
     MultiLevelWindTableView.cpp ${gui_include_dir}/dialogs/simulation/MultiLevelWindTableView.h
     RandomSeedControls.cpp ${gui_include_dir}/dialogs/simulation/RandomSeedControls.h
+    RecoveryWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/RecoveryWarningsPanel.h
     SimulationConditionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationConditionsPanel.h
     SimulationExtensionList.cpp ${gui_include_dir}/dialogs/simulation/SimulationExtensionList.h
     SimulationOptionsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationOptionsPanel.h
+    SimulationWarningsPanel.cpp ${gui_include_dir}/dialogs/simulation/SimulationWarningsPanel.h
     TurbulenceIntensityText.cpp ${gui_include_dir}/dialogs/simulation/TurbulenceIntensityText.h
     WindLevelSummary.cpp ${gui_include_dir}/dialogs/simulation/WindLevelSummary.h
 )

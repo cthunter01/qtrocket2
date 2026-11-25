@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <QCheckBox>
@@ -27,9 +28,11 @@
 #include "QtRocket/gui/dialogs/GeneralPreferencesPanel.h"
 #include "QtRocket/gui/dialogs/PreferencesStore.h"
 #include "QtRocket/gui/dialogs/UnitsPreferencesPanel.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/BindingScope.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/FileIo.h"
 #include "ScriptedUserPrompts.h"
@@ -49,7 +52,6 @@ using Gui::Test::TranscriptEdit;
 using Gui::Test::transcriptEdited;
 using Gui::Test::transcriptKeeping;
 using Gui::Test::transcriptOf;
-using Gui::Test::transcriptWithout;
 
 /// The items of OpenRocket's General page that QtRocket has, by the start of their lines (both
 /// labels of the user's files, both fields, both Add and Reset, "Reset all preferences" too).
@@ -156,17 +158,34 @@ TEST_F(PreferencesPagesGolden, TheUnitsPageIsOpenRockets)
     EXPECT_EQ(pageTranscript(page), transcriptOf(Pins::kUnitsPage));
 }
 
-TEST_F(PreferencesPagesGolden, TheDesignPageIsOpenRocketsWithoutTheItemsOfMilestone4)
+TEST_F(PreferencesPagesGolden, TheDesignPageIsOpenRockets)
 {
     QWidget                      root;
     BindingScope                 scope(root, nullptr);
     const DesignPreferencesPanel page(m_preferences, scope, &root);
-    // The simulations' discard confirmation and the design view's flight estimate come with the
-    // simulations (Milestone 4).
-    constexpr std::array<std::string_view, 2> kLater{
-        "CHECK Show confirmation dialog for discarding simulation changes ",
-        "CHECK Update estimated flight parameters in design window "};
-    EXPECT_EQ(pageTranscript(page), transcriptWithout(Pins::kDesignPage, kLater));
+    EXPECT_EQ(pageTranscript(page), transcriptOf(Pins::kDesignPage));
+}
+
+TEST_F(PreferencesPagesGolden, TheDesignPagesSimulationBoxesStoreAsOpenRocketsDo)
+{
+    QWidget                      root;
+    BindingScope                 scope(root, nullptr);
+    const DesignPreferencesPanel page(m_preferences, scope, &root);
+    std::vector<std::string>     lines;
+    for (int round = 0; round < 2; ++round)
+    {
+        for (const auto& [box, key] : std::array<std::pair<QCheckBox*, std::string_view>, 2>{
+                 {{page.showDiscardSimulationConfirmation(),
+                   PreferenceKeys::kShowDiscardSimulationConfirmation},
+                  {page.updateEstimates(), GuiPreferenceKeys::kBackgroundFlight}}})
+        {
+            box->click();
+            lines.push_back("click '" + QtStrings::toUtf8(box->text()) +
+                            "' selected=" + (box->isChecked() ? "true" : "false") + " | " +
+                            Gui::Test::storedText(m_preferences, key, "true"));
+        }
+    }
+    EXPECT_EQ(lines, transcriptOf(Pins::kDesignPageSimulationSteps));
 }
 
 TEST_F(PreferencesPagesGolden, TheGeneralPageIsOpenRocketsWithQtRocketsDirectories)

@@ -1,0 +1,124 @@
+== A simple model rocket.ork, Simulation 1 showSimulationWarnings=true
+WALK TABS [Messages] [Configuration] selected=0
+WALK TAB Messages
+WALK   LABEL No Warnings! tip=Yay! No warnings! :)
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE No Warnings! color=#000000 style=ITALIC size=+1.1
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== A simple model rocket.ork, Simulation 1 showSimulationWarnings=false
+WALK TABS [Messages] [Configuration] selected=1
+WALK TAB Messages
+WALK   LABEL Warnings not supported for multi-simulation editing
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE Warnings not supported for multi-simulation editing color=#000000 style=ITALIC size=+0.0
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== A simple model rocket.ork, Simulation 3 - too short delay showSimulationWarnings=true
+WALK TABS [Messages] [Configuration] selected=0
+WALK TAB Messages
+WALK   LABEL Warning(s)
+WALK   LABEL — Likely errors in the rocket/simulation configuration.
+WALK   LIST Recovery device deployment at high speed (31.9 m/s):  "Parachute" icon=WARNING_NORMAL
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE Warning(s) color=#d99800 style=BOLD size=+2.0
+STYLE — Likely errors in the rocket/simulation configuration. color=#808080 style=ITALIC size=+0.0
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== Two stage high power rocket.ork, Simulation 1 showSimulationWarnings=true
+WALK TABS [Messages] [Configuration] selected=0
+WALK TAB Messages
+WALK   LABEL Informational(s)
+WALK   LABEL — Configurations that could lead to less accurate simulations.
+WALK   LIST Open forward airframe (diameter > 0):  "Interstage" icon=WARNING_LOW
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE Informational(s) color=#2d7ff9 style=BOLD size=+2.0
+STYLE — Configurations that could lead to less accurate simulations. color=#808080 style=ITALIC size=+0.0
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== Deployable payload.ork, Simulation 3 - too short delay showSimulationWarnings=true
+WALK TABS [Messages] [Configuration] selected=0
+WALK TAB Messages
+WALK   LABEL Warning(s)
+WALK   LABEL — Likely errors in the rocket/simulation configuration.
+WALK   LIST Recovery device deployment at high speed (27.9 m/s):  "Parachute, plastic, preassembled, 10 in., PN 2262" | Recovery device deployment at high speed (27.9 m/s):  "Parachute kit, plastic, 8 in., PN 2260" icon=WARNING_NORMAL
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE Warning(s) color=#d99800 style=BOLD size=+2.0
+STYLE — Likely errors in the rocket/simulation configuration. color=#808080 style=ITALIC size=+0.0
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== A simple model rocket.ork, Simulation 1 with NO_RECOVERY_DEVICE, SUPERSONIC, TUMBLE_UNDER_THRUST and DIAMETER_DISCONTINUITY added showSimulationWarnings=true
+WALK TABS [Messages] [Configuration] selected=0
+WALK TAB Messages
+WALK   LABEL Critical(s)
+WALK   LABEL — Severe flight problems that should be addressed.
+WALK   LIST No recovery device defined in the simulation. | Stage began to tumble under thrust. icon=WARNING_HIGH
+WALK   LABEL Warning(s)
+WALK   LABEL — Likely errors in the rocket/simulation configuration.
+WALK   LIST Body calculations may not be entirely accurate at supersonic speeds. icon=WARNING_NORMAL
+WALK   LABEL Informational(s)
+WALK   LABEL — Configurations that could lead to less accurate simulations.
+WALK   LIST Discontinuity in rocket body diameter icon=WARNING_LOW
+WALK TAB Configuration
+WALK   BUTTON Single Deployment Warnings icon
+WALK   LABEL <html><body style='margin:0;font-style:italic;'>Warn when a recovery device deploys at an unsafe speed. Warnings apply independently by stage.</body></html>
+WALK   LABEL High Speed Threshold tip=Warn when a recovery device deploys above this speed.
+WALK   SPINNER 20 tip=Warn when a recovery device deploys above this speed.
+WALK   LABEL m/s
+WALK   BUTTON Dual Deployment Warnings icon
+WALK   BUTTON Reset to default
+WALK   BUTTON Save as default
+STYLE Critical(s) color=#c80000 style=BOLD size=+2.0
+STYLE — Severe flight problems that should be addressed. color=#808080 style=ITALIC size=+0.0
+STYLE Warning(s) color=#d99800 style=BOLD size=+2.0
+STYLE — Likely errors in the rocket/simulation configuration. color=#808080 style=ITALIC size=+0.0
+STYLE Informational(s) color=#2d7ff9 style=BOLD size=+2.0
+STYLE — Configurations that could lead to less accurate simulations. color=#808080 style=ITALIC size=+0.0
+TABS Messages scrollPane=no border unitIncrement=16 preferredHeight=200
+TABS Configuration scrollPane=no border unitIncrement=16 preferredHeight=200
+== the default buttons
+STEP made | spinners 3 | options 20.0 15.24 30.48 | preferences 20.0 15.24 30.48
+STEP typed 25 10 40 | options 25.0 10.0 40.0 | preferences 20.0 15.24 30.48
+STEP reset, fresh preferences | options 20.0 15.24 30.48 | preferences 20.0 15.24 30.48 | spinners [20] [15.2] [30.5]
+STEP reset, stored preferences | options 33.0 11.0 44.0 | preferences 33.0 11.0 44.0 | spinners [33] [11] [44]
+STEP save 26 12.5 41 | options 26.0 12.5 41.0 | preferences 26.0 12.5 41.0

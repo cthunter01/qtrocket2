@@ -7,7 +7,9 @@ The transcript's pages (PAGE name ... END name, each ITEM one component; an item
 over several lines), the two lines of the Default imperial and Default metric steps, and the
 units node of the store after storeAndApplyPreferences() become C++ string tables, non-ASCII
 characters as \\u escapes; HOME, the probe's user.home (generate.sh gives it a fresh one), is
-written as <home>. clang-format is run on the header.
+written as <home>. So do the walks of the pages of Milestone 4 (WALKPAGE name ... END name, each
+WALK line without "WALK ") and their steps (STEPS name ... END STEPS, each STEP line without
+"STEP "). clang-format is run on the header.
 """
 import gzip
 import os
@@ -43,9 +45,35 @@ def main():
     pages = {}
     steps = {}
     stores = {}
+    walks = {}
+    stepLists = {}
     page = None
     store = None
+    walk = None
+    stepList = None
     for line in lines:
+        if walk is not None:
+            if line == 'END ' + walk:
+                walk = None
+            elif line.startswith('WALK '):
+                walks[walk].append(line[5:])
+            else:
+                raise SystemExit('unexpected line in the walk %s: %r' % (walk, line))
+            continue
+        if stepList is not None:
+            if line == 'END STEPS':
+                stepList = None
+            else:
+                stepLists[stepList].append(line[5:] if line.startswith('STEP ') else line)
+            continue
+        if line.startswith('WALKPAGE '):
+            walk = line[9:]
+            walks[walk] = []
+            continue
+        if line.startswith('STEPS '):
+            stepList = line[6:]
+            stepLists[stepList] = []
+            continue
         if page is not None:
             if line == 'END ' + page:
                 page = None
@@ -106,7 +134,9 @@ def main():
            '// (OpenRocket ' + commit + ',',
            '// SwingPreferences, FlatLaf Light); do not edit. A page item is its kind (LABEL, CHECK,',
            '// COMBO, SPINNER, BUTTON, SEPARATOR, FIELD, TEXT) and its text, then selected=, items=',
-           '// (the items joined by |), disabled and tip= as the probe writes them.',
+           '// (the items joined by |), disabled and tip= as the probe writes them. The walks of the',
+           '// pages of Milestone 4 are in the form of tests/gui/dialogs/simulation/SimulationDialogWalk.h',
+           '// (the probe\'s WALK lines), their steps the probe\'s STEP lines, both without the prefix.',
            '', '#include <array>', '#include <string_view>', '',
            'namespace QtRocket::Gui::Test::PreferencesPagePins', '{', '',
            'inline constexpr std::string_view kOpenRocketCommit = ' + escape(commit) + ';', '']
@@ -124,6 +154,33 @@ def main():
     out.append(table('kStoredUnitsWithLengthInches', units,
                      'The units node after storeAndApplyPreferences() of the factory units with LENGTH in, '
                      '"GROUP=unit" sorted.'))
+    # Milestone 4: the pages of the simulations, each over a store just cleared.
+    out.append(table('kDesignPageSimulationSteps', stepLists['DESIGN'],
+                     'The Design page\'s two boxes of the simulations clicked twice each: '
+                     '"click \'<text>\' selected=<state> | <key>=<stored>".'))
+    out.append(table('kSimulationPageWalk', walks['SIMULATION'],
+                     'SimulationPreferencesPanel, in the form of the dialog walk (SimulationDialogWalk.h).'))
+    out.append(table('kSimulationPageSteps', stepLists['SIMULATION'],
+                     'The Simulation page\'s check boxes clicked, the geodetic computations chosen, then '
+                     'the constant gravity.'))
+    out.append(table('kSimulationPageWalkConstantGravity', walks['SIMULATION CONSTANT GRAVITY'],
+                     'The Simulation page after those steps.'))
+    out.append(table('kSimulationPageSteps2', stepLists['SIMULATION 2'],
+                     'Then the gravity value, the time step and the maximum time typed, the seed\'s check '
+                     'box, field, focus loss and prepareForSave(), and "Reset to default" after edits of '
+                     'each value.'))
+    out.append(table('kSimulationPageWalkAfterReset', walks['SIMULATION AFTER RESET'],
+                     'The Simulation page after "Reset to default".'))
+    out.append(table('kWarningsPageWalk', walks['WARNINGS'], 'WarningsPreferencesPanel.'))
+    out.append(table('kWarningsPageSteps', stepLists['WARNINGS'],
+                     'The Warnings page\'s thresholds typed, the dual deployment section expanded.'))
+    out.append(table('kWarningsPageWalkExpanded', walks['WARNINGS EXPANDED'],
+                     'The Warnings page after those steps.'))
+    out.append(table('kWarningsPageWalkSingleCollapsed', walks['WARNINGS SINGLE COLLAPSED'],
+                     'Then with the single deployment section collapsed.'))
+    out.append(table('kLaunchPageWalk', walks['LAUNCH'], 'LaunchPreferencesPanel.'))
+    out.append(table('kLaunchPageSteps', stepLists['LAUNCH'],
+                     'The Launch page made, then its average wind, rod length and latitude typed.'))
     out.append('}  // namespace QtRocket::Gui::Test::PreferencesPagePins')
     open(header, 'w', encoding='ascii').write('\n'.join(out) + '\n')
     # The repository's style (its .clang-format, wherever the header is written: generate.sh
