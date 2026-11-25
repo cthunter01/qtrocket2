@@ -3,11 +3,12 @@
 // - SimulationTableModelTest: the model's own behaviour (its rows and roles, the readings once per
 //   document event, the order, the indexes that follow their simulations: OpenRocket bug 28),
 //   under QAbstractItemModelTester;
-// - the golden suites: the table of the sixteen examples and a new design, every cell, tooltip,
-//   status and warning count and the order after each header click, compared with OpenRocket's own
-//   table through the stored data only (SimulationTableModelGolden), and two scenarios of edits
-//   with every status after each step (SimulationTableScenarioGolden; the one run of a fresh flight
-//   is "A simple model rocket" #1's, whose values are not pinned), all from
+// - the golden suites: the table of the 66 designs of the exit suite OpenDesignsExitGolden (each
+//   loaded as that suite's windows load it: exit/OpenDesigns.h) and a new design, every cell,
+//   tooltip, status and warning count and the order after each header click, compared with
+//   OpenRocket's own table through the stored data only (SimulationTableModelGolden), and two
+//   scenarios of edits with every status after each step (SimulationTableScenarioGolden; the one
+//   run of a fresh flight is "A simple model rocket" #1's, whose values are not pinned), all from
 //   tests/data/goldens/gui/simulation-table (SimulationTablePins.h).
 
 #include "QtRocket/gui/simulation/SimulationTableModel.h"
@@ -65,6 +66,9 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
+#include "QtRocket/util/Error.h"
+#include "exit/OpenDesigns.h"
+#include "file/DesignFileEnvironment.h"
 #include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
 #include "simulation/SimulationTableTestSupport.h"
@@ -95,13 +99,23 @@ using SortOrder                = TableSortKeys::SortOrder;
 }
 
 /// A document and its simulations table, under QAbstractItemModelTester (the document outlives
-/// the model).
+/// the model, and the environment of its load, when it has one of its own, the document).
 class Table
 {
 public:
     explicit Table(std::unique_ptr<OpenRocketDocument> document)
       : m_document(std::move(document)),
         m_model(*m_document, examplePreferences(), nullptr),
+        m_tester(&m_model, QAbstractItemModelTester::FailureReportingMode::Warning)
+    {
+    }
+
+    /// The table of a design of OpenDesignsExitGolden's list loaded in an environment of its own
+    /// (Test::loadOpenDesign()), whose preferences the model reads.
+    explicit Table(Gui::Test::LoadedOpenDesign loaded)
+      : m_environment(std::move(loaded.environment)),
+        m_document(std::move(loaded.document)),
+        m_model(*m_document, m_environment->preferences(), nullptr),
         m_tester(&m_model, QAbstractItemModelTester::FailureReportingMode::Warning)
     {
     }
@@ -137,9 +151,10 @@ public:
     }
 
 private:
-    std::unique_ptr<OpenRocketDocument> m_document;
-    SimulationTableModel                m_model;
-    QAbstractItemModelTester            m_tester;
+    std::unique_ptr<QtRocket::Test::DesignFileEnvironment> m_environment;
+    std::unique_ptr<OpenRocketDocument>                    m_document;
+    SimulationTableModel                                   m_model;
+    QAbstractItemModelTester                               m_tester;
 };
 
 /// The example "A simple model rocket" (five simulations, the third with a warning) in a table.
@@ -520,10 +535,13 @@ TEST(SimulationTablePinsGolden, ComeFromTheGoldensOpenRocket)
     ASSERT_NE(table, nullptr);
     EXPECT_EQ(table->commit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
     EXPECT_EQ(table->columns.size(), SimulationColumns::kAllColumns.size());
-    // The sixteen examples and a new design.
-    EXPECT_EQ(table->designs.size(), 17U);
+    // The 66 designs of OpenDesignsExitGolden, in its order (OpenDesignsExitGoldenDesigns checks
+    // their kinds and files), and a new design.
+    EXPECT_EQ(table->designs.size(), 67U);
     EXPECT_NE(table->findDesign("example_a_simple_model_rocket"), nullptr);
-    EXPECT_NE(table->findDesign("new_design"), nullptr);
+    EXPECT_NE(table->findDesign("gui_from_scratch"), nullptr);
+    EXPECT_EQ(table->designs.back().name, "new_design");
+    EXPECT_EQ(Gui::Test::simulationTablePinnedExampleDesigns().size(), 17U);
     EXPECT_NE(table->findScenario("status_a_simple_model_rocket"), nullptr);
     EXPECT_NE(table->findScenario("status_two_stage_high_power_rocket"), nullptr);
     EXPECT_NE(table->findPairing("copy_status_pairing"), nullptr);
@@ -565,7 +583,10 @@ protected:
         return found;
     }
 
-    /// The design of @p pin, loaded as the probe loaded it, in a table.
+    /// The design of @p pin, loaded as the probe loaded it, in a table: a new design, or the
+    /// design of OpenDesignsExitGolden's list of the pin's name, loaded as that suite's windows
+    /// load it (Test::loadOpenDesign(): the pins' "file" is a file's name alone, and every
+    /// re-save's is "rocket.ork"); null (and a failure) when it cannot be loaded.
     [[nodiscard]] static std::unique_ptr<Table> tableOf(
         const Gui::Test::SimulationTablePinDesign& pin)
     {
@@ -573,8 +594,19 @@ protected:
         {
             return std::make_unique<Table>(OpenRocketDocumentFactory::createNewRocket());
         }
-        std::unique_ptr<OpenRocketDocument> document = loadExample(pin.file);
-        return document == nullptr ? nullptr : std::make_unique<Table>(std::move(document));
+        const Gui::Test::OpenDesign* const design = Gui::Test::findOpenDesign(pin.name);
+        if (design == nullptr)
+        {
+            ADD_FAILURE() << "no design " << pin.name << " in OpenDesignsExitGolden's list";
+            return nullptr;
+        }
+        Result<Gui::Test::LoadedOpenDesign> loaded = Gui::Test::loadOpenDesign(*design);
+        if (!loaded.has_value())
+        {
+            ADD_FAILURE() << loaded.error().toString();
+            return nullptr;
+        }
+        return std::make_unique<Table>(std::move(*loaded));
     }
 };
 

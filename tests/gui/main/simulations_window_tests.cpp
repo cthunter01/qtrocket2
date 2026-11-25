@@ -738,34 +738,6 @@ protected:
     }
 };
 
-/// Where the states of @p menus' items differ from @p pinned, the states of OpenRocket's tab's
-/// actions: the File menu's export always, and the Edit menu's six when @p editItems.
-[[nodiscard]] std::vector<std::string> menuStateDifferences(
-    const MainMenus& menus, const std::map<std::string, bool>& pinned, bool editItems)
-{
-    std::vector<std::pair<std::string, const QAction*>> items{
-        {"simTableExport", menus.exportSimulationTableAction()}};
-    if (editItems)
-    {
-        items.insert(items.end(), {{"editSimulation", menus.editAction()},
-                                   {"cutSimulation", menus.cutAction()},
-                                   {"copySimulation", menus.copyAction()},
-                                   {"pasteSimulation", menus.pasteAction()},
-                                   {"duplicateSimulation", menus.duplicateAction()},
-                                   {"deleteSimulation", menus.deleteAction()}});
-    }
-    std::vector<std::string> differences;
-    for (const auto& [name, action] : items)
-    {
-        const auto found = pinned.find(name);
-        if (found == pinned.end() || found->second != action->isEnabled())
-        {
-            differences.push_back(name);
-        }
-    }
-    return differences;
-}
-
 TEST_P(SimulationsWindowGolden, ShowsTheTableAsOpenRocket)
 {
     const Gui::Test::SimulationTablePins* const pins = Gui::Test::simulationTablePinsOrFail();
@@ -795,12 +767,13 @@ TEST_P(SimulationsWindowGolden, EnablesTheMenusItemsAsOpenRocketsTab)
     // menu's export is the tab's.
     const bool rows = pin->simulationCount > 0;
     EXPECT_EQ(simulationSelectionOf(*window) != "[]", rows);
-    EXPECT_EQ(menuStateDifferences(window->menus(), pin->actions.at(rows ? "row0" : "none"), rows),
+    EXPECT_EQ(Gui::Test::simulationMenuStateDifferences(
+                  window->menus(), pin->actions.at(rows ? "row0" : "none"), rows),
               std::vector<std::string>{});
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, SimulationsWindowGolden,
-                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedDesigns()),
+                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedExampleDesigns()),
                          Gui::Test::simulationTablePinTestName);
 
 }  // namespace

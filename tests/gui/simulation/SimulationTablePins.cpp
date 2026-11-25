@@ -298,6 +298,23 @@ std::vector<std::string> simulationTablePinnedDesigns()
     return names;
 }
 
+std::vector<std::string> simulationTablePinnedExampleDesigns()
+{
+    std::vector<std::string>           names;
+    const Result<SimulationTablePins>& loaded = simulationTablePins();
+    if (loaded.has_value())
+    {
+        for (const SimulationTablePinDesign& design : loaded->designs)
+        {
+            if (design.kind == "example" || design.kind == "new")
+            {
+                names.push_back(design.name);
+            }
+        }
+    }
+    return names;
+}
+
 std::string simulationTablePinTestName(const ::testing::TestParamInfo<std::string>& param)
 {
     return param.param;

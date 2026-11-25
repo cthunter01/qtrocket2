@@ -38,9 +38,10 @@
 #                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
 #                      see README.md)
 #   simulation-table   tests/data/goldens/gui/simulation-table/simulation-table.json (the simulations table of
-#                      the sixteen examples and a new design, two status scenarios and a Copy), and the values
-#                      tests/gui/simulation/SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp
-#                      pin by hand (checked only, see README.md; both probes run under xvfb-run)
+#                      each design of OpenDesignsExitGolden and a new design, two status scenarios and a Copy),
+#                      and the values tests/gui/simulation/SimulationColumnVisibilityTests.cpp and
+#                      SimulationTableViewTests.cpp pin by hand (checked only, see README.md; both probes run
+#                      under xvfb-run)
 #   plot-dialog        the values tests/gui/dialogs/plot/PlotDialogTests.cpp, SimulationPlotDialogTests.cpp,
 #                      tests/gui/plot/DataPlotTests.cpp and the plot tab's tests (PlotTypeSelectorTests.cpp,
 #                      SimulationPlotTypeSelectorTests.cpp, SimulationPlotPanelTests.cpp of tests/gui/dialogs/plot/)
@@ -518,12 +519,12 @@ for family in "${families[@]}"; do
         run_probe "${family}" SimulationTableViewProbe xvfb "${repo}/data/components" "${examples}"
         check_hand_pins "${family}" SimulationTableViewProbe \
             "SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp"
-        # The sixteen examples of OpenDesignsExitGolden's designs (open-designs/designs.py, its kind "example"),
-        # in its order; OpenRocket's SimulationPanel makes RocketActions, whose key strokes ask the toolkit for
-        # the menu shortcut key, which a headless AWT refuses (no window is shown). The six presets of the
-        # example designs come from the bundled presets' directory, the scenarios' designs from data/examples.
-        python3 -I "${here}/open-designs/designs.py" "${repo}" | awk -F '\t' '$2 == "example"' \
-            > "${work}/simulation-table-designs.txt"
+        # The designs of OpenDesignsExitGolden (the open-designs family's list: the sixteen examples, the 49
+        # re-saves and the GUI reference), in its order; OpenRocket's SimulationPanel makes RocketActions, whose
+        # key strokes ask the toolkit for the menu shortcut key, which a headless AWT refuses (no window is
+        # shown). The six presets of the example designs come from the bundled presets' directory, the
+        # scenarios' designs from data/examples.
+        python3 -I "${here}/open-designs/designs.py" "${repo}" > "${work}/simulation-table-designs.txt"
         run_probe "${family}" SimulationTableProbe xvfb "${work}/simulation-table-designs.txt" \
             "${repo}/data/components" "${examples}"
         file=tests/data/goldens/gui/simulation-table/simulation-table.json

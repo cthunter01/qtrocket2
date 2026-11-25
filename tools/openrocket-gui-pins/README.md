@@ -24,7 +24,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `preset-chooser` | `tests/gui/dialogs/preset/PresetChooserPins.h`; values pinned by hand | `PresetChooserProbe`; `PresetGuiProbe` (`TableUiProbe`, `PresetModelProbe`, `PresetComboProbe`, `TableRowTraversalProbe`, `ComponentPresetTableProbe`, `NewComponentCancelProbe`), `ConfigPresetRowProbe`, `PresetShownProbe` (`DialogKeysProbe`, `SpaceRobotProbe`, `PresetTableInputProbe`) | `gen_preset_chooser_pins.py`; none | `preset_chooser_golden_tests.cpp`; `TableUiPreferencesTests.cpp`, `PresetBindingTests.cpp`, `PresetComboBoxTests.cpp`, `TableRowTraversalTests.cpp`, `ComponentPresetTableModelTests.cpp`, `ComponentPresetFilterModelTests.cpp`, `ComponentPresetTableTests.cpp`, `ComponentPresetChooserDialogTests.cpp`, `ComponentConfigDialogTests.cpp`, `RocketComponentConfigTests.cpp` |
 | `open-designs` | `tests/gui/exit/OpenDesignsTabPins.h`, `tests/gui/exit/OpenDesignsPartsLibraryPins.h` | `OpenDesignsTabProbe`, `OpenDesignsPartsLibraryProbe` | `designs.py`, `gen_open_designs_tab_pins.py`, `gen_open_designs_parts_library_pins.py` | `open_designs_exit_tests.cpp` |
 | `plot-widgets` | values pinned by hand | `PlotWidgetsProbe` | none | `DataTypeComboBoxTests.cpp`, `UnitSelectorTests.cpp`, `LineStyleComboBoxTests.cpp`, `ColorChooserButtonTests.cpp` (`tests/gui/widgets/`) |
-| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
+| `simulation-table` | `tests/data/goldens/gui/simulation-table/simulation-table.json`; values pinned by hand | `SimulationTableProbe`; `SimulationTableViewProbe` | `gen_simulation_table_pins.py` (and `open-designs/designs.py`); none | `tests/gui/simulation/SimulationTablePins.h`: `SimulationTableModelTests.cpp`, `SimulationColumnsTests.cpp`, `SimulationTableViewTests.cpp`, `SimulationPanelTests.cpp`, `SimulationTableCsvExportTests.cpp`, `SimulationEditingTests.cpp`, `simulations_window_tests.cpp`, `open_designs_exit_tests.cpp`; `SimulationTableViewTests.cpp`, `SimulationColumnVisibilityTests.cpp` |
 | `plot-dialog` | values pinned by hand | `PlotDialogProbe`, `PlotTabProbe` | none | `PlotDialogTests.cpp`, `SimulationPlotDialogTests.cpp`, `PlotTypeSelectorTests.cpp`, `SimulationPlotTypeSelectorTests.cpp`, `SimulationPlotPanelTests.cpp` (`tests/gui/dialogs/plot/`), `tests/gui/plot/DataPlotTests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
@@ -315,11 +315,11 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   `SimulationPanel` (its `SimulationTableModel`, `ColumnTable` and `ColumnTableRowSorter`, read by reflection),
   never shown; its `RocketActions` ask the toolkit for the menu shortcut key, so the probe runs under `xvfb-run`
   with `-Djava.awt.headless=false`. It takes a list of designs in `open-designs/designs.py`'s format (name, kind,
-  file): `generate.sh` passes the sixteen examples (designs.py's kind `example`); run 3 extends the table to
-  every design of `OpenDesignsExitGolden` by passing the whole list (the probe already loads each kind as that
-  suite loads it, as `OpenDesignsTabProbe` does: the bundled motors, `TestRockets`' seven synthetic ones for the
-  test rockets' re-saves, the six presets of the examples from `data/components`; `SwingPreferences` with
-  `MotorNameColumn` false; FlatLaf Light; every design's UUIDs seeded from its name). For each design and a new
+  file): `generate.sh` passes the whole list, every design of `OpenDesignsExitGolden` (the sixteen examples, the
+  49 re-saves and the GUI reference), and the probe loads each kind as that suite loads it, as
+  `OpenDesignsTabProbe` does: the bundled motors, `TestRockets`' seven synthetic ones for the test rockets'
+  re-saves, the six presets of the examples from `data/components`; `SwingPreferences` with `MotorNameColumn`
+  false; FlatLaf Light; every design's UUIDs seeded from its name. For each design and a new
   one it prints the model's columns (id, header, tooltip, unit), the view's widths, every row's status (with its
   icon's description, the status label's sort text, `getStatusDescription()` and the cells' tooltip), its
   warnings (the counts, the box's labels with each icon named by its level, the tooltip, each warning), its cells,
@@ -610,7 +610,9 @@ QtRocket's answers for bugs 23 and 25 beside OpenRocket's), the first family who
 (`tests/data/goldens/gui/`) rather than a C++ header. Part T2 added its `SimulationTableViewProbe` (the column
 chooser, the keys and the header of the table view; pinned by hand). Its review gave QtRocket's warnings order a
 row without data last when descending (as `DefaultRowSorter` and QtRocket sort a missing value) and the scenarios
-the warnings column's orders (the designs' rows stayed byte for byte the same).
+the warnings column's orders (the designs' rows stayed byte for byte the same). Run 3's part Y1 passed it the
+whole list of `OpenDesignsExitGolden`'s 66 designs (the sixteen examples' tables stayed byte for byte the same), for
+the suite's test of the "Flight simulations" tab.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

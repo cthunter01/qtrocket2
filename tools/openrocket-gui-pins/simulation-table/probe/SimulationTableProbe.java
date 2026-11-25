@@ -78,8 +78,8 @@ import javax.swing.table.TableColumnModel;
  * through two scripted series of edits. A generalisation of the M4 sim-tab scout's SimTabProbe.
  * <p>
  * The designs come from a list in designs.py's format (name, kind, file; tools/openrocket-gui-pins/open-designs):
- * the family's generate.sh passes the sixteen examples, and run 3's OpenDesignsExitGolden passes all of its
- * designs. Each design is loaded as that suite loads it (DesignFileEnvironment::Presets::EXAMPLES): the bundled
+ * the family's generate.sh passes the whole list, the 66 designs of QtRocket's exit suite OpenDesignsExitGolden.
+ * Each design is loaded as that suite loads it (DesignFileEnvironment::Presets::EXAMPLES): the bundled
  * motor database (-Dprobe.motors), but for the test rockets' re-saves, whose motors are TestRockets' seven
  * synthetic ones, and the six component presets of the example designs (from the bundled .orc files below the
  * directory of the second argument). The preferences are SwingPreferences in generate.sh's fresh store with the

@@ -51,6 +51,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/BugError.h"
+#include "simulation/SimulationTablePinChecks.h"
 #include "simulation/SimulationTablePins.h"
 #include "simulation/SimulationTableTestSupport.h"
 #include "tree/TreeViewMouse.h"
@@ -1011,13 +1012,7 @@ class SimulationTableViewGolden : public Gui::Test::GuiTest,
 /// The rows of @p table as the simulations' indices in its document.
 [[nodiscard]] std::vector<int> documentOrder(const Table& table)
 {
-    std::vector<int> order;
-    for (const std::shared_ptr<Simulation>& simulation : table.view().tableModel().simulations())
-    {
-        const std::optional<std::size_t> index = table.document().getSimulationIndex(*simulation);
-        order.push_back(index.has_value() ? static_cast<int>(*index) : -1);
-    }
-    return order;
+    return Gui::Test::simulationTableDocumentOrder(table.view().tableModel());
 }
 
 /// A click and a second click on the header of each column of @p pin give its orders.
@@ -1055,7 +1050,7 @@ TEST_P(SimulationTableViewGolden, SortsEachColumnByItsHeaderAsOpenRocket)
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, SimulationTableViewGolden,
-                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedDesigns()),
+                         ::testing::ValuesIn(Gui::Test::simulationTablePinnedExampleDesigns()),
                          Gui::Test::simulationTablePinTestName);
 
 }  // namespace

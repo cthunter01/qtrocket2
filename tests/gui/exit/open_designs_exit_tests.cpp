@@ -40,6 +40,16 @@
 //   Motors table, when the panel shows its table, chooses its configuration, in the design view's
 //   configuration selector too (a design without an acting motor mount shows the help text and
 //   no table to click, as OpenRocket's);
+// - the "Flight simulations" tab (Milestone 4, plan section 11.6's E3), when it is chosen, shows
+//   OpenRocket's tab of the loaded design (the simulation-table pins, SimulationTablePins.h: the
+//   simulation-table family of tools/openrocket-gui-pins, OpenRocket's real SimulationPanel over
+//   the same file): the help card of a design without a configuration with motors, the columns
+//   (the stepper's hidden by default) at OpenRocket's widths, every row's status, warnings and
+//   cells with their tooltips, the states of the tab's actions and of the window's menu items that
+//   follow them with no row, the first row and the first two rows selected (the tab's spotlight
+//   selected the first), the order after a click and a second click on each column's header, and
+//   the texts of the table's CSV export and of the Edit menu's Copy of every row; none of it
+//   changes the design, asks a question or runs a simulation;
 // - for the sixteen examples (OpenDesignsExitGoldenPartsLibrary, Milestone 3, the tests-exit
 //   scout's E4), the parts library of every component that takes presets, as its configuration
 //   dialog's "Parts Library" button opens it (the application's modal dialog, over the bundled
@@ -67,16 +77,21 @@
 // windows load and list the bundled presets (PartsLibrary::APPLICATIONS), as the application
 // does. The windows are those of the application without its start-up: a WindowManager with
 // ConfigDialogRequests and DocumentFileOperations, as ApplicationSession connects them (the
-// application's own start is tested in tests/gui/app/).
+// application's own start is tested in tests/gui/app/). Their executor of the simulations is the
+// tests' one in its mode that never runs a job, and the design view's background estimate is off
+// (O-M4-12): no test of the suite runs a fresh flight.
 //
-// Each of the six tests of a design (seven for an example) opens it anew, so that ctest runs them
-// as separate processes in parallel: 416 tests. Milestone 2's 331 took about 20 s on 8 jobs in a
-// debug build (145 s of processes, none above 1.2 s; the examples, whose archives hold flight
-// data, take the longest) and about 65 s under the asan preset (500 s of processes, none above
-// 6 s); the tab's test of a design costs about what each of the other five costs (most of it is
-// the opening), the test of the presets reads the bundled ones once (a few seconds), and the
+// Each of the seven tests of a design (eight for an example) opens it anew, so that ctest runs
+// them as separate processes in parallel: 483 tests. Milestone 2's 331 took about 20 s on 8 jobs
+// in a debug build (145 s of processes, none above 1.2 s; the examples, whose archives hold
+// flight data, take the longest) and about 65 s under the asan preset (500 s of processes, none
+// above 6 s); the tab's test of a design costs about what each of the other five costs (most of
+// it is the opening), the test of the presets reads the bundled ones once (a few seconds), and the
 // parts library's test of an example reads them and opens one parts library per component (6 to
-// 45 of them; 1 to 5 s in a debug build).
+// 45 of them; 1 to 5 s in a debug build). The simulations tab's test (Milestone 4) costs less:
+// 0.24 to 1.1 s a design in a debug build (34 s of processes for the 66) and 0.9 to 3.7 s in the
+// asan preset's run of every test (124 s); then the whole suite took 58 s on 8 jobs in a debug
+// build (311 s of processes) and 1129 s of processes in that asan run (none above 17 s).
 
 #include <algorithm>
 #include <array>
@@ -104,13 +119,17 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDialog>
 #include <QEvent>
 #include <QFont>
+#include <QGuiApplication>
+#include <QHeaderView>
 #include <QIcon>
 #include <QImage>
+#include <QLabel>
 #include <QLatin1Char>
 #include <QLineEdit>
 #include <QList>
@@ -122,6 +141,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QRegion>
+#include <QStackedWidget>
 #include <QString>
 #include <QTabWidget>
 #include <QTest>
@@ -137,6 +157,7 @@
 
 #include "ForwardingUserPrompts.h"
 #include "GuiTestSupport.h"
+#include "ManualSimulationExecutor.h"
 #include "NextModalDialog.h"
 #include "OpenDesignsPartsLibraryPins.h"
 #include "OpenDesignsTabPins.h"
@@ -173,6 +194,13 @@
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/simulation/SimulationColumnVisibility.h"
+#include "QtRocket/gui/simulation/SimulationColumns.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableCsvExport.h"
+#include "QtRocket/gui/simulation/SimulationTableModel.h"
+#include "QtRocket/gui/simulation/SimulationTableView.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
@@ -206,6 +234,7 @@
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
@@ -218,6 +247,7 @@
 #include "ScriptedUserPrompts.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "dialogs/preset/PresetTableTestSupport.h"
+#include "exit/OpenDesigns.h"
 #include "figure/RecordingPaintDevice.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
@@ -225,13 +255,12 @@
 #include "flightconfig/FlightConfigurationTablePins.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenDesign.h"
-#include "goldens/GoldenExamples.h"
 #include "goldens/GoldenGuiReference.h"
 #include "goldens/GoldenMismatches.h"
-#include "goldens/GoldenResaves.h"
-#include "motor/TestMotorDatabase.h"
 #include "rocket/preset/ExamplePresets.h"
 #include "rocket/preset/TestPresetDatabase.h"
+#include "simulation/SimulationTablePinChecks.h"
+#include "simulation/SimulationTablePins.h"
 
 namespace QtRocket::Gui
 {
@@ -247,122 +276,13 @@ using PromptKind = Gui::Test::ScriptedUserPrompts::Kind;
 
 // ============================================================================ the designs
 
-/// Where a design of the suite comes from.
-enum class DesignSource
-{
-    EXAMPLE,         ///< a file of data/examples (an archive)
-    EXAMPLE_RESAVE,  ///< OpenRocket's re-save of an example
-    TEST_ROCKET,     ///< OpenRocket's re-save of a rocket of TestRockets.java
-    LEGACY,          ///< OpenRocket's re-save of a design file of tests/data/ork
-    COVERAGE,        ///< OpenRocket's re-save of a saver-coverage document of the harness
-    GUI_REFERENCE,   ///< the design OpenRocket's GUI built from scratch
-};
-
-/// One design the suite opens.
-struct OpenDesign
-{
-    /// The name of its tests ("example_a_simple_model_rocket", "legacy_v1_6_apocd").
-    std::string  name;
-    DesignSource source{DesignSource::EXAMPLE};
-    /// The file File > Open is given.
-    std::filesystem::path file;
-    /// The golden input whose geometry.json, mass.json and aero.json describe the design; empty
-    /// for a design without goldens (the legacy and coverage re-saves, the GUI reference).
-    std::string goldenInput;
-};
-
-/// What GoogleTest prints for the design of a test (its name, which ctest's test names show too:
-/// gtest_discover_tests() puts the printed parameter in place of the parameter's name).
-// NOLINTNEXTLINE(readability-identifier-naming): the name GoogleTest looks for
-void PrintTo(const OpenDesign& design, std::ostream* out)
-{
-    *out << design.name;
-}
-
-/// @p text with '_' for '-' (a test's name).
-[[nodiscard]] std::string testNameOf(std::string_view text)
-{
-    std::string name(text);
-    std::ranges::replace(name, '-', '_');
-    return name;
-}
-
-/// The 66 designs, in the order of the plan: the examples, then the re-saves of the manifest
-/// (examples, test rockets, legacy files, coverage documents), then the GUI reference. What went
-/// wrong reading the manifest goes to @p problems.
-[[nodiscard]] std::vector<OpenDesign> makeOpenDesigns(std::string& problems)
-{
-    constexpr std::size_t   kDesigns = 66;
-    std::vector<OpenDesign> designs;
-    designs.reserve(kDesigns);
-    const auto& examples = QtRocket::Test::goldenExamples();
-    for (const QtRocket::Test::GoldenExample& example : examples)
-    {
-        designs.push_back({.name        = testNameOf(example.name),
-                           .source      = DesignSource::EXAMPLE,
-                           .file        = example.original,
-                           .goldenInput = example.name});
-    }
-    for (const QtRocket::Test::GoldenExample& example : examples)
-    {
-        designs.push_back({.name        = "resave_" + testNameOf(example.name),
-                           .source      = DesignSource::EXAMPLE_RESAVE,
-                           .file        = example.resave,
-                           .goldenInput = example.name});
-    }
-    for (const QtRocket::Test::GoldenInput& input : QtRocket::Test::testRocketInputs(problems))
-    {
-        designs.push_back({.name        = testNameOf(input.name),
-                           .source      = DesignSource::TEST_ROCKET,
-                           .file        = QtRocket::Test::goldensDir() / input.resave,
-                           .goldenInput = input.name});
-    }
-    for (const auto& [kind, source] :
-         {std::pair(QtRocket::Test::kLegacyKind, DesignSource::LEGACY),
-          std::pair(QtRocket::Test::kCoverageKind, DesignSource::COVERAGE)})
-    {
-        for (const QtRocket::Test::ResaveInput& input :
-             QtRocket::Test::resaveInputsOf(kind, problems))
-        {
-            designs.push_back({.name        = testNameOf(input.name),
-                               .source      = source,
-                               .file        = QtRocket::Test::goldensDir() / input.resave,
-                               .goldenInput = {}});
-        }
-    }
-    designs.push_back({.name        = "gui_from_scratch",
-                       .source      = DesignSource::GUI_REFERENCE,
-                       .file        = QtRocket::Test::guiFromScratchDir() / "rocket.ork",
-                       .goldenInput = {}});
-    return designs;
-}
-
-/// The designs and what went wrong making the list, once per test process.
-struct DesignList
-{
-    std::string             problems;
-    std::vector<OpenDesign> designs;
-};
-
-[[nodiscard]] const DesignList& designList()
-{
-    static const DesignList kList = [] {
-        DesignList list;
-        list.designs = makeOpenDesigns(list.problems);
-        return list;
-    }();
-    return kList;
-}
-
-[[nodiscard]] const std::vector<OpenDesign>& openDesigns()
-{
-    return designList().designs;
-}
-
-[[nodiscard]] std::string openDesignTestName(const ::testing::TestParamInfo<OpenDesign>& info)
-{
-    return info.param.name;
-}
+// The 66 designs (exit/OpenDesigns.h, shared with the tests that compare a design of the list with
+// pins made without a window).
+using DesignSource = Gui::Test::OpenDesignSource;
+using Gui::Test::OpenDesign;
+using Gui::Test::openDesignList;
+using Gui::Test::openDesigns;
+using Gui::Test::openDesignTestName;
 
 // ===================================================================== the load warnings
 
@@ -637,7 +557,11 @@ enum class PartsLibrary
 /// component presets of the example designs (or, for the parts library's test, the bundled ones:
 /// PartsLibrary) over @p motors, OpenRocket's built-in materials as the application's materials,
 /// the environment's presets as the windows' presets too (the parts library's), and the scripted
-/// questions (with the application's parts library: PartsLibraryPrompts).
+/// questions (with the application's parts library: PartsLibraryPrompts). The simulations run on
+/// the tests' executor, which never runs a job (ManualSimulationExecutor's NEVER mode: no test of
+/// the suite runs a simulation, and one that tried would fail), and the design view's background
+/// estimate is off (GuiPreferenceKeys::kBackgroundFlight, O-M4-12), so that no window runs a
+/// fresh flight of its own.
 class DesignServices
 {
 public:
@@ -654,6 +578,8 @@ public:
                        : static_cast<UserPrompts&>(m_prompts))
     {
         addBuiltinMaterials(m_materials);
+        m_environment.preferences().putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
+        m_services.setSimulationExecutor(&m_executor);
     }
 
     [[nodiscard]] const GuiServices&              services() const noexcept { return m_services; }
@@ -666,13 +592,19 @@ public:
     {
         return m_environment.preferences();
     }
+    [[nodiscard]] const Gui::Test::ManualSimulationExecutor& executor() const noexcept
+    {
+        return m_executor;
+    }
 
 private:
-    DesignFileEnvironment          m_environment;
-    MaterialStorage                m_materials;
-    Gui::Test::ScriptedUserPrompts m_prompts;
-    PartsLibraryPrompts            m_partsLibrary;
-    GuiServices                    m_services;
+    DesignFileEnvironment               m_environment;
+    MaterialStorage                     m_materials;
+    Gui::Test::ScriptedUserPrompts      m_prompts;
+    PartsLibraryPrompts                 m_partsLibrary;
+    Gui::Test::ManualSimulationExecutor m_executor{
+        Gui::Test::ManualSimulationExecutor::Mode::NEVER};
+    GuiServices m_services;
 };
 
 /// Delivers the posted events until the windows, their layouts and their figures are done.
@@ -752,10 +684,8 @@ protected:
     MainWindow* open(PartsLibrary partsLibrary = PartsLibrary::SCRIPTED)
     {
         const OpenDesign& design = GetParam();
-        m_services = std::make_unique<DesignServices>(design.source == DesignSource::TEST_ROCKET
-                                                          ? QtRocket::Test::testRocketMotors()
-                                                          : QtRocket::Test::bundledMotorDatabase(),
-                                                      partsLibrary);
+        m_services =
+            std::make_unique<DesignServices>(Gui::Test::openDesignMotors(design), partsLibrary);
         m_windows  = std::make_unique<WindowManager>(m_services->services(), m_clipboard,
                                                      WindowManager::LastWindowBehaviour::EXIT);
         m_requests = std::make_unique<ConfigDialogRequests>(*m_windows);
@@ -790,6 +720,11 @@ protected:
     [[nodiscard]] Gui::Test::ScriptedUserPrompts& prompts() const { return m_services->prompts(); }
     [[nodiscard]] const Preferences& preferences() const { return m_services->preferences(); }
     [[nodiscard]] const GuiServices& services() const { return m_services->services(); }
+    /// The windows' executor of the simulations (DesignServices).
+    [[nodiscard]] const Gui::Test::ManualSimulationExecutor& executor() const
+    {
+        return m_services->executor();
+    }
     /// The parts libraries the windows showed (PartsLibrary::APPLICATIONS).
     [[nodiscard]] const PartsLibraryPrompts& partsLibrary() const
     {
@@ -856,7 +791,7 @@ private:
 // each a file that exists; the tables of the expectations name none but these.
 TEST(OpenDesignsExitGoldenDesigns, AreTheSixtySixOfThePlan)
 {
-    EXPECT_EQ(designList().problems, "");
+    EXPECT_EQ(openDesignList().problems, "");
     const std::vector<OpenDesign>& designs = openDesigns();
     EXPECT_EQ(designs.size(), 66U);
     EXPECT_EQ(countOf(designs, DesignSource::EXAMPLE), 16);
@@ -2471,6 +2406,296 @@ TEST_P(OpenDesignsExitGolden, TheConfigurationTabShowsOpenRocketsTables)
     // Each row, clicked, chooses its configuration, in the design view too (when the Motors panel
     // shows its table: a design without an acting motor mount has none to click).
     expectRowsChooseTheConfiguration(*window, *tab);
+}
+
+// ======================================================================= the simulations tab
+
+using SimulationColumn = SimulationColumns::Column;
+
+/// The simulation-table pins of the design named @p name (SimulationTablePins.h), or null (and a
+/// test failure when the pins cannot be read).
+[[nodiscard]] const Gui::Test::SimulationTablePinDesign* simulationTablePinOf(std::string_view name)
+{
+    const Gui::Test::SimulationTablePins* const pins = Gui::Test::simulationTablePinsOrFail();
+    return pins == nullptr ? nullptr : pins->findDesign(name);
+}
+
+/// The designs of the simulation-table pins but the new design, as designs.py lists them:
+/// "<name> <kind> <file's name>".
+[[nodiscard]] std::vector<std::string> simulationTablePinDesigns()
+{
+    std::vector<std::string>                    listed;
+    const Gui::Test::SimulationTablePins* const pins = Gui::Test::simulationTablePinsOrFail();
+    if (pins == nullptr)
+    {
+        return listed;
+    }
+    for (const Gui::Test::SimulationTablePinDesign& design : pins->designs)
+    {
+        if (design.kind != "new")
+        {
+            listed.push_back(design.name + ' ' + design.kind + ' ' + design.file);
+        }
+    }
+    return listed;
+}
+
+/// @p designs as designs.py lists them: "<name> <kind> <file's name>".
+[[nodiscard]] std::vector<std::string> listedDesigns(const std::vector<OpenDesign>& designs)
+{
+    std::vector<std::string> listed;
+    listed.reserve(designs.size());
+    for (const OpenDesign& design : designs)
+    {
+        listed.push_back(design.name + ' ' + std::string(Gui::Test::openDesignKind(design.source)) +
+                         ' ' + pathToUtf8(design.file.filename()));
+    }
+    return listed;
+}
+
+// The pins of OpenRocket's simulations table (SimulationTablePins.h, the simulation-table family
+// of tools/openrocket-gui-pins: OpenRocket's real SimulationPanel over the same files) come from
+// the goldens' OpenRocket and are of the 66 designs of the suite in its order, each of its kind
+// and file as designs.py lists them, then of a new design.
+TEST(OpenDesignsExitGoldenDesigns, HaveOpenRocketsSimulationsTableEach)
+{
+    const Gui::Test::SimulationTablePins* const pins = Gui::Test::simulationTablePinsOrFail();
+    ASSERT_NE(pins, nullptr);
+    EXPECT_EQ(pins->commit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
+    EXPECT_EQ(simulationTablePinDesigns(), listedDesigns(openDesigns()));
+    ASSERT_FALSE(pins->designs.empty());
+    EXPECT_EQ(pins->designs.back().kind, "new");
+}
+
+/// The help card or the table, as OpenRocket's tab shows one: the help while no flight
+/// configuration of the rocket has motors (SimulationPanel's card layout).
+void expectCardAsJava(const SimulationPanel& tab, const Gui::Test::SimulationTablePinDesign& pin)
+{
+    EXPECT_EQ(tab.hasValidConfig(), pin.hasValidConfig);
+    EXPECT_EQ(tab.isHelpShown(), !pin.hasValidConfig);
+    const QWidget* const shown = pin.hasValidConfig ? static_cast<const QWidget*>(&tab.table())
+                                                    : static_cast<const QWidget*>(tab.helpLabel());
+    EXPECT_EQ(tab.cards()->currentWidget(), shown);
+    EXPECT_EQ(tab.helpLabel()->text(), SimulationPanel::noConfigurationText());
+}
+
+/// The ids of the columns @p view shows, from the left.
+[[nodiscard]] std::vector<std::string> shownColumnIds(const SimulationTableView& view)
+{
+    std::vector<std::string> ids;
+    for (const SimulationColumn column : view.visibleColumns())
+    {
+        ids.emplace_back(SimulationColumns::id(column));
+    }
+    return ids;
+}
+
+/// The columns of @p view whose widths are not those of @p widths, the widths of OpenRocket's
+/// view (after setupAutoSizeColumns()), as "<id> <width>": the warnings column, whose width
+/// OpenRocket's look's fonts give, only when it is narrower than its pinned minimum.
+[[nodiscard]] std::vector<std::string> widthsOtherThanJavas(
+    const SimulationTableView& view, const std::vector<Gui::Test::SimulationTablePinWidth>& widths)
+{
+    std::vector<std::string> other;
+    const QHeaderView&       header = *view.horizontalHeader();
+    for (const Gui::Test::SimulationTablePinWidth& width : widths)
+    {
+        const std::optional<SimulationColumn> column = SimulationColumns::fromId(width.id);
+        const int                             size =
+            column.has_value() ? header.sectionSize(SimulationColumns::indexOf(*column)) : -1;
+        const bool autoSize = column.has_value() && SimulationColumns::isAutoSize(*column);
+        if (autoSize ? size < width.minimum : size != width.preferred)
+        {
+            other.push_back(width.id + ' ' + std::to_string(size));
+        }
+    }
+    return other;
+}
+
+/// The columns of @p tab's table: those OpenRocket's view shows (the stepper's hidden by default:
+/// the column chooser's stored choice, of which the designs have none) at its widths.
+void expectColumnsAsJava(const SimulationPanel& tab, const Gui::Test::SimulationTablePinDesign& pin)
+{
+    std::vector<std::string> pinned;
+    pinned.reserve(pin.widths.size());
+    for (const Gui::Test::SimulationTablePinWidth& width : pin.widths)
+    {
+        pinned.push_back(width.id);
+    }
+    EXPECT_EQ(shownColumnIds(tab.table()), pinned);
+    EXPECT_EQ(tab.columnVisibility().hiddenColumns(),
+              std::vector<SimulationColumn>{SimulationColumn::SIMULATION_STEPPER});
+    EXPECT_EQ(widthsOtherThanJavas(tab.table(), pin.widths), std::vector<std::string>{});
+}
+
+/// The simulations of the pins' selection @p selection ("none", "row0", "rows01") in @p model:
+/// none, its first row's, its first two rows'.
+[[nodiscard]] std::vector<std::shared_ptr<Simulation>> pinnedSelectionOf(
+    const SimulationTableModel& model, std::string_view selection)
+{
+    int count = 0;
+    if (selection == "row0")
+    {
+        count = 1;
+    }
+    else if (selection == "rows01")
+    {
+        count = 2;
+    }
+    std::vector<std::shared_ptr<Simulation>> simulations;
+    for (int row = 0; row < count && row < model.rowCount(); ++row)
+    {
+        simulations.push_back(model.simulation(row));
+    }
+    return simulations;
+}
+
+/// The tab's actions, and the window's menu items that follow them, as OpenRocket's tab has them
+/// with each selection of the pins (the probe's A lines: nothing, the first row, the first two
+/// rows selected). The tab took the spotlight when it was chosen: it selected its first row when
+/// it has rows, which deselected the components, and so the Edit menu's items are the tab's
+/// actions (RocketActions: the component rule or the tab's), with no row selected too; without
+/// rows the tree keeps its selection, and only the File menu's export is the tab's.
+void expectActionsAsJava(const MainWindow& window, const SimulationPanel& tab,
+                         const Gui::Test::SimulationTablePinDesign& pin)
+{
+    const SimulationTableModel& model = tab.tableModel();
+    const bool                  rows  = model.rowCount() > 0;
+    EXPECT_EQ(tab.table().selectedSimulations(), pinnedSelectionOf(model, rows ? "row0" : "none"));
+    EXPECT_FALSE(pin.actions.empty());
+    for (const auto& [selection, states] : pin.actions)
+    {
+        SCOPED_TRACE(selection);
+        tab.table().selectSimulations(pinnedSelectionOf(model, selection));
+        EXPECT_EQ(Gui::Test::simulationPanelActionStates(tab),
+                  Gui::Test::pinnedSimulationPanelActionStates(tab, states));
+        EXPECT_EQ(Gui::Test::simulationMenuStateDifferences(window.menus(), states, rows),
+                  std::vector<std::string>{});
+    }
+    tab.table().selectSimulations({});
+}
+
+/// A click on the header of @p column of @p tab's table, as the user clicks it: on the part of its
+/// section in view (the table scrolled to the column first), while the table is shown with the
+/// column; else (the stepper's column, hidden by default, a table behind the help card) through
+/// the model, as OpenRocket's probe toggles its table's sorter for each model column (all a
+/// header's click does: SimulationTableModel::connectHeader()). Whether the mouse clicked.
+bool clickHeader(const SimulationPanel& tab, SimulationColumn column)
+{
+    SimulationTableView&  view    = tab.table();
+    SimulationTableModel& model   = tab.tableModel();
+    const QHeaderView&    header  = *view.horizontalHeader();
+    const int             section = SimulationColumns::indexOf(column);
+    const bool            shown   = view.isVisible() && !header.isSectionHidden(section);
+    if (shown && model.rowCount() > 0)
+    {
+        view.scrollTo(model.index(0, section));
+    }
+    const int position = header.sectionViewportPosition(section);
+    const int left     = std::max(position, 0);
+    const int right = std::min(position + header.sectionSize(section), header.viewport()->width());
+    if (!shown || right <= left)
+    {
+        model.toggleSortOrder(section);
+        return false;
+    }
+    QTest::mouseClick(header.viewport(), Qt::LeftButton, Qt::NoModifier,
+                      QPoint((left + right) / 2, header.height() / 2));
+    return true;
+}
+
+/// A click and a second click on the header of each column of @p tab's table give OpenRocket's
+/// orders (the pins' "orders"; the warnings column's is QtRocket's, bug 23), from the document's
+/// order each time; the mouse made the clicks on every shown column's header while the table is
+/// shown, and none behind the help card.
+void expectHeaderOrdersAsJava(const SimulationPanel&                     tab,
+                              const Gui::Test::SimulationTablePinDesign& pin)
+{
+    SimulationTableModel& model  = tab.tableModel();
+    int                   clicks = 0;
+    for (const SimulationColumn column : SimulationColumns::kAllColumns)
+    {
+        const std::string id(SimulationColumns::id(column));
+        SCOPED_TRACE(testing::Message() << "column " << id);
+        const Gui::Test::SimulationTablePinOrder& order = pin.order(id);
+        model.setSortKeys({});
+        clicks += static_cast<int>(clickHeader(tab, column));
+        EXPECT_EQ(Gui::Test::simulationTableDocumentOrder(model), order.ascending);
+        clicks += static_cast<int>(clickHeader(tab, column));
+        EXPECT_EQ(Gui::Test::simulationTableDocumentOrder(model), order.descending);
+    }
+    model.setSortKeys({});
+    const int shown = tab.isHelpShown() ? 0 : static_cast<int>(pin.widths.size());
+    EXPECT_EQ(clicks, 2 * shown);
+}
+
+/// The texts of the table's CSV export (the File menu's "Export simulation table as CSV file":
+/// the probe's CSV, "," with 3 decimal places, and CSVE, ";" with 2 in exponential notation) and
+/// of the Edit menu's Copy of every row (the text Copy puts on the system clipboard, the probe's
+/// COPY) are OpenRocket's; a design without simulations has none.
+void expectExportsAsJava(const MainWindow& window, const SimulationPanel& tab,
+                         const Gui::Test::SimulationTablePinDesign& pin)
+{
+    const SimulationTableModel&                    model = tab.tableModel();
+    const std::vector<std::shared_ptr<Simulation>> all   = model.simulations();
+    if (all.empty())
+    {
+        EXPECT_FALSE(pin.csv.has_value() || pin.copy.has_value() || pin.csvExponential.has_value());
+        return;
+    }
+    EXPECT_EQ(SimulationTableCsvExport::tableText(model, all, ",", 3, false),
+              pin.csv.value_or("<none>"));
+    EXPECT_EQ(SimulationTableCsvExport::tableText(model, all, ";", 2, true),
+              pin.csvExponential.value_or("<none>"));
+    tab.table().selectSimulations(all);
+    QAction* const copy = window.menus().copyAction();
+    EXPECT_TRUE(copy->isEnabled());
+    copy->trigger();
+    EXPECT_EQ(QtStrings::toUtf8(QGuiApplication::clipboard()->text()), pin.copy.value_or("<none>"));
+    QGuiApplication::clipboard()->clear();
+    tab.table().selectSimulations({});
+}
+
+TEST_P(OpenDesignsExitGolden, TheSimulationsTabShowsOpenRocketsTable)
+{
+    // The tab as the user chooses it after File > Open, against OpenRocket's (SimulationTableProbe:
+    // its SimulationPanel made for the loaded design).
+    const Gui::Test::SimulationTablePinDesign* const pin = simulationTablePinOf(GetParam().name);
+    ASSERT_NE(pin, nullptr) << "no pins of OpenRocket's simulations table";
+    MainWindow* const window = open();
+    ASSERT_NE(window, nullptr);
+    window->selectTab(MainWindow::kSimulationTab);
+    // The tab takes the spotlight in the next turn of the event loop (Java's invokeLater()).
+    settle();
+    EXPECT_EQ(window->selectedTab(), MainWindow::kSimulationTab);
+    const SimulationPanel* const tab = window->componentSimulationPanel();
+    ASSERT_NE(tab, nullptr);
+    const OpenRocketDocument&      document = window->document();
+    const QAbstractItemModelTester tester(&tab->tableModel(),
+                                          QAbstractItemModelTester::FailureReportingMode::Warning);
+
+    // The help card or the table, the simulations and the name of a new one.
+    expectCardAsJava(*tab, *pin);
+    EXPECT_EQ(document.getSimulationCount(), pin->simulationCount);
+    EXPECT_EQ(document.getNextSimulationName(), pin->nextSimulationName);
+    // The columns: the stepper's hidden by default, the others at OpenRocket's widths.
+    expectColumnsAsJava(*tab, *pin);
+    // Every row as loaded: its status, its warnings and its cells, with their tooltips.
+    Gui::Test::expectSimulationTablePinRows(tab->tableModel(), pin->simulations);
+    // The tab's actions and the menus' items with no row, the first row and the first two rows
+    // selected.
+    expectActionsAsJava(*window, *tab, *pin);
+    // The order after a click and a second click on each column's header.
+    expectHeaderOrdersAsJava(*tab, *pin);
+    // The texts of the CSV export and of the Copy of every row.
+    expectExportsAsJava(*window, *tab, *pin);
+
+    // None of it changed the design, asked a question or ran a simulation.
+    EXPECT_TRUE(document.isSaved());
+    EXPECT_FALSE(window->isWindowModified());
+    EXPECT_FALSE(document.isUndoAvailable());
+    EXPECT_EQ(prompts().prompts().size(), questionsOfTheOpening(GetParam()));
+    EXPECT_TRUE(executor().submittedJobs().empty());
 }
 
 // ======================================================================= the presets
