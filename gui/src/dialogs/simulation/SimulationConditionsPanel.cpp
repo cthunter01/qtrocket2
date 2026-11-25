@@ -739,14 +739,18 @@ void SimulationConditionsPanel::buildValidators()
 
 void SimulationConditionsPanel::buildDefaultButtons()
 {
+    // Return clicks neither button (Java's plain JButtons, in a dialog with no default button; a
+    // QPushButton in a QDialog is autoDefault, and the dialog would make one its default).
     //: simedtdlg.but.resettodefault
     m_resetButton = makeChild<QPushButton>(this, tr("Reset to default"));
     m_resetButton->setObjectName(QStringLiteral("restoreDefaults"));
+    m_resetButton->setAutoDefault(false);
     connect(m_resetButton, &QPushButton::clicked, this,
             guarded([this] { resetToDefault(); }, context()));
     //: simedtdlg.but.savedefault
     m_saveButton = makeChild<QPushButton>(this, tr("Save as default"));
     m_saveButton->setObjectName(QStringLiteral("saveDefaults"));
+    m_saveButton->setAutoDefault(false);
     connect(m_saveButton, &QPushButton::clicked, this,
             guarded([this] { saveAsDefault(); }, context()));
 }

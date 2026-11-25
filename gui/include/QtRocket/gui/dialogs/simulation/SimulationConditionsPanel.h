@@ -65,7 +65,9 @@ class WindLevelSummary;
 ///   options take DefaultSimulationOptionFactory::getDefault(), everything copyConditionsFrom()
 ///   copies, as Java) and "Save as default" (saveDefaults: DefaultSimulationOptionFactory::
 ///   saveDefault()); each first commits a spin box's pending edit (a click on a button that takes
-///   no focus would leave it pending, where Java's focus loss commits it).
+///   no focus would leave it pending, where Java's focus loss commits it). Return clicks neither
+///   (nor the summary's "Edit levels"): they are no autoDefault buttons, so a QDialog holding the
+///   panel makes none of them its default (Java's settings dialog has no default button).
 /// A number row is a label, a spin box, a unit selector and a slider (ConfigFields), the three
 /// fields named after the Java property (objectName), with Java's unit group, slider and tooltips
 /// (the average wind's rows: the spin box's alone, as Java's addDoubleModelRow()).

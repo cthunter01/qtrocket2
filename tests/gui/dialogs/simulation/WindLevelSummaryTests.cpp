@@ -144,6 +144,22 @@ TEST_F(WindLevelSummaryTest, TheSummaryFollowsEveryChangeOfTheLevels)
               QStringLiteral("<html>1 wind level(s)<br>Altitude: 0 m<br>Speed: 2 m/s</html>"));
 }
 
+TEST_F(WindLevelSummaryTest, LevelsLoadedSilentlyShowOnceTheLoadIsAnnounced)
+{
+    // loadFrom() announces nothing (as Java's): the caller announces the new levels.
+    const InMemoryPreferences    preferences;
+    MultiLevelPinkNoiseWindModel model(preferences);
+    const WindLevelSummary       summary(model, nullptr);
+    const QString                text = summary.summaryLabel().text();
+    MultiLevelPinkNoiseWindModel other(preferences);
+    addLevel(other, 300, 6, 0, 0.6);
+    model.loadFrom(other);
+    EXPECT_EQ(summary.summaryLabel().text(), text);
+    model.fireChangeEvent();
+    EXPECT_EQ(summary.summaryLabel().text(), WindLevelSummary::summaryText(other));
+    EXPECT_NE(summary.summaryLabel().text(), text);
+}
+
 TEST_F(WindLevelSummaryTest, TheSummaryKeepsItsTextOnceTheModelHasGone)
 {
     const InMemoryPreferences preferences;
@@ -168,6 +184,8 @@ TEST_F(WindLevelSummaryTest, EditLevelsAsksForTheWindEditor)
     EXPECT_FALSE(button.icon().isNull());
     EXPECT_EQ(button.objectName(), QStringLiteral("editButton"));
     EXPECT_EQ(summary.summaryLabel().objectName(), QStringLiteral("summaryLabel"));
+    // Return does not click it (Java's dialog has no default button).
+    EXPECT_FALSE(button.autoDefault());
     button.click();
     EXPECT_EQ(requests.count(), 1);
 }

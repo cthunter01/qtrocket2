@@ -59,9 +59,12 @@ class DoubleBinding;
 /// order (with the persistent indexes, so an open editor and the selection move along), the whole
 /// table reset otherwise, and every cell told that it may have changed. It holds its levels by
 /// std::weak_ptr, so a level the model dropped without a word (loadFrom()) is a row that shows
-/// nothing until the next change. The model must stay at its address while the table shows it; the
-/// table learns that it has gone from its change signal, from then on has no rows and touches it no
-/// more (hasModel()).
+/// nothing until the next change: empty cells, no editor, the Delete column disabled. The model
+/// must stay at its address while the table shows it; the table learns that it has gone from its
+/// change signal (which calls nobody as it goes, so the table cannot remove its rows then): from
+/// then on it touches the model no more (hasModel()), and its rows stay, as inert as those of
+/// levels dropped without a word, with levelAt() null; addLevel(), deleteLevel(), resetLevels()
+/// and setData() do nothing.
 ///
 /// The actions of Java's buttons: addLevel() (Add new level), deleteLevel() (a row's trash button,
 /// the popup's "Delete level", the dialog's "Delete level"), resetLevels() (Reset levels, after the
@@ -80,7 +83,13 @@ class DoubleBinding;
 /// - Bug 32: Java re-sorts the table's rows after an altitude edit but not the model's levels, so
 ///   the wind is interpolated between the wrong levels (and the levels are seeded in the wrong
 ///   order) until the design is saved and opened again. Here the levels are sorted again
-///   (MultiLevelPinkNoiseWindModel::sortLevels()) whenever a change leaves them out of order.
+///   (MultiLevelPinkNoiseWindModel::sortLevels()) whenever a change leaves them out of order, also
+///   when the table is made; and since the sort announces nothing and comes in the table's slot,
+///   after the model's listeners connected before it had heard of the change (a SimulationOptions
+///   forwarding it to the launch conditions, whose rod direction follows the wind), the table
+///   announces the new order (the model's fireChangeEvent()): at once when it is made, once the
+///   level's setter has returned after its own altitude edit, otherwise from within the model's
+///   announcement.
 ///
 /// Deviations from OpenRocket:
 /// - A table model under a QTableView with editors opened on demand (the user's decision U-M4-6),
@@ -132,8 +141,10 @@ public:
     [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
     /// The column names (columnName()) with their tooltips, aligned to the top of the header (the
     /// view puts the unit selectors below them).
-    [[nodiscard]] QVariant      headerData(int section, Qt::Orientation orientation,
-                                           int role) const override;
+    [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation,
+                                      int role) const override;
+    /// A number cell is editable, the Delete column enabled while there is more than one level;
+    /// neither in a row whose level has gone (see the class comment).
     [[nodiscard]] Qt::ItemFlags flags(const QModelIndex& index) const override;
     /// Reads @p value as the text of a number cell (an expression in the column's unit) and sets
     /// it as the editor does (makeCellBinding()): true when the text was read and set, false for
@@ -213,9 +224,13 @@ private:
         std::vector<const Level*>         ids;
     };
 
-    /// The model changed: sorts its levels again when they are out of order (bug 32) and takes them
-    /// (refresh()).
+    /// The model changed: sorts its levels again when they are out of order (bug 32), takes them
+    /// (refresh()) and announces the sort (announceSort()).
     void followModel();
+    /// Tells the model's listeners of a sort followModel() made (bug 32; see the class comment):
+    /// leaves it to setLevelAltitude() during the table's own altitude edit, otherwise emits the
+    /// model's changed() at once.
+    void announceSort();
     /// Takes the model's levels as the rows (see the class comment).
     void refresh();
     /// The rows become @p next, levels other than the rows' or in another order: moved,
@@ -233,7 +248,8 @@ private:
     void announceAll();
 
     /// Sets @p altitude on @p level unless another level has it (bug 31); the rows around the
-    /// level flash when it moves.
+    /// level flash when it moves, and a sort the edit led to is announced once the level's setter
+    /// has returned (bug 32).
     void setLevelAltitude(Level& level, double altitude);
 
     /// Flashes rows @p first to @p last (those that exist).
@@ -257,6 +273,8 @@ private:
     std::chrono::milliseconds         m_flashDuration{kFlashDuration};
     /// The level an altitude edit is setting, while it does (its rows flash if it moves).
     const Level* m_movingLevel{nullptr};
+    /// Whether followModel() sorted the levels during the altitude edit, which announces it.
+    bool m_sortUnannounced{false};
 };
 
 }  // namespace QtRocket::Gui

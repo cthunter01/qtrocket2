@@ -12,6 +12,7 @@
 #include "QtRocket/gui/dialogs/simulation/SimulationConditionsPanel.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -26,8 +27,11 @@
 #include <utility>
 #include <vector>
 
+#include <QApplication>
+#include <QDialog>
 #include <QGroupBox>
 #include <QLabel>
+#include <QLineEdit>
 #include <QObject>
 #include <QPushButton>
 #include <QRadioButton>
@@ -36,6 +40,8 @@
 #include <QStackedWidget>
 #include <QString>
 #include <QTest>
+#include <QTimer>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
 
@@ -711,6 +717,73 @@ struct Relation
     return expected;
 }
 
+/// Closes every modal dialog that opens while it lives, and counts them: a key that clicks a
+/// button opening the wind editor fails the test, where the editor's exec() would wait.
+class ModalDialogCounter
+{
+public:
+    ModalDialogCounter()
+    {
+        m_timer.setInterval(std::chrono::milliseconds(1));
+        QObject::connect(&m_timer, &QTimer::timeout, &m_timer, [this] { closeModalDialog(); });
+        m_timer.start();
+    }
+
+    /// How many modal dialogs were closed.
+    [[nodiscard]] int count() const noexcept { return m_count; }
+
+private:
+    void closeModalDialog()
+    {
+        auto* const dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+        if (dialog != nullptr && dialog->isVisible())
+        {
+            ++m_count;
+            dialog->reject();
+        }
+    }
+
+    QTimer m_timer;
+    int    m_count = 0;
+};
+
+/// Gives each of @p widgets the focus and presses Return there.
+void pressReturnInEach(std::initializer_list<QWidget*> widgets)
+{
+    for (QWidget* const widget : widgets)
+    {
+        widget->setFocus();
+        QTest::keyClick(widget, Qt::Key_Return);
+    }
+}
+
+/// The texts of @p dialog's push buttons that are its default button or would become it.
+[[nodiscard]] std::vector<std::string> defaultButtonsOf(const QDialog& dialog)
+{
+    std::vector<std::string> texts;
+    for (const QPushButton* const button : dialog.findChildren<QPushButton*>())
+    {
+        if (button->isDefault() || button->autoDefault())
+        {
+            texts.push_back(QtStrings::toUtf8(button->text()));
+        }
+    }
+    return texts;
+}
+
+/// Options launching into a multi-level wind of three levels with the directions 0, 90 and 180
+/// degrees at 0, 100 and 200 m.
+void launchIntoThreeWindLevels(SimulationOptions& options)
+{
+    options.setLaunchIntoWind(true);
+    options.setWindModelType(WindModelType::MULTI_LEVEL);
+    MultiLevelPinkNoiseWindModel& wind = options.getMultiLevelWindModel();
+    wind.clearLevels();
+    EXPECT_TRUE(wind.addWindLevel(0, 4, 0).has_value());
+    EXPECT_TRUE(wind.addWindLevel(100, 4, std::numbers::pi / 2).has_value());
+    EXPECT_TRUE(wind.addWindLevel(200, 4, std::numbers::pi).has_value());
+}
+
 // -------------------------------------------------------------------------------------- tests
 
 /// What the test of "Edit levels" does with the wind editor: checks it (over the panel's window,
@@ -885,6 +958,70 @@ TEST_F(SimulationConditionsPanelTest, TheEditLevelsButtonOpensTheWindEditor)
     EXPECT_EQ(wind.getLevels().size(), levels + 1);
     EXPECT_EQ(tab.panel().windLevelSummary()->summaryLabel().text(),
               WindLevelSummary::summaryText(wind));
+}
+
+TEST_F(SimulationConditionsPanelTest, ReturnClicksNoButtonOfThePanel)
+{
+    // Java's settings dialog has no default button, and Enter clicks none of the panel's plain
+    // JButtons; a QPushButton in a QDialog is autoDefault, and a dialog without a default button
+    // makes the first one in the focus chain its default ("Edit levels") when it is shown.
+    Gui::Test::TestGuiServices services;
+    SimulationOptions          options;
+    options.setWindModelType(WindModelType::MULTI_LEVEL);
+    options.setLaunchRodLength(7);
+    QDialog      dialog;
+    BindingScope scope(dialog, nullptr);
+    auto* const  name  = makeChild<QLineEdit>(&dialog);
+    auto* const  panel = makeChild<SimulationConditionsPanel>(&dialog, options, Variant::SIMULATION,
+                                                              services.services(), scope);
+    auto* const  layout = makeChild<QVBoxLayout>(&dialog);
+    layout->addWidget(name);
+    layout->addWidget(panel);
+    ASSERT_TRUE(Gui::Test::showActive(dialog));
+    ASSERT_EQ(panel->windCards()->currentWidget(), panel->windLevelSummary());
+    EXPECT_EQ(defaultButtonsOf(dialog), std::vector<std::string>());
+    const QSignalSpy         requests(panel, &SimulationConditionsPanel::editWindLevelsRequested);
+    const ModalDialogCounter editors;
+    pressReturnInEach({name, panel->multiLevelWindButton(), &panel->isaCheckBox(),
+                       panel->resetButton(), panel->saveButton(),
+                       &panel->windLevelSummary()->editButton()});
+    EXPECT_EQ(requests.count(), 0);
+    EXPECT_EQ(editors.count(), 0);
+    EXPECT_EQ(defaultButtonsOf(dialog), std::vector<std::string>());
+    // Neither "Reset to default" nor "Save as default" was clicked, and the dialog stays.
+    EXPECT_DOUBLE_EQ(options.getLaunchRodLength(), 7.0);
+    EXPECT_DOUBLE_EQ(services.preferences().getLaunchRodLength(), 1.0);
+    EXPECT_TRUE(dialog.isVisible());
+    scope.release();
+}
+
+TEST_F(SimulationConditionsPanelTest, TheRodDirectionFollowsAWindLevelTheTableMoves)
+{
+    // OpenRocket bug 32's fix sorts the levels after the wind editor's table moved one: the rod
+    // direction, launching into the wind, follows the sorted levels, as a run does (Java's model
+    // keeps its order, which its panel shows).
+    Gui::Test::TestGuiServices services;
+    SimulationOptions          options;
+    launchIntoThreeWindLevels(options);
+    QWidget                         window;
+    BindingScope                    scope(window, nullptr);
+    const SimulationConditionsPanel panel(options, Variant::SIMULATION, services.services(), scope,
+                                          nullptr);
+    EXPECT_EQ(panel.rodDirection().spinBox->text(), QStringLiteral("0"));
+    MultiLevelWindTableModel table(options.getMultiLevelWindModel(), services.preferences(),
+                                   nullptr);
+    ASSERT_TRUE(table.setData(table.index(0, MultiLevelWindTableModel::kAltitudeColumn),
+                              QStringLiteral("150"), Qt::EditRole));
+    EXPECT_EQ(table.cellText(0, MultiLevelWindTableModel::kAltitudeColumn), QStringLiteral("100"));
+    // The wind at the launch site, below every level, is the lowest level's: now the 100 m one's.
+    EXPECT_NEAR(options.getLaunchRodDirection(), std::numbers::pi / 2, 1e-9);
+    EXPECT_EQ(panel.rodDirection().spinBox->text(), QStringLiteral("90"));
+    // The field and its slider show what a new panel shows.
+    const SimulationConditionsPanel fresh(options, Variant::SIMULATION, services.services(), scope,
+                                          nullptr);
+    EXPECT_EQ(panel.rodDirection().slider->value(), fresh.rodDirection().slider->value());
+    EXPECT_EQ(panel.rodDirection().spinBox->text(), fresh.rodDirection().spinBox->text());
+    scope.release();
 }
 
 TEST_F(SimulationConditionsPanelTest, TypingFortyTwoIntoTheTurbulenceIntensityShowsTheAnswer)

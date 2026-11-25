@@ -611,7 +611,8 @@ void AerodynamicLookupDialog::showLookupError(const std::filesystem::path& path,
     m_services.prompts().showMessage(
         this, UserPrompts::Message{
                   .severity = UserPrompts::Severity::ERROR,
-                  .title    = tr("Failed to load CSV"),
+                  //: AerodynamicLookupDialog.error.title
+                  .title = tr("Failed to load CSV"),
                   //: AerodynamicLookupDialog.error.msg (Java's %n is the line break)
                   .lines = messageLines(
                       tr("Failed to load %1:\n%2").arg(QtStrings::fromPath(path), reason)),

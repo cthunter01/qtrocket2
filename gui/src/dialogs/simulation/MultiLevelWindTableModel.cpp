@@ -58,6 +58,19 @@ using Level = MultiLevelWindTableModel::Level;
     return MathUtil::javaDoubleCompare(a->getAltitude(), b->getAltitude()) < 0;
 }
 
+/// Sorts @p model's levels by altitude when they are out of order (OpenRocket bug 32): whether
+/// it did (MultiLevelPinkNoiseWindModel::sortLevels() announces nothing).
+[[nodiscard]] bool sortLevelsOutOfOrder(MultiLevelPinkNoiseWindModel& model)
+{
+    if (const std::vector<Level*> levels = model.getLevels();
+        std::ranges::is_sorted(levels, lowerAltitude))
+    {
+        return false;
+    }
+    model.sortLevels();
+    return true;
+}
+
 [[nodiscard]] bool isNumberColumn(int column) noexcept
 {
     return column >= 0 && column < MultiLevelWindTableModel::kNumberColumnCount;
@@ -120,11 +133,11 @@ MultiLevelWindTableModel::MultiLevelWindTableModel(MultiLevelPinkNoiseWindModel&
     {
         m_units.at(column) = &columnUnitGroup(static_cast<int>(column)).getDefaultUnit();
     }
-    // OpenRocket bug 32: the levels in order from the start (Java sorts its rows only).
-    if (const std::vector<Level*> levels = model.getLevels();
-        !std::ranges::is_sorted(levels, lowerAltitude))
+    // OpenRocket bug 32: the levels in order from the start (Java sorts its rows only), and the
+    // model's listeners told of the new order (see announceSort()), before the table listens.
+    if (sortLevelsOutOfOrder(model))
     {
-        model.sortLevels();
+        model.fireChangeEvent();
     }
     m_rows       = rowsOf(model.getLevels());
     m_connection = model.changed().connect([this] { followModel(); });
@@ -220,11 +233,14 @@ Qt::ItemFlags MultiLevelWindTableModel::flags(const QModelIndex& index) const
     {
         return Qt::NoItemFlags;
     }
+    // A row whose level has gone (with the model, or replaced without a word) is inert.
+    const bool hasLevel = levelAt(index.row()) != nullptr;
     if (isNumberColumn(index.column()))
     {
-        return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable;
+        return hasLevel ? Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable
+                        : Qt::ItemIsEnabled | Qt::ItemIsSelectable;
     }
-    if (index.column() == kDeleteColumn && rowCount() <= 1)
+    if (index.column() == kDeleteColumn && (rowCount() <= 1 || !hasLevel))
     {
         // Java: updateDeleteButtonsState(), the last level cannot be deleted.
         return Qt::ItemIsSelectable;
@@ -287,12 +303,28 @@ void MultiLevelWindTableModel::followModel()
 {
     // OpenRocket bug 32: an altitude edit (or anything else) that leaves the levels out of order
     // sorts them again, so that the wind is interpolated between the right levels.
-    if (const std::vector<Level*> levels = m_model->getLevels();
-        !std::ranges::is_sorted(levels, lowerAltitude))
-    {
-        m_model->sortLevels();
-    }
+    const bool sorted = sortLevelsOutOfOrder(*m_model);
     refresh();
+    if (sorted)
+    {
+        announceSort();
+    }
+}
+
+void MultiLevelWindTableModel::announceSort()
+{
+    // The model's listeners connected before the table (a SimulationOptions forwards the model's
+    // changes to the launch conditions, whose rod direction follows the wind at the launch site)
+    // heard of the change while the levels were still out of order: the new order is a change of
+    // its own. During the table's own altitude edit it is announced once the level's setter has
+    // returned (setLevelAltitude()); otherwise at once, within the model's announcement, where
+    // the table finds the levels sorted and only refreshes.
+    if (m_movingLevel != nullptr)
+    {
+        m_sortUnannounced = true;
+        return;
+    }
+    m_model->fireChangeEvent();
 }
 
 void MultiLevelWindTableModel::refresh()
@@ -648,9 +680,17 @@ void MultiLevelWindTableModel::setLevelAltitude(Level& level, double altitude)
     {
         return;
     }
-    m_movingLevel     = &level;
-    const auto moving = qScopeGuard([this] { m_movingLevel = nullptr; });
-    level.setAltitude(altitude);
+    m_sortUnannounced = false;
+    {
+        m_movingLevel     = &level;
+        const auto moving = qScopeGuard([this] { m_movingLevel = nullptr; });
+        level.setAltitude(altitude);
+    }
+    // OpenRocket bug 32: the sort the edit led to, told to the model's listeners (announceSort()).
+    if (std::exchange(m_sortUnannounced, false) && hasModel())
+    {
+        m_model->fireChangeEvent();
+    }
 }
 
 // ------------------------------------------------------------------------------------ the actions

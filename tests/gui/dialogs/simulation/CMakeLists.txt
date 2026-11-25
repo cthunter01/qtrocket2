@@ -15,7 +15,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     SimulationOptionsPanelTests.cpp
     SimulationWarningsPanelTests.cpp
     TurbulenceIntensityTextTests.cpp
-    WindEditorTranscript.cpp
     wind_levels_import_tests.cpp
+    WindEditorTranscript.cpp
     WindLevelSummaryTests.cpp
 )

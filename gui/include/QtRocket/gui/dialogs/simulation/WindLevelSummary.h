@@ -44,9 +44,14 @@ namespace QtRocket::Gui
 /// level changed elsewhere leave it stale; and the highest altitude and speed start from
 /// Double.MIN_VALUE, the smallest positive double, so levels that all lie below sea level show
 /// the highest altitude 0 ("Altitude range: -50 m - 0 m" for levels at -50 and -10 m). Here the
-/// summary is written again on every change of the model (its changed() signal: a level added,
-/// removed or changed, the levels cleared, reset, loaded or imported), and the highest values
-/// start below every value.
+/// summary is written again on every change the model announces (its changed() signal: a level
+/// added, removed or changed, the levels cleared, reset or imported, the altitude reference), and
+/// the highest values start below every value. MultiLevelPinkNoiseWindModel::loadFrom() and
+/// sortLevels() announce nothing: a caller that replaces or reorders the levels with them
+/// announces the change afterwards (fireChangeEvent(), or a setter that emits changed()), as
+/// SimulationOptions::copyConditionsFrom(), the CSV import (MultiLevelWindEditDialog::
+/// importLevels(): setAltitudeReference()) and the wind editor's table (MultiLevelWindTableModel,
+/// after its sort) do; until then the summary keeps its last text.
 class WindLevelSummary final : public QWidget
 {
     Q_OBJECT

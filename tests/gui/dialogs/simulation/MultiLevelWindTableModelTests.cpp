@@ -291,6 +291,29 @@ void setUnits(WindTable& table, std::vector<std::string>& lines,
     return lines;
 }
 
+/// The setup of a model whose levels are out of order (threeLevels() with the first at 800 m)
+/// and have a listener before the table (as SimulationOptions' forwarding of the model's changes
+/// is): it records the levels (windModelLine()) at every change the model announces from then on.
+struct ListenedOutOfOrderLevels
+{
+    std::vector<std::string>* heard;
+
+    void operator()(MultiLevelPinkNoiseWindModel& model) const
+    {
+        threeLevels(model);
+        model.getLevels().front()->setAltitude(800);
+        // The connection goes with the model.
+        model.changed().connect(
+            [lines = heard, &model] { lines->push_back(Gui::Test::windModelLine(model)); });
+    }
+};
+
+/// Whether the cell @p row, @p column of @p table has @p flag.
+[[nodiscard]] bool cellHas(const Model& table, int row, int column, Qt::ItemFlag flag)
+{
+    return table.flags(table.index(row, column)).testFlag(flag);
+}
+
 /// The three levels in a wind model of the test's own, which it may destroy.
 [[nodiscard]] std::unique_ptr<MultiLevelPinkNoiseWindModel> ownModel(
     const InMemoryPreferences& preferences)
@@ -515,6 +538,37 @@ TEST_F(MultiLevelWindTableModelTest, TheModelsLevelsAreSortedFromTheStart)
     EXPECT_EQ(table.table().cellText(1, Model::kAltitudeColumn), QStringLiteral("800"));
 }
 
+TEST_F(MultiLevelWindTableModelTest, TheSortIsAnnouncedToTheModelsEarlierListeners)
+{
+    // OpenRocket bug 32: the table sorts the levels in its own slot on the model's changed(),
+    // after the listeners connected before it have heard of the change; it announces the new
+    // order (the model's fireChangeEvent()), so that they read it too.
+    std::vector<std::string> heard;
+    WindTable                table(ListenedOutOfOrderLevels{.heard = &heard});
+    Model&                   model = table.table();
+    // Made over levels out of order.
+    EXPECT_EQ(heard, std::vector<std::string>{"MODEL 500.0 800.0 1250.5"});
+    // An altitude edit that moves its level: heard out of order, then sorted.
+    heard.clear();
+    ASSERT_TRUE(
+        model.setData(model.index(2, Model::kAltitudeColumn), QStringLiteral("100"), Qt::EditRole));
+    EXPECT_EQ(heard,
+              (std::vector<std::string>{"MODEL 500.0 800.0 100.0", "MODEL 100.0 500.0 800.0"}));
+    EXPECT_EQ(model.cellText(0, Model::kAltitudeColumn), QStringLiteral("100"));
+    // An edit that keeps the order: heard once.
+    heard.clear();
+    ASSERT_TRUE(
+        model.setData(model.index(0, Model::kAltitudeColumn), QStringLiteral("50"), Qt::EditRole));
+    EXPECT_EQ(heard, std::vector<std::string>{"MODEL 50.0 500.0 800.0"});
+    // A level moved by another than the table: the table sorts and announces at once, within the
+    // model's announcement of the move.
+    heard.clear();
+    table.model().getLevels().front()->setAltitude(900);
+    EXPECT_EQ(heard,
+              (std::vector<std::string>{"MODEL 900.0 500.0 800.0", "MODEL 500.0 800.0 900.0"}));
+    EXPECT_EQ(model.cellText(2, Model::kAltitudeColumn), QStringLiteral("900"));
+}
+
 TEST_F(MultiLevelWindTableModelTest, AnAltitudeEditMovesItsRowAndFlashesItsNeighbourhood)
 {
     WindTable table(threeLevels);
@@ -598,6 +652,9 @@ TEST_F(MultiLevelWindTableModelTest, LevelsReplacedSilentlyShowNothingUntilTheNe
     EXPECT_EQ(table.table().levelAt(0), nullptr);
     EXPECT_TRUE(table.table().data(table.table().index(0, 0), Qt::DisplayRole).isNull());
     EXPECT_FALSE(table.table().deleteLevel(0));
+    // Inert: no editor, no delete button.
+    EXPECT_FALSE(cellHas(table.table(), 0, Model::kSpeedColumn, Qt::ItemIsEditable));
+    EXPECT_FALSE(cellHas(table.table(), 0, Model::kDeleteColumn, Qt::ItemIsEnabled));
     table.model().setAltitudeReference(WindModel::AltitudeReference::MSL);
     EXPECT_EQ(table.table().rowCount(), 1);
     EXPECT_EQ(
@@ -613,10 +670,14 @@ TEST_F(MultiLevelWindTableModelTest, TheTableOutlivesItsModel)
     Model                                         model(*wind, preferences, nullptr);
     const QAbstractItemModelTester tester(&model,
                                           QAbstractItemModelTester::FailureReportingMode::Warning);
+    EXPECT_TRUE(cellHas(model, 0, Model::kDeleteColumn, Qt::ItemIsEnabled));
     wind.reset();
     EXPECT_FALSE(model.hasModel());
+    // The rows stay (a destroyed signal calls nobody), inert.
     EXPECT_EQ(model.rowCount(), 3);
     EXPECT_EQ(model.levelAt(0), nullptr);
+    EXPECT_FALSE(cellHas(model, 0, Model::kDeleteColumn, Qt::ItemIsEnabled));
+    EXPECT_FALSE(cellHas(model, 1, Model::kAltitudeColumn, Qt::ItemIsEditable));
     EXPECT_TRUE(model.cellText(0, Model::kAltitudeColumn).isEmpty());
     EXPECT_EQ(model.addLevel(), -1);
     EXPECT_FALSE(model.deleteLevel(0));

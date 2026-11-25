@@ -29,6 +29,10 @@ WindLevelSummary::WindLevelSummary(MultiLevelPinkNoiseWindModel& model, QWidget*
 {
     m_summaryLabel->setObjectName(QStringLiteral("summaryLabel"));
     m_editButton->setObjectName(QStringLiteral("editButton"));
+    // Return does not click it (Java's plain JButton, in a dialog with no default button; a
+    // QPushButton in a QDialog is autoDefault, and the dialog would make it its default, hidden
+    // with the average wind's card or not).
+    m_editButton->setAutoDefault(false);
 
     // Java: the multi-level panel's MigLayout("fillx, ins 0, gap rel rel"): the summary (in a
     // panel of its own, "grow, wrap") above the button, which spans the width ("spanx, growx").
