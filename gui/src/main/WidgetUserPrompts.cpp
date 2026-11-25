@@ -51,6 +51,7 @@
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/dialogs/motor/MotorChooserDialog.h"
 #include "QtRocket/gui/dialogs/preset/ComponentPresetChooserDialog.h"
+#include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -59,6 +60,7 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
@@ -848,7 +850,17 @@ std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
     // MotorChooserDialog, one per top-level window (its child, made at its first question), so
     // that its search, filters, sort and selection survive between questions as in OpenRocket
     // (MotorConfigurationPanel keeps one); without a parent, one for this question alone.
-    return MotorChooserDialog::choose(parent, services, mount, configurationId);
+    const bool                 designations = services.preferences().getMotorNameColumn();
+    std::optional<MotorChoice> choice =
+        MotorChooserDialog::choose(parent, services, mount, configurationId);
+    // The chooser's name column (a motor by its designation or its common name) is also how the
+    // simulations tables name the configurations' motors, and no document event tells of it:
+    // OpenRocket's tables paint their cells anew, these are read again.
+    if (services.preferences().getMotorNameColumn() != designations)
+    {
+        MainWindow::refreshEverySimulationTable();
+    }
+    return choice;
 }
 
 UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget*             parent,

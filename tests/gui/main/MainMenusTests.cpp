@@ -230,6 +230,8 @@ constexpr std::array kDesignWindowItems{
     item("saveAction", "&Save", "Save the current rocket design", "", Id::FILE_SAVE),
     item("saveAsAction", "S&ave as\u2026", "Save the current rocket design to a new file", "",
          Id::FILE_SAVE_AS),
+    item("exportSimulationTableAction", "Export simulation table as CSV file", "", "",
+         Id::SIM_TABLE_EXPORT),
     item("propertiesAction", "Propert&ies", "View the file properties", "", Id::CONFIGURE),
     item("closeAction", "&Close design", "Close the current rocket design", "", Id::FILE_CLOSE),
     item("quitAction", "&Quit", "Quit the program", "", Id::FILE_QUIT),
@@ -382,13 +384,14 @@ TEST_F(DesignWindowMenusTest, HasFileEditAndAnEmptyHiddenHelpMenu)
 
 TEST_F(DesignWindowMenusTest, FileMenuHasOpenRocketsItemsInItsOrder)
 {
-    EXPECT_EQ(
-        itemNames(*menus().fileMenu()),
-        (Texts{"newAction", "openAction", "openRecentMenu", "openExampleMenu", "---", "saveAction",
-               "saveAsAction", "---", "propertiesAction", "closeAction", "---", "quitAction"}));
+    EXPECT_EQ(itemNames(*menus().fileMenu()),
+              (Texts{"newAction", "openAction", "openRecentMenu", "openExampleMenu", "---",
+                     "saveAction", "saveAsAction", "---", "exportSimulationTableAction", "---",
+                     "propertiesAction", "closeAction", "---", "quitAction"}));
     EXPECT_EQ(itemTexts(*menus().fileMenu()),
               (Texts{"&New", "&Open\u2026", "Open recent", "Open example", "---", "&Save",
-                     "S&ave as\u2026", "---", "Propert&ies", "&Close design", "---", "&Quit"}));
+                     "S&ave as\u2026", "---", "Export simulation table as CSV file", "---",
+                     "Propert&ies", "&Close design", "---", "&Quit"}));
 }
 
 TEST_F(DesignWindowMenusTest, EditMenuHasOpenRocketsItemsInItsOrder)
@@ -417,6 +420,8 @@ TEST_F(DesignWindowMenusTest, AccessorsGiveTheItemsOfTheMenus)
     EXPECT_EQ(m.openExampleMenu()->objectName(), QStringLiteral("openExampleMenu"));
     EXPECT_EQ(m.saveAction()->objectName(), QStringLiteral("saveAction"));
     EXPECT_EQ(m.saveAsAction()->objectName(), QStringLiteral("saveAsAction"));
+    EXPECT_EQ(m.exportSimulationTableAction()->objectName(),
+              QStringLiteral("exportSimulationTableAction"));
     EXPECT_EQ(m.propertiesAction()->objectName(), QStringLiteral("propertiesAction"));
     EXPECT_EQ(m.closeAction()->objectName(), QStringLiteral("closeAction"));
     EXPECT_EQ(m.quitAction()->objectName(), QStringLiteral("quitAction"));
@@ -445,6 +450,8 @@ TEST_F(DesignWindowMenusTest, ItemsHaveTheStandardKeysOrMenuKeys)
     EXPECT_EQ(keys(*m.openAction()), standardKeys(QKeySequence::Open));
     EXPECT_EQ(keys(*m.saveAction()), standardKeys(QKeySequence::Save));
     EXPECT_EQ(keys(*m.saveAsAction()), standardKeys(QKeySequence::SaveAs));
+    // Java's ExportSimulationTableAsCSVAction has no accelerator.
+    EXPECT_EQ(keys(*m.exportSimulationTableAction()), "");
     EXPECT_EQ(keys(*m.propertiesAction()), menuKey(Qt::Key_I));
     EXPECT_EQ(keys(*m.closeAction()), standardKeys(QKeySequence::Close));
     EXPECT_EQ(keys(*m.quitAction()), menuKey(Qt::Key_Q));

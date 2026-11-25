@@ -3,8 +3,10 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <stop_token>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <QCoreApplication>
@@ -28,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "ManualSimulationExecutor.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/main/MainMenus.h"
@@ -36,11 +39,13 @@
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/FileIo.h"
+#include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
 
 namespace QtRocket::Gui
@@ -104,6 +109,9 @@ protected:
     [[nodiscard]] MainWindow&                 window() { return *m_window; }
     [[nodiscard]] Gui::Test::TestGuiServices& services() { return m_services; }
 
+    /// Destroys the window (before the test's end).
+    void destroyWindow() { m_window = nullptr; }
+
     /// The title as the window shows it, with Qt's modified mark ("*" where the style shows it).
     [[nodiscard]] std::string shownTitle()
     {
@@ -137,22 +145,25 @@ TEST_F(MainWindowTest, HoldsTheDesignTabAboveTheRocketPanel)
     EXPECT_EQ(splitter.widget(1), window().rocketPanel());
     EXPECT_FALSE(splitter.childrenCollapsible());
 
-    // BasicFrame's tabs of Milestone 3: "Rocket design" and "Motors & Configuration" (its "&"
-    // doubled, so that Qt shows it), the design tab the current one.
+    // BasicFrame's tabs: "Rocket design", "Motors & Configuration" (its "&" doubled, so that Qt
+    // shows it) and "Flight simulations", the design tab the current one.
     const QTabWidget& tabs = *window().tabs();
     EXPECT_EQ(tabs.objectName(), QStringLiteral("tabbedPane"));
-    ASSERT_EQ(tabs.count(), 2);
+    ASSERT_EQ(tabs.count(), 3);
     EXPECT_EQ(tabs.tabText(MainWindow::kDesignTab), QStringLiteral("Rocket design"));
     EXPECT_EQ(tabs.widget(MainWindow::kDesignTab), window().designPanel());
     EXPECT_EQ(tabs.tabText(MainWindow::kFlightConfigurationTab),
               QStringLiteral("Motors && Configuration"));
     EXPECT_EQ(tabs.widget(MainWindow::kFlightConfigurationTab),
               window().flightConfigurationPanel());
+    EXPECT_EQ(tabs.tabText(MainWindow::kSimulationTab), QStringLiteral("Flight simulations"));
+    EXPECT_EQ(tabs.widget(MainWindow::kSimulationTab), window().simulationPanel());
     EXPECT_EQ(tabs.currentIndex(), MainWindow::kDesignTab);
     EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
     EXPECT_EQ(window().designPanel()->objectName(), QStringLiteral("designPanel"));
     EXPECT_EQ(window().flightConfigurationPanel()->objectName(),
               QStringLiteral("flightConfigurationPanel"));
+    EXPECT_EQ(window().simulationPanel()->objectName(), QStringLiteral("simulationPanel"));
     EXPECT_EQ(window().rocketPanel()->objectName(), QStringLiteral("rocketPanel"));
 
     EXPECT_EQ(&window().document(), &document());
@@ -216,11 +227,12 @@ TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
 {
     const QPointer<QWidget> designPlaceholder        = window().designPanel();
     const QPointer<QWidget> configurationPlaceholder = window().flightConfigurationPanel();
+    const QPointer<QWidget> simulationPlaceholder    = window().simulationPanel();
     const QPointer<QWidget> rocketPlaceholder        = window().rocketPanel();
     auto* const             design                   = makeChild<QWidget>(&window());
     window().setDesignPanel(design);
     EXPECT_EQ(window().designPanel(), design);
-    ASSERT_EQ(window().tabs()->count(), 2);
+    ASSERT_EQ(window().tabs()->count(), 3);
     EXPECT_EQ(window().tabs()->widget(0), design);
     EXPECT_EQ(window().tabs()->tabText(0), QStringLiteral("Rocket design"));
     EXPECT_EQ(window().tabs()->currentIndex(), 0);
@@ -228,10 +240,18 @@ TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
     auto* const configuration = makeChild<QWidget>(&window());
     window().setFlightConfigurationPanel(configuration);
     EXPECT_EQ(window().flightConfigurationPanel(), configuration);
-    ASSERT_EQ(window().tabs()->count(), 2);
+    ASSERT_EQ(window().tabs()->count(), 3);
     EXPECT_EQ(window().tabs()->widget(1), configuration);
     EXPECT_EQ(window().tabs()->tabText(1), QStringLiteral("Motors && Configuration"));
     // The current tab stays the current one.
+    EXPECT_EQ(window().tabs()->currentIndex(), 0);
+
+    auto* const simulations = makeChild<QWidget>(&window());
+    window().setSimulationPanel(simulations);
+    EXPECT_EQ(window().simulationPanel(), simulations);
+    ASSERT_EQ(window().tabs()->count(), 3);
+    EXPECT_EQ(window().tabs()->widget(2), simulations);
+    EXPECT_EQ(window().tabs()->tabText(2), QStringLiteral("Flight simulations"));
     EXPECT_EQ(window().tabs()->currentIndex(), 0);
 
     auto* const rocketPanel = makeChild<QWidget>(&window());
@@ -243,9 +263,11 @@ TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
     // The placeholders go when the event loop deletes them.
     EXPECT_FALSE(designPlaceholder.isNull());
     EXPECT_FALSE(configurationPlaceholder.isNull());
+    EXPECT_FALSE(simulationPlaceholder.isNull());
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_TRUE(designPlaceholder.isNull());
     EXPECT_TRUE(configurationPlaceholder.isNull());
+    EXPECT_TRUE(simulationPlaceholder.isNull());
     EXPECT_TRUE(rocketPlaceholder.isNull());
 }
 
@@ -284,9 +306,13 @@ TEST_F(MainWindowTest, SelectTabMakesATabTheCurrentOne)
     window().selectTab(MainWindow::kDesignTab);
     EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
     EXPECT_EQ(changes.count(), 2);
+    window().selectTab(MainWindow::kSimulationTab);
+    EXPECT_EQ(window().tabs()->currentWidget(), window().simulationPanel());
+    window().selectTab(MainWindow::kDesignTab);
+    EXPECT_EQ(changes.count(), 4);
     // Java's IndexOutOfBoundsException.
     EXPECT_THROW(window().selectTab(-1), BugError);
-    EXPECT_THROW(window().selectTab(2), BugError);
+    EXPECT_THROW(window().selectTab(3), BugError);
     EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
 }
 
@@ -394,6 +420,48 @@ TEST_F(MainWindowTest, HasNoComponentDesignPanelOfItsOwn)
     EXPECT_EQ(window().componentDesignPanel(), nullptr);
     window().setDesignPanel(makeChild<QWidget>(&window()));
     EXPECT_EQ(window().componentDesignPanel(), nullptr);
+}
+
+TEST_F(MainWindowTest, HasNoComponentSimulationPanelOfItsOwn)
+{
+    // The WindowManager puts a SimulationPanel in (simulations_window_tests); a placeholder or
+    // another widget is none, its table follows no refresh, and choosing its tab then gives
+    // nothing the spotlight and runs nothing.
+    EXPECT_EQ(window().componentSimulationPanel(), nullptr);
+    window().refreshSimulationTable();
+    window().setSimulationPanel(makeChild<QWidget>(&window()));
+    EXPECT_EQ(window().componentSimulationPanel(), nullptr);
+    window().selectTab(MainWindow::kSimulationTab);
+    window().selectTab(MainWindow::kDesignTab);
+    EXPECT_EQ(window().selectedTab(), MainWindow::kDesignTab);
+    EXPECT_TRUE(services().prompts().runSimulationsQuestions().empty());
+}
+
+TEST_F(MainWindowTest, AbandonsTheJobsOfItsSimulationsAsItGoes)
+{
+    // SimulationExecutor's lifetimes: the window's jobs (the run dialog's, the design view's
+    // estimate) are abandoned as it is destroyed, so that none of their callbacks reaches the
+    // objects of a window that is gone; another window's job goes on.
+    Gui::Test::ManualSimulationExecutor& executor = services().executor();
+    executor.setMode(Gui::Test::ManualSimulationExecutor::Mode::STEPPED);
+    std::vector<std::string> finished;
+    const auto               callbacks = [&finished](std::string name) {
+        return SimulationExecutor::Callbacks{
+            .progressed = {},
+            .finished   = [&finished, label = std::move(name)](SimulationExecutor::Ending) {
+                finished.push_back(label);
+            }};
+    };
+    const SimulationExecutor::JobId own =
+        executor.submit(&window(), [](const std::stop_token&) { }, callbacks("own"));
+    const SimulationExecutor::JobId other =
+        executor.submit(nullptr, [](const std::stop_token&) { }, callbacks("other"));
+    destroyWindow();
+    EXPECT_EQ(executor.abandonedJobs(), std::vector<SimulationExecutor::JobId>{own});
+    EXPECT_FALSE(executor.isPending(own));
+    EXPECT_TRUE(executor.isPending(other));
+    EXPECT_EQ(executor.runAll(), 1U);
+    EXPECT_EQ(finished, std::vector<std::string>{"other"});
 }
 
 TEST_F(MainWindowTest, HasNoComponentFlightConfigurationPanelOfItsOwn)

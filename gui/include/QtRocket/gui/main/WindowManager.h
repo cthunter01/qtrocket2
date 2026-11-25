@@ -41,14 +41,18 @@ class RocketPanel;
 ///   FlightConfigurationPanel: its table columns select in the tree's selection, the
 ///   configuration dialog is asked to close before each of its operations that adds an undo
 ///   step, and its "Save as default" pins the configuration names of every open window's design:
-///   documents()) and its design view (a RocketPanel
+///   documents()), its "Flight simulations" tab (a SimulationPanel, made first as BasicFrame
+///   makes it: its table's selection and the tree's exclusive across the tabs, as Java's
+///   DocumentSelectionModel keeps them; the Edit menu's Edit, Cut, Copy, Paste, Duplicate and
+///   Delete doing its operations while simulations are selected, RocketActions; the File menu's
+///   "Export simulation table as CSV file" tied to its action) and its design view (a RocketPanel
 ///   below the tabs: its clicks select in the tree's selection, its figure draws the design
 ///   panel's highlight, its right-click shows the actions' popup menu, its double-click asks for
 ///   the window's configuration dialog), its size and the remembered
 ///   geometry (MainWindow), then 30 pixels right of and below the window opened before it
-///   (WindowGeometry::cascade()), then shown. Every window's design panel shares the component
-///   clipboard (the application's, OpenRocketClipboard::instance(), unless the manager was made
-///   with another one).
+///   (WindowGeometry::cascade()), then shown. Every window's design panel and simulations tab
+///   share the clipboard of components and simulations (the application's,
+///   OpenRocketClipboard::instance(), unless the manager was made with another one).
 /// - A window of a new design is "replaceable": a New or an Open from it while its design is
 ///   still saved closes it, and the new window takes its place (closeIfReplaceable()). As in
 ///   Java a replaceable window stays so for good: it is not replaced once the design has
@@ -70,11 +74,12 @@ class RocketPanel;
 ///
 /// - showPreferences() opens the preferences dialog (PreferencesDialog), which every window's
 ///   Edit > Preferences does (on macOS that item is the application menu's Preferences): over
-///   the window, modal for the application, refreshing the design view of every window when it
-///   applies or discards (rocketPanels()). As Java's PreferencesDialog.showPreferences(), a
-///   dialog still open is closed first (as by its OK); it is closed so too when its window
-///   closes (close(), past the question) or the manager is destroyed (Java's dialog is owned by
-///   its frame, which disposes it).
+///   the window, modal for the application, refreshing the design view and the simulations table
+///   of every window when it applies or discards (rocketPanels(); MainWindow::
+///   refreshSimulationTable(), so that the table shows a change of the units: critic G6). As Java's
+///   PreferencesDialog.showPreferences(), a dialog still open is closed first (as by its OK); it is
+///   closed so too when its window closes (close(), past the question) or the manager is destroyed
+///   (Java's dialog is owned by its frame, which disposes it).
 ///
 /// The application connects exitRequested() to the end of its event loop. menusCreated() and
 /// windowOpened() let the code that owns the other items connect them (MainMenus).
@@ -214,6 +219,9 @@ private:
     void destroyLater(const MainWindow& window);
     /// After the last window was closed: exits, or shows the menu bar of no window.
     void lastWindowClosed();
+    /// The design views the preferences dialog refreshes (rocketPanels()), asked whenever it
+    /// refreshes them: every window's simulations table is read again first.
+    [[nodiscard]] std::vector<RocketPanel*> viewsToRefresh() const;
 
     GuiServices          m_services;
     OpenRocketClipboard* m_clipboard;

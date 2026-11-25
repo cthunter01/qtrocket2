@@ -1,8 +1,10 @@
 #include "QtRocket/gui/main/RocketActions.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <deque>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <span>
@@ -11,6 +13,7 @@
 
 #include <QAction>
 #include <QMenu>
+#include <QMetaObject>
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
@@ -20,6 +23,8 @@
 #include "QtRocket/gui/main/ComponentEditing.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableView.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -174,6 +179,15 @@ void setEnabled(const QPointer<QAction>& action, bool enabled)
     }
 }
 
+/// The simulations tab's actions whose states Edit, Cut, Copy, Paste, Duplicate and Delete
+/// follow, in that order.
+[[nodiscard]] std::array<QAction*, 6> simulationEditActions(const SimulationPanel& panel)
+{
+    return {panel.editSimulationAction(),      panel.cutSimulationAction(),
+            panel.copySimulationAction(),      panel.pasteSimulationAction(),
+            panel.duplicateSimulationAction(), panel.deleteSimulationAction()};
+}
+
 }  // namespace
 
 RocketActions::RocketActions(MainMenus& menus, OpenRocketClipboard& clipboard, UserPrompts& prompts,
@@ -208,6 +222,81 @@ RocketActions::RocketActions(MainMenus& menus, OpenRocketClipboard& clipboard, U
 
 RocketActions::~RocketActions() = default;
 
+void RocketActions::setSimulationPanel(SimulationPanel* panel, std::function<bool()> isCurrentTab)
+{
+    for (const QMetaObject::Connection& connection : m_simulationConnections)
+    {
+        disconnect(connection);
+    }
+    m_simulationConnections.clear();
+    m_simulationPanel        = panel;
+    m_isSimulationTabCurrent = std::move(isCurrentTab);
+    if (panel != nullptr)
+    {
+        // Java's listener of the simulations table's selection; and the tab's actions, whose
+        // states the tab sets at its own changes (see the class comment).
+        const auto update =
+            guarded([this] { updateEditActions(); }, QStringLiteral("Rocket actions"));
+        m_simulationConnections.push_back(connect(
+            &panel->table(), &SimulationTableView::selectedSimulationsChanged, this, update));
+        for (const QAction* action : simulationEditActions(*panel))
+        {
+            m_simulationConnections.push_back(
+                connect(action, &QAction::enabledChanged, this, update));
+        }
+    }
+    updateActions();
+}
+
+SimulationPanel* RocketActions::simulationPanel() const noexcept
+{
+    return m_simulationPanel.data();
+}
+
+bool RocketActions::hasSimulationSelection() const
+{
+    const SimulationPanel* const panel = m_simulationPanel.data();
+    return panel != nullptr && !panel->table().selectedSimulations().empty();
+}
+
+bool RocketActions::isSimulationSelected() const
+{
+    if (!hasSimulationSelection())
+    {
+        return false;
+    }
+    // Java: IllegalStateException("Both simulation and component selected"); the window keeps
+    // the two selections exclusive.
+    QTROCKET_ASSERT(m_selection->selectedComponent() == nullptr);
+    return true;
+}
+
+bool RocketActions::pastesIntoSimulationTab() const
+{
+    const SimulationPanel* const panel = m_simulationPanel.data();
+    return panel != nullptr && m_isSimulationTabCurrent && m_isSimulationTabCurrent() &&
+           panel->pasteSimulationAction()->isEnabled();
+}
+
+bool RocketActions::runOnSimulations(const std::function<void(SimulationPanel& panel)>& operation,
+                                     bool                                               paste)
+{
+    SimulationPanel* const panel = m_simulationPanel.data();
+    if (panel == nullptr || !(isSimulationSelected() || (paste && pastesIntoSimulationTab())))
+    {
+        return false;
+    }
+    // The operation may ask a question or open a dialog (an event loop), in which this object
+    // may go.
+    const QPointer<RocketActions> alive(this);
+    operation(*panel);
+    if (!alive.isNull())
+    {
+        Q_EMIT simulationTabRequested();
+    }
+    return true;
+}
+
 void RocketActions::createOwnActions()
 {
     //: RocketActions.MoveUpAct.Moveup
@@ -237,11 +326,17 @@ void RocketActions::connectActions()
 {
     connect(m_edit.data(), &QAction::triggered, this,
             guarded([this] { edit(); }, QStringLiteral("Edit")));
-    // Cut, Copy, Paste, Duplicate and Delete end with parentFrame.selectTab(DESIGN_TAB) once they
-    // did their work; Move up and Move down do not.
+    // Edit, Cut, Copy, Paste, Duplicate and Delete do the simulations tab's operation instead
+    // while simulations are selected, then show that tab (RocketActions.java:478-1000:
+    // runOnSimulations()). On components, Cut, Copy, Paste, Duplicate and Delete end with
+    // parentFrame.selectTab(DESIGN_TAB) once they did their work; Move up and Move down do not.
     connect(m_cut.data(), &QAction::triggered, this,
             guarded(
                 [this] {
+                    if (runOnSimulations([](SimulationPanel& panel) { panel.cutSimulations(); }))
+                    {
+                        return;
+                    }
                     if (runClosingDialog(m_editing.canCut(), &ComponentEditing::cut))
                     {
                         Q_EMIT designTabRequested();
@@ -252,18 +347,27 @@ void RocketActions::connectActions()
             guarded([this] { copy(); }, QStringLiteral("Copy")));
     connect(m_paste.data(), &QAction::triggered, this,
             guarded([this] { paste(); }, QStringLiteral("Paste")));
-    connect(m_duplicate.data(), &QAction::triggered, this,
-            guarded(
-                [this] {
-                    if (runClosingDialog(m_editing.canDuplicate(), &ComponentEditing::duplicate))
-                    {
-                        Q_EMIT designTabRequested();
-                    }
-                },
-                QStringLiteral("Duplicate")));
+    connect(
+        m_duplicate.data(), &QAction::triggered, this,
+        guarded(
+            [this] {
+                if (runOnSimulations([](SimulationPanel& panel) { panel.duplicateSimulations(); }))
+                {
+                    return;
+                }
+                if (runClosingDialog(m_editing.canDuplicate(), &ComponentEditing::duplicate))
+                {
+                    Q_EMIT designTabRequested();
+                }
+            },
+            QStringLiteral("Duplicate")));
     connect(m_delete.data(), &QAction::triggered, this,
             guarded(
                 [this] {
+                    if (runOnSimulations([](SimulationPanel& panel) { panel.deleteSimulations(); }))
+                    {
+                        return;
+                    }
                     if (runClosingDialog(m_editing.canDelete(), &ComponentEditing::deleteSelection))
                     {
                         Q_EMIT designTabRequested();
@@ -365,12 +469,7 @@ void RocketActions::updateActions()
 {
     const std::vector<RocketComponent*> selected    = m_selection->selectedComponents();
     const bool                          anySelected = !selected.empty();
-    setEnabled(m_edit, anySelected);
-    setEnabled(m_cut, m_editing.canCut());
-    setEnabled(m_copy, m_editing.canCopy());
-    setEnabled(m_paste, m_editing.canPaste());
-    setEnabled(m_delete, m_editing.canDelete());
-    setEnabled(m_duplicate, m_editing.canDuplicate());
+    updateEditActions();
     setEnabled(m_deselectAll, anySelected);
     m_moveUp->setEnabled(m_editing.canMoveUp());
     m_moveDown->setEnabled(m_editing.canMoveDown());
@@ -380,6 +479,29 @@ void RocketActions::updateActions()
     setEnabled(m_showAll,
                !std::ranges::all_of(all, [](const RocketComponent* c) { return c->isVisible(); }));
     updateToggleActiveAction();
+}
+
+void RocketActions::updateEditActions()
+{
+    // Each one: its component rule, or the simulations tab's action of the same name (Java's
+    // clipboardChanged() of each action).
+    std::array<bool, 6> simulations{};
+    if (const SimulationPanel* const panel = m_simulationPanel.data(); panel != nullptr)
+    {
+        std::ranges::transform(simulationEditActions(*panel), simulations.begin(),
+                               [](const QAction* action) { return action->isEnabled(); });
+    }
+    const auto [edit, cut, copy, paste, duplicate, remove] = simulations;
+    setEnabled(m_edit, m_selection->selectedComponent() != nullptr || edit);
+    setEnabled(m_cut, m_editing.canCut() || cut);
+    setEnabled(m_copy, m_editing.canCopy() || copy);
+    // The simulations' Paste where Paste goes to them: with a selected one, or on their tab
+    // (OpenRocket bug 27, see the class comment).
+    setEnabled(m_paste, m_editing.canPaste() ||
+                            (paste && (hasSimulationSelection() ||
+                                       (m_isSimulationTabCurrent && m_isSimulationTabCurrent()))));
+    setEnabled(m_delete, m_editing.canDelete() || remove);
+    setEnabled(m_duplicate, m_editing.canDuplicate() || duplicate);
 }
 
 void RocketActions::updateVisibilityActions()
@@ -528,6 +650,12 @@ void RocketActions::rocketChanged(const ComponentChangeEvent& /*event*/)
 
 void RocketActions::edit()
 {
+    // The simulations' Edit asks for their tab; the components' asks for none (Java: "the user
+    // may be editing in the rocket view window").
+    if (runOnSimulations([](SimulationPanel& panel) { panel.editSimulation(); }))
+    {
+        return;
+    }
     if (m_selection->selectedComponent() == nullptr)
     {
         return;
@@ -558,6 +686,10 @@ bool RocketActions::runClosingDialog(bool allowed, bool (ComponentEditing::*oper
 
 void RocketActions::copy()
 {
+    if (runOnSimulations([](SimulationPanel& panel) { panel.copySimulations(); }))
+    {
+        return;
+    }
     if (m_editing.copy())
     {
         Q_EMIT designTabRequested();
@@ -566,6 +698,10 @@ void RocketActions::copy()
 
 void RocketActions::paste()
 {
+    if (runOnSimulations([](SimulationPanel& panel) { panel.pasteSimulations(); }, true))
+    {
+        return;
+    }
     const bool pasted = runClosingDialog(m_editing.canPaste(), &ComponentEditing::paste);
     // A paste that fitted nowhere selected what it pasted, nothing (a refusal of QtRocket's bounds
     // keeps the selection, which a paste that fits somewhere has): Java's pasteComponents() selects

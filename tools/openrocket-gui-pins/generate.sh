@@ -36,6 +36,10 @@
 #   plot-widgets       the values tests/gui/widgets/DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp,
 #                      LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp pin by hand (checked only,
 #                      see README.md)
+#   simulation-table   tests/data/goldens/gui/simulation-table/simulation-table.json (the simulations table of
+#                      the sixteen examples and a new design, two status scenarios and a Copy), and the values
+#                      tests/gui/simulation/SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp
+#                      pin by hand (checked only, see README.md; both probes run under xvfb-run)
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
@@ -68,13 +72,13 @@
 # Requires Linux (the probes' preferences store is isolated through java.util.prefs.userRoot, which only
 # Linux's preferences implementation reads: elsewhere the probes would clear the user's own OpenRocket
 # preferences), python3, clang-format (the generators format what they write with the repository's
-# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser and open-designs,
-# xvfb-run.
+# .clang-format) and, for rocket-panel, thrust-curves, flight-config, preset-chooser, open-designs and
+# simulation-table, xvfb-run.
 set -euo pipefail
 
 all_families=(figure-paint rocket-info ribbon rocket-panel preferences scale-figure material-binding
     material-combo component-editing component-drop actions-rules thrust-curves flight-config motor-chooser
-    preset-chooser open-designs plot-widgets)
+    preset-chooser open-designs plot-widgets simulation-table)
 
 check=false
 families=()
@@ -132,7 +136,7 @@ for tool in python3 "${clang_format}"; do
         exit 1
     fi
 done
-for family in rocket-panel thrust-curves flight-config preset-chooser open-designs; do
+for family in rocket-panel thrust-curves flight-config preset-chooser open-designs simulation-table; do
     if [[ " ${families[*]} " == *" ${family} "* ]] && ! command -v xvfb-run > /dev/null; then
         echo "error: xvfb-run is not on PATH (${family}'s probe needs a display)" >&2
         exit 1
@@ -303,6 +307,7 @@ finish() {
         diff -u "${repo}/${file}" "${path}" | head -n 40 >&2 || true
         status=1
     else
+        mkdir -p "$(dirname "${repo}/${file}")"
         cp "${path}" "${repo}/${file}"
         echo "wrote: ${file}" >&2
     fi
@@ -490,6 +495,24 @@ for family in "${families[@]}"; do
         check_hand_pins "${family}" PlotWidgetsProbe \
             "DataTypeComboBoxTests.cpp, UnitSelectorTests.cpp, LineStyleComboBoxTests.cpp and ColorChooserButtonTests.cpp"
         continue
+        ;;
+    simulation-table)
+        # The table view's column chooser, keys and header on OpenRocket's SimulationPanel (its RocketActions
+        # need a toolkit, as below): the tests pin the whole transcript by hand.
+        run_probe "${family}" SimulationTableViewProbe xvfb "${repo}/data/components" "${examples}"
+        check_hand_pins "${family}" SimulationTableViewProbe \
+            "SimulationColumnVisibilityTests.cpp and SimulationTableViewTests.cpp"
+        # The sixteen examples of OpenDesignsExitGolden's designs (open-designs/designs.py, its kind "example"),
+        # in its order; OpenRocket's SimulationPanel makes RocketActions, whose key strokes ask the toolkit for
+        # the menu shortcut key, which a headless AWT refuses (no window is shown). The six presets of the
+        # example designs come from the bundled presets' directory, the scenarios' designs from data/examples.
+        python3 -I "${here}/open-designs/designs.py" "${repo}" | awk -F '\t' '$2 == "example"' \
+            > "${work}/simulation-table-designs.txt"
+        run_probe "${family}" SimulationTableProbe xvfb "${work}/simulation-table-designs.txt" \
+            "${repo}/data/components" "${examples}"
+        file=tests/data/goldens/gui/simulation-table/simulation-table.json
+        python3 -I "${here}/${family}/gen_simulation_table_pins.py" "${work}/SimulationTableProbe.txt" \
+            "${out}/$(basename "${file}")" "${commit}"
         ;;
     esac
     finish "${file}"

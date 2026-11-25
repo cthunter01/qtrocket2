@@ -6,7 +6,9 @@
 #include <span>
 #include <vector>
 
+#include <QApplication>
 #include <QCloseEvent>
+#include <QList>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QObject>
@@ -25,12 +27,15 @@
 #include "QtRocket/gui/main/SplitPane.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
+#include "QtRocket/gui/simulation/SimulationPanel.h"
+#include "QtRocket/gui/simulation/SimulationTableModel.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/MenuText.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
@@ -47,12 +52,14 @@ MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services
     m_tabs(makeChild<QTabWidget>(m_splitter)),
     m_designPanel(makeChild<QWidget>(m_tabs)),
     m_flightConfigurationPanel(makeChild<QWidget>(m_tabs)),
+    m_simulationPanel(makeChild<QWidget>(m_tabs)),
     m_rocketPanel(makeChild<QWidget>(m_splitter))
 {
     m_splitter->setObjectName(QStringLiteral("splitPane"));
     m_tabs->setObjectName(QStringLiteral("tabbedPane"));
     m_designPanel->setObjectName(QStringLiteral("designPanel"));
     m_flightConfigurationPanel->setObjectName(QStringLiteral("flightConfigurationPanel"));
+    m_simulationPanel->setObjectName(QStringLiteral("simulationPanel"));
     m_rocketPanel->setObjectName(QStringLiteral("rocketPanel"));
 
     //: BasicFrame.tab.Rocketdesign
@@ -60,6 +67,8 @@ MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services
     // Swing shows the text as it is; Qt would take its "&" for a mnemonic's mark.
     //: BasicFrame.tab.Flightconfig
     m_tabs->addTab(m_flightConfigurationPanel, MenuText::escaped(tr("Motors & Configuration")));
+    //: BasicFrame.tab.Flightsim
+    m_tabs->addTab(m_simulationPanel, tr("Flight simulations"));
     // BasicFrame's change listener, added after the tabs.
     connect(m_tabs, &QTabWidget::currentChanged, this,
             guarded([this](int index) { tabChanged(index); }, QStringLiteral("Tabs")));
@@ -82,6 +91,16 @@ MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services
         makeChild<WindowGeometry>(this, m_services.preferences(), QStringLiteral("MainWindow"));
 }
 
+MainWindow::~MainWindow()
+{
+    // The jobs of the window's simulations go before the objects their callbacks capture (the
+    // window's parts, which its QWidget destructor deletes after this body).
+    if (SimulationExecutor* const executor = m_services.simulationExecutor(); executor != nullptr)
+    {
+        executor->abandonAll(this);
+    }
+}
+
 QSplitter* MainWindow::splitter() const noexcept
 {
     return m_splitter;
@@ -97,6 +116,11 @@ FlightConfigurationPanel* MainWindow::componentFlightConfigurationPanel() const
     return qobject_cast<FlightConfigurationPanel*>(m_flightConfigurationPanel);
 }
 
+SimulationPanel* MainWindow::componentSimulationPanel() const
+{
+    return qobject_cast<SimulationPanel*>(m_simulationPanel);
+}
+
 RocketPanel* MainWindow::componentRocketPanel() const
 {
     return qobject_cast<RocketPanel*>(m_rocketPanel);
@@ -110,6 +134,11 @@ void MainWindow::setDesignPanel(QWidget* panel)
 void MainWindow::setFlightConfigurationPanel(QWidget* panel)
 {
     replaceTab(m_flightConfigurationPanel, panel);
+}
+
+void MainWindow::setSimulationPanel(QWidget* panel)
+{
+    replaceTab(m_simulationPanel, panel);
 }
 
 void MainWindow::replaceTab(QWidget*& slot, QWidget* panel)
@@ -144,13 +173,22 @@ int MainWindow::selectedTab() const
     return m_tabs->currentIndex();
 }
 
-void MainWindow::tabChanged(int index) const
+void MainWindow::tabChanged(int index)
 {
     if (m_replacingTab)
     {
         return;
     }
-    // BasicFrame.stateChanged().
+    // BasicFrame.stateChanged(): the simulations tab that stops being the current one remembers
+    // its selection first.
+    if (m_previousTab == kSimulationTab)
+    {
+        if (SimulationPanel* const panel = componentSimulationPanel(); panel != nullptr)
+        {
+            panel->updatePreviousSelection();
+        }
+    }
+    m_previousTab = index;
     switch (index)
     {
         case kDesignTab:
@@ -164,6 +202,16 @@ void MainWindow::tabChanged(int index) const
                 panel != nullptr)
             {
                 panel->takeTheSpotlight();
+            }
+            break;
+        case kSimulationTab:
+            if (SimulationPanel* const panel = componentSimulationPanel(); panel != nullptr)
+            {
+                // The spotlight comes in the next turn of the event loop (invokeLater()); the
+                // run of the simulations that are out of date, when the preferences ask for it,
+                // at once.
+                panel->takeTheSpotlight();
+                panel->activating();
             }
             break;
         default:
@@ -183,6 +231,26 @@ void MainWindow::setRocketPanel(QWidget* panel)
     m_rocketPanel = panel;
     // replaceWidget() leaves the old panel without a parent.
     old->deleteLater();
+}
+
+void MainWindow::refreshSimulationTable() const
+{
+    if (const SimulationPanel* const panel = componentSimulationPanel(); panel != nullptr)
+    {
+        panel->tableModel().refresh();
+    }
+}
+
+void MainWindow::refreshEverySimulationTable()
+{
+    const QList<QWidget*> windows = QApplication::topLevelWidgets();
+    for (const QWidget* const widget : windows)
+    {
+        if (const auto* const window = qobject_cast<const MainWindow*>(widget); window != nullptr)
+        {
+            window->refreshSimulationTable();
+        }
+    }
 }
 
 void MainWindow::refreshTitle()

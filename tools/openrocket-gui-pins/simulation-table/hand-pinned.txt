@@ -1,0 +1,132 @@
+COLS	new design	docpref=<unset>	apppref=	saved=true	hidden=simulationStepper	view=status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+MENU	new design	Status[x]	Warnings[x]	Name[x]	Configuration[x]	Sim. Stepper[ ]	Velocity off rod[x]	Apogee[x]	Velocity at deployment[x]	Optimum delay[x]	Max. velocity[x]	Max. acceleration[x]	Time to apogee[x]	Flight time[x]	Ground hit velocity[x]	---	Save as default{Save the selected visibility settings for all new designs}
+COLS	loaded	docpref=<unset>	apppref=	saved=true	hidden=simulationStepper	view=status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	show simulationStepper	docpref=	apppref=	saved=false	hidden=	view=status,warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	hide apogee	docpref=apogee	apppref=	saved=false	hidden=apogee	view=status,warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	hide status	docpref=apogee,status	apppref=	saved=false	hidden=apogee,status	view=warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	show apogee	docpref=status	apppref=	saved=false	hidden=status	view=warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	hide apogee again	docpref=status,apogee	apppref=	saved=false	hidden=status,apogee	view=warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+MENU	status and apogee hidden	Status[ ]	Warnings[x]	Name[x]	Configuration[x]	Sim. Stepper[x]	Velocity off rod[x]	Apogee[ ]	Velocity at deployment[x]	Optimum delay[x]	Max. velocity[x]	Max. acceleration[x]	Time to apogee[x]	Flight time[x]	Ground hit velocity[x]	---	Save as default{Save the selected visibility settings for all new designs}
+COLS	save as default	docpref=status,apogee	apppref=status,apogee	saved=false	hidden=status,apogee	view=warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	new design after save as default	docpref=<unset>	apppref=status,apogee	saved=true	hidden=status,apogee	view=warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	empty docpref, apppref set	docpref=	apppref=status,apogee	saved=true	hidden=status,apogee	view=warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	docpref flightTime, apppref set	docpref=flightTime	apppref=status,apogee	saved=true	hidden=flightTime	view=status,warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,groundHitVelocity
+COLS	docpref with blanks, an unknown id and a repeat	docpref= name , bogus,,flightTime ,name	apppref=<unset>	saved=true	hidden=name,flightTime	view=status,warnings,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,groundHitVelocity
+COLS	then hide apogee	docpref=name,flightTime,apogee	apppref=<unset>	saved=false	hidden=name,flightTime,apogee	view=status,warnings,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,groundHitVelocity
+COLS	docpref hides every column	docpref=status,warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity	apppref=<unset>	saved=true	hidden=warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity	view=status
+MENU	docpref hides every column	Status[x](disabled)	Warnings[ ]	Name[ ]	Configuration[ ]	Sim. Stepper[ ]	Velocity off rod[ ]	Apogee[ ]	Velocity at deployment[ ]	Optimum delay[ ]	Max. velocity[ ]	Max. acceleration[ ]	Time to apogee[ ]	Flight time[ ]	Ground hit velocity[ ]	---	Save as default{Save the selected visibility settings for all new designs}
+COLS	then show name	docpref=warnings,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity	apppref=<unset>	saved=false	hidden=warnings,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity	view=status,name
+COLS	hide all but groundHitVelocity	docpref=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime	apppref=	saved=false	hidden=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime	view=groundHitVelocity
+MENU	one column	Status[ ]	Warnings[ ]	Name[ ]	Configuration[ ]	Sim. Stepper[ ]	Velocity off rod[ ]	Apogee[ ]	Velocity at deployment[ ]	Optimum delay[ ]	Max. velocity[ ]	Max. acceleration[ ]	Time to apogee[ ]	Flight time[ ]	Ground hit velocity[x](disabled)	---	Save as default{Save the selected visibility settings for all new designs}
+COLS	then hide groundHitVelocity	docpref=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime	apppref=	saved=false	hidden=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime	view=groundHitVelocity
+COLS	then show maxVelocity	docpref=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxAcceleration,timeToApogee,flightTime	apppref=	saved=false	hidden=simulationStepper,status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxAcceleration,timeToApogee,flightTime	view=maxVelocity,groundHitVelocity
+COLS	move apogee to the left	docpref=<unset>	apppref=	saved=true	hidden=simulationStepper	view=apogee,status,warnings,name,configuration,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	hide name	docpref=simulationStepper,name	apppref=	saved=false	hidden=simulationStepper,name	view=apogee,status,warnings,configuration,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	show name	docpref=simulationStepper	apppref=	saved=false	hidden=simulationStepper	view=apogee,status,name,warnings,configuration,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	move status to the right	docpref=simulationStepper	apppref=	saved=false	hidden=simulationStepper	view=apogee,name,warnings,configuration,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity,status
+COLS	show simulationStepper	docpref=	apppref=	saved=false	hidden=	view=apogee,name,warnings,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity,status
+COLS	hide and show warnings	docpref=	apppref=	saved=false	hidden=	view=apogee,warnings,name,configuration,simulationStepper,launchRodVelocity,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity,status
+COLS	show simulationStepper, save as default	docpref=	apppref=	saved=false	hidden=	view=status,warnings,name,configuration,simulationStepper,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+COLS	new design after an empty default	docpref=<unset>	apppref=	saved=true	hidden=simulationStepper	view=status,warnings,name,configuration,launchRodVelocity,apogee,deploymentVelocity,optimumCoastTime,maxVelocity,maxAcceleration,timeToApogee,flightTime,groundHitVelocity
+BIND	focused	ENTER	<none>
+BIND	ancestor	ENTER	selectNextRowCell
+BIND	focused	shift ENTER	<none>
+BIND	ancestor	shift ENTER	selectPreviousRowCell
+BIND	focused	ctrl A	<none>
+BIND	ancestor	ctrl A	selectAll
+BIND	focused	DELETE	<none>
+BIND	ancestor	DELETE	<none>
+BIND	focused	ctrl DELETE	<none>
+BIND	ancestor	ctrl DELETE	none
+BIND	focused	ctrl E	<none>
+BIND	ancestor	ctrl E	none
+BIND	focused	ctrl X	<none>
+BIND	ancestor	ctrl X	none
+BIND	focused	ctrl C	<none>
+BIND	ancestor	ctrl C	none
+BIND	focused	ctrl V	<none>
+BIND	ancestor	ctrl V	none
+BIND	focused	ctrl D	<none>
+BIND	ancestor	ctrl D	none
+BIND	focused	SPACE	<none>
+BIND	ancestor	SPACE	addToSelection
+BIND	focused	ESCAPE	<none>
+BIND	ancestor	ESCAPE	cancel
+BIND	focused	F2	<none>
+BIND	ancestor	F2	startEditing
+BIND	focused	TAB	Action.NextRowCycle
+BIND	ancestor	TAB	selectNextColumnCell
+BIND	focused	shift TAB	Action.PreviousRowCycle
+BIND	ancestor	shift TAB	selectPreviousColumnCell
+BIND	focused	RIGHT	Action.NextRow
+BIND	ancestor	RIGHT	selectNextColumn
+BIND	focused	LEFT	Action.PreviousRow
+BIND	ancestor	LEFT	selectPreviousColumn
+BIND	focused	UP	<none>
+BIND	ancestor	UP	selectPreviousRow
+BIND	focused	DOWN	<none>
+BIND	ancestor	DOWN	selectNextRow
+KEY	start	-	rows [] lead -1 anchor -1 column <none>
+KEY	no selection	ENTER	rows [0] lead 0 anchor 0 column status
+KEY	cleared	-	rows [] lead -1 anchor -1 column <none>
+KEY	no selection	shift ENTER	rows [4] lead 4 anchor 4 column groundHitVelocity
+KEY	row 2 apogee	click	rows [2] lead 2 anchor 2 column apogee
+KEY	row 2 apogee	ENTER	rows [3] lead 3 anchor 3 column apogee
+KEY	row 2 apogee	ENTER	rows [4] lead 4 anchor 4 column apogee
+KEY	row 2 apogee	ENTER	rows [0] lead 0 anchor 0 column deploymentVelocity
+KEY	row 2 apogee	shift ENTER	rows [4] lead 4 anchor 4 column apogee
+KEY	row 2 apogee	shift ENTER	rows [3] lead 3 anchor 3 column apogee
+KEY	last cell	click	rows [4] lead 4 anchor 4 column groundHitVelocity
+KEY	last cell	ENTER	rows [0] lead 0 anchor 0 column status
+KEY	first cell	click	rows [0] lead 0 anchor 0 column status
+KEY	first cell	shift ENTER	rows [4] lead 4 anchor 4 column groundHitVelocity
+KEY	rows 1-3 name	click	rows [1] lead 1 anchor 1 column name
+KEY	rows 1-3 name	click	rows [1 2 3] lead 3 anchor 1 column name
+KEY	rows 1-3 name	ENTER	rows [1 2 3] lead 1 anchor 1 column configuration
+KEY	rows 1-3 name	ENTER	rows [1 2 3] lead 2 anchor 2 column configuration
+KEY	rows 1-3 name	ENTER	rows [1 2 3] lead 3 anchor 3 column configuration
+KEY	rows 1-3 name	ENTER	rows [1 2 3] lead 1 anchor 1 column launchRodVelocity
+KEY	rows 1-3 name	shift ENTER	rows [1 2 3] lead 3 anchor 3 column configuration
+KEY	rows 1-3 name	shift ENTER	rows [1 2 3] lead 2 anchor 2 column configuration
+KEY	rows 0 and 3 apogee	click	rows [0] lead 0 anchor 0 column apogee
+KEY	rows 0 and 3 apogee	click	rows [0 3] lead 3 anchor 3 column apogee
+KEY	rows 0 and 3 apogee	ENTER	rows [0 3] lead 0 anchor 0 column deploymentVelocity
+KEY	rows 0 and 3 apogee	ENTER	rows [0 3] lead 3 anchor 3 column deploymentVelocity
+KEY	rows 0 and 3 apogee	ENTER	rows [0 3] lead 0 anchor 0 column optimumCoastTime
+KEY	rows 0 and 3 apogee	ctrl A	rows [0 1 2 3 4] lead 0 anchor 0 column optimumCoastTime
+KEY	all	ENTER	rows [0 1 2 3 4] lead 1 anchor 1 column optimumCoastTime
+KEY	rows 1 and 2, lead on 3	click	rows [1] lead 1 anchor 1 column name
+KEY	rows 1 and 2, lead on 3	click	rows [1 2] lead 2 anchor 2 column name
+KEY	rows 1 and 2, lead on 3	click	rows [1 2 3] lead 3 anchor 3 column name
+KEY	rows 1 and 2, lead on 3	click	rows [1 2] lead 3 anchor 3 column name
+KEY	rows 1 and 2, lead on 3	ENTER	rows [1 2] lead 1 anchor 1 column configuration
+KEY	rows 1 and 2, lead on 3	ENTER	rows [1 2] lead 2 anchor 2 column configuration
+KEY	row 1, lead on 3	click	rows [1] lead 1 anchor 1 column name
+KEY	row 1, lead on 3	click	rows [1 3] lead 3 anchor 3 column name
+KEY	row 1, lead on 3	click	rows [1] lead 3 anchor 3 column name
+KEY	row 1, lead on 3	ENTER	rows [1] lead 1 anchor 1 column configuration
+KEY	row 1, lead on 3	click	rows [1] lead 1 anchor 1 column name
+KEY	row 1, lead on 3	click	rows [1 3] lead 3 anchor 3 column name
+KEY	row 1, lead on 3	click	rows [1] lead 3 anchor 3 column name
+KEY	row 1, lead on 3	shift ENTER	rows [1] lead 1 anchor 1 column name
+KEY	cleared after row 2 apogee	click	rows [2] lead 2 anchor 2 column apogee
+KEY	cleared after row 2 apogee	clearSelection	rows [] lead 2 anchor 2 column apogee
+KEY	cleared after row 2 apogee	ENTER	rows [3] lead 3 anchor 3 column apogee
+KEY	cleared after row 2 apogee	click	rows [2] lead 2 anchor 2 column apogee
+KEY	cleared after row 2 apogee	shift ENTER	rows [1] lead 1 anchor 1 column apogee
+KEY	lead in a hidden column	click	rows [2] lead 2 anchor 2 column apogee
+KEY	lead in a hidden column	hide apogee	rows [2] lead 2 anchor 2 column launchRodVelocity
+KEY	lead in a hidden column	ENTER	rows [3] lead 3 anchor 3 column launchRodVelocity
+KEY	sorted row 0 name	click	rows [0] lead 0 anchor 0 column name
+KEY	sorted row 0 name	ENTER	rows [1] lead 1 anchor 1 column name
+HEADER	start	<none>
+HEADER	name, click 1	name ASCENDING
+HEADER	name, click 2 of a double click	name ASCENDING
+HEADER	name, click 3 of a triple click	name DESCENDING
+HEADER	name, a new click	name ASCENDING
+HEADER	apogee, click 1	apogee ASCENDING, name ASCENDING
+HEADER	flightTime, click 1	flightTime ASCENDING, apogee ASCENDING, name ASCENDING
+HEADER	status, click 1	status ASCENDING, flightTime ASCENDING, apogee ASCENDING
+HEADER	apogee, right click	status ASCENDING, flightTime ASCENDING, apogee ASCENDING
+HEADER	simulationStepper after moves, click 1	simulationStepper ASCENDING, status ASCENDING, flightTime ASCENDING
+HEADER	apogee after moves, click 1	apogee ASCENDING, simulationStepper ASCENDING, status ASCENDING

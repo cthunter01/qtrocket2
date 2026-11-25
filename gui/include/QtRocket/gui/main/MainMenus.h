@@ -19,14 +19,17 @@ class UndoRedoActions;
 /// WindowManager; Open, Save, Save as and Properties by the file operations
 /// (DocumentFileOperations); Open recent and Open example by the menus that fill them
 /// (RecentFilesMenu, ExampleDesignsMenu, which the application puts into every window's menus
-/// and those of no window); Edit, Cut, Copy, Paste, Duplicate, Delete and the items of Select
-/// and Visibility by RocketActions, which also sets their enabled states (and the toggling text
-/// and icon of Hide/Show selected). Until then those items are disabled; Undo and Redo are
-/// UndoRedoActions'.
+/// and those of no window); Export simulation table as CSV file by the WindowManager, which ties
+/// it to the window's simulations tab (SimulationPanel::exportSimulationTableAction(), whose
+/// enabled state it follows and which it triggers: BasicFrame's createMenuItemFromAction() of
+/// getExportSimulationTableAsCSVAction()); Edit, Cut, Copy, Paste, Duplicate, Delete and the
+/// items of Select and Visibility by RocketActions, which also sets their enabled states (and the
+/// toggling text and icon of Hide/Show selected). Until then those items are disabled; Undo and
+/// Redo are UndoRedoActions'.
 ///
 /// A design window's menus (the same in every window), in OpenRocket's order:
 /// - File: New | Open... | Open recent > | Open example > | --- | Save | Save as... | --- |
-///   Properties | Close design | --- | Quit
+///   Export simulation table as CSV file | --- | Properties | Close design | --- | Quit
 /// - Edit: Undo | Redo | --- | Edit | Cut | Copy | Paste | Duplicate | Delete | --- |
 ///   Select > (Deselect all) | --- |
 ///   Visibility > (Hide selected, Show all) | --- | Preferences
@@ -48,8 +51,8 @@ class UndoRedoActions;
 ///
 /// Deviations: the items of later milestones are left out where OpenRocket has them (File:
 /// Import > (RockSim M8), Export as > (RockSim, SVG M8), Save decal images... (M5), Print design
-/// info... (M8), Export simulations table as CSV file (M4); Edit: Select > Components of same
-/// color (M5: it needs the default appearances), Scale (M5); Tools (M7); Help:
+/// info... (M8); Edit: Select > Components of same color (M5: it needs the default appearances),
+/// Scale (M5); Tools (M7); Help:
 /// License, About (M5), Bug report (M9)), and OpenRocket's items that QtRocket does not have
 /// (RASAero, Wavefront OBJ, Photo Studio, Guided tours, online Documentation, Debug log, Check for
 /// updates, the debug menu and the banana); a separator that would then stand between nothing is
@@ -89,6 +92,12 @@ public:
     [[nodiscard]] QMenu*   openExampleMenu() const noexcept { return m_openExample; }
     [[nodiscard]] QAction* saveAction() const noexcept { return m_save; }
     [[nodiscard]] QAction* saveAsAction() const noexcept { return m_saveAs; }
+    /// File > Export simulation table as CSV file ("exportSimulationTableAction"; no key, no
+    /// status tip, as Java's action has none): the simulations tab's export of its table.
+    [[nodiscard]] QAction* exportSimulationTableAction() const noexcept
+    {
+        return m_exportSimulationTable;
+    }
     /// File > Properties: the rocket's configuration dialog.
     [[nodiscard]] QAction* propertiesAction() const noexcept { return m_properties; }
     [[nodiscard]] QAction* closeAction() const noexcept { return m_close; }
@@ -148,6 +157,7 @@ private:
     QMenu*    m_openExample{nullptr};
     QAction*  m_save{nullptr};
     QAction*  m_saveAs{nullptr};
+    QAction*  m_exportSimulationTable{nullptr};
     QAction*  m_properties{nullptr};
     QAction*  m_close{nullptr};
     QAction*  m_quit{nullptr};

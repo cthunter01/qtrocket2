@@ -1,10 +1,13 @@
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <span>
+#include <vector>
 
 #include <QAction>
 #include <QMenu>
+#include <QMetaObject>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -30,13 +33,13 @@ namespace QtRocket::Gui
 class DocumentSelectionModel;
 class MainMenus;
 class OpenRocketClipboard;
+class SimulationPanel;
 class UserPrompts;
 
-/// The component actions of a design window (OpenRocket's RocketActions, its component half; the
-/// simulations' come with Milestone 4): Edit, Cut, Copy, Paste, Duplicate, Delete, Deselect all,
-/// Move up, Move down, Hide/Show selected, Show all and the stages' Disable/Enable, with their
-/// texts, keys, icons and tooltips, the rules that enable them, and the component tree's popup
-/// menu made of them.
+/// The actions of a design window on its components and simulations (OpenRocket's
+/// RocketActions): Edit, Cut, Copy, Paste, Duplicate, Delete, Deselect all, Move up, Move down,
+/// Hide/Show selected, Show all and the stages' Disable/Enable, with their texts, keys, icons and
+/// tooltips, the rules that enable them, and the component tree's popup menu made of them.
 ///
 /// The Edit menu's actions are the window's MainMenus' (Edit, Cut, Copy, Paste, Duplicate,
 /// Delete, Deselect all, Hide selected, Show all), which made them with OpenRocket's texts, keys
@@ -47,9 +50,11 @@ class UserPrompts;
 ///
 /// Every action is re-evaluated (updateActions(), Java's updateActions()) when the selection
 /// changes (DocumentSelectionModel::changed()), when the clipboard changes and at every change
-/// event of the rocket (RocketActions.java:116-176). A triggered action works on the selection
-/// as it is then; the editing actions are ComponentEditing's (Cut, Copy, Paste, Duplicate,
-/// Delete, Move up, Move down), which this object holds.
+/// event of the rocket (RocketActions.java:116-176); and Edit, Cut, Copy, Paste, Duplicate and
+/// Delete when the simulations table's selection or one of the simulations tab's actions they
+/// follow changes (see THE SIMULATIONS). A triggered action works on the selection as it is then;
+/// the editing actions are ComponentEditing's (Cut, Copy, Paste, Duplicate, Delete, Move up, Move
+/// down), which this object holds.
 ///
 /// The configuration dialog is the window's (configdialog/): this object asks for it by signal
 /// (decision O12), editRequested() for Edit, and closeConfigDialogRequested() first where Java's
@@ -97,7 +102,21 @@ class UserPrompts;
 ///   Delete | Select > Deselect all | Hide/Show, Disable/Enable; Disable/Enable is shown only
 ///   while every selected component is a stage (popupMenuWillBecomeVisible()).
 ///
-/// No component pointer is kept: the selection is read when it is needed.
+/// THE SIMULATIONS (setSimulationPanel(): the window's "Flight simulations" tab, a
+/// SimulationPanel; RocketActions.java:478-1000): while simulations are selected in its table
+/// (Java's isSimulationSelected(); the component selection is empty then, as the window keeps
+/// the two exclusive: a component selected too is a BugError, Java's IllegalStateException),
+/// Edit, Cut, Copy, Paste, Duplicate and Delete do the tab's operation of the same name
+/// (SimulationPanel::editSimulation(), cutSimulations(), ...: Java's actionPerformed() of the
+/// tab's action) in place of the components', and then ask for the simulations tab
+/// (simulationTabRequested(): selectTab(SIMULATION_TAB)); they close no configuration dialog.
+/// Each of them is enabled when its component rule or the tab's action of the same name is
+/// (Java's clipboardChanged()). The texts and tooltips stay the component ones (OpenRocket's: Cut,
+/// Paste and Delete name "components or simulations"). Paste also goes to the simulations
+/// without a selected one while the tab is the window's current one and its Paste is enabled
+/// (see the deviations), and is enabled for that only then.
+///
+/// No component pointer is kept: the selection is read when it is needed; nor a simulation.
 ///
 /// It belongs to the selection, its parent (makeChild<RocketActions>(selection, menus,
 /// clipboard, prompts)), so that it never outlives it; the menus' actions are watched
@@ -118,6 +137,18 @@ class UserPrompts;
 ///   too (Qt 6), and the action's state is its rule's.
 /// - An action whose rule says no does nothing (Java's actions cannot be triggered then, and
 ///   QActions cannot either).
+/// - OpenRocket bug 27 (the Edit menu's half; the tab's is SimulationPanel's): Paste pastes the
+///   simulations on the clipboard into the design also while none is selected, when the
+///   simulations tab is the window's current one and its Paste is enabled (simulations on the
+///   clipboard, and a configuration with motors: an empty list too), as the tab's own Paste does
+///   (U-M4-13); Java's Paste reaches the simulations only through a selected one, so it pastes
+///   nothing then (its tab's Paste is disabled without a selected row). On another tab, with no
+///   simulation selected, Paste stays the components' and is enabled only by their rule, so that
+///   it never shows enabled while it would paste nothing.
+/// - The states of Edit, Cut, Copy, Paste, Duplicate and Delete follow the tab's actions'
+///   (QAction::enabledChanged()) whenever those change, where Java's updateActions() calls the
+///   tab's updateActions() first: the same states, in whatever order the rocket's listeners
+///   come.
 class RocketActions final : public QObject
 {
     Q_OBJECT
@@ -139,6 +170,22 @@ public:
     RocketActions& operator=(RocketActions&&)      = delete;
 
     [[nodiscard]] DocumentSelectionModel& selection() const noexcept { return *m_selection; }
+
+    /// The window's simulations tab, whose operations Edit, Cut, Copy, Paste, Duplicate and
+    /// Delete do while simulations are selected (see THE SIMULATIONS), and what tells whether it
+    /// is the window's current tab (@p isCurrentTab; an empty function says it never is). Whoever
+    /// calls this calls updateActions() whenever what @p isCurrentTab tells changes (the
+    /// WindowManager: at every change of the window's tab). Null (the default) for none: then
+    /// every action is the components' alone. The panel may go first (then it is left alone).
+    void setSimulationPanel(SimulationPanel* panel, std::function<bool()> isCurrentTab);
+    /// The simulations tab set by setSimulationPanel(), or null.
+    [[nodiscard]] SimulationPanel* simulationPanel() const noexcept;
+
+    /// Whether simulations are selected in the simulations tab's table (Java's
+    /// isSimulationSelected()): then Edit, Cut, Copy, Paste, Duplicate and Delete act on them.
+    /// @throws BugError when components are selected too (Java's IllegalStateException "Both
+    ///         simulation and component selected")
+    [[nodiscard]] bool isSimulationSelected() const;
     /// The editing of the selection (Cut, Copy, Paste, Duplicate, Delete, Move up, Move down).
     [[nodiscard]] ComponentEditing& editing() noexcept { return m_editing; }
 
@@ -217,6 +264,10 @@ Q_SIGNALS:
     /// (BasicFrame.selectTab(DESIGN_TAB)).
     void designTabRequested();
 
+    /// Edit, Cut, Copy, Paste, Duplicate or Delete did the simulations tab's operation: the
+    /// window is to show its simulations tab (BasicFrame.selectTab(SIMULATION_TAB)).
+    void simulationTabRequested();
+
 private:
     /// Makes the actions this object owns.
     void createOwnActions();
@@ -225,8 +276,18 @@ private:
     /// Makes the popup menu.
     void createContextMenu();
 
-    /// Edit (EditAction.editComponents()).
+    /// Edit (EditAction.actionPerformed()).
     void edit();
+    /// When simulations are selected (and for Paste, see the deviations: @p paste), does
+    /// @p operation of the simulations tab, then asks for the tab; whether it did (Java's
+    /// isSimulationSelected() branch of each action).
+    bool runOnSimulations(const std::function<void(SimulationPanel& panel)>& operation,
+                          bool                                               paste = false);
+    /// Whether the simulations table has a selection (no check of the components: for the
+    /// rules, which may run while the window makes the two selections exclusive again).
+    [[nodiscard]] bool hasSimulationSelection() const;
+    /// Whether Paste goes to the simulations without a selected one (see the deviations).
+    [[nodiscard]] bool pastesIntoSimulationTab() const;
     /// Deselect all.
     void deselectAll();
     /// Runs @p operation of the editing (one of Cut, Paste, Duplicate, Delete, Move up, Move
@@ -244,6 +305,9 @@ private:
     /// Disable/Enable (ToggleActiveAction.actionPerformed()).
     void toggleActive();
 
+    /// The enabled states of Edit, Cut, Copy, Paste, Duplicate and Delete: the components' rule
+    /// or the simulations tab's action.
+    void updateEditActions();
     /// The text, tooltip, icon and enabled state of Hide/Show selected and the popup's Hide/Show.
     void updateVisibilityActions();
     /// The text, tooltip, icon and enabled state of Disable/Enable.
@@ -251,22 +315,26 @@ private:
     /// The rocket's change event.
     void rocketChanged(const ComponentChangeEvent& event);
 
-    DocumentSelectionModel*                 m_selection;
-    ComponentEditing                        m_editing;
-    QPointer<QAction>                       m_edit;
-    QPointer<QAction>                       m_cut;
-    QPointer<QAction>                       m_copy;
-    QPointer<QAction>                       m_paste;
-    QPointer<QAction>                       m_duplicate;
-    QPointer<QAction>                       m_delete;
-    QPointer<QAction>                       m_deselectAll;
-    QPointer<QAction>                       m_toggleVisibility;
-    QPointer<QAction>                       m_showAll;
-    QAction*                                m_moveUp{nullptr};
-    QAction*                                m_moveDown{nullptr};
-    QAction*                                m_contextToggleVisibility{nullptr};
-    QAction*                                m_toggleActive{nullptr};
-    QPointer<QMenu>                         m_contextMenu;
+    DocumentSelectionModel*   m_selection;
+    ComponentEditing          m_editing;
+    QPointer<QAction>         m_edit;
+    QPointer<QAction>         m_cut;
+    QPointer<QAction>         m_copy;
+    QPointer<QAction>         m_paste;
+    QPointer<QAction>         m_duplicate;
+    QPointer<QAction>         m_delete;
+    QPointer<QAction>         m_deselectAll;
+    QPointer<QAction>         m_toggleVisibility;
+    QPointer<QAction>         m_showAll;
+    QAction*                  m_moveUp{nullptr};
+    QAction*                  m_moveDown{nullptr};
+    QAction*                  m_contextToggleVisibility{nullptr};
+    QAction*                  m_toggleActive{nullptr};
+    QPointer<QMenu>           m_contextMenu;
+    QPointer<SimulationPanel> m_simulationPanel;
+    std::function<bool()>     m_isSimulationTabCurrent;
+    /// The connections to the simulations tab's table and actions.
+    std::vector<QMetaObject::Connection>    m_simulationConnections;
     ComponentChangeSignal::ScopedConnection m_rocketChanges;
 };
 

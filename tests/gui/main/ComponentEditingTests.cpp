@@ -31,6 +31,7 @@
 #include "QtRocket/document/ComponentCopy.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/document/SimulationCopy.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
@@ -49,6 +50,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
 #include "ScriptedUserPrompts.h"
 #include "goldens/GoldenExamples.h"
@@ -1423,6 +1425,27 @@ TEST_F(ComponentEditingTest, TellsTheClipboardsListeners)
     EXPECT_TRUE(window.editing().paste());
     EXPECT_EQ(changed.count(), 3);
     EXPECT_EQ(design.clipboard(clipboard.components()), "[Fins*]");
+}
+
+TEST_F(ComponentEditingTest, SimulationsOnTheClipboardAreNoComponentsToPaste)
+{
+    // Java's PasteAction pastes components only from getClipboardComponents(), which Copy of
+    // simulations empties (the simulations are the simulations table's).
+    const ProbeDesign   design;
+    OpenRocketClipboard clipboard;
+    ScriptedUserPrompts prompts;
+    Window              window(design, clipboard, prompts);
+    window.select({"NC"});
+    ASSERT_TRUE(window.editing().copy());
+    ASSERT_TRUE(window.editing().canPaste());
+
+    const Simulation simulation(&design.document(), design.document().getRocket());
+    clipboard.setSimulations(SimulationCopy::copyOf(std::vector<const Simulation*>{&simulation}));
+    const std::string before = design.tree();
+    EXPECT_FALSE(window.editing().canPaste());
+    EXPECT_FALSE(window.editing().paste());
+    EXPECT_EQ(design.tree(), before);
+    EXPECT_EQ(undoText(design.document()), "undo='null'");
 }
 
 TEST_F(ComponentEditingTest, OperationsThatAreNotAvailableDoNothing)

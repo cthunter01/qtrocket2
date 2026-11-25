@@ -19,9 +19,11 @@
 #include "QtRocket/document/ComponentCopy.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/document/SimulationCopy.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Error.h"
 #include "ScopedApplicationPalette.h"
@@ -85,7 +87,7 @@ TEST(GuiTest, FailsATestThatLeavesDataOnTheClipboardAndClearsIt)
     EXPECT_TRUE(data == nullptr || data->formats().isEmpty());
 }
 
-TEST(GuiTest, FailsATestThatLeavesComponentsOnTheApplicationsComponentClipboardAndClearsIt)
+TEST(GuiTest, FailsATestThatLeavesComponentsOnTheApplicationsClipboardAndClearsIt)
 {
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
@@ -101,7 +103,23 @@ TEST(GuiTest, FailsATestThatLeavesComponentsOnTheApplicationsComponentClipboardA
             }
             probe.runTearDown();
         },
-        "the test left components on the application's component clipboard");
+        "the test left components or simulations on the application's clipboard");
+    EXPECT_TRUE(OpenRocketClipboard::instance().isEmpty());
+}
+
+TEST(GuiTest, FailsATestThatLeavesSimulationsOnTheApplicationsClipboardAndClearsIt)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    const Simulation simulation(document.get(), document->getRocket());
+    EXPECT_NONFATAL_FAILURE(
+        {
+            GuiTestProbe probe;
+            probe.runSetUp();
+            OpenRocketClipboard::instance().setSimulations(SimulationCopy::copyOf({&simulation}));
+            probe.runTearDown();
+        },
+        "the test left components or simulations on the application's clipboard");
     EXPECT_TRUE(OpenRocketClipboard::instance().isEmpty());
 }
 

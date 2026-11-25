@@ -5,4 +5,13 @@
 # simulation/ (QtRocket/simulation/...), which every area may include.
 # Each source with its header (${gui_include_dir}/simulation/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    SimulationClipboard.cpp ${gui_include_dir}/simulation/SimulationClipboard.h
+    SimulationColumns.cpp ${gui_include_dir}/simulation/SimulationColumns.h
+    SimulationColumnVisibility.cpp ${gui_include_dir}/simulation/SimulationColumnVisibility.h
+    SimulationEditing.cpp ${gui_include_dir}/simulation/SimulationEditing.h
+    SimulationPanel.cpp ${gui_include_dir}/simulation/SimulationPanel.h
+    SimulationTableCsvExport.cpp ${gui_include_dir}/simulation/SimulationTableCsvExport.h
+    SimulationTableModel.cpp ${gui_include_dir}/simulation/SimulationTableModel.h
+    SimulationTableView.cpp ${gui_include_dir}/simulation/SimulationTableView.h
+    SimulationWarningsDelegate.cpp ${gui_include_dir}/simulation/SimulationWarningsDelegate.h
 )

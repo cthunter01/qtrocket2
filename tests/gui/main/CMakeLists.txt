@@ -20,6 +20,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     rocket_panel_window_tests.cpp
     RocketActionsTests.cpp
     SaveFileNamesTests.cpp
+    simulations_window_tests.cpp
     SplitPaneTests.cpp
     UndoRedoActionsTests.cpp
     WidgetUserPromptsTests.cpp
