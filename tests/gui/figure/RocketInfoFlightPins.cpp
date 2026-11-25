@@ -1,5 +1,6 @@
 #include "RocketInfoFlightPins.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstddef>
@@ -139,7 +140,12 @@ public:
 [[nodiscard]] FlightPinText textOf(const Json& value)
 {
     FlightPinText pin;
-    pin.text         = text(value, "text");
+    // A value of a fresh flight is null.
+    pin.fresh = member(value, "text").is_null();
+    if (!pin.fresh)
+    {
+        pin.text = text(value, "text");
+    }
     pin.font         = text(value, "font");
     pin.colour       = text(value, "colour");
     const Json& rgba = member(value, "rgba");
@@ -197,13 +203,14 @@ void readDesign(const Json& value, RocketInfoFlightPin& pin)
     pin.runsAll      = indices(member(runs, "all"), "runs.all");
 }
 
-/// The overlay, the status and the texts of @p value into @p pin.
-void readOverlay(const Json& value, RocketInfoFlightPin& pin)
+/// The overlay, the status and the texts of @p value (a scenario or its run).
+[[nodiscard]] FlightPinOverlay overlayOf(const Json& value)
 {
-    const Json& overlay = member(value, "overlay");
-    pin.shown           = shownOf(text(overlay, "shown"));
-    pin.calculating     = flag(overlay, "calculating");
-    pin.shownSimulation = optionalIndex(overlay, "simulation");
+    FlightPinOverlay pin;
+    const Json&      overlay = member(value, "overlay");
+    pin.shown                = shownOf(text(overlay, "shown"));
+    pin.calculating          = flag(overlay, "calculating");
+    pin.shownSimulation      = optionalIndex(overlay, "simulation");
     if (const Json& status = member(value, "status"); !status.is_null())
     {
         pin.status     = text(status, "status");
@@ -213,6 +220,37 @@ void readOverlay(const Json& value, RocketInfoFlightPin& pin)
     {
         pin.texts.push_back(textOf(entry));
     }
+    return pin;
+}
+
+[[nodiscard]] FlightPinDocumentState documentStateOf(const Json& value)
+{
+    return {.saved         = flag(value, "saved"),
+            .undoAvailable = flag(value, "undoAvailable"),
+            .redoAvailable = flag(value, "redoAvailable")};
+}
+
+/// The estimate's runs of a scenario (its member "run", not null).
+[[nodiscard]] FlightPinRun runOf(const Json& value)
+{
+    FlightPinRun run;
+    run.before = documentStateOf(member(value, "before"));
+    run.after  = documentStateOf(member(value, "after"));
+    for (const Json& ran : member(value, "ran"))
+    {
+        run.ran.push_back({.index   = indexOf(member(ran, "index"), "ran.index"),
+                           .status  = text(ran, "status"),
+                           .hasData = flag(ran, "hasData")});
+    }
+    run.succeeded = flag(value, "succeeded");
+    if (value.contains("failed"))
+    {
+        const Json& failed = member(value, "failed");
+        run.failed         = indexOf(member(failed, "index"), "failed.index");
+        run.failure        = text(failed, "throwable");
+    }
+    run.overlay = overlayOf(value);
+    return run;
 }
 
 [[nodiscard]] RocketInfoFlightPin scenarioOf(const Json& value)
@@ -223,7 +261,11 @@ void readOverlay(const Json& value, RocketInfoFlightPin& pin)
     pin.kind     = text(value, "kind");
     pin.file     = text(value, "file");
     readDesign(value, pin);
-    readOverlay(value, pin);
+    pin.overlay = overlayOf(value);
+    if (const Json& run = member(value, "run"); !run.is_null())
+    {
+        pin.run = runOf(run);
+    }
     return pin;
 }
 
@@ -261,6 +303,13 @@ const RocketInfoFlightPins& rocketInfoFlightPins()
 {
     static const RocketInfoFlightPins kPins = readPins();
     return kPins;
+}
+
+const RocketInfoFlightPin* findRocketInfoFlightPin(std::string_view name)
+{
+    const std::vector<RocketInfoFlightPin>& scenarios = rocketInfoFlightPins().scenarios;
+    const auto found = std::ranges::find(scenarios, name, &RocketInfoFlightPin::name);
+    return found != scenarios.end() ? &*found : nullptr;
 }
 
 }  // namespace QtRocket::Gui::Test

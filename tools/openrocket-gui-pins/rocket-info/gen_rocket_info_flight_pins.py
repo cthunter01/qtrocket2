@@ -10,17 +10,27 @@ block is reduced to what does not depend on the font: its row above the bottom o
 number: RocketInfo draws the block at y2 - n * line) and its column, the left margin (x = x1) or the values'
 (x = x1 + the widest label's visual width + 10, RocketInfo.drawFlightData()); the generator checks that every
 text is on such a row and in such a column. The design files are written relative to the repository.
+
+A design whose estimate runs (the probe's R lines) gets a "run": the document's saved state and undo history before
+and after the estimate's runs, each simulation run with its status after its run, whether the chain ended without a
+failure, and the overlay after the runs with its texts, of which the values of the fresh flight (the apogee, the
+maximum velocity and the maximum acceleration, in the values' column of the block's three bottom rows) are written
+as null: OpenRocket's flights at the default time step do not repeat from one set of component ids to another
+(tools/openrocket-goldens/README.md), and no test may pin a value of a fresh flight. Every other design's "run" is
+null.
 """
 import json
 import math
 import pathlib
 import sys
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 # The labels of the block (RocketInfo.FlightConfig, .Apogee, .Maxvelocity, .Maxacceleration, each with " ").
 LABELS = ("Flight configuration: ", "Apogee: ", "Max. velocity: ", "Max. acceleration: ")
 FONTS = {"regular": "REGULAR", "bold": "BOLD"}
 COLOUR_KEYS = ("FLIGHTDATA_TEXT_ACTIVE", "FLIGHTDATA_TEXT_INACTIVE", "ERROR", "TEXT")
+# The rows of the block whose values are those of the flight (Apogee, Max. velocity, Max. acceleration).
+FLIGHT_VALUE_ROWS = (0, 1, 2)
 
 
 def number(text):
@@ -48,10 +58,37 @@ def rgba(text):
     return [int(c) for c in text.split(",")]
 
 
+def document_state(fields):
+    """isSaved(), isUndoAvailable() and isRedoAvailable() of an R line."""
+    saved, undo, redo = fields
+    return {"saved": saved == "true", "undoAvailable": undo == "true", "redoAvailable": redo == "true"}
+
+
+def parse_run(current, rest):
+    """An R line of @p current's estimate's runs."""
+    what, _, fields = rest.partition(" ")
+    if what == "before":
+        current["run"] = {"before": document_state(fields.split(" ")), "ran": [], "succeeded": True, "status": None,
+                          "texts": []}
+    elif what == "ran":
+        index, status, has_data = fields.split(" ")
+        current["run"]["ran"].append({"index": int(index), "status": status, "hasData": has_data == "true"})
+    elif what == "failed":
+        index, _, failure = fields.partition(" | ")
+        current["run"]["succeeded"] = False
+        current["run"]["failed"] = {"index": int(index), "throwable": failure}
+    elif what == "after":
+        current["run"]["after"] = document_state(fields.split(" "))
+    else:
+        raise SystemExit("unexpected R line: " + rest)
+
+
 def parse(lines):
     colours = None
     scenarios = []
     current = None
+    # Where the O, A, F and T lines go: the scenario, or its run once its R lines began.
+    target = None
     for line in lines:
         line = line.rstrip("\n")
         if not line:
@@ -63,8 +100,9 @@ def parse(lines):
             head, _, file = rest.partition(" | ")
             name, kind = head.split(" ")
             current = {"name": name, "kind": kind, "file": repository_path(file), "simulations": [], "texts": [],
-                       "status": None}
+                       "status": None, "run": None}
             scenarios.append(current)
+            target = current
         elif tag == "P":
             estimated, units, select = rest.split(" ")
             current["setup"] = {"estimated": {"estimated": True, "set": False}[estimated],
@@ -92,22 +130,26 @@ def parse(lines):
         elif tag == "U":
             which, _, indices = rest.partition(" ")
             current.setdefault("runs", {})[which] = [int(i) for i in indices.split()]
+        elif tag == "R":
+            parse_run(current, rest)
+            target = current["run"]
         elif tag == "O":
             shown, calculating, index = rest.split(" ")
-            current["overlay"] = {"shown": shown, "calculating": calculating == "true",
-                                  "simulation": None if index == "-" else int(index)}
+            target["overlay"] = {"shown": shown, "calculating": calculating == "true",
+                                 "simulation": None if index == "-" else int(index)}
         elif tag == "A":
             status, _, text = rest.partition(" | ")
-            current["status"] = {"status": status, "text": text}
+            target["status"] = {"status": status, "text": text}
         elif tag == "F":
-            current["frame"] = [number(v) for v in rest.split(" ")]
+            target["frame"] = [number(v) for v in rest.split(" ")]
         elif tag == "T":
             head, _, text = rest.partition(" | ")
             font, colour, x, y, width = head.split(" ")
-            current["texts"].append({"font": font, "colour": colour, "x": number(x), "y": number(y),
-                                     "width": number(width), "text": text})
+            target["texts"].append({"font": font, "colour": colour, "x": number(x), "y": number(y),
+                                    "width": number(width), "text": text})
         elif tag == "E":
             current = None
+            target = None
         else:
             raise SystemExit("unexpected line: " + line)
     if colours is None:
@@ -122,29 +164,51 @@ def colour_key(colours, text):
     raise SystemExit("a colour of no key: " + text)
 
 
-def layout(scenario, colours):
-    """The texts of the block with their rows above the bottom one and their columns."""
+def layout(scenario, colours, name, fresh=False):
+    """The texts of the block of @p scenario (a scenario, or its run) with their rows above the bottom one and their
+    columns; with @p fresh, the flight's values are null (see the top of the file)."""
     line, x1, y2 = scenario["frame"]
     labels = [t for t in scenario["texts"] if t["text"] in LABELS and t["font"] == "regular"]
     value_x = None
     if labels:
         if len(labels) != len(LABELS):
-            raise SystemExit("not every label of the block in " + scenario["name"])
+            raise SystemExit("not every label of the block in " + name)
         value_x = x1 + (max(t["width"] for t in labels) + 10)
     texts = []
     for t in scenario["texts"]:
         row = (y2 - t["y"]) / line
         if abs(row - round(row)) > 1e-6:
-            raise SystemExit("a text between rows in %s: %r" % (scenario["name"], t))
+            raise SystemExit("a text between rows in %s: %r" % (name, t))
         if abs(t["x"] - x1) < 1e-3:
             column = "LEFT"
         elif value_x is not None and abs(t["x"] - value_x) < 1e-3:
             column = "VALUE"
         else:
-            raise SystemExit("a text in no column in %s: %r" % (scenario["name"], t))
-        texts.append({"text": t["text"], "font": FONTS[t["font"]], "colour": colour_key(colours, t["colour"]),
+            raise SystemExit("a text in no column in %s: %r" % (name, t))
+        text = t["text"]
+        if fresh and column == "VALUE" and int(round(row)) in FLIGHT_VALUE_ROWS:
+            text = None
+        texts.append({"text": text, "font": FONTS[t["font"]], "colour": colour_key(colours, t["colour"]),
                       "rgba": rgba(t["colour"]), "rowFromBottom": int(round(row)), "column": column})
+    if fresh and sum(1 for t in texts if t["text"] is None) != len(FLIGHT_VALUE_ROWS):
+        raise SystemExit("not the three values of the flight in the run of " + name)
     return texts
+
+
+def run_of(scenario, colours):
+    """The "run" of @p scenario, or None."""
+    run = scenario["run"]
+    if run is None:
+        return None
+    if "after" not in run or "overlay" not in run:
+        raise SystemExit("an unfinished run in " + scenario["name"])
+    result = {"before": run["before"], "after": run["after"], "ran": run["ran"], "succeeded": run["succeeded"]}
+    if "failed" in run:
+        result["failed"] = run["failed"]
+    result["overlay"] = run["overlay"]
+    result["status"] = run["status"]
+    result["texts"] = layout(run, colours, scenario["name"] + " (run)", fresh=True)
+    return result
 
 
 def main():
@@ -169,7 +233,8 @@ def main():
             "runs": s["runs"],
             "overlay": s["overlay"],
             "status": s["status"],
-            "texts": layout(s, colours),
+            "texts": layout(s, colours, s["name"]),
+            "run": run_of(s, colours),
         })
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(write_document(document))
@@ -179,8 +244,20 @@ def compact(value):
     return json.dumps(value, ensure_ascii=True, separators=(", ", ": "), allow_nan=False)
 
 
+def write_list(lines, indent, key, entries, comma):
+    """The member @p key of a list of objects, each on a line of its own."""
+    if not entries:
+        lines.append('{}"{}": []{}'.format(indent, key, comma))
+        return
+    lines.append('{}"{}": ['.format(indent, key))
+    for j, entry in enumerate(entries):
+        lines.append(indent + " " + compact(entry) + ("," if j + 1 < len(entries) else ""))
+    lines.append(indent + "]" + comma)
+
+
 def write_document(document):
-    """One scenario per block, each simulation and each text on a line of its own."""
+    """One scenario per block, each simulation and each text on a line of its own; a run after them, its head on a
+    line and each of its texts on one."""
     lines = ["{"]
     for key, value in document.items():
         if key != "scenarios":
@@ -188,17 +265,18 @@ def write_document(document):
     lines.append(' "scenarios": [')
     scenarios = document["scenarios"]
     for i, scenario in enumerate(scenarios):
-        head = {k: v for k, v in scenario.items() if k not in ("simulations", "texts")}
+        head = {k: v for k, v in scenario.items() if k not in ("simulations", "texts", "run")}
         lines.append("  " + compact(head)[:-1] + ",")
-        for key in ("simulations", "texts"):
-            entries = scenario[key]
-            if not entries:
-                lines.append('   "{}": []{}'.format(key, "," if key == "simulations" else ""))
-                continue
-            lines.append('   "{}": ['.format(key))
-            for j, entry in enumerate(entries):
-                lines.append("    " + compact(entry) + ("," if j + 1 < len(entries) else ""))
-            lines.append("   ]" + ("," if key == "simulations" else ""))
+        write_list(lines, "   ", "simulations", scenario["simulations"], ",")
+        write_list(lines, "   ", "texts", scenario["texts"], ",")
+        run = scenario["run"]
+        if run is None:
+            lines.append('   "run": null')
+        else:
+            run_head = {k: v for k, v in run.items() if k != "texts"}
+            lines.append('   "run": ' + compact(run_head)[:-1] + ",")
+            write_list(lines, "    ", "texts", run["texts"], "")
+            lines.append("   }")
         lines.append("  }" + ("," if i + 1 < len(scenarios) else ""))
     lines.append(" ]")
     lines.append("}")

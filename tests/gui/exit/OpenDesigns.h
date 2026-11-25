@@ -10,8 +10,10 @@
 // (resave_golden_tests.cpp), and the six component presets of the example designs. The
 // open-designs family of tools/openrocket-gui-pins lists the same designs (designs.py: name, kind
 // and file), and its families' probes load each as the suite does: the pins of each design are
-// found by its name. Shared by the suite and the tests that compare a design of the list with
-// pins made by such a probe without a window (loadOpenDesign()).
+// found by its name. Shared by the suite, the exit suite of the flight block
+// (open_designs_flight_block_exit_tests.cpp, which opens them as the suite does:
+// OpenDesignWindows.h) and the tests that compare a design of the list with pins made by such a
+// probe without a window (loadOpenDesign()).
 
 #include <filesystem>
 #include <memory>

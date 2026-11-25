@@ -5,8 +5,9 @@
 // the probe's own: tests/data/goldens/gui/rocket-info/flight-blocks.json, which
 // tools/openrocket-gui-pins writes (the rocket-info family's RocketInfoFlightProbe; its README
 // says how). Read once per test process. rocket_info_flight_golden_tests.cpp compares QtRocket's
-// RocketInfo and BackgroundSimulation with it; the window-level suite of the flight block (plan
-// 11.6 E5) may read it too.
+// RocketInfo and BackgroundSimulation with it, and the exit suite of the flight block
+// (exit/open_designs_flight_block_exit_tests.cpp, plan 11.6 E5) a design's window, through
+// RocketInfoFlightPinChecks.h.
 //
 // Every scenario holds:
 // - the design (its file, relative to the repository, and its kind: example, example-resave,
@@ -22,22 +23,29 @@
 //   (removeHTMLTags(getStatusDescription()));
 // - the texts of the flight block in the order RocketInfo draws them: font, theme colour, row
 //   above the bottom one, column (the left margin, or the values' column 10 pixels right of the
-//   widest label's visual width). Nothing of it depends on the font.
-// No value of a fresh flight: the probe runs nothing (the four designs whose estimate would run
-// show the stored values, dimmed, and "Calculating...").
+//   widest label's visual width). Nothing of it depends on the font;
+// - for the four designs whose estimate runs when they are opened (the simulation of the selected
+//   configuration is not up to date: the re-saves of the test rockets beta, Falcon 9 Heavy, the
+//   multi-stage event rocket and the cluster pods), the estimate's run as OpenRocket's worker does
+//   it (schema 2): the document's saved state and undo history before (the design just opened,
+//   saved) and after, the status of each simulation run, and the overlay afterwards with its texts.
+// No value of a fresh flight: the texts of a run leave out the flight's apogee, maximum velocity
+// and maximum acceleration (FlightPinText::fresh), and nothing else of it is a number. Before the
+// run, the four designs show "Calculating..." and their labels, dimmed, with "N/A".
 
 #include <array>
 #include <cstddef>
 #include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace QtRocket::Gui::Test
 {
 
 /// The schema version of flight-blocks.json (gen_rocket_info_flight_pins.py's SCHEMA_VERSION).
-inline constexpr int kRocketInfoFlightSchemaVersion = 1;
+inline constexpr int kRocketInfoFlightSchemaVersion = 2;
 
 /// A simulation of a scenario's design.
 struct FlightPinSimulation
@@ -67,7 +75,11 @@ enum class FlightPinShown
 /// A text of the flight block.
 struct FlightPinText
 {
+    /// The text; empty for a value of a fresh flight (fresh).
     std::string text;
+    /// Whether it is a value of a fresh flight (the apogee, the maximum velocity or the maximum
+    /// acceleration after the estimate's run), which the pins leave out: JSON's null.
+    bool fresh{false};
     /// RocketInfo's font: "REGULAR" or "BOLD".
     std::string font;
     /// The theme colour: "FLIGHTDATA_TEXT_ACTIVE", "FLIGHTDATA_TEXT_INACTIVE", "ERROR" or "TEXT",
@@ -78,6 +90,55 @@ struct FlightPinText
     int rowFromBottom{0};
     /// Whether the text starts at the left margin (false: in the values' column).
     bool leftColumn{true};
+};
+
+/// What the overlay shows of the flight, and the texts of its block.
+struct FlightPinOverlay
+{
+    FlightPinShown shown{FlightPinShown::NONE};
+    bool           calculating{false};
+    /// The overlay's simulation (RocketInfo's), by index, if any.
+    std::optional<std::size_t> shownSimulation;
+    /// The shown simulation's status (the constant's name) and its text, when there is one.
+    std::optional<std::string> status;
+    std::optional<std::string> statusText;
+    std::vector<FlightPinText> texts;
+};
+
+/// isSaved(), isUndoAvailable() and isRedoAvailable() of the document.
+struct FlightPinDocumentState
+{
+    bool saved{false};
+    bool undoAvailable{false};
+    bool redoAvailable{false};
+};
+
+/// A simulation the estimate ran: its getStatus() (the constant's name) and hasSummaryData() after
+/// its run.
+struct FlightPinRanSimulation
+{
+    std::size_t index{0};
+    std::string status;
+    bool        hasData{false};
+};
+
+/// The estimate's runs of a design just opened, as OpenRocket's BackgroundSimulationWorker runs
+/// the simulations updateSims(false) finds (the probe's runEstimate()).
+struct FlightPinRun
+{
+    /// The document marked saved, as OpenFileWorker marks a design it opened, before the runs, and
+    /// after them.
+    FlightPinDocumentState before;
+    FlightPinDocumentState after;
+    /// The simulations that ran to their end (simulationDone()), in order.
+    std::vector<FlightPinRanSimulation> ran;
+    /// Whether no run ended in simulationInterrupted() (which stops the chain); failed is that
+    /// simulation's index and what was thrown.
+    bool                       succeeded{true};
+    std::optional<std::size_t> failed;
+    std::string                failure;
+    /// The overlay after the runs (its texts without the fresh flight's values).
+    FlightPinOverlay overlay;
 };
 
 /// One scenario.
@@ -103,13 +164,11 @@ struct RocketInfoFlightPin
     std::vector<FlightPinSimulation> simulations;
     std::vector<std::size_t>         runsCurrent;
     std::vector<std::size_t>         runsAll;
-    FlightPinShown                   shown{FlightPinShown::NONE};
-    bool                             calculating{false};
-    std::optional<std::size_t>       shownSimulation;
-    /// The shown simulation's status (the constant's name) and its text, when there is one.
-    std::optional<std::string> status;
-    std::optional<std::string> statusText;
-    std::vector<FlightPinText> texts;
+    /// The overlay as updateExtras() left it (estimated), or as the probe set it.
+    FlightPinOverlay overlay;
+    /// The estimate's runs, for a design of the suite whose estimate runs (none otherwise: the
+    /// probe's own states run nothing).
+    std::optional<FlightPinRun> run;
 };
 
 /// What GoogleTest prints for the scenario of a test that failed: its name.
@@ -131,5 +190,9 @@ struct RocketInfoFlightPins
 
 /// flight-blocks.json, read on the first call.
 [[nodiscard]] const RocketInfoFlightPins& rocketInfoFlightPins();
+
+/// The scenario named @p name of rocketInfoFlightPins() (a design's name, or "special:..."), or
+/// null.
+[[nodiscard]] const RocketInfoFlightPin* findRocketInfoFlightPin(std::string_view name);
 
 }  // namespace QtRocket::Gui::Test

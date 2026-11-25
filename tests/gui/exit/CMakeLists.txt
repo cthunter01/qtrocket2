@@ -1,8 +1,10 @@
 # The exit suites of Milestone 2 (plan section 9.5): a rocket designed from scratch in QtRocket's GUI
 # (FromScratchExitGolden; the scenario's driver FromScratchScenario, its questions FromScratchPrompts and their tests)
-# and the designs of OpenRocket opened in QtRocket's GUI (OpenDesignsExitGolden, with its list of designs OpenDesigns),
-# in alphabetical order (ignoring case). Their suites carry "Golden" in their names, so that tests/gui/CMakeLists.txt
-# gives them the labels gui and golden.
+# and the designs of OpenRocket opened in QtRocket's GUI (OpenDesignsExitGolden, with its list of designs OpenDesigns
+# and its windows OpenDesignWindows; Milestone 4's flight block of their design views with the estimate on,
+# OpenDesignsFlightBlockExitGolden), in alphabetical order (ignoring case). Their suites carry "Golden" in their
+# names, so that tests/gui/CMakeLists.txt gives them the labels gui and golden (the flight block's test on the
+# application's threads, OpenDesignsFlightBlockThreadsTest, is one of its threaded suites instead).
 target_sources(QtRocket_gui_tests PRIVATE
     flight_configurations_exit_tests.cpp
     FlightConfigurationPrompts.cpp
@@ -13,7 +15,9 @@ target_sources(QtRocket_gui_tests PRIVATE
     FromScratchScenario.cpp
     FromScratchScenarioTests.cpp
     open_designs_exit_tests.cpp
+    open_designs_flight_block_exit_tests.cpp
     OpenDesigns.cpp
+    OpenDesignWindows.cpp
     pasted_motor_mount_tests.cpp
     ScenarioInput.cpp
 )

@@ -64,7 +64,8 @@ set_property(DIRECTORY PROPERTY LABELS gui)
 # that breaks them fails the test instead of hanging ctest.
 string(CONCAT QTROCKET_GUI_THREADED_SUITES
     "BackgroundSimulationThreadsTest.*:PollingSimulationExecutorTest.*:SimulationRunDialogThreadsTest.*"
-    ":SimulationWindowIntegrationThreadsTest.*")
+    ":SimulationWindowIntegrationThreadsTest.*"
+    ":OpenDesignsFlightBlockThreadsTest.*")
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60
     TEST_FILTER "-*Golden*.*:WidgetFileDialogTest.*:${QTROCKET_GUI_THREADED_SUITES}"
     PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)

@@ -89,9 +89,11 @@
 // windows load and list the bundled presets (PartsLibrary::APPLICATIONS), as the application
 // does. The windows are those of the application without its start-up: a WindowManager with
 // ConfigDialogRequests and DocumentFileOperations, as ApplicationSession connects them (the
-// application's own start is tested in tests/gui/app/). Their executor of the simulations is the
-// tests' one in its mode that never runs a job, and the design view's background estimate is off
-// (O-M4-12): no test of the suite runs a fresh flight.
+// application's own start is tested in tests/gui/app/; exit/OpenDesignWindows.h, which the exit
+// suite of the flight block shares). Their executor of the simulations is the tests' one in its
+// mode that never runs a job, and the design view's background estimate is off (O-M4-12): no
+// test of the suite runs a fresh flight (the estimate of the opened designs is the flight block's
+// suite's, open_designs_flight_block_exit_tests.cpp).
 //
 // Each of the eight tests of a design (nine for an example) opens it anew, so that ctest runs
 // them as separate processes in parallel: 550 tests. Milestone 2's 331 took about 20 s on 8 jobs
@@ -126,7 +128,6 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -134,7 +135,6 @@
 #include <QAbstractItemModel>
 #include <QAbstractItemModelTester>
 #include <QAction>
-#include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
@@ -155,7 +155,6 @@
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPoint>
-#include <QPointer>
 #include <QPushButton>
 #include <QRegion>
 #include <QStackedWidget>
@@ -205,15 +204,11 @@
 #include "QtRocket/gui/flightconfig/MotorMountTableModel.h"
 #include "QtRocket/gui/flightconfig/RecoveryConfigurationPanel.h"
 #include "QtRocket/gui/flightconfig/SeparationConfigurationPanel.h"
-#include "QtRocket/gui/main/ConfigDialogRequests.h"
 #include "QtRocket/gui/main/DesignPanel.h"
-#include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
-#include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
-#include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/simulation/SimulationColumnVisibility.h"
 #include "QtRocket/gui/simulation/SimulationColumns.h"
@@ -276,6 +271,7 @@
 #include "dialogs/simulation/SimulationDialogPins.h"
 #include "dialogs/simulation/SimulationDialogWalk.h"
 #include "dialogs/simulation/WindEditorTranscript.h"
+#include "exit/OpenDesignWindows.h"
 #include "exit/OpenDesigns.h"
 #include "figure/RecordingPaintDevice.h"
 #include "file/DesignFileEnvironment.h"
@@ -312,6 +308,8 @@ using Gui::Test::OpenDesign;
 using Gui::Test::openDesignList;
 using Gui::Test::openDesigns;
 using Gui::Test::openDesignTestName;
+// The windows of the suite (exit/OpenDesignWindows.h, shared with the flight block's suite).
+using Gui::Test::settleWindows;
 
 // ===================================================================== the load warnings
 
@@ -666,16 +664,6 @@ private:
     ApplicationSimulationDialogs m_simulationDialogs{m_services};
 };
 
-/// Delivers the posted events until the windows, their layouts and their figures are done.
-void settle()
-{
-    constexpr int kPasses = 4;
-    for (int pass = 0; pass < kPasses; ++pass)
-    {
-        QApplication::processEvents();
-    }
-}
-
 /// The components of @p rocket in the order of its tree (a component before its children), the
 /// rocket first.
 void collectInTreeOrder(const RocketComponent&               component,
@@ -725,12 +713,8 @@ protected:
 
     void TearDown() override
     {
-        // The file operations and the dialog requests go before the windows, the windows (with
-        // the documents and the dialog) before the services.
-        m_fileOperations = nullptr;
-        m_requests       = nullptr;
-        m_windows        = nullptr;
-        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        // The windows (with the documents and the dialog) go before the services.
+        m_windows  = nullptr;
         m_services = nullptr;
         ComponentConfigDialog::forgetPreviousDialogs();
         GuiTest::TearDown();
@@ -745,35 +729,8 @@ protected:
         const OpenDesign& design = GetParam();
         m_services =
             std::make_unique<DesignServices>(Gui::Test::openDesignMotors(design), partsLibrary);
-        m_windows  = std::make_unique<WindowManager>(m_services->services(), m_clipboard,
-                                                     WindowManager::LastWindowBehaviour::EXIT);
-        m_requests = std::make_unique<ConfigDialogRequests>(*m_windows);
-        m_fileOperations =
-            std::make_unique<DocumentFileOperations>(*m_windows, m_services->services());
-        const QPointer<MainWindow> start = &m_windows->newDesign();
-        settle();
-        prompts().answerOpenFiles(UserPrompts::OpenFileAnswer{
-            .files = {design.file}, .directory = design.file.parent_path()});
-        start->menus().openAction()->trigger();
-        settle();
-        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        // The design took the place of the New design, whose window is gone.
-        if (m_windows->windowCount() != 1U || !start.isNull())
-        {
-            ADD_FAILURE() << m_windows->windowCount()
-                          << " windows after File > Open, the New design's closed: "
-                          << start.isNull();
-            return nullptr;
-        }
-        MainWindow* const                          window = m_windows->windows().front();
-        const std::optional<std::filesystem::path> file   = window->document().getFile();
-        std::error_code                            error;
-        if (!file.has_value() || !std::filesystem::equivalent(*file, design.file, error))
-        {
-            ADD_FAILURE() << "the window's design has another file";
-            return nullptr;
-        }
-        return window;
+        m_windows = std::make_unique<Gui::Test::OpenDesignWindows>(m_services->services());
+        return m_windows->openThroughFileOpen(design.file, prompts());
     }
 
     [[nodiscard]] Gui::Test::ScriptedUserPrompts& prompts() const { return m_services->prompts(); }
@@ -791,11 +748,8 @@ protected:
     }
 
 private:
-    std::unique_ptr<DesignServices>         m_services;
-    OpenRocketClipboard                     m_clipboard;
-    std::unique_ptr<WindowManager>          m_windows;
-    std::unique_ptr<ConfigDialogRequests>   m_requests;
-    std::unique_ptr<DocumentFileOperations> m_fileOperations;
+    std::unique_ptr<DesignServices>               m_services;
+    std::unique_ptr<Gui::Test::OpenDesignWindows> m_windows;
 };
 
 /// How many of @p designs come from @p source.
@@ -1665,7 +1619,7 @@ TEST_P(OpenDesignsExitGolden, EveryCancelKeepsTheEditBeforeIt)
 void expectView(RocketPanel& panel, int item, QImage& image)
 {
     Gui::Test::chooseItem(panel.viewSelector(), item);
-    settle();
+    settleWindows();
     const FigureView view = RocketPanel::kViewTypes.at(static_cast<std::size_t>(item));
     SCOPED_TRACE(std::format("view {}", item));
     EXPECT_EQ(panel.viewType(), view);
@@ -1990,7 +1944,7 @@ TEST_P(OpenDesignsExitGolden, ShowsTheGoldenNumbersInItsOverlay)
     {
         SCOPED_TRACE(std::format("configuration {}", item));
         Gui::Test::chooseItem(configurations, item);
-        settle();
+        settleWindows();
         EXPECT_EQ(QtRocket::Test::selectedIndex(rocket), item);
         expectOverlayOf(subject);
     }
@@ -2397,7 +2351,7 @@ void expectRowsChooseTheConfiguration(const MainWindow& window, const FlightConf
         const int column = model.columnCount() - 1;
         motors.table().scrollTo(model.index(row, column));
         Gui::Test::FlightConfigurationTab::click(motors, row, column);
-        settle();
+        settleWindows();
         EXPECT_EQ(rocket.getSelectedConfiguration().getId(),
                   model.configurationIds()[static_cast<std::size_t>(row)])
             << "row " << row;
@@ -2423,7 +2377,7 @@ TEST_P(OpenDesignsExitGolden, TheConfigurationTabShowsOpenRocketsTables)
     const Rocket&               rocket   = window->document().getRocket();
     const FlightConfigurationId selected = rocket.getSelectedConfiguration().getId();
     window->selectTab(MainWindow::kFlightConfigurationTab);
-    settle();
+    settleWindows();
     EXPECT_EQ(window->selectedTab(), MainWindow::kFlightConfigurationTab);
     const FlightConfigurationPanel* const tab = window->componentFlightConfigurationPanel();
     ASSERT_NE(tab, nullptr);
@@ -2725,7 +2679,7 @@ TEST_P(OpenDesignsExitGolden, TheSimulationsTabShowsOpenRocketsTable)
     ASSERT_NE(window, nullptr);
     window->selectTab(MainWindow::kSimulationTab);
     // The tab takes the spotlight in the next turn of the event loop (Java's invokeLater()).
-    settle();
+    settleWindows();
     EXPECT_EQ(window->selectedTab(), MainWindow::kSimulationTab);
     const SimulationPanel* const tab = window->componentSimulationPanel();
     ASSERT_NE(tab, nullptr);
@@ -3101,7 +3055,7 @@ TEST_P(OpenDesignsExitGolden, ShowsEverySimulationInItsDialogAndCancels)
     ASSERT_NE(window, nullptr);
     window->selectTab(MainWindow::kSimulationTab);
     // The tab takes the spotlight in the next turn of the event loop (Java's invokeLater()).
-    settle();
+    settleWindows();
     SimulationPanel* const tab = window->componentSimulationPanel();
     ASSERT_NE(tab, nullptr);
     const OpenRocketDocument& document = window->document();
@@ -3474,7 +3428,7 @@ void PrintTo(const PartsLibraryState& state, std::ostream* out)
     }
     const std::size_t before = prompts.shown().size();
     button->click();
-    settle();
+    settleWindows();
     if (prompts.shown().size() != before + 1)
     {
         ADD_FAILURE() << prompts.shown().size() - before << " parts libraries opened";

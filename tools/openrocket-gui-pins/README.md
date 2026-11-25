@@ -8,7 +8,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | Family | Table | Probe | Generator | Read by |
 |---|---|---|---|---|
 | `figure-paint` | `tests/gui/figure/RocketFigurePaintPins.h` | `FigurePaintProbe` | `gen_rocket_figure_paint_pins.py` | `rocket_figure_paint_golden_tests.cpp` |
-| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` (through `RocketInfoFlightPins.h`) |
+| `rocket-info` | `tests/gui/figure/RocketInfoPins.h`; `tests/data/goldens/gui/rocket-info/flight-blocks.json` | `RocketInfoProbe`; `RocketInfoFlightProbe` | `gen_rocket_info_pins.py`; `gen_rocket_info_flight_pins.py` | `rocket_info_golden_tests.cpp`; `rocket_info_flight_golden_tests.cpp` and `open_designs_flight_block_exit_tests.cpp` (through `RocketInfoFlightPins.h` and `RocketInfoFlightPinChecks.h`) |
 | `ribbon` | `tests/gui/widgets/RibbonPins.h` | `RibbonProbe` | `gen_ribbon_pins.py` | `ribbon_golden_tests.cpp` |
 | `rocket-panel` | `tests/gui/figure/RocketPanelPins.h` | `RocketPanelProbe` | `gen_rocket_panel_pins.py` | `rocket_panel_golden_tests.cpp` |
 | `preferences` | `tests/gui/dialogs/PreferencesPagePins.h` | `PreferencesProbe` | `gen_preferences_pins.py` | `preferences_pages_golden_tests.cpp`, `PreferencesDialogTests.cpp`, `SimulationPreferencesPanelTests.cpp`, `WarningsPreferencesPanelTests.cpp`, `LaunchPreferencesPanelTests.cpp` |
@@ -68,9 +68,18 @@ Every double is printed exactly (`Double.toHexString` or Java 17's `Double.toStr
   line without starting the worker (which simulations `updateSims(false)` and `updateSims(true)` would run,
   calculating or not, the shown simulation), every simulation's status and maxima, and the texts of the block
   after those of a paint without flight data, each with its font, colour, row above the bottom one and column
-  (the left margin or the values' column), which do not depend on the font. No fresh flight: the four
-  designs whose estimate would run show their stored values, dimmed. The generator writes JSON
-  (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, the design files relative to the repository).
+  (the left margin or the values' column), which do not depend on the font. The four designs whose estimate
+  runs (the re-saves of the test rockets beta, Falcon 9 Heavy, the multi-stage event rocket and the cluster
+  pods) show "Calculating..." and their labels with "N/A", dimmed; then (`runEstimate()`, Milestone 4's run 3,
+  part Y3, for the exit suite of the flight block) the probe marks the document saved, as `OpenFileWorker`
+  marks a design it opened, runs what `RocketPanel`'s `BackgroundSimulationWorker` runs, on its own thread
+  and without its 300 ms sleep (`Simulation.simulate()` with the worker's listeners, `simulationDone()` or
+  `simulationInterrupted()`, and the change listener `updateExtras()` gives every simulation), and prints the
+  document's saved state and undo history before and after, each simulation's status after its run, and the
+  overlay after the runs. Those are fresh flights: the generator writes the apogee, the maximum velocity and
+  the maximum acceleration of the block as `null`, so the table holds no value of them. The generator writes
+  JSON (`tests/data/goldens/gui/rocket-info/flight-blocks.json`, schema 2, the design files relative to the
+  repository).
 - `ribbon`: `StageSelector` and `ConfigurationComboBox`, made as `RocketPanel` makes them, on the 16
   examples, the 13 test rockets and five designs of its own: the stage buttons (text, state, tooltip), each
   enabled button clicked twice on a fresh design, every configuration picked, with the rocket's events and
@@ -559,6 +568,12 @@ table. Its `SimulationTableViewProbe` reseeds from the design's file name before
 design (it prints no UUID); two runs gave the same transcript.
 `simulation-dialog` (Milestone 4) reseeds from the design's name before each design (its loads draw no UUID the
 table shows); two runs gave the same table.
+`rocket-info`'s `RocketInfoFlightProbe` runs four fresh flights (the estimate's runs of Milestone 4's run 3,
+part Y3). OpenRocket's flights at the default time step do not repeat from one set of component ids to another
+(`tools/openrocket-goldens/README.md`, "Reproducibility of the simulations"); seeded, they repeated (two runs
+printed the same transcript, the flights' values included), but the table holds none of their values all the
+same: what it keeps of them (the statuses, three of them ABORTED with their causes, the document's states and
+the texts of the block but for its three values) does not depend on the last bits of the flight.
 
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
@@ -640,6 +655,17 @@ Milestone 4's run 3, part Y2, added `simulation-dialog` (the M4 tests-exit scout
 sim-config scout's `SimConfigDialogWalk` in the form of run 2's probes `simulation-options` and
 `simulation-warnings`, over every simulation of `OpenDesignsExitGolden`'s 66 designs as the tab's Edit opens it,
 then cancelled), for the suite's test of the settings dialog of every simulation.
+
+`rocket-info`'s second probe, `RocketInfoFlightProbe`, came in Milestone 4's run 2 (part G2: the flight block of
+each design of `OpenDesignsExitGolden` and seven states of its own, the first JSON table of the family). Run 3's
+part Y3 gave it the estimate's run of the four designs whose estimate runs, for the exit suite of the flight block
+(`open_designs_flight_block_exit_tests.cpp`): the table's schema 2, with a `run` for each scenario (null but for
+those four), the rest of it byte for byte the same. `RocketInfoPins.h`, the family's other table, does not
+regenerate byte for byte on every machine: OpenRocket's headless UI font is measured with the machine's fonts, and
+on the machine of runs 2 and 3 the row above the bottom one (`rowFromBottom`, in lines) of every text and caret is
+7.9476 smaller and one text's right alignment flips (583 lines, already at the base of run 2's part G2);
+`generate.sh --check rocket-info` then says `DIFFERENT` for it and `same` for `flight-blocks.json`, and the
+committed `RocketInfoPins.h` stays as it was made (a regenerated one is never committed).
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,
