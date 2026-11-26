@@ -326,25 +326,24 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   every step and the save with OpenRocket's (`FlightConfigurationsExitGolden` the same in the "Motors &
   Configuration" tab, `SimulationsExitGolden` in the "Flight simulations" tab and its dialogs, where the
   application's `ManualSimulationExecutor` never runs and each run dialog is cancelled; its expected differences:
-  `guiExpectedRecord()` and the test's `kUndoDifferences`); `OpenDesignsExitGolden` opens the examples, the
-  re-saves and that reference through File >
-  Open and compares the tree, the dialogs, the figure, the overlay, the two tabs and the settings dialog of every
-  simulation with the goldens and the pins (`OpenDesignsExitGoldenPartsLibrary` the parts library of every
-  component of the examples); `OpenDesignsFlightBlockExitGolden` and `OpenDesignsFlightBlockRunExitGolden` open
-  them with the flight estimate on (the only exits that turn `backgroundFlight` on) and compare the flight block
-  and what the estimate runs; `SimulationPlotPresetsGolden` (`tests/gui/dialogs/plot/`) plots every stored
-  simulation of the examples in the nine presets through the plot dialog. A scenario change is followed by
-  `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do in OpenRocket's own GUI (the
-  tool refuses a disabled button or Automatic box, but no other disabled field, and in the simulations tab the
-  steps that meet OpenRocket bugs 29-31, 35, 37 and 38; it fixes bugs 6, 32, 33 and 34 in OpenRocket's run and
-  records the fix: `toolFixes`, `kGuiSimulationToolFixes`). The DISABLED_ writers `FromScratchInteropSave`,
-  `FlightConfigurationsInteropSave`, `SimulationsInteropSave` and `FlightDataInteropSave` (the first simulation of
-  two examples run with the Run button on the application's own executor, saved with its flight data) write their
-  saves into `build/<preset>/interop-saves/` (`exit/InteropSaves.h`; after the core's `OrkInteropSaves`, which
-  removes them as earlier saves) for `tools/openrocket-goldens/interop.sh`, which checks them as the inputs
-  `gui-from-scratch`, `gui-<scenario>` and `gui-run-<example>` against OpenRocket's save of the scenario, or for a
-  run against OpenRocket's own reading of the flight; a new GUI input goes into `GuiInteropInputs.h`
-  (`guiInteropInputs()`) and `InteropCheck` alike
+  `guiExpectedRecord()` and the test's `kUndoDifferences`); `OpenDesignsExitGolden` opens the examples, the re-saves
+  and that reference through File > Open and compares the tree, the dialogs, the figure, the overlay, the two tabs
+  and the settings dialog of every simulation with the goldens and the pins (`OpenDesignsExitGoldenPartsLibrary` the
+  parts library of every component of the examples); `OpenDesignsFlightBlockExitGolden` and
+  `OpenDesignsFlightBlockRunExitGolden` open them with the flight estimate on (the only exits that turn
+  `backgroundFlight` on) and compare the flight block and what the estimate runs; `SimulationPlotPresetsGolden`
+  (`tests/gui/dialogs/plot/`) plots every stored simulation of the examples in the nine presets through the plot
+  dialog. A scenario change is followed by `tools/openrocket-gui-reference/generate.sh`, and a step must be one a
+  user can do in OpenRocket's own GUI (the tool refuses a disabled button or Automatic box, but no other disabled
+  field, and in the simulations tab the steps that meet OpenRocket bugs 29-31, 35, 37 and 38; it fixes bugs 6, 32, 33
+  and 34 in OpenRocket's run and records the fix: `toolFixes`, `kGuiSimulationToolFixes`). The DISABLED_ writers
+  `FromScratchInteropSave`, `FlightConfigurationsInteropSave`, `SimulationsInteropSave` and `FlightDataInteropSave`
+  (the first simulation of two examples run with the Run button on the application's own executor, saved with its
+  flight data) write their saves into `build/<preset>/interop-saves/` (`exit/InteropSaves.h`; after the core's
+  `OrkInteropSaves`, which removes them as earlier saves) for `tools/openrocket-goldens/interop.sh`, which checks
+  them as the inputs `gui-from-scratch`, `gui-<scenario>` and `gui-run-<example>` against OpenRocket's save of the
+  scenario, or for a run against OpenRocket's own reading of the flight; a new GUI input goes into
+  `GuiInteropInputs.h` (`guiInteropInputs()`) and `InteropCheck` alike
 - Traps: `QCoreApplication::processEvents()` does not run `deleteLater()` (`sendPostedEvents(nullptr,
   QEvent::DeferredDelete)`), nor does a new palette reach the widgets before `sendPostedEvents()`; inside a
   `TEST_F` body `Test::` is `testing::Test` (write `Gui::Test::`); `QTest::mouseDClick()` sends the double click
