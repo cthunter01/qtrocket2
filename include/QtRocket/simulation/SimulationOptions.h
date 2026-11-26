@@ -81,8 +81,8 @@ class SimulationConditions;
 ///   direction is the same (the wind at time 0 depends on the levels and their seeds only), and
 ///   the const members of the options write nothing: they may be called from several threads
 ///   at once while no thread changes the options.
-/// - operator== also compares the launch-into-wind flag, the ISA flag, the geodetic computation
-///   and the lookup paths (OpenRocket bug 29, see there).
+/// - operator== also compares the launch-into-wind flag, the ISA flag and the geodetic
+///   computation (OpenRocket bug 29, see there), and the lookup paths.
 /// - getLaunchRodDirection() of a launch into a multi-level wind whose levels are above the
 ///   ground (AGL) asks for the wind at the ground (OpenRocket bug 39, see there).
 /// - toString() names the atmospheric model and the two wind models by their class only, where
@@ -461,14 +461,17 @@ public:
     /// rows of the lookup tables do not count, nor does a seed that is not fixed.
     ///
     /// Deviation (OpenRocket bug 29, fixed): Java's equals() ignores the launch-into-wind flag,
-    /// the ISA flag, the geodetic computation and the lookup paths, though each of them changes
-    /// a flight (the rod direction, the atmospheric model, the coordinates, the table a file
-    /// names). The equality decides whether a simulation's results are up to date
-    /// (Simulation::getStatus()) and whether a document differs from its undo state
-    /// (OpenRocketDocument's clean state), so in OpenRocket an edit of only these leaves stale
-    /// results "up to date", and the simulation dialog's Cancel, which undoes to the state of
-    /// the dialog's undo position, finds the document clean there and undoes the user's previous
-    /// change instead (a design edit made before the dialog opened is lost).
+    /// the ISA flag and the geodetic computation, though each of them changes a flight (the rod
+    /// direction, the atmospheric model, the coordinates). The equality decides whether a
+    /// simulation's results are up to date (Simulation::getStatus()) and whether a document
+    /// differs from its undo state (OpenRocketDocument's clean state), so in OpenRocket an edit of
+    /// only these leaves stale results "up to date", and the simulation dialog's Cancel, which
+    /// undoes to the state of the dialog's undo position, finds the document clean there and
+    /// undoes the user's previous change instead (a design edit made before the dialog opened is
+    /// lost). Java's equals() leaves out the lookup paths too, but it compares the tables as
+    /// objects, and every path the GUI or a loaded file sets comes with a table read anew (the
+    /// lookup dialog's "Load from file..." and reload, CsvLookupHandler), so no such edit goes
+    /// unseen there; the paths are compared here all the same.
     [[nodiscard]] bool operator==(const SimulationOptions& other) const noexcept;
 
     /// Java's hashCode(): always 0.

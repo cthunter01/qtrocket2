@@ -54,7 +54,8 @@
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
 # one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
 # is, another one replaces it. Every family is reproducible (the figure-paint and rocket-info probes seed
-# OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
+# OpenRocket's UUIDs with shared/probe/DeterministicUuids.java, and every probe runs in the desktop session its
+# tables were made in, kde_families below: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
 # never rewrite it (README.md, "Values pinned by hand"); so do preset-chooser, plot-widgets and plot-dialog.
@@ -249,6 +250,16 @@ if [[ "${build_hash}" == "${build_version}" || ! "${build_hash}" =~ ^[0-9a-f]{7,
     fi
 fi
 
+# The families whose probes run as in a KDE session; the others run outside any desktop session. FlatLaf
+# (SystemInfo.isKDE: XDG_CURRENT_DESKTOP holds "KDE", or KDE_FULL_SESSION is set) sizes OpenRocket's UI font by
+# the session: its UI scale divides the system font's size (13 for the probes, with their fresh home) by 13 in
+# KDE and by 15 elsewhere, so the 14 of OpenRocket's themes/FlatLaf.properties stays 14 in KDE and becomes 12
+# elsewhere. A few tables depend on it: rocket-info's RocketInfoPins.h was made outside KDE (Milestone 2: the
+# overlay's line 14.5 px, from the font of 10 the UI font of 12 gives; 17.4 px in KDE), simulation-table's widths
+# and plot-dialog's hand pins in KDE (Milestone 4). Every other family gives the same tables in both
+# (2026-11-25); they run outside KDE. README.md, "Reproducibility".
+kde_families=(simulation-table plot-dialog)
+
 # Runs a probe of a family, its transcript (standard output) into ${work}/<class>.txt, its log into
 # ${work}/<class>.log.
 #   run_probe <family> <class> headless|xvfb [<argument>...]
@@ -267,7 +278,8 @@ run_probe() {
     }
     # A fresh java.util.prefs store and home directory for every probe (OpenRocket's preferences at their
     # defaults, nothing written to the user's home); a fixed locale, time zone and encoding; OpenRocket's
-    # motor database; no display but a virtual one of its own.
+    # motor database; no display but a virtual one of its own; and the desktop session the family's tables
+    # were made in, whatever the user's is (kde_families, above).
     rm -rf "${work}/prefs" "${work}/tmp" "${work}/home"
     mkdir -p "${work}/prefs" "${work}/tmp" "${work}/home"
     local -a launcher=() awt=(-Djava.awt.headless=true)
@@ -276,7 +288,12 @@ run_probe() {
         launcher=(xvfb-run -a -s "-screen 0 1280x1024x24" bash -c 'exec "$@" 2>> "$0"' "${work}/${class}.log")
         awt=(-Djava.awt.headless=false)
     fi
-    env -u DISPLAY -u WAYLAND_DISPLAY ${launcher[@]+"${launcher[@]}"} "${java}" -Xmx2g "${awt[@]}" \
+    local -a desktop=(-u XDG_CURRENT_DESKTOP -u KDE_FULL_SESSION -u GNOME_DESKTOP_SESSION_ID)
+    if [[ " ${kde_families[*]} " == *" ${family} "* ]]; then
+        desktop+=(XDG_CURRENT_DESKTOP=KDE)
+    fi
+    env -u DISPLAY -u WAYLAND_DISPLAY "${desktop[@]}" ${launcher[@]+"${launcher[@]}"} \
+        "${java}" -Xmx2g "${awt[@]}" \
         -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
         -Duser.home="${work}/home" \
         -Djava.util.prefs.userRoot="${work}/prefs" -Djava.util.prefs.systemRoot="${work}/prefs" \

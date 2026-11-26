@@ -253,7 +253,12 @@ The simulation's settings:
     Atmosphere" or "Geodetic calculations" as a change: the simulation stays "Up to date" with results that no
     longer match, and the dialog's Cancel undoes the design change made before the dialog opened instead of the
     edit. QtRocket counts these edits, so the results are out of date and Cancel undoes the edit
-    (`simulation/SimulationOptions.h` in the core).
+    (`simulation/SimulationOptions.h` in the core). Nor does QtRocket's Cancel ever undo more than the dialog's
+    own edits: OpenRocket's also undoes that earlier change after an edit taken back by hand, such as a rod
+    length changed and changed back (`dialogs/simulation/SimulationConfigDialog.h`).
+30. **Cancel of a new simulation after an edit.** For a simulation that New simulation has just added, Cancel asks
+    whether to undo adding it, but after an edit in the dialog OpenRocket's Yes only undoes the edit, and the new
+    simulation stays. QtRocket's Yes removes it (`dialogs/simulation/SimulationConfigDialog.h`).
 
 The launch conditions and the wind editor:
 
@@ -339,8 +344,12 @@ Plots:
     shapes and stages of others. QtRocket gives each curve those of its own quantity and stage
     (`plot/SimulationPlotModel.h` in the core).
 
-The CSV options:
+The CSV export:
 
+49. **Exporting a simulation that is not up to date.** The Export data tab's Export first runs the simulation
+    again when it is out of date, but OpenRocket then writes the flight data the dialog opened with, under the
+    description of the new run (its status, its warnings). QtRocket writes the new run's flight data
+    (`dialogs/simulation/SimulationExportPanel.h`).
 50. **A field separator of several characters.** OpenRocket's CSV dialogs show a stored separator by its first
     character only, so the next export writes another one: "<->" comes back as "<", and "SPACE", which bug 34
     stores, as "S". QtRocket shows the whole separator, and a stored "SPACE" or "TAB" as that item, the space or
@@ -354,6 +363,11 @@ The CSV options:
     a quantity (a custom expression's, or one a file brought) fails with an internal error after the file was
     chosen, before anything is written. QtRocket's preferences take keys of any length
     (`settings/CsvOptionPreferences.h`).
+53. **An export that cannot be written.** When the Export data tab's file cannot be opened, OpenRocket shows its
+    internal error dialog; when a write fails, it says nothing; and the Cancel of its progress dialog deletes the
+    file while the export goes on writing it. QtRocket says "Error writing file" ("An error occurred while
+    writing to the file:" and the reason) in both cases, and its export has no Cancel
+    (`dialogs/simulation/SimulationExportPanel.h`).
 
 The design view's flight estimate:
 
@@ -390,6 +404,11 @@ More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
 - **A stored column index below zero for the wind import.** OpenRocket's "Wind Data Import Settings" dialog, and
   with it the import, fails with an internal error until the preferences are reset. QtRocket starts that index
   at 0 (`dialogs/simulation/CsvImportSettingsDialog.h`).
+- **A ticked quantity that the exported stage does not have.** The Export data tab lists the quantities of the
+  first stage's flight data. When the stage chosen in "Stage to export" (or the data of a run the Export made)
+  lacks one that is ticked, OpenRocket's export fails with an internal error after writing the file's comments.
+  QtRocket says "Error writing file" with the quantity's name and writes nothing
+  (`dialogs/simulation/SimulationExportPanel.h`).
 
 ## Editing several components at once
 
@@ -511,7 +530,13 @@ component's wall, mass or sweep. Also:
 - When the selected flight configuration has several simulations, the flight estimate is always the first
   one's. OpenRocket's can be another of them, the last whose results changed (`figure/BackgroundSimulation.h`).
 - While the window's simulation settings dialog or run dialog is open, the flight estimate waits: it starts no
-  run and takes in no result until the dialog closes (`figure/BackgroundSimulation.h`).
+  run and takes in no result until the dialog closes, and a run it had started is dropped and starts again
+  then. In OpenRocket the estimate can change the simulation the settings dialog edits, and so what its Cancel
+  undoes (`figure/BackgroundSimulation.h`).
+- The simulations a run dialog runs leave the flight estimate: it does not run them again, and the run dialog's
+  results are the ones kept. In OpenRocket the estimate and the run dialog can run the same simulation at once,
+  and the run that ends last gives the results, which can be the estimate's flight, cut off where it hits the
+  ground (`figure/BackgroundSimulation.h`).
 
 ## The "Motors & Configuration" tab
 
@@ -653,6 +678,14 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
   the part of the flight run before the Cancel (`simulation/SimulationPanel.h`).
 - Paste gives the simulations the plot colours and line styles they had at Copy. OpenRocket's gives them those
   the copied simulations have at the paste (`document/SimulationCopy.h` in the core).
+- "Export simulation table as CSV file" (in the File menu and the table's menu) and the menu's "Export
+  simulation(s) as CSV file" ask for the CSV options after the file is chosen, in a dialog of their own, "Save
+  as CSV file", with the format settings and the comment character; its Cancel ends the export (the user's
+  decision U-M4-6). OpenRocket shows the options beside the files in its file dialog
+  (`dialogs/simulation/CsvOptionsDialog.h`, `simulation/SimulationPanel.h`).
+- When the table's CSV file cannot be written, QtRocket says "Error writing file" ("An error occurred while
+  writing to the file:" and the reason). OpenRocket shows a message titled "Message" with the error's text alone
+  (`simulation/SimulationPanel.h`).
 
 ## The simulation settings dialog
 
@@ -702,6 +735,21 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
   where OpenRocket's order changes from one start to the next. A field separator that is not an ASCII
   character is refused: "The field separator must be an ASCII character."
   (`dialogs/simulation/AerodynamicLookupDialog.h`).
+- Escape and the window's close button act as Cancel: on the first three tabs, the question whether to discard
+  the changes comes while the dialog is still open, and No keeps it open. OpenRocket closes the dialog first and
+  asks afterwards, so its No keeps the edits of a dialog already closed, and in a multi-simulation edit they are
+  not copied to the other simulations (`dialogs/simulation/SimulationConfigDialog.h`).
+- The run dialog that OK, Plot or Export starts belongs to the settings dialog, as the plot dialog does (see
+  Plots), and stays above it. OpenRocket's belongs to the design window.
+- When the run that Plot or Export starts leaves the simulation without results (a run refused before it
+  starts), nothing is plotted or exported, and the dialog stays open. OpenRocket's plot dialog fails on the
+  missing data, and its export writes the old results.
+- The Export data tab's export writes the file at once, under a wait cursor, with no progress dialog and no
+  Cancel. OpenRocket's shows "Exporting flight data" with a Cancel when an export takes two seconds or more
+  (`dialogs/simulation/SimulationExportPanel.h`).
+- The dialog's size is kept within its own screen, less 80 pixels; OpenRocket keeps it within the default
+  screen. It cannot be made smaller than its top rows and buttons need (about 360 by 110 pixels), where
+  OpenRocket's can (`dialogs/simulation/SimulationConfigDialog.h`).
 
 ## Running simulations
 

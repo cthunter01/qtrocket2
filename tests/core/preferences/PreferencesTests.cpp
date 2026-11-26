@@ -99,9 +99,14 @@ private:
     QtRocket::Signal<>::ScopedConnection m_connection;
 };
 
-// The typed layer is tested through the in-memory store, the only concrete one in the core.
-// OpenRocket has no ApplicationPreferences tests; every expectation here comes from reading
-// ApplicationPreferences.java.
+// The typed layer is tested through the in-memory store, the only concrete one in the core. Every
+// expectation here comes from reading ApplicationPreferences.java. OpenRocket's
+// ApplicationPreferencesTest has five tests, not ported as such: their behaviour is covered by
+// LaunchIntoWindSyncsTheRodWithTheWind (testGetLaunchRodDirectionWhenNotIntoWind and
+// testGetLaunchRodDirectionWhenIntoWind), DefaultsOfAnEmptyStoreAreOpenRockets (the default
+// direction of testGetLaunchRodDirectionDefaultValue, there read while launching into the default
+// wind), RandomSeed (testRandomSeedPreferences) and UpdateCheckPermissionAppliesToBothCheckers
+// (testUpdateCheckPermission).
 
 // ------------------------------------------------------------- store conversions
 

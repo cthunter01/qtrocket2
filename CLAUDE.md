@@ -4,8 +4,9 @@ C++23 re-implementation of OpenRocket (Java, GPLv3): the Qt-free library `QtRock
 aerodynamics, mass, flight simulation, `.ork` files, motor database, component presets, CSV export, the 2D
 figure's geometry), the command-line tool `QtRocket_cli` (Milestone 1, the headless core) and the Qt 6 Widgets GUI
 `QtRocket` (`gui/`: Milestone 2, OpenRocket's Design tab; Milestone 3, the "Motors & Configuration" tab, the motor
-chooser and the parts library; no simulations, appearance or 3D views yet: `docs/gui-differences.md` lists what
-comes later). Built with CMake presets + Ninja, tested with GoogleTest.
+chooser and the parts library; Milestone 4, the "Flight simulations" tab, the simulation settings dialog, runs,
+the design view's flight estimate, the plots and the CSV export; no appearance, 3D views or analysis tools yet:
+`docs/gui-differences.md` lists what comes later). Built with CMake presets + Ninja, tested with GoogleTest.
 Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
 
 ## Commands
@@ -61,7 +62,7 @@ the workflow or create a tag only when the user asks.
   `RunCli.cmake` (`tests/core/cli/CMakeLists.txt`). The helper sources (every `.cpp` there without a `TEST`) form
   the Qt-free library `QtRocket_test_support`, which both test executables link: a new helper goes into its list
 - `tests/gui/<area>/`: the GUI's tests, all in `QtRocket_gui_tests` (`tests/gui/CMakeLists.txt`, a `CMakeLists.txt`
-  per area); `tests/gui/exit/`: the exit suites of Milestone 2 (section GUI); the shared helpers in `tests/gui/`
+  per area); `tests/gui/exit/`: the milestones' exit suites (section GUI); the shared helpers in `tests/gui/`
 - `tests/lint/`: the lint tests (`cmake/CheckLayers.cmake`, `cmake/CheckNoQtTestMacros.cmake`), on the source tree
   and on planted trees that each break one rule
 - Test support to reuse, never duplicate (`find tests/core tests/gui -name '*.h'` lists it all):
@@ -89,7 +90,17 @@ the workflow or create a tag only when the user asks.
     `exit/FromScratchScenario.h`, `plot/PlotReadback.h` (a plot's series, axes and drawn texts, without
     pixels), `flightconfig/FlightConfigurationTabSupport.h` (the tab in a window of its own),
     `binding/PresetTestSupport.h`, `dialogs/motor/MotorChooserTestSupport.h`,
-    `dialogs/preset/PresetTableTestSupport.h`
+    `dialogs/preset/PresetTableTestSupport.h`; for the simulations `SimulationRunTestSupport.h` (the three
+    examples a test may run, run requests, failing runs, a frozen sample clock), `util/KeyTranslator.h`,
+    `dialogs/simulation/SimulationDialogWalk.h` (a panel or dialog as the Java probes walk it,
+    `expectSameLines()`), `WindEditorTranscript.h`, `SimulationDialogPins.h` and `SimulationDialogPinChecks.h`
+    (the settings dialog against the `simulation-dialog` pins), `simulation/SimulationTableTestSupport.h` (an
+    example's table under a model tester), `SimulationTablePins.h` and `SimulationTablePinChecks.h` (the table,
+    the tab's actions and menus against the `simulation-table` pins), `figure/RocketInfoFlightPins.h` and
+    `RocketInfoFlightPinChecks.h` (the flight block), `plot/SimulationPlotGoldenChecks.h` (a simulation plot
+    against the core's plot goldens), `dialogs/plot/PlotDialogTestSupport.h`, `PlotPanelTestSupport.h`,
+    `exit/OpenDesigns.h` (the 66 designs of the open-design exits, loaded as they load them) and
+    `OpenDesignWindows.h` (windows opened through File > Open)
   - and the `*Support.h`, `*Pins.h` and `*Transcript.h` headers beside each subsystem's or area's tests
   - the bundled motor and preset databases are read once per test process (the presets take a second and a
     half, several under ASan), never per test; only the tests that start the application as `main()` does
@@ -194,13 +205,24 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   touches a Qt object, `Guard`, or a `Simulation`, `Rocket` or document it does not own; destructors cancel and join.
   The GUI submits through `util/SimulationExecutor` (`GuiServices`): no callback comes from inside `submit()`, and a
   window (`abandonAll()`) or an object of shorter life (`abandon()`) abandons its jobs before the objects their
-  callbacks capture go
+  callbacks capture go. A listener belongs to one live job (fresh listener objects per job, never a shared
+  instance). Simulations are run for the user through `UserPrompts::runSimulations()` (`util/SimulationBatch`,
+  `dialogs/simulation/SimulationRunDialog`), never from inside an executor callback or a document listener such a
+  callback fires (`SimulationRunDialog::run()` throws while the executor hands over: queue it with a zero-time
+  `QTimer` that has a context object). A window's design view estimate pauses while its settings or run dialog is
+  open (`MainWindow::pauseBackgroundRuns()`, counted), and a run dialog takes its simulations out of the estimate
+  (`RunSimulationsRequest::cancelBackgroundRuns`)
 - Shared widgets and helpers (reuse, never duplicate): `binding/ObjectSelection` (a binding over any object with a
   change `Signal`, `PropertySource::ofObject`), `widgets/FieldValidator` (a field's warnings and errors; its popup
   is a child of the window, never a `QToolTip`), `widgets/CollapsiblePanel`, `widgets/GroupedSearchPopup` (the
   grouped, searchable popup of `MaterialComboBox` and `DataTypeComboBox`), `widgets/UnitSelector` over a bare
-  `UnitGroup`, `util/FileNames` (`forceExtension()`, the CSV and All Files filters), `util/WaitCursor`, and
-  `util/EnumText`'s `flightDataTypeText()` (a flight data type's shown name)
+  `UnitGroup`, `util/FileNames` (`forceExtension()`, the CSV and All Files filters), `util/WaitCursor`,
+  `util/EnumText`'s `flightDataTypeText()` (a flight data type's shown name), the CSV widgets
+  (`widgets/CsvOptionPanel`, `CsvExportPanel`, `FieldSeparatorComboBox`; their stored values through
+  `settings/CsvOptionPreferences`; `dialogs/simulation/CsvOptionsDialog` for a save that asks for them,
+  `UserPrompts::SaveFileRequest::csvOptions`), the plot rows' `widgets/DataTypeComboBox`, `ColorChooserButton` and
+  `LineStyleComboBox`, `plot/DataPlot` (the base of `SimulationPlot`, for Milestone 7's plots), and
+  `dialogs/simulation/SimulationConfigDialog` (the settings dialog behind `util/SimulationDialogs`)
 - rocketplot: only `plot/` includes it, as `<rocketplot/X.h>` (`lint.layers`, which also refuses a quoted
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text
@@ -227,17 +249,18 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `deleteLater()`, never `delete`; a modal question's dialog through `dialogs/ModalDialog` (on the heap: its parent
   may be destroyed during its event loop; `dialogs/OptionDialog` for JOptionPane's)
 - Services: `util/GuiServices` (preferences, materials, motors, presets, loading context, `UserPrompts`, the
-  start's data, by reference; keep it trivially copyable), built for the program only by
-  `app/ApplicationContext`. Every modal question goes through `UserPrompts` (widgets:
-  `main/WidgetUserPrompts`). The only process-wide state: `main/OpenRocketClipboard::instance()`, the configuration
-  dialog (`ComponentConfigDialog`'s statics), `Guard`'s error hook and `UndoRedoActions`' undo-error flag
-  (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is a cache, and rocketplot's light/dark rule (set by
-  `Application`) reads only the palette it is given. A window's parts ask for the configuration dialog by signal
-  (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers;
-  `app/ApplicationSession` makes it, with the error hook, the windows, the file operations and the recent files (a
-  `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`,
-  `QTROCKET_TEST_USER_DATA_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`,
-  `gui.start`, on Linux `gui.start-data-home`, labels `gui` and `lint`: nothing may reach the standard error)
+  start's data, by reference, and the one `SimulationExecutor`, `PlotDefaults` and `SimulationDialogs` as
+  pointers; keep it trivially copyable), built for the program only by `app/ApplicationContext`. Every modal
+  question goes through `UserPrompts` (widgets: `main/WidgetUserPrompts`). The only process-wide state:
+  `main/OpenRocketClipboard::instance()`, the configuration dialog (`ComponentConfigDialog`'s statics), `Guard`'s
+  error hook and `UndoRedoActions`' undo-error flag (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is
+  a cache, and rocketplot's light/dark rule (set by `Application`) reads only the palette it is given. A window's
+  parts ask for the configuration dialog by signal (`MainWindow::configDialogRequested`), which
+  `main/ConfigDialogRequests` answers; `app/ApplicationSession` makes it, with the error hook, the windows, the
+  file operations and the recent files (a `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks:
+  `QTROCKET_TEST_SETTINGS_DIRECTORY`, `QTROCKET_TEST_USER_DATA_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START` (the
+  ctests `gui.version`, `gui.help`, `gui.start`, on Linux `gui.start-data-home`, labels `gui` and `lint`: nothing
+  may reach the standard error)
 - Text: every user-visible string is `tr("<the English text of OpenRocket's messages.properties>")` with a
   `//: <key>` translator comment above it (OpenRocket's typos verbatim; "OpenRocket" becomes "QtRocket" in
   QtRocket's own texts); core enums through `util/EnumText`, menu texts through `util/MenuText` (mnemonics, `&`);
@@ -270,21 +293,32 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   prompts (`app/design_window_integration_tests.cpp`); there `DataPaths::forApplication()` has no bundled presets
   and no user data directory (QStandardPaths' test mode): a test opts in with `withComponentDirectory()` or
   `withUserDataDirectory()`. `TestGuiServices` turns "Automatically open the Parts Library dialog" off (a new
-  component would ask for a preset; `GuiTestSupport.h`). Never show a window on the desktop; every modal question
-  is answered by a scripted double; no pixel or font assertions (compare geometry and texts); `objectName` = the
-  Java property. A test that shows Qt's own `QFileDialog` is a `WidgetFileDialogTest`
-  (`main/WidgetUserPromptsTests.cpp`): only that suite runs under the `RESOURCE_LOCK` `qt_file_dialog_settings` of
-  `tests/gui/CMakeLists.txt`, as QFileDialog's history lives in the registry or CFPreferences on Windows and macOS,
-  where parallel dialogs watch each other's temporary directories
+  component would ask for a preset; `GuiTestSupport.h`) and the design view's flight estimate off
+  (`backgroundFlight`), and runs through a `ManualSimulationExecutor`: a test that wants a run or the estimate
+  opts in; a fresh run flies only "A simple model rocket" #1, "Clustered motors" #1 or "3D printable nose cone and
+  fins" #1. Never show a window on the desktop; every modal question is answered by a scripted double; no pixel
+  or font assertions (compare geometry and texts); `objectName` = the Java property. A test that shows Qt's own
+  `QFileDialog` is a `WidgetFileDialogTest` (`main/WidgetUserPromptsTests.cpp`): only that suite runs under the
+  `RESOURCE_LOCK` `qt_file_dialog_settings` of `tests/gui/CMakeLists.txt`, as QFileDialog's history lives in the
+  registry or CFPreferences on Windows and macOS, where parallel dialogs watch each other's temporary directories
 - Labels: `tests/gui/` gives its tests the label `gui` as a directory property and its `*Golden*` suites `golden`
-  through a second `gtest_discover_tests()` (a list in its `PROPERTIES` loses its `;`). A `TEST_P`'s printed
+  through a second `gtest_discover_tests()` (a list in its `PROPERTIES` loses its `;`, and a `TEST_FILTER` made
+  by `set()` of several strings is such a list: `string(CONCAT ...)`). The suites that run simulations on threads
+  (`QTROCKET_GUI_THREADED_SUITES`, the core's `QTROCKET_THREADED_SUITES`) get a `TIMEOUT`; a suite too costly to
+  start a process per test runs as one ctest test (`QTROCKET_GUI_ONE_PROCESS_SUITE`). A `TEST_P`'s printed
   parameter becomes part of the ctest name: print a short name, never a path
 - Exit suites (`tests/gui/exit/`): `FromScratchExitGolden` builds the rocket of
   `tests/data/goldens/gui/from-scratch/scenario.json` through the GUI alone (no core setter), saves it and compares
-  every step and the save with OpenRocket's; `OpenDesignsExitGolden` opens the examples, the re-saves and that
-  reference through File > Open and compares the tree, the dialogs, the figure and the overlay with the goldens. A
-  scenario change is followed by `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do in
-  OpenRocket's own GUI (the tool refuses a disabled button or Automatic box, but no other disabled field). The
+  every step and the save with OpenRocket's (`FlightConfigurationsExitGolden` the same in the "Motors &
+  Configuration" tab); `OpenDesignsExitGolden` opens the examples, the re-saves and that reference through File >
+  Open and compares the tree, the dialogs, the figure, the overlay, the two tabs and the settings dialog of every
+  simulation with the goldens and the pins (`OpenDesignsExitGoldenPartsLibrary` the parts library of every
+  component of the examples); `OpenDesignsFlightBlockExitGolden` and `OpenDesignsFlightBlockRunExitGolden` open
+  them with the flight estimate on (the only exits that turn `backgroundFlight` on) and compare the flight block
+  and what the estimate runs; `SimulationPlotPresetsGolden` (`tests/gui/dialogs/plot/`) plots every stored
+  simulation of the examples in the nine presets through the plot dialog. A scenario change is followed by
+  `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do in OpenRocket's own GUI (the
+  tool refuses a disabled button or Automatic box, but no other disabled field). The
   DISABLED_ `FromScratchInteropSave` writes the save into `build/<preset>/interop-saves/` (after the core's
   `OrkInteropSaves`, which removes it as an earlier save) for `tools/openrocket-goldens/interop.sh`, which checks it
   as the input `gui-from-scratch` against OpenRocket's save of the scenario
@@ -298,8 +332,15 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   declared after `Q_SIGNALS:` without an access specifier is a signal; `QTreeView::visualRect()` is no
   visibility test; a window shown offscreen warns "This plugin does not support propagateSizeHints()" unless its
   layout was activated before `show()` (the tests' `ExpectedQtMessage` drops it, the program's `gui.start` does
-  not); Qt's traps on other platforms are in section Portability. On Windows, Qt's `bin` must be on PATH to run
-  the GUI and its tests (also ctest's listing)
+  not); a hidden widget's child layouts lay out only when shown (`activate()` of the top layout does not reach
+  them: activate each one before comparing an unshown dialog's geometry), and `QWidget::adjustSize()` caps a
+  window at two thirds of the screen (`resize()` for Java's `pack()`); a `QTabWidget`'s minimum size is its
+  largest page's; a `QObject` that makes children in its member initializers gets `QEvent::ChildAdded` in its own
+  `event()` before its later members are initialized (UBSan: declare the state first);
+  `QAbstractItemModel::checkIndex()` warns about an invalid index, which fails a test (check it yourself); a
+  tooltip or popup the code shows (a plot's readout through `QToolTip`) is a top-level widget a test must not
+  leave (`DataPlot::setReadoutHook()`); Qt's traps on other platforms are in section Portability. On Windows,
+  Qt's `bin` must be on PATH to run the GUI and its tests (also ctest's listing)
 - After a change to `gui/`, the `tidy` and `asan` presets as for the core
 
 ## clang-tidy
@@ -321,12 +362,14 @@ The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
   macros is not counted, but a loop, branch or lambda in it brings the full count, about 4 per macro (a helper
   with `EXPECT`s: a named functor or function, not a lambda). bugprone-unchecked-optional-access does not see
   `ASSERT_TRUE(o.has_value())`: return a plain value after `ADD_FAILURE()`
-- Versions: CI's Linux jobs take Arch's clang-tidy and clang-format (23.1.3), which flag more than this machine's
+- Versions: CI's Linux jobs take Arch's clang-tidy and clang-format (23.1.x), which flag more than this machine's
   22 (misc-const-correctness on variables, references and pointees, readability-redundant-*, modernize-use-string-
-  view, performance-faster-string-find, ...) and format a few constructs differently. Before a push, check with
-  CI's version from PyPI: `python3 -m venv <dir> && <dir>/bin/pip install clang-tidy==23.1.3 clang-format==23.1.3`,
-  then after a `tidy` preset build `<dir>/bin/clang-tidy -p build/tidy --quiet <file>` on every `.cpp` you created
-  or changed and `<dir>/bin/clang-format --dry-run --Werror <files>`; both versions of both tools must be clean
+  view, performance-faster-string-find, performance-string-view-conversions, bugprone-std-exception-baseclass,
+  and misc-include-cleaner against CI's Qt: `<QLatin1Char>` or `<QChar>` for `QLatin1Char`, `<QtContainerFwd>` for
+  `QStringList`, ...) and format a few constructs differently. Before a push, check with CI's version from PyPI:
+  `python3 -m venv <dir> && <dir>/bin/pip install clang-tidy==23.1.3 clang-format==23.1.3`, then after a `tidy`
+  preset build `<dir>/bin/clang-tidy -p build/tidy --quiet <file>` on every `.cpp` you created or changed and
+  `<dir>/bin/clang-format --dry-run --Werror <files>`; both versions of both tools must be clean
   (reshape code that the two clang-formats format differently). CI's Qt there is also newer (6.12, whose
   `QVariant` takes a `QString&&`): its performance-no-automatic-move refuses a `const` local returned into another
   type (`return {tip};` into a `QVariant`), and this machine's Qt refuses `std::move` there
@@ -343,17 +386,25 @@ branch for each platform (as `src/cli/DataDirectory.cpp` does). Traps CI has cau
 - MSVC: the iterators of `std::array`, `std::vector` and `std::string_view` are classes, so never `auto*` for
   `begin()`/`end()` or an algorithm's result; no implicit narrowing (C4244/C4267); a constant condition is C4127;
   no local named `near`, `far` or `free`; a non-ASCII character in a string literal is written as an escape; node
-  containers (`std::map`, ...) are not nothrow-movable; in Release `a >= b ? a : b` on doubles can become `maxsd`,
-  so decide signed zeros and NaN explicitly (`MathUtil::javaMax`/`javaMin`)
-- Apple libc++ lacks `std::ranges::shift_*`/`fold_*`, `std::views::zip`/`enumerate`/`chunk`/`slide`/`stride`/
-  `cartesian_product`/`join_with`/`concat`/`adjacent`, `std::generator`, `<stacktrace>`, `flat_map`,
+  containers (`std::map`, ...) are not nothrow-movable, so a `std::vector` copies an element holding one when it
+  grows (hold such an element by `std::unique_ptr` when it also holds a move-only member); an `std::optional` of
+  a type that cannot move is `emplace()`d, never initialized from a conditional (C2280); a pointer to a member of
+  a class that is incomplete in a header can get another representation in each translation unit (`/vmb`): use a
+  `std::function`; in Release `a >= b ? a : b` on doubles can become `maxsd`, so decide signed zeros and NaN
+  explicitly (`MathUtil::javaMax`/`javaMin`)
+- `std::stop_source::request_stop()` is `const` in libstdc++ only (clang-tidy here then asks for a `const`
+  pointee, which breaks macOS and Windows): call it through a non-const reference
+- Apple libc++ lacks `std::ranges::contains`/`shift_*`/`fold_*`, `std::views::zip`/`enumerate`/`chunk`/`slide`/
+  `stride`/`cartesian_product`/`join_with`/`concat`/`adjacent`, `std::generator`, `<stacktrace>`, `flat_map`,
   `move_only_function`, chrono time zones and floating-point `std::from_chars` (parse with
   `Strings::javaParseDouble` or fast_float)
 - macOS: two functions of one namespace that differ only in their return type are one symbol there (Linux links
   them); give every test helper a distinct name
 - GCC's `-O3 -Wnull-dereference` (ci-gcc) gives false positives without a line: on `QPointer::operator->` into an
   inline accessor (take `data()` into a raw pointer and `QTROCKET_ASSERT` it), on `EXPECT_EQ` of a
-  `std::vector<std::string_view>` (use `std::string`) and on indexing a copied `std::vector` in a `TEST`
+  `std::vector<std::string_view>` (use `std::string`) and on indexing a copied `std::vector` in a `TEST`; its
+  `-Wshadow` refuses a local `data` in a `QWidget` member (`QWidget::data`) and a parameter `info` of a
+  `TEST_P` suite's naming lambda (GoogleTest's own)
 - Qt: a `QMessageBox` has no window title on macOS; `QWidget::windowFilePath()` keeps native separators on Windows,
   `QSettings::fileName()` forward slashes; on macOS an exception thrown in an event handler terminates before
   `notify()`; Apple arm64 fuses `a * b + c` (in Qt's `QTransform` and `QPainterPath` too), so a hit test exactly

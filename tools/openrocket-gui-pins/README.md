@@ -465,8 +465,9 @@ needs the submodule as above).
 
 For each family the script compiles the probe with OpenRocket's `ServicesForTesting` (core's and swing's,
 from their test sources) and `shared/`, against that class path, and runs it with a fixed locale, time zone
-and encoding, a fresh `java.util.prefs` store and home directory, OpenRocket's bundled motor database
-(`-Dprobe.motors`) and OpenRocket's log on standard error (`logback.xml`), the transcript on standard output.
+and encoding, a fresh `java.util.prefs` store and home directory, the desktop session its tables were made in
+(`kde_families`; "Reproducibility"), OpenRocket's bundled motor database (`-Dprobe.motors`) and OpenRocket's log
+on standard error (`logback.xml`), the transcript on standard output.
 The generator writes the table into the work directory (a spliced test file into a copy of the committed
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
 byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
@@ -576,6 +577,19 @@ printed the same transcript, the flights' values included), but the table holds 
 same: what it keeps of them (the statuses, three of them ABORTED with their causes, the document's states and
 the texts of the block but for its three values) does not depend on the last bits of the flight.
 
+A few tables depend on OpenRocket's UI font, whose size FlatLaf takes from the desktop session. FlatLaf's UI
+scale divides the size of the system font (13 for the probes, which see no desktop settings: their home
+directory is a fresh one) by 13 in a KDE session (`SystemInfo.isKDE`: `XDG_CURRENT_DESKTOP` holds "KDE", or
+`KDE_FULL_SESSION` is set) and by 15 in any other, and the UI font of OpenRocket's `themes/FlatLaf.properties`,
+14, is scaled by it: 14 in KDE, 12 elsewhere. `rocket-info`'s `RocketInfoPins.h` was made outside KDE
+(Milestone 2): `RocketInfo`'s font is the UI font less 2 (at the default overlay font size), and its line
+height, by which the table's rows above the bottom one are counted, is 14.5 px with a font of 10 and 17.4 px with
+one of 12. `simulation-table`'s view widths (the Warnings column's 47) and `plot-dialog`'s hand pins were made in
+KDE (Milestone 4). So `generate.sh` runs each probe in the session of its family's tables, whatever the session
+it is started from: `kde_families` (`simulation-table`, `plot-dialog`) with `XDG_CURRENT_DESKTOP=KDE`, the others
+without the session's variables (`XDG_CURRENT_DESKTOP`, `KDE_FULL_SESSION`, `GNOME_DESKTOP_SESSION_ID`). Every
+other family gives the same tables in both sessions (2026-11-25).
+
 The tables are also compared on every platform CI builds, so what they pin must not depend on the platform's
 libm. The view hashes of `preset-chooser` did: they hashed the bundled presets' digests, and a digest covers the
 preset's material density, which `ComponentPresetFactory` derives for a nose cone with a HAACK or POWER shape and
@@ -661,12 +675,12 @@ then cancelled), for the suite's test of the settings dialog of every simulation
 each design of `OpenDesignsExitGolden` and seven states of its own, the first JSON table of the family). Run 3's
 part Y3 gave it the estimate's run of the four designs whose estimate runs, for the exit suite of the flight block
 (`open_designs_flight_block_exit_tests.cpp`): the table's schema 2, with a `run` for each scenario (null but for
-those four), the rest of it byte for byte the same. `RocketInfoPins.h`, the family's other table, does not
-regenerate byte for byte on every machine: OpenRocket's headless UI font is measured with the machine's fonts, and
-on the machine of runs 2 and 3 the row above the bottom one (`rowFromBottom`, in lines) of every text and caret is
-7.9476 smaller and one text's right alignment flips (583 lines, already at the base of run 2's part G2);
-`generate.sh --check rocket-info` then says `DIFFERENT` for it and `same` for `flight-blocks.json`, and the
-committed `RocketInfoPins.h` stays as it was made (a regenerated one is never committed).
+those four), the rest of it byte for byte the same. Runs 2 and 3 ran the probes from a KDE session, where
+`RocketInfoPins.h`, the family's other table, made outside one, came out with every row above the bottom one
+(`rowFromBottom`, in lines) 7.9476 smaller and one text's right alignment flipped (583 lines), while the tables
+of two families made there, `simulation-table` and `plot-dialog`, differ outside a KDE session. Run 4's part A1
+found the cause (FlatLaf's UI scale, "Reproducibility") and made `generate.sh` run each family in the
+session of its tables (`kde_families`); since then every table regenerates byte for byte from either session.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,
