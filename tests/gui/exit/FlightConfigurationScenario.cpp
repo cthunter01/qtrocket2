@@ -61,6 +61,7 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
 #include "QtRocket/gui/widgets/IconButton.h"
@@ -614,10 +615,19 @@ template <class W>
 // ================================================================================ the scenario
 
 FlightConfigurationScenario::FlightConfigurationScenario(std::filesystem::path directory)
-  : FromScratchScenario(std::move(directory),
-                        [](UserPrompts& scripted) {
-                            return std::make_unique<FlightConfigurationPrompts>(scripted);
-                        }),
+  : FlightConfigurationScenario(
+        std::move(directory),
+        [](UserPrompts& scripted) {
+            return std::make_unique<FlightConfigurationPrompts>(scripted);
+        },
+        nullptr)
+{
+}
+
+FlightConfigurationScenario::FlightConfigurationScenario(
+    std::filesystem::path directory, const PromptsFactory& makePrompts,
+    std::unique_ptr<SimulationExecutor> executor)
+  : FromScratchScenario(std::move(directory), makePrompts, std::move(executor)),
     m_tabPrompts(dynamic_cast<FlightConfigurationPrompts*>(&scenarioPrompts()))
 {
     QTROCKET_ASSERT(m_tabPrompts != nullptr);

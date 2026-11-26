@@ -72,6 +72,7 @@
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
 #include "QtRocket/gui/widgets/MaterialComboBox.h"
@@ -483,8 +484,9 @@ FromScratchScenario::FromScratchScenario(std::filesystem::path directory)
 {
 }
 
-FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
-                                         const PromptsFactory& makePrompts)
+FromScratchScenario::FromScratchScenario(std::filesystem::path               directory,
+                                         const PromptsFactory&               makePrompts,
+                                         std::unique_ptr<SimulationExecutor> executor)
   : m_directory(std::move(directory))
 {
     std::unique_ptr<FromScratchPrompts> prompts = makePrompts(m_scripted);
@@ -495,8 +497,13 @@ FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
     // No window runs a simulation on its own (GuiTestSupport.h): OpenRocket's reference tool
     // builds no design view, and its saves hold simulations that were never run.
     preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
-    auto context = std::make_unique<ApplicationContext>(
-        std::move(preferences), DataPaths::forApplication(), std::move(prompts));
+    auto context =
+        executor == nullptr
+            ? std::make_unique<ApplicationContext>(std::move(preferences),
+                                                   DataPaths::forApplication(), std::move(prompts))
+            : std::make_unique<ApplicationContext>(std::move(preferences),
+                                                   DataPaths::forApplication(), std::move(prompts),
+                                                   std::move(executor));
     ApplicationSession::Options options;
     options.lastWindowBehaviour    = WindowManager::LastWindowBehaviour::KEEP_RUNNING;
     Application* const application = Application::current();

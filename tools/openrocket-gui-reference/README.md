@@ -81,10 +81,15 @@ The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from
 (`FromScratchExitGolden`, the driver `FromScratchScenario`) and
 `tests/gui/exit/flight_configurations_exit_tests.cpp` (`FlightConfigurationsExitGolden`, the driver
 `FlightConfigurationScenario`, which answers each question of the tab in QtRocket's own dialog, inside
-its modal loop, as `Questions` answers OpenRocket's). After every step they compare what QtRocket's GUI
-shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record of version 2
-after `guiExpectedRecord()`, which makes the expected differences), and then compare the save with
-`rocket.ork` and the `loaded` state.
+its modal loop, as `Questions` answers OpenRocket's) and `tests/gui/exit/simulations_exit_tests.cpp`
+(`SimulationsExitGolden`, the driver `SimulationsScenario` with the questions of `SimulationsPrompts`,
+which answers the settings dialog, the wind editor, the CSV import settings, the lookup dialog, the run
+dialog and the confirmations as `SimulationQuestions` answers OpenRocket's; its application's executor
+runs no simulation, and the file choosers are the test script's). After every step they compare what
+QtRocket's GUI shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record
+of versions 2 and 3 after `guiExpectedRecord()`, which makes the expected differences, and in version 3
+the Undo item after the cancelled New simulation, which the exit test lists), and then compare the save
+with `rocket.ork` and the `loaded` state.
 
 ## Regenerating
 
