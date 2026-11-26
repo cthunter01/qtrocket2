@@ -62,4 +62,8 @@ module and prints it, as `tools/openrocket-fin-import/generate.sh` does. The hea
 other environment variables (`PINS_OUT`, `PANEL_PINS_WORK`, `ALLOW_DIRTY`). A run takes a few minutes.
 
 A regeneration writes the same bytes: the probes print no time or address, and the panels' fonts are those
-OpenRocket bundles (FlatLaf Light with Inter).
+OpenRocket bundles (FlatLaf Light with Inter). Their size follows the desktop session (FlatLaf's UI scale:
+`tools/openrocket-gui-pins/README.md`, "Reproducibility"), so the freeform panel's transcript differs between
+a KDE session and another (its hint labels are 12 points beside a default label's 14 in KDE, 11 beside 13
+elsewhere), but its header takes a label's size relative to the default label's, and `--check` says "same" from
+either session (2026-11-26).

@@ -253,9 +253,10 @@ The simulation's settings:
     Atmosphere" or "Geodetic calculations" as a change: the simulation stays "Up to date" with results that no
     longer match, and the dialog's Cancel undoes the design change made before the dialog opened instead of the
     edit. QtRocket counts these edits, so the results are out of date and Cancel undoes the edit
-    (`simulation/SimulationOptions.h` in the core). Nor does QtRocket's Cancel ever undo more than the dialog's
-    own edits: OpenRocket's also undoes that earlier change after an edit taken back by hand, such as a rod
-    length changed and changed back (`dialogs/simulation/SimulationConfigDialog.h`).
+    (`simulation/SimulationOptions.h` in the core). Nor does QtRocket's Cancel undo a change made before the
+    dialog opened, other than New simulation's addition (bug 30): OpenRocket's also undoes that earlier change
+    after an edit taken back by hand, such as a rod length changed and changed back
+    (`dialogs/simulation/SimulationConfigDialog.h`).
 30. **Cancel of a new simulation after an edit.** For a simulation that New simulation has just added, Cancel asks
     whether to undo adding it, but after an edit in the dialog OpenRocket's Yes only undoes the edit, and the new
     simulation stays. QtRocket's Yes removes it (`dialogs/simulation/SimulationConfigDialog.h`).
@@ -355,9 +356,9 @@ The CSV export:
     stores, as "S". QtRocket shows the whole separator, and a stored "SPACE" or "TAB" as that item, the space or
     the tab (`widgets/FieldSeparatorComboBox.h`, `settings/CsvOptionPreferences.h`).
 51. **A stored number of decimal places outside 0 to 15.** OpenRocket's simulation dialog then fails with an
-    internal error for a simulation with results, and so does "Export simulation table as CSV file", before its
-    file dialog opens. QtRocket's CSV options take 0 or 15, whichever is nearer
-    (`settings/CsvOptionPreferences.h`).
+    internal error for a simulation with results, and so do "Export simulation table as CSV file" and "Export
+    simulation(s) as CSV file", before their file dialog opens. QtRocket's CSV options take 0 or 15, whichever
+    is nearer (`settings/CsvOptionPreferences.h`).
 52. **A quantity whose name is longer than 80 characters.** OpenRocket's preferences refuse a key that long, and
     the CSV export stores whether each quantity is ticked under its name, so exporting a simulation that has such
     a quantity (a custom expression's, or one a file brought) fails with an internal error after the file was
@@ -405,10 +406,10 @@ More OpenRocket bugs, found while porting, that QtRocket fixes the same way:
   with it the import, fails with an internal error until the preferences are reset. QtRocket starts that index
   at 0 (`dialogs/simulation/CsvImportSettingsDialog.h`).
 - **A ticked quantity that the exported stage does not have.** The Export data tab lists the quantities of the
-  first stage's flight data. When the stage chosen in "Stage to export" (or the data of a run the Export made)
-  lacks one that is ticked, OpenRocket's export fails with an internal error after writing the file's comments.
-  QtRocket says "Error writing file" with the quantity's name and writes nothing
-  (`dialogs/simulation/SimulationExportPanel.h`).
+  first stage's flight data. When the stage chosen in "Stage to export" lacks one that is ticked, OpenRocket's
+  export fails with an internal error after writing the file's comments. QtRocket says "Error writing file"
+  with the quantity's name and writes nothing, as it also does when the flight data of a run the Export made
+  lacks one (data that only QtRocket writes: bug 49) (`dialogs/simulation/SimulationExportPanel.h`).
 
 ## Editing several components at once
 
@@ -678,20 +679,21 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
   the part of the flight run before the Cancel (`simulation/SimulationPanel.h`).
 - Paste gives the simulations the plot colours and line styles they had at Copy. OpenRocket's gives them those
   the copied simulations have at the paste (`document/SimulationCopy.h` in the core).
-- "Export simulation table as CSV file" (in the File menu and the table's menu) and the menu's "Export
-  simulation(s) as CSV file" ask for the CSV options after the file is chosen, in a dialog of their own, "Save
-  as CSV file", with the format settings and the comment character; its Cancel ends the export (the user's
-  decision U-M4-6). OpenRocket shows the options beside the files in its file dialog
-  (`dialogs/simulation/CsvOptionsDialog.h`, `simulation/SimulationPanel.h`).
+- "Export simulation table as CSV file" (in the File menu) and the table menu's "Export simulation(s) as CSV
+  file" ask for the CSV options after the file is chosen, in a dialog of their own, "Save as CSV file", with
+  the format settings and the comment character; its Cancel ends the export (the user's decision U-M4-6).
+  OpenRocket shows the options beside the files in its file dialog (`dialogs/simulation/CsvOptionsDialog.h`,
+  `simulation/SimulationPanel.h`).
 - When the table's CSV file cannot be written, QtRocket says "Error writing file" ("An error occurred while
   writing to the file:" and the reason). OpenRocket shows a message titled "Message" with the error's text alone
   (`simulation/SimulationPanel.h`).
-- The Undo item after New simulation, when the last settings dialog's edits were ones the Undo item does not
-  show in either program (such as a wind import in the wind profile editor or "Clear" of the aerodynamic lookup
-  tables: the item keeps the text it had). OpenRocket's new simulation tells the design of its name before it is
-  added, and that names the undo step of those edits after their settings dialog. So once the new simulation
-  is cancelled or undone, OpenRocket's Undo item names that dialog ("Undo (Edit Simulation 2)"), where
-  QtRocket's reads "Undo": its design hears a simulation only once it is in the list
+- The Undo item after New simulation, when the last settings dialog edited a simulation that an undo or a redo
+  had replaced. An undo or a redo that adds or removes simulations replaces them all with copies whose launch
+  conditions and options no longer tell the design of a change, in both programs, so the Undo item does not
+  show the edits of such a copy and keeps the text it had. OpenRocket's new simulation tells the design of its
+  name before it is added, and that names the undo step of those edits after their settings dialog. So once the
+  new simulation is cancelled or undone, OpenRocket's Undo item names that dialog ("Undo (Edit Simulation 2)"),
+  where QtRocket's reads "Undo": its design hears a simulation only once it is in the list
   (`simulation/Simulation.h` in the core).
 
 ## The simulation settings dialog
@@ -747,10 +749,12 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
   asks afterwards, so its No keeps the edits of a dialog already closed, and in a multi-simulation edit they are
   not copied to the other simulations (`dialogs/simulation/SimulationConfigDialog.h`).
 - The run dialog that OK, Plot or Export starts belongs to the settings dialog, as the plot dialog does (see
-  Plots), and stays above it. OpenRocket's belongs to the design window.
+  Plots), and stays above it. OpenRocket's belongs to the design window
+  (`dialogs/simulation/SimulationConfigDialog.h`).
 - When the run that Plot or Export starts leaves the simulation without results (a run refused before it
   starts), nothing is plotted or exported, and the dialog stays open. OpenRocket's plot dialog fails on the
-  missing data, and its export writes the old results.
+  missing data, and its export writes the old results (`dialogs/simulation/SimulationConfigDialog.h`,
+  `SimulationExportPanel.h`).
 - The Export data tab's export writes the file at once, under a wait cursor, with no progress dialog and no
   Cancel. OpenRocket's shows "Exporting flight data" with a Cancel when an export takes two seconds or more
   (`dialogs/simulation/SimulationExportPanel.h`).

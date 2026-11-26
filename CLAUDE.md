@@ -92,8 +92,9 @@ the workflow or create a tag only when the user asks.
     `exit/FromScratchScenario.h`, `plot/PlotReadback.h` (a plot's series, axes and drawn texts, without
     pixels), `flightconfig/FlightConfigurationTabSupport.h` (the tab in a window of its own),
     `binding/PresetTestSupport.h`, `dialogs/motor/MotorChooserTestSupport.h`,
-    `dialogs/preset/PresetTableTestSupport.h`; for the simulations `SimulationRunTestSupport.h` (the three
-    examples a test may run, run requests, failing runs, a frozen sample clock), `util/KeyTranslator.h`,
+    `dialogs/preset/PresetTableTestSupport.h`; for the simulations `SimulationRunTestSupport.h`
+    (`ExampleDesign`: an example loaded with what its runs need; run requests, listeners that act at a step or
+    fail a run, a frozen sample clock), `util/KeyTranslator.h`,
     `dialogs/simulation/SimulationDialogWalk.h` (a panel or dialog as the Java probes walk it,
     `expectSameLines()`), `WindEditorTranscript.h`, `SimulationDialogPins.h` and `SimulationDialogPinChecks.h`
     (the settings dialog against the `simulation-dialog` pins), `simulation/SimulationTableTestSupport.h` (an
@@ -207,13 +208,14 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `#include "QtRocket/gui/util/MakeChild.h"`
 - Threads (simulations, from Milestone 4): no `QThreadPool`, `QtConcurrent` or `QFuture`, and no data in a queued
   functor sent from a worker (TSan cannot see the locking inside an uninstrumented Qt). Runs go through the core's
-  `SimulationRunner` (`std::jthread`s, a mutex mailbox per job); the GUI thread polls the mailboxes (a `QTimer`) and
-  adopts a result there, only while its simulation is still in the document and the job is current. A worker never
-  touches a Qt object, `Guard`, or a `Simulation`, `Rocket` or document it does not own; destructors cancel and join.
-  The GUI submits through `util/SimulationExecutor` (`GuiServices`): no callback comes from inside `submit()`, and a
-  window (`abandonAll()`) or an object of shorter life (`abandon()`) abandons its jobs before the objects their
-  callbacks capture go. A listener belongs to one live job (fresh listener objects per job, never a shared
-  instance). Simulations are run for the user through `UserPrompts::runSimulations()` (`util/SimulationBatch`,
+  `SimulationRunner` (`std::jthread`s, a mutex mailbox per job); the GUI thread polls the mailboxes (a `QTimer`:
+  `util/PollingSimulationExecutor`, the application's executor) and adopts a result there, only while its simulation
+  is still in the document and the job is current. A worker never touches a Qt object, `Guard`, or a `Simulation`,
+  `Rocket` or document it does not own; destructors cancel and join. The GUI submits through
+  `util/SimulationExecutor` (`GuiServices`): no callback comes from inside `submit()`, and a window (`abandonAll()`)
+  or an object of shorter life (`abandon()`) abandons its jobs before the objects their callbacks capture go. A
+  listener belongs to one live job (fresh listener objects per job, never a shared instance). Simulations are run
+  for the user through `UserPrompts::runSimulations()` (`util/SimulationBatch`,
   `dialogs/simulation/SimulationRunDialog`), never from inside an executor callback or a document listener such a
   callback fires (`SimulationRunDialog::run()` throws while the executor hands over: queue it with a zero-time
   `QTimer` that has a context object). A window's design view estimate pauses while its settings or run dialog is
@@ -228,8 +230,12 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   (`widgets/CsvOptionPanel`, `CsvExportPanel`, `FieldSeparatorComboBox`; their stored values through
   `settings/CsvOptionPreferences`; `dialogs/simulation/CsvOptionsDialog` for a save that asks for them,
   `UserPrompts::SaveFileRequest::csvOptions`), the plot rows' `widgets/DataTypeComboBox`, `ColorChooserButton` and
-  `LineStyleComboBox`, `plot/DataPlot` (the base of `SimulationPlot`, for Milestone 7's plots), and
-  `dialogs/simulation/SimulationConfigDialog` (the settings dialog behind `util/SimulationDialogs`)
+  `LineStyleComboBox`, `plot/DataPlot` (the base of `SimulationPlot`, for Milestone 7's plots),
+  `dialogs/simulation/SimulationConfigDialog` (the settings dialog behind `util/SimulationDialogs`), the
+  simulations' undoable editing `simulation/SimulationEditing` and its `SimulationClipboard` (the area
+  `simulation` reaches `main/OpenRocketClipboard` only through it), `simulation/SimulationTableCsvExport` (the
+  table's text, for its CSV file and Copy), `util/SimulationStatusText` (a status's shown description) and
+  `dialogs/simulation/TurbulenceIntensityText`
 - rocketplot: only `plot/` includes it, as `<rocketplot/X.h>` (`lint.layers`, which also refuses a quoted
   include); the other areas use it through `plot/`'s classes (tests may include it to read a plot back). Never
   forward-declare `namespace rocketplot` (clang-tidy's naming check reports it): include the header. Every text
@@ -303,8 +309,9 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   component would ask for a preset; `GuiTestSupport.h`) and the design view's flight estimate off
   (`backgroundFlight`), and runs through a `ManualSimulationExecutor`: a test that wants a run or the estimate
   opts in; a fresh run flies only "A simple model rocket" #1, "Clustered motors" #1 or "3D printable nose cone and
-  fins" #1. Never show a window on the desktop; every modal question is answered by a scripted double; no pixel
-  or font assertions (compare geometry and texts); `objectName` = the Java property. A test that shows Qt's own
+  fins" #1 (except the flight-block exit's estimates of four test rockets' re-saves, plan 11.6 E5, which pin none
+  of their values). Never show a window on the desktop; every modal question is answered by a scripted double; no
+  pixel or font assertions (compare geometry and texts); `objectName` = the Java property. A test that shows Qt's own
   `QFileDialog` is a `WidgetFileDialogTest` (`main/WidgetUserPromptsTests.cpp`): only that suite runs under the
   `RESOURCE_LOCK` `qt_file_dialog_settings` of `tests/gui/CMakeLists.txt`, as QFileDialog's history lives in the
   registry or CFPreferences on Windows and macOS, where parallel dialogs watch each other's temporary directories

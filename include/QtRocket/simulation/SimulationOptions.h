@@ -456,8 +456,8 @@ public:
     /// thresholds agree within MathUtil::equals (so never with a NaN), the stepper, the wind
     /// model type and the gravity model type are the same, the lookup tables are the same
     /// objects, the wind models are equal (with their seeds), the fixed-seed flags are the same
-    /// with, when fixed, the same seed, and (bug 29) the launch-into-wind flag, the ISA flag,
-    /// the geodetic computation and the paths of the two lookup tables are the same. The CSV
+    /// with, when fixed, the same seed, (bug 29) the launch-into-wind flag, the ISA flag and the
+    /// geodetic computation are the same, and so are the paths of the two lookup tables. The CSV
     /// rows of the lookup tables do not count, nor does a seed that is not fixed.
     ///
     /// Deviation (OpenRocket bug 29, fixed): Java's equals() ignores the launch-into-wind flag,
