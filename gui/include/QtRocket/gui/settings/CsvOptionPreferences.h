@@ -54,9 +54,10 @@ namespace QtRocket::Gui
 ///   that the simulation dialog with the export tab could no longer be opened.
 /// - Bug 52: a key of any length is stored and read. java.util.prefs refuses a key longer than 80
 ///   characters (Preferences.MAX_KEY_LENGTH: put() throws an IllegalArgumentException, get()
-///   gives the default), so that ticking a flight data type whose name is longer (a custom
-///   expression's, a file's unknown type) made OpenRocket's export throw after the file question,
-///   before anything was written.
+///   gives the default), and Java's export stores the tick of every type its tab lists, ticked or
+///   not (SimulationExportPanel.doExport()), so that exporting the data of a simulation with a
+///   flight data type whose name is longer (a custom expression's, a file's unknown type) made
+///   OpenRocket's export throw after the file question, before anything was written.
 class CsvOptionPreferences final
 {
 public:

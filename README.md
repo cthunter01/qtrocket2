@@ -117,17 +117,18 @@ custom expressions and the configuration of simulation extensions
   each flight, sorted by any column, with a choice of columns kept in the design), New, Edit, Run, Delete and
   Plot / Export, cut, copy (also as text on the system clipboard), paste and duplicate, and the table's export
   to a CSV file.
-- The settings of a simulation: the launch conditions (the launch site and rod, the atmosphere, the average
-  wind or a wind profile of several altitudes, edited in a table beside its plot or imported from a CSV file),
-  the simulation options (time step, geodetic calculations, gravity, random seed, aerodynamic lookup tables,
-  the list of the simulation's extensions) and the thresholds of the recovery warnings.
+- The settings of a simulation, in its settings dialog (also for several simulations at once): the launch
+  conditions (the launch site and rod, the atmosphere, the average wind or a wind profile of several altitudes,
+  edited in a table beside its plot or imported from a CSV file), the simulation options (time step, geodetic
+  calculations, gravity, random seed, aerodynamic lookup tables, the list of the simulation's extensions), the
+  thresholds of the recovery warnings, and for a simulation with results its Plot data and Export data tabs.
 - Runs: the simulations run on as many threads as the processor offers, with the run dialog's progress and
-  Cancel (a cancelled simulation keeps its earlier results). The design view shows the flight estimate of the
-  selected flight configuration (apogee, maximum velocity and acceleration), run in the background whenever
-  the design changes.
+  Cancel (a cancelled simulation keeps its earlier results). The design view of every window shows the flight
+  estimate of the selected flight configuration (apogee, maximum velocity and acceleration), run in the
+  background whenever the design changes.
 - Plots: OpenRocket's nine preset plots of a simulation's flight data, or the quantities chosen, on two y axes,
   with the flight events and the stages (zoom, pan, image export); the export of the flight data to a CSV
-  file.
+  file, the quantities, units, stage and format chosen.
 - Edit: undo and redo, cut, copy, paste, duplicate, delete, move up and down, dragging components in the tree
   (also from one window to another), hiding and showing components, and disabling and enabling stages.
 - File: New, Open (the `.ork` files `QtRocket_cli` reads), Open recent, Open example (OpenRocket's 16 example
@@ -272,7 +273,7 @@ uses the standard directories (`cmake --install build/<preset> --prefix <dir>`).
 The core's tests are in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
 `QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). The GUI's tests are in
 `QtRocket_gui_tests` (GoogleTest with QtTest's helpers, `tests/gui/<area>/`); they run on Qt's offscreen platform,
-so no window appears. Three exit suites check the GUI as a whole against OpenRocket (`tests/gui/exit/`):
+so no window appears. The exit suites check the GUI as a whole against OpenRocket (`tests/gui/exit/`):
 `FromScratchExitGolden` designs a rocket from scratch through the GUI alone (the add buttons, the dialogs' fields,
 undo, copy and paste, Save as), then compares every step and the saved file with what OpenRocket's own GUI code did
 with the same steps (`tools/openrocket-gui-reference/`); `FlightConfigurationsExitGolden` does the same in the
@@ -280,23 +281,47 @@ with the same steps (`tools/openrocket-gui-reference/`); `FlightConfigurationsEx
 buttons and tables, the ignition, deployment and separation dialogs, the motor chooser, renames, undo and redo,
 Save as; `OpenDesignsExitGolden` opens OpenRocket's 16 examples, the 49 re-saves of its golden harness and that
 reference design in QtRocket's windows and compares the tree, the dialogs' fields, the figure, the information
-overlay and the "Motors & Configuration" tab with OpenRocket's golden data and OpenRocket's own tab, and
-`OpenDesignsExitGoldenPartsLibrary` opens the parts library of every component of the examples that takes
-presets and compares it with OpenRocket's.
+overlay, the "Motors & Configuration" tab, the "Flight simulations" tab and the settings dialog of every
+simulation with OpenRocket's golden data and OpenRocket's own tabs and dialog; `OpenDesignsExitGoldenPartsLibrary`
+opens the parts library of every component of the examples that takes presets and compares it with OpenRocket's;
+and `OpenDesignsFlightBlockExitGolden` opens each of those designs with the design view's flight estimate on and
+compares its flight block with OpenRocket's, and `OpenDesignsFlightBlockRunExitGolden` what the estimate then runs
+for the four designs whose estimate runs. `SimulationsExitGolden` does in the "Flight simulations" tab what
+`FlightConfigurationsExitGolden` does in its tab, on the design OpenRocket saved at the end of that tab's first
+scenario: the tab's buttons, the Edit menu's cut, copy, paste and duplicate, the table's columns, the settings
+dialog of one simulation and of two at once with the wind profile editor, the wind import and the aerodynamic
+lookup dialog, the confirmations, undo and redo, Save as; every run the dialogs start is cancelled before it
+begins. `FromScratchReferenceGolden`, `FlightConfigurationsReferenceGolden` and `SimulationsReferenceGolden` (in
+`QtRocket_core_tests`) check the references these suites compare with: each the record of its scenario, made by
+the OpenRocket of the other goldens, and OpenRocket's save loaded by QtRocket into OpenRocket's state.
+
+The interop check, run by hand at a milestone's end (`tools/openrocket-goldens/interop.sh`, after the `DISABLED_`
+writers `OrkInteropSaves` and the GUI's `*InteropSave*` tests; CI has no Java), has OpenRocket open QtRocket's
+saves and checks that it gets from each the design it gets from its own save of the same input, but for a short
+list of allowed differences: the examples, the test rockets, 18 older design files and two coverage documents,
+saved by the core; the designs the GUI's exit scenarios made (the inputs `gui-from-scratch`,
+`gui-flight-configurations`, `gui-multi-stage` and `gui-simulations`); and flight data QtRocket ran
+(`gui-run-example-a-simple-model-rocket` and `gui-run-example-clustered-motors`: the first simulation of each
+example, run with the Run button of the "Flight simulations" tab and saved with its data), which OpenRocket saves
+again line for line and reads back from that save bit for bit, the summary values equal to those it computes or
+within the precision they are stored with (`tools/openrocket-goldens/README.md`, "Interop check").
 
 The simulations are compared with what OpenRocket's own classes make of the examples' stored simulations: the
 core's plot model with OpenRocket's plots of each of them in the nine presets (`SimulationPlotGolden`), and in the
 GUI the simulations table, its CSV text and Copy (`SimulationTableModelGolden`, `SimulationTableCsvExportGolden`
 and the other `SimulationTable*Golden` suites), the tab's actions (`SimulationPanelGolden`), the tab in its window
 with the menu items' states (`SimulationsWindowGolden`), the plot tab and the plot itself
-(`SimulationPlotPanelGolden`, `SimulationPlotChartGolden`), the design view's flight block
-(`RocketInfoFlightGolden`) and what its flight estimate runs and shows (`BackgroundSimulationGolden`). The suites
-that run simulations on threads of their own (the core's `SimulationRunner`, `SimulationThreading` and
-`RunSampleListener`, the GUI's `BackgroundSimulationThreadsTest`, `PollingSimulationExecutorTest` and
-`SimulationRunDialogThreadsTest`) have a time limit, so that a broken cancel fails a test instead of hanging the
-run; the `tsan` preset checks them for data races. The lint tests (`tests/lint/`) check rules of the source tree
-that the compiler cannot, such as the include order of the layers. Test data lives in `tests/data/`. ctest labels
-select parts of the suite:
+(`SimulationPlotPanelGolden`, `SimulationPlotChartGolden`), every stored simulation of the examples in each of the
+nine presets through the plot dialog (the exit suite `SimulationPlotPresetsGolden`, `tests/gui/dialogs/plot/`, run
+as one ctest test in one process), the files of the Export data tab (`SimulationExportGolden`: OpenRocket's own
+exports, byte for byte, and the core's CSV export), the design view's flight block (`RocketInfoFlightGolden`) and
+what its flight estimate runs and shows (`BackgroundSimulationGolden`). The suites that run simulations on threads
+of their own (the core's `SimulationRunner`, `SimulationThreading` and `RunSampleListener`, the GUI's
+`BackgroundSimulationThreadsTest`, `PollingSimulationExecutorTest`, `SimulationRunDialogThreadsTest`,
+`SimulationWindowIntegrationThreadsTest` and `OpenDesignsFlightBlockThreadsTest`) have a time limit, so that a
+broken cancel fails a test instead of hanging the run; the `tsan` preset checks them for data races. The lint tests
+(`tests/lint/`) check rules of the source tree that the compiler cannot, such as the include order of the layers.
+Test data lives in `tests/data/`. ctest labels select parts of the suite:
 
 ```sh
 ctest --preset clang-debug                 # everything
@@ -333,16 +358,18 @@ The preset golden `presets/presets.json` holds every component preset OpenRocket
 files, with every property, and the order of its preset database (`generate.sh --presets` writes it alone).
 
 The GUI's references come from OpenRocket's Swing classes the same way. `tools/openrocket-gui-reference/` runs
-OpenRocket's GUI code on scenarios of GUI steps and writes `tests/data/goldens/gui/from-scratch/`,
-`flight-configurations/` and `multi-stage/` (each a scenario, the steps' states and OpenRocket's save). The
-tables the GUI's tests compare with (the `*Pins.h` headers, which name their generator, the JSON tables of
-`tests/data/goldens/gui/simulation-table/` and `rocket-info/`, and a few tables in test files) are written by
-Java probes in `tools/openrocket-gui-pins/` and `tools/openrocket-panel-pins/`, and `tools/openrocket-probes/`
-keeps other probes whose output tests pin by hand (those of the simulation settings' panels among them). The
-core's tables of the motor chooser come from `tools/openrocket-motor-chooser/`, the core's plot goldens
-(`tests/data/goldens/plots/`, OpenRocket's plots of the examples' stored simulations) from
-`tools/openrocket-plots/`, and the tables of JDK 17's text collation, which OpenRocket's tables sort with, from
-`tools/openrocket-collation/`. Each tool's README says how to run it.
+OpenRocket's GUI code on scenarios of GUI steps, in three versions of their schema (the design, headless; the
+"Motors & Configuration" tab; the "Flight simulations" tab and its dialogs: both with OpenRocket's own panels on a
+virtual display), and writes `tests/data/goldens/gui/from-scratch/`, `flight-configurations/`, `multi-stage/` and
+`simulations/` (each a scenario, the steps' states and OpenRocket's save). The tables the GUI's tests compare with
+(the `*Pins.h` headers, which name their generator, the JSON tables of `tests/data/goldens/gui/simulation-table/`,
+`simulation-dialog/` and `rocket-info/`, and a few tables in test files) are written by Java probes in
+`tools/openrocket-gui-pins/` and `tools/openrocket-panel-pins/`, and `tools/openrocket-probes/` keeps other probes
+whose output tests pin by hand (those of the simulation settings' panels among them). The core's tables of the
+motor chooser come from `tools/openrocket-motor-chooser/`, the core's plot goldens (`tests/data/goldens/plots/`,
+OpenRocket's plots of the examples' stored simulations) from `tools/openrocket-plots/`, and the tables of JDK 17's
+text collation, which OpenRocket's tables sort with, from `tools/openrocket-collation/`. Each tool's README says
+how to run it.
 
 <a id="releases"></a>
 

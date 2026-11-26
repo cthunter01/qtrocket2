@@ -385,10 +385,11 @@ public:
     /// their range can together be no air at all. OpenRocket's atmospheric conditions take the
     /// pressure of the water vapour from the pressure of the air (AtmosphericConditions::
     /// getGasConstant()), and when the saturation pressure at the temperature, times the
-    /// humidity, is more than the pressure there is, the density comes out negative (half
-    /// saturated air of 288.15 K at 300 Pa; any humid air of 400 K at sea level pressure), and
-    /// the flight ends in the error of a NaN (a BugError until decision D3, now the ordinary
-    /// error of AbstractSimulationStepper::checkNaN()). So, after the three single ranges, the
+    /// humidity and 1 - AtmosphericConditions::kEpsilon (0.378), is more than the pressure there
+    /// is, the density comes out negative (half saturated air of 288.15 K at 300 Pa; air of 400 K
+    /// at sea level pressure above about 81 % humidity, where 50 % flies), and the flight ends in
+    /// the error of a NaN (a BugError until decision D3, now the ordinary error of
+    /// AbstractSimulationStepper::checkNaN()). So, after the three single ranges, the
     /// atmospheric model the run will read (SimulationOptions::getAtmosphericModel()) is asked
     /// for its conditions at the launch altitude, and a density there that is not finite or
     /// not above 0 fails with "Cannot simulate: the launch temperature (288.15 K), the launch
