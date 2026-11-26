@@ -5,6 +5,7 @@
   "steps": [
     {"step": "open", "file": "tests/data/goldens/gui/flight-configurations/rocket.ork", "note": "OpenRocket's save of the flight-configurations scenario: three configurations, three simulations without data"},
     {"step": "tab", "tab": "simulations", "note": "the table takes the focus, its first row selected"},
+    {"step": "editSimulation", "answer": {"button": "cancel"}, "note": "Cancel of an edit without a change asks nothing and changes nothing"},
 
     {"step": "editSimulation", "answer": {"edits": [
       {"name": "Simulation 1 - wind levels"},
@@ -32,22 +33,45 @@
       {"field": "MaxSimulationTime", "text": "600", "unit": "s"},
       {"randomSeed": {"fixed": true, "text": "12345"}},
       {"field": "RecoverySpeedWarning", "text": "25", "unit": "m/s"},
+      {"field": "RecoveryDrogueMainHighSpeedWarning", "text": "35", "unit": "m/s"},
       {"lookup": {"drag": [
         {"load": {"file": "tests/data/goldens/gui/simulations/drag.csv", "button": "open"}},
         {"text": "Mach,Cd\n0.1,0.41\n0.5,0.43\n0.9,0.56"}
       ], "button": "ok"}},
       {"field": "ISAAtmosphere", "checked": false},
       {"field": "LaunchTemperature", "text": "20", "unit": "°C"}
-    ], "button": "ok", "run": {"button": "cancel"}}},
+    ], "button": "ok", "run": {"button": "cancel"}}, "note": "the options, the warning thresholds (the second one in the collapsed dual deployment section) and a drag lookup table"},
     {"step": "editSimulation", "answer": {"edits": [
       {"field": "LaunchAltitude", "text": "300", "unit": "m"}
     ], "button": "cancel", "discard": {"button": "yes"}}, "note": "Cancel discards the change"},
 
-    {"step": "newSimulation", "answer": {"edits": [{"name": "Simulation 4 - new"}], "button": "ok", "run": {"button": "cancel"}}},
+    {"step": "newSimulation", "answer": {"edits": [
+      {"name": "Simulation 4 - new"},
+      {"configuration": 0},
+      {"field": "Average", "text": "4", "unit": "m/s"},
+      {"field": "TurbulenceIntensity", "text": "20", "unit": "%"},
+      {"field": "Direction", "text": "45", "unit": "°"},
+      {"field": "LaunchAltitude", "text": "150", "unit": "m"},
+      {"field": "LaunchLatitude", "text": "35", "unit": "° N"},
+      {"field": "LaunchLongitude", "text": "100", "unit": "° W"},
+      {"field": "LaunchIntoWind", "checked": false},
+      {"field": "LaunchRodDirection", "text": "30", "unit": "°"},
+      {"field": "LaunchRodAngle", "text": "5", "unit": "°"},
+      {"field": "ISAAtmosphere", "checked": false},
+      {"field": "LaunchTemperature", "text": "18", "unit": "°C"},
+      {"field": "LaunchPressure", "text": "1000", "unit": "mbar"},
+      {"field": "LaunchRelativeHumidity", "text": "40", "unit": "%"}
+    ], "button": "ok", "run": {"button": "cancel"}}, "note": "the launch conditions of the new simulation by property"},
     {"step": "duplicateSimulations"},
+    {"step": "selectSimulations", "rows": [{"row": 3}, {"row": 4, "with": "ctrl"}], "note": "the new simulation and its duplicate"},
+    {"step": "editSimulation", "answer": {"edits": [
+      {"field": "LaunchRodLength", "text": "2", "unit": "m"}
+    ], "button": "ok", "run": {"button": "cancel"}}, "note": "the edit of two simulations: OK copies the first one's conditions to the other"},
+    {"step": "selectSimulations", "rows": [{"row": 4}]},
     {"step": "copySimulations"},
     {"step": "selectSimulations", "rows": [{"row": 0}]},
     {"step": "pasteSimulations", "note": "after the selected row"},
+    {"step": "deleteSimulations", "answer": {"button": "cancel"}, "note": "the confirmation cancelled: nothing deleted"},
     {"step": "deleteSimulations", "answer": {"button": "ok", "doNotAskAgain": true}, "note": "the pasted simulation, which Paste selected"},
     {"step": "selectSimulations", "rows": [{"row": 3}, {"row": 4, "with": "ctrl"}]},
     {"step": "cutSimulations", "note": "no confirmation any more"},
@@ -55,7 +79,9 @@
     {"step": "redo"},
     {"step": "columnVisibility", "column": "simulationStepper", "visible": true},
     {"step": "columnVisibility", "column": "apogee", "visible": false},
+    {"step": "pasteSimulations", "note": "the two simulations of the Cut after the first row"},
 
+    {"step": "selectSimulations", "rows": [{"row": 0}]},
     {"step": "editSimulation", "answer": {"edits": [
       {"windLevels": {"edits": [
         {"importLevels": {"settings": {"button": "ok"}, "file": {"file": "tests/data/goldens/gui/simulations/wind-levels.csv", "button": "open"}, "overwrite": {"button": "yes"}}}
@@ -68,7 +94,7 @@
       ], "button": "close"}}
     ], "button": "ok", "run": {"button": "cancel"}}, "note": "a SPACE separator (bug 34)"},
 
-    {"step": "selectSimulations", "rows": [{"row": 1}]},
+    {"step": "selectSimulations", "rows": [{"row": 3}], "note": "Simulation 2"},
     {"step": "editSimulation", "answer": {"edits": [
       {"lookup": {"drag": [{"clear": true}], "button": "ok"}}
     ], "button": "ok", "run": {"button": "cancel"}}, "note": "the lookup table cleared before Save as"},

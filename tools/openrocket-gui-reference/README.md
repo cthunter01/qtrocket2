@@ -51,9 +51,7 @@ Files of the tool:
   record) and `SimulationQuestions` (the dialogs of the tab, answered inside their modal loops).
 - `src/main/resources/logback.xml`: keeps OpenRocket's log to its warnings and errors.
 
-QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h` (versions 1 and 2; version 3
-from Milestone 4's run 4 on, with the suites `SimulationsReferenceGolden` and `SimulationsExitGolden` of plan
-section 11.6 E6).
+QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h` (versions 1, 2 and 3).
 `tests/core/goldens/from_scratch_reference_golden_tests.cpp` (suite `FromScratchReferenceGolden`,
 label `golden`) checks that the from-scratch state.json is the record of the committed scenario, that
 the reference comes from the OpenRocket of the other goldens, and that QtRocket loads `rocket.ork`
@@ -66,6 +64,18 @@ tree of the open step, that the archive held the thrust curves of the design's m
 expected differences (`kGuiExpectedDifferences`) name recorded questions, that OpenRocket's
 Recovery and Stages tables shade no cell (bug 1) and their cells' overrides are those of the tree,
 and that the records where the tool's fixes of bugs 5 and 6 show are those `kGuiToolFixes` lists.
+`tests/core/goldens/simulations_reference_golden_tests.cpp` (suite `SimulationsReferenceGolden`, label
+`golden`) checks the same for the scenario of version 3 (but the motor choosers, which it has none of), and
+moreover that its input is the flight-configurations reference's save, that the scenario covers the tab and
+its dialogs (plan section 11.6 E6), that no step of the simulations tab changes the component tree, that every
+step of the tab changes what it is for (a cancelled one nothing), that the questions of each step are those
+its answer answers in the order they open (`guiSimulationStepQuestions()`) and the file choosers chose the
+answers' files, that QtRocket loads the input and the save into the simulations the open step and the last
+record show (`guiSimulationStates()`), that the records' lookup files are files of the repository, that the
+records of the tool's fixes are those `kGuiSimulationToolFixes` lists, and that OpenRocket's Paste follows its
+rule in every record, so that `guiExpectedRecord()` makes QtRocket's (bug 27) where it differs (steps 29 to
+33). The suites `GuiScenarioReaderV3` and `GuiRecordComparisonV3` there check the reader of version 3 and the
+comparison of its records.
 
 The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from_scratch_exit_tests.cpp`
 (`FromScratchExitGolden`, the driver `FromScratchScenario`) and
@@ -377,7 +387,7 @@ step:
 |---|---|
 | 6 (Milestone 3): an undo loads a copy of the rocket, which loses the mounts' default ignitions | Fixed as in version 2 (`DefaultIgnitions`), also after the undo of the settings dialog's Cancel (`SimulationConfigDialog.discardChanges()`). A record of version 3 where a mount got its kept default back lists `{"bug": 6, ...}` |
 | 23, 24, 26, 28: the Warnings column does not sort; Paste, New and Duplicate and the selection mix view rows and model rows in a sorted table; the status click and the warnings double click test view columns | No step sorts the table or clicks its status or warnings column |
-| 27: no Paste into an empty list or without a selected row | Paste without a selected row is a disabled action, which the tool refuses. The records hold OpenRocket's state of the action (`pasteSimulation` false); QtRocket's Paste is enabled while simulations are on the clipboard (the record's `clipboardSimulations`), which the golden test's expected record is to make |
+| 27: no Paste into an empty list or without a selected row | Paste without a selected row is a disabled action, which the tool refuses. The records hold OpenRocket's state of the action (`pasteSimulation` false); QtRocket's Paste is enabled while simulations are on the clipboard (the record's `clipboardSimulations`) and a row is selected or the table is shown, which `guiExpectedRecord()` of `GoldenGuiReference.h` makes |
 | 29: Cancel undoes the user's previous change after an edit `SimulationOptions.equals()` ignores (the geodetic method, launch into wind, the standard atmosphere, the lookup tables' files); 30: Cancel of a new simulation after an edit keeps it | The tool fails on a New or Edit whose Cancel leaves the simulations or the component tree otherwise than they were before the step: QtRocket's Cancel gives them back. It also fails on a Cancel after edits that OpenRocket's settings dialog does not see as a change (no `* ` in its title: the wind editor's, a lookup table cleared), whose Cancel closes the dialog without the discard question and keeps them |
 | 31: two wind levels can get the same altitude (then both are deleted, and the saved design cannot be opened) | Refused: a cell edit that gives a level the altitude of another |
 | 32: the levels are not re-sorted after an altitude edit | Fixed: the model sorted after an altitude edit that put its levels out of order (`MultiLevelPinkNoiseWindModel.sortLevels()`), `{"bug": 32, ...}` |
@@ -697,22 +707,27 @@ Traps of OpenRocket's tab and dialogs that the tool reports, and how to write ar
 
 The committed scenario of version 3 (its directory's README.md tells it step by step):
 
-- `simulations`, 27 steps, on the flight-configurations reference (three configurations, three simulations
-  without data, the third without motors): the tab; Simulation 1 renamed and given a multi-level wind in the
-  wind editor (two levels added, a speed and an altitude edited, the altitude unit in feet, a level deleted
-  with Delete level, AGL), a rod length and launch into wind off, OK with its run cancelled; Simulation 2's
-  options (RK6, WGS84, a constant gravity, the time step and the maximum time, a fixed seed), a warning
-  threshold, a drag lookup table loaded from a file and edited, the standard atmosphere off and a temperature,
-  OK; an edit of it cancelled with its discard question; New simulation (renamed, OK); Duplicate, Copy, Paste
-  after the first row, Delete of the pasted one with "Do not ask me again", Cut of two rows without the
-  confirmation, Undo and Redo; the stepper column shown and the apogee hidden; two wind imports in the wind
-  editor (a comma-separated file with a header, then a space-separated one in feet after a cancelled Reset
-  levels: bug 34); the lookup table cleared; a cancelled New simulation (its discard question with "Do not ask
-  me again"); Save as.
+- `simulations`, 34 steps, on the flight-configurations reference (three configurations, three simulations
+  without data, the third without motors): the tab; an edit of Simulation 1 cancelled without a change;
+  Simulation 1 renamed and given a multi-level wind in the wind editor (two levels added, a speed and an
+  altitude edited, the altitude unit in feet, a level deleted with Delete level, AGL), a rod length and launch
+  into wind off, OK with its run cancelled; Simulation 2's options (RK6, WGS84, a constant gravity, the time
+  step and the maximum time, a fixed seed), two warning thresholds (one in the collapsed dual deployment
+  section), a drag lookup table loaded from a file and edited, the standard atmosphere off and a temperature,
+  OK; an edit of it cancelled with its discard question; New simulation with its launch conditions by property
+  (renamed, a configuration, the average wind, its turbulence and direction, the launch site, the rod
+  direction and angle without launch into wind, the atmosphere: temperature, pressure and humidity), OK;
+  Duplicate; the two edited together (the multi-simulation edit); Copy, Paste after the first row, a Delete
+  cancelled at its confirmation, Delete of the pasted one with "Do not ask me again", Cut of two rows without
+  the confirmation, Undo and Redo; the stepper column shown and the apogee hidden; Paste of the Cut's two
+  simulations; two wind imports in the wind editor (a comma-separated file with a header, then a
+  space-separated one in feet after a cancelled Reset levels: bug 34); the lookup table cleared; a cancelled
+  New simulation (its discard question with "Do not ask me again"); Save as.
 
 Where QtRocket's fixes of OpenRocket's bugs show in it, the record is OpenRocket's with the tool's fix (its
-`toolFixes`: bugs 6, 32, 33 and 34), the scenario avoids the step, or the golden test's expected record is to
-make the difference QtRocket's GUI shows (bug 27's Paste).
+`toolFixes`: bugs 6, 32, 33 and 34, the records `kGuiSimulationToolFixes` of `GoldenGuiReference.h` lists), the
+scenario avoids the step, or the golden test's expected record makes the difference QtRocket's GUI shows
+(`guiExpectedRecord()`: bug 27's Paste, and no Monte Carlo action, which is Milestone 7's).
 
 ## state.json
 
@@ -897,5 +912,6 @@ them, before its button, for the dialogs with fields:
   "Loaded data:"), `text` (the text area), `editable`, `separator` (the separator box's item), `clearEnabled`
   and `refreshEnabled`.
 
-What the save and the reload of the scenario's design change is the golden test's to list
-(`guiReloadChanges()`), as for version 2.
+What the save and the reload of the scenario's design change is listed by `guiReloadChanges()` of
+`GoldenGuiReference.h`, as for version 2: nothing in `simulations` (its input is the flight-configurations
+reference's save, whose reload named its configurations already).

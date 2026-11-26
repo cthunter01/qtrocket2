@@ -309,6 +309,90 @@
     </simulation>
 
     <simulation status="notsimulated">
+      <name>Simulation 4 - new</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>08cad014-d4fa-46e5-8d5d-c151c18a2a71</configid>
+        <launchrodlength>2.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>5.0</launchrodangle>
+        <launchroddirection>29.999999999999996</launchroddirection>
+        <windaverage>4.0</windaverage>
+        <windturbulence>0.2</windturbulence>
+        <winddirection>0.7853981633974483</winddirection>
+        <wind model="average">
+          <speed>4.0</speed>
+          <direction>0.7853981633974483</direction>
+          <standarddeviation>0.8</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.2"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>150.0</launchaltitude>
+        <launchlatitude>35.0</launchlatitude>
+        <launchlongitude>-100.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="extendedisa">
+          <basetemperature>291.15</basetemperature>
+          <basepressure>100000.0</basepressure>
+          <baserelativehumidity>0.4</baserelativehumidity>
+        </atmosphere>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 4 - new</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>08cad014-d4fa-46e5-8d5d-c151c18a2a71</configid>
+        <launchrodlength>2.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>5.0</launchrodangle>
+        <launchroddirection>29.999999999999996</launchroddirection>
+        <windaverage>4.0</windaverage>
+        <windturbulence>0.2</windturbulence>
+        <winddirection>0.7853981633974483</winddirection>
+        <wind model="average">
+          <speed>4.0</speed>
+          <direction>0.7853981633974483</direction>
+          <standarddeviation>0.8</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.2"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>150.0</launchaltitude>
+        <launchlatitude>35.0</launchlatitude>
+        <launchlongitude>-100.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="extendedisa">
+          <basetemperature>291.15</basetemperature>
+          <basepressure>100000.0</basepressure>
+          <baserelativehumidity>0.4</baserelativehumidity>
+        </atmosphere>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
       <name>Simulation 2</name>
       <simulator>RK4Simulator</simulator>
       <calculator>BarrowmanCalculator</calculator>
@@ -348,7 +432,7 @@
         <maxtime>600.0</maxtime>
         <recoveryspeedwarning>25.0</recoveryspeedwarning>
         <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
-        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainhighspeedwarning>35.0</recoverydroguemainhighspeedwarning>
         <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
       </conditions>
     </simulation>
