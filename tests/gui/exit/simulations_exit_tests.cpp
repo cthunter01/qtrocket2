@@ -129,16 +129,17 @@ struct UndoDifference
 };
 
 /// The Undo item after the cancelled New simulation of step 29, up to the design information of
-/// Save as, which changes the rocket (step 31). The last position of the undo history, which the
-/// settings dialog of step 28 added after the edits of steps 25 and 26 had changed the
-/// simulations without a change event (the wind imports), has no description in either GUI
-/// until a change is heard while the document is not clean. OpenRocket's new simulation tells
-/// the document of its name before it is added (Simulation's constructor makes its document a
-/// listener, and SimulationPanel.newSimulation() names it next), which gives that position the
-/// description of the last undo position, "Edit Simulation 2", the description the Cancel's undo
-/// goes back to. QtRocket's document hears a simulation only once it is in its list (the core's
-/// Simulation, its documented difference from Java), so its Undo item names no change there,
-/// enabled as OpenRocket's.
+/// Save as, which changes the rocket (step 31). The undo and redo of steps 19 and 20 change the
+/// number of simulations, so both GUIs replace every simulation with a copy (cloneForUndo()) whose
+/// options no longer tell the document of a change. The edits of steps 25 and 26 are made on such
+/// copies, so the last position of the undo history, which the settings dialog of step 28 added
+/// after them, has no description in either GUI until a change is heard while the document is not
+/// clean. OpenRocket's new simulation tells the document of its name before it is added
+/// (Simulation's constructor makes its document a listener, and SimulationPanel.newSimulation()
+/// names it next), which gives that position the description of the last undo position, "Edit
+/// Simulation 2", the description the Cancel's undo goes back to. QtRocket's document hears a
+/// simulation only once it is in its list (the core's Simulation, its documented difference from
+/// Java), so its Undo item names no change there, enabled as OpenRocket's.
 constexpr std::array kUndoDifferences{
     UndoDifference{.step = 29, .openRocket = "Undo (Edit Simulation 2)", .qtRocket = "Undo"},
     UndoDifference{.step = 30, .openRocket = "Undo (Edit Simulation 2)", .qtRocket = "Undo"},

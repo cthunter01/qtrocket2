@@ -86,8 +86,9 @@ class CsvExportPanel;
 ///   flight data" with Cancel once it takes two seconds or more).
 /// - A ticked variable the exported branch does not have (a stage of another flight than the
 ///   first stage's, a run that changed the types) is reported as the error above, before the
-///   file is opened (the core's CsvExport); Java's export fails with a NullPointerException in its
-///   worker at the first row (its bug report dialog; the file keeps the comments written before).
+///   file is opened (the core's CsvExport). For the stage, Java's export fails with a
+///   NullPointerException in its worker at the first row (its bug report dialog; the file keeps
+///   the comments written before); after a run, Java writes the branch it kept (bug 49).
 /// - The tick of a variable is stored under the core's English name of its type (see
 ///   CsvOptionPreferences), Java's under its translated name.
 /// - Not a CsvExportPanel itself (Java's SimulationExportPanel extends CSVExportPanel): it holds
