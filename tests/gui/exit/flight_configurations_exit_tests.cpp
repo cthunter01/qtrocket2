@@ -64,12 +64,12 @@
 #include <system_error>
 #include <vector>
 
-#include <QCoreApplication>
 #include <QString>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "InteropSaves.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
@@ -534,27 +534,6 @@ TEST_P(FlightConfigurationsExitGolden, TheSaveIsTheTextOfOpenRocketsSave)
 
 // ============================================================================ (c) the interop
 
-/// The command-line argument that names the directory of the interop check's saves.
-constexpr std::string_view kInteropArgument = "--interop-saves=";
-
-/// The directory of the interop check's saves: the one --interop-saves=<directory> names on the
-/// command line (GoogleTest keeps the arguments it does not know), else interop-saves in the
-/// build tree, the directory above the bin/ of the test program (build/<preset>/interop-saves),
-/// as for the core's saves (tests/core/goldens/ork_interop_saves_tests.cpp) and the from-scratch
-/// scenario's (from_scratch_exit_tests.cpp).
-[[nodiscard]] std::filesystem::path interopSavesDirectory()
-{
-    for (const std::string& argument : ::testing::internal::GetArgvs())
-    {
-        if (argument.starts_with(kInteropArgument))
-        {
-            return pathFromUtf8(std::string_view(argument).substr(kInteropArgument.size()));
-        }
-    }
-    return QtStrings::toPath(QCoreApplication::applicationDirPath()).parent_path() /
-           "interop-saves";
-}
-
 // The fixture of the interop check's saves, a suite of its own (no "Golden" in its name: ctest
 // lists it disabled, as the core's OrkInteropSaves).
 using FlightConfigurationsInteropSave = FlightConfigurationsExitGolden;
@@ -585,16 +564,11 @@ TEST_P(FlightConfigurationsInteropSave, DISABLED_WritesTheSaveForTheInteropCheck
     ASSERT_EQ(runScenario(), "");
     const std::filesystem::path file = savedFile();
     ASSERT_FALSE(file.empty());
-    const std::filesystem::path directory = interopSavesDirectory();
-    std::error_code             error;
-    std::filesystem::create_directories(directory, error);
-    ASSERT_FALSE(error) << pathToUtf8(directory) << ": " << error.message();
-    const std::filesystem::path target =
-        directory / pathFromUtf8(std::format("gui-{}.zip-nodata.ork", scenarioName()));
-    std::filesystem::copy_file(file, target, std::filesystem::copy_options::overwrite_existing,
-                               error);
-    ASSERT_FALSE(error) << pathToUtf8(target) << ": " << error.message();
-    std::println("{}", pathToUtf8(target));
+    // InteropSaves.h: into the directory of the interop check's saves.
+    const Result<std::filesystem::path> written =
+        Gui::Test::writeInteropSave(file, std::format("gui-{}.zip-nodata.ork", scenarioName()));
+    ASSERT_TRUE(written.has_value()) << written.error().message;
+    std::println("{}", pathToUtf8(written.value_or(std::filesystem::path())));
 }
 
 }  // namespace

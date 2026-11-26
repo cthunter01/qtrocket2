@@ -66,15 +66,19 @@ import info.openrocket.core.simulation.FlightEvent;
 import info.openrocket.core.simulation.SimulationOptions;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.util.BuildProperties;
+import info.openrocket.core.util.MathUtil;
 import info.openrocket.core.util.TestRockets;
+import info.openrocket.core.util.TextUtil;
 
 /**
  * Section 7's interop check (README.md, "Interop check"): OpenRocket reads the design files QtRocket
  * saved (the DISABLED_ test of tests/core/goldens/ork_interop_saves_tests.cpp writes them, and the
- * GUI's saves the DISABLED_ FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp and
- * FlightConfigurationsInteropSave of tests/gui/exit/flight_configurations_exit_tests.cpp, named
- * {@code <input>.<form>.ork}, the form being {@code zip-data}, {@code zip-nodata}, {@code plain-data}
- * or {@code plain-nodata}) and gets from each the design it gets from its own save of the same input.
+ * GUI's saves the DISABLED_ FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp,
+ * FlightConfigurationsInteropSave of tests/gui/exit/flight_configurations_exit_tests.cpp,
+ * SimulationsInteropSave of tests/gui/exit/simulations_exit_tests.cpp and FlightDataInteropSave of
+ * tests/gui/exit/flight_data_interop_tests.cpp, named {@code <input>.<form>.ork}, the form being
+ * {@code zip-data}, {@code zip-nodata}, {@code plain-data} or {@code plain-nodata}) and gets from each the
+ * design it gets from its own save of the same input.
  * <p>
  * The inputs are those of the goldens' manifest: the sixteen examples (an archive saved with the
  * document's default storage options, and plain XML without simulation data), the thirteen test
@@ -83,18 +87,21 @@ import info.openrocket.core.util.TestRockets;
  * the two saver-coverage documents (loaded from their re-saves; an archive); the GUI's from-scratch
  * design ({@value #GUI_INPUT}: the design QtRocket's GUI made from the scenario of
  * tests/data/goldens/gui/from-scratch and saved with Save as, an archive with the document's default
- * storage options; the input is OpenRocket's own save of the same scenario, rocket.ork there); and the
- * designs of the two scenarios of the Motors &amp; Configuration tab ({@link #GUI_TAB_SCENARIOS}, the
- * inputs {@code gui-<scenario>}: the design file the scenario of tests/data/goldens/gui/&lt;scenario&gt;
- * opens, changed in QtRocket's tab as the scenario says and saved with Save as, an archive with the
- * document's default storage options; the input is OpenRocket's own save of the same scenario, rocket.ork
- * there). Each input is loaded in the environment of its goldens: the harness's (the examples and the
- * coverage documents), the legacy files' ({@link GoldenDumper#legacyInjector}), the seven motors of
- * TestRockets with no component preset (the test rockets, whose motors are synthetic) or that of
- * OpenRocket's GUI after its start-up, in which tools/openrocket-gui-reference loads the saved design:
- * without a motor and a preset for the from-scratch design (the reference's version 1 bypasses both,
- * {@link #guiInjector}), with the bundled ones for the tab's scenarios (version 2's start-up,
- * {@link #guiTabInjector}).
+ * storage options; the input is OpenRocket's own save of the same scenario, rocket.ork there); the
+ * designs of the three scenarios of the tabs ({@link #GUI_TAB_SCENARIOS}, the inputs {@code gui-<scenario>}:
+ * the two of the Motors &amp; Configuration tab and the one of the Flight simulations tab; the design file
+ * the scenario of tests/data/goldens/gui/&lt;scenario&gt; opens, changed in QtRocket's tab as the scenario
+ * says and saved with Save as, an archive with the document's default storage options; the input is
+ * OpenRocket's own save of the same scenario, rocket.ork there); and the flights QtRocket's GUI ran
+ * ({@link #GUI_RUNS}, the inputs {@code gui-run-<example>}: an example opened in QtRocket's GUI, one of its
+ * simulations run there on the application's executor, saved with Save as with the simulation data; the
+ * input is the example, loaded as for its own saves). Each input is loaded in the environment of its
+ * goldens: the harness's (the examples, the flights QtRocket ran and the coverage documents), the legacy
+ * files' ({@link GoldenDumper#legacyInjector}), the seven motors of TestRockets with no component preset
+ * (the test rockets, whose motors are synthetic) or that of OpenRocket's GUI after its start-up, in which
+ * tools/openrocket-gui-reference loads the saved design: without a motor and a preset for the from-scratch
+ * design (the reference's version 1 bypasses both, {@link #guiInjector}), with the bundled ones for the
+ * tabs' scenarios (the start-up of versions 2 and 3, {@link #guiTabInjector}).
  * <p>
  * Per file, with Q OpenRocket's load of QtRocket's save, O its load of the input and OO its load of its
  * own save of O in the same form (the first save of a fresh load, as QtRocket's is):
@@ -127,7 +134,14 @@ import info.openrocket.core.util.TestRockets;
  * changed, for an example);</li>
  * <li>the stored flight data of every simulation of Q (summary values, warnings, every branch with
  * every value of every type bit for bit, its events) is that of O, or that of OO where OpenRocket's own
- * save changes it (a save without the data, the six decimal places a save writes, ...);</li>
+ * save changes it (a save without the data, the six decimal places a save writes, ...); but for a flight
+ * QtRocket ran ({@link #GUI_RUNS}), which no OpenRocket load has: QtRocket's file holds it with its branches
+ * (not the input's flight), the summary values QtRocket stored are those OpenRocket computes from the
+ * branches it read (or, where the rounding of the branches to the storage precision can change one, agree
+ * with the branches within it), OpenRocket's re-save of Q writes the flight's {@code <flightdata>} element as
+ * QtRocket's file holds it, line for line but for the summary values of its start tag, and OpenRocket's
+ * reload of that re-save has the flight of Q bit for bit; the re-saves of Q and OO are compared without the
+ * elements of those flights;</li>
  * <li>the decal images of Q are those of O (or of OO) by name and bytes; for an archive, its entries
  * are those of OpenRocket's own archive of O in name and order, each with the same bytes (rocket.ork
  * aside, which the re-saves compare), and every thrust curve in it, {@code thrustcurves/<digest>.rse},
@@ -150,10 +164,11 @@ public final class InteropCheck {
 
 	/**
 	 * The kinds of the inputs, by the prefixes of their names: GUI is the GUI's from-scratch design, GUI_TAB a
-	 * design of a scenario of the Motors &amp; Configuration tab.
+	 * design of a scenario of a tab (the Motors &amp; Configuration tab's, the Flight simulations tab's), GUI_RUN
+	 * an example with a flight QtRocket's GUI ran.
 	 */
 	private enum Kind {
-		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE, GUI, GUI_TAB
+		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE, GUI, GUI_TAB, GUI_RUN
 	}
 
 	/**
@@ -166,23 +181,47 @@ public final class InteropCheck {
 	private static final String GUI_REFERENCE = "gui/from-scratch/rocket.ork";
 
 	/**
-	 * The scenarios of the Motors &amp; Configuration tab (tools/openrocket-gui-reference's version 2, the C++
-	 * tests' kGuiTabScenarios), whose designs no manifest lists either: the input {@code gui-<scenario>} is
-	 * QtRocket's save of the scenario (FlightConfigurationsInteropSave of
-	 * tests/gui/exit/flight_configurations_exit_tests.cpp) against OpenRocket's,
-	 * {@code gui/<scenario>/rocket.ork} in the goldens. The design file the scenario opens is the one its
-	 * reference names ({@code input.file} of {@code gui/<scenario>/state.json}, with its SHA-256).
+	 * The scenarios of the tabs, whose designs no manifest lists either: those of the Motors &amp; Configuration
+	 * tab (tools/openrocket-gui-reference's version 2, the C++ tests' kGuiTabScenarios;
+	 * FlightConfigurationsInteropSave of tests/gui/exit/flight_configurations_exit_tests.cpp) and that of the
+	 * Flight simulations tab (version 3, kGuiSimulationsScenario; SimulationsInteropSave of
+	 * tests/gui/exit/simulations_exit_tests.cpp). The input {@code gui-<scenario>} is QtRocket's save of the
+	 * scenario against OpenRocket's, {@code gui/<scenario>/rocket.ork} in the goldens. The design file the
+	 * scenario opens is the one its reference names ({@code input.file} of {@code gui/<scenario>/state.json},
+	 * with its SHA-256).
 	 */
-	private static final List<String> GUI_TAB_SCENARIOS = List.of("flight-configurations", "multi-stage");
+	private static final List<String> GUI_TAB_SCENARIOS = List.of("flight-configurations", "multi-stage",
+			"simulations");
+
+	/**
+	 * A flight QtRocket's GUI ran (plan section 11.6 E7, the mode for flight data QtRocket ran): the example
+	 * {@code example} (an input of the manifest) opened in QtRocket's GUI, its simulations {@code simulations}
+	 * (indices from 0) run with the Run button of the Flight simulations tab on the application's executor, and
+	 * the design saved with Save as, with the simulation data: the input {@code input}, an archive with the
+	 * simulation data (FlightDataInteropSave of tests/gui/exit/flight_data_interop_tests.cpp, whose list is
+	 * kGuiFlightRuns of tests/core/goldens/GuiInteropInputs.h). OpenRocket's load of the example is the input,
+	 * and the flights are compared with OpenRocket's reading of QtRocket's file, never with values of their
+	 * own: a fresh flight is chaotic.
+	 */
+	private record GuiRun(String input, String example, Set<Integer> simulations) {
+	}
+
+	/** The flights QtRocket's GUI ran: "A simple model rocket" #1 and "Clustered motors" #1. */
+	private static final List<GuiRun> GUI_RUNS = List.of(
+			new GuiRun("gui-run-example-a-simple-model-rocket", "example-a-simple-model-rocket", Set.of(0)),
+			new GuiRun("gui-run-example-clustered-motors", "example-clustered-motors", Set.of(0)));
 
 	/**
 	 * An input of the manifest, or a design of the GUI: what OpenRocket loads as the input ({@code source}),
 	 * the golden simulation documents of an example or a test rocket ({@code simulations}, relative to the
-	 * goldens), the failure of OpenRocket's archive of a legacy file ({@code archiveError}, or null), and for a
-	 * scenario of the tab the design file it opens ({@code opened}, whose ids the saves keep; null otherwise).
+	 * goldens; an example's for a flight QtRocket ran), the failure of OpenRocket's archive of a legacy file
+	 * ({@code archiveError}, or null), for a scenario of a tab the design file it opens ({@code opened}, whose
+	 * ids the saves keep; null otherwise), the example whose goldens describe the design ({@code example}: an
+	 * example's own name, the example of a flight QtRocket ran; null otherwise) and the simulations QtRocket ran
+	 * ({@code ran}: those of a flight QtRocket ran, empty otherwise).
 	 */
 	private record Input(String name, Kind kind, Path source, List<String> simulations, String archiveError,
-			Path opened) {
+			Path opened, String example, Set<Integer> ran) {
 	}
 
 	/** How QtRocket saved a file: as an .ork archive or as plain XML, with the simulation data or without. */
@@ -304,7 +343,7 @@ public final class InteropCheck {
 			Injector guiTab) {
 		Injector of(Kind kind) {
 			return switch (kind) {
-				case EXAMPLE, COVERAGE -> harness;
+				case EXAMPLE, COVERAGE, GUI_RUN -> harness;
 				case LEGACY -> legacy;
 				case TEST_ROCKET -> testRockets;
 				case GUI -> gui;
@@ -362,8 +401,9 @@ public final class InteropCheck {
 			if (!expected.contains(file)) {
 				Report report = new Report(file);
 				report.failures.add("not checked: the file name (<input>.<form>.ork) names no input of the manifest "
-						+ "(or " + GUI_INPUT + ", or gui-<scenario> of " + GUI_TAB_SCENARIOS + ") with that form, or a "
-						+ "second save of one kind");
+						+ "(or " + GUI_INPUT + ", gui-<scenario> of " + GUI_TAB_SCENARIOS + " or a flight of "
+						+ GUI_RUNS.stream().map(GuiRun::input).toList() + ") with that form, or a second save of one "
+						+ "kind");
 				reports.add(report);
 			}
 		}
@@ -523,11 +563,13 @@ public final class InteropCheck {
 
 	/**
 	 * The inputs of the manifest: "inputs" (examples and test rockets), then "resaves.inputs"; and last the
-	 * GUI's from-scratch design and the designs of the tab's scenarios, which the manifest does not list.
-	 * Throws IllegalStateException when the design file a scenario opens is not the one of its reference.
+	 * GUI's from-scratch design, the designs of the tabs' scenarios and the flights QtRocket's GUI ran, which the
+	 * manifest does not list. Throws IllegalStateException when the design file a scenario opens is not the one
+	 * of its reference, or the example of a flight is no input of the manifest.
 	 */
 	private static List<Input> inputs(Arguments a, JsonObject manifest) throws IOException {
 		List<Input> inputs = new ArrayList<>();
+		Map<String, Input> examples = new TreeMap<>();
 		for (JsonElement element : manifest.getAsJsonArray("inputs")) {
 			JsonObject o = element.getAsJsonObject();
 			String name = o.get("name").getAsString();
@@ -538,7 +580,12 @@ public final class InteropCheck {
 			}
 			Path source = example ? a.examples.resolve(fileName(o.get("source").getAsString()))
 					: a.goldens.resolve(o.get("resave").getAsString());
-			inputs.add(new Input(name, example ? Kind.EXAMPLE : Kind.TEST_ROCKET, source, simulations, null, null));
+			Input input = new Input(name, example ? Kind.EXAMPLE : Kind.TEST_ROCKET, source, simulations, null, null,
+					example ? name : null, Set.of());
+			inputs.add(input);
+			if (example) {
+				examples.put(name, input);
+			}
 		}
 		for (JsonElement element : manifest.getAsJsonObject("resaves").getAsJsonArray("inputs")) {
 			JsonObject o = element.getAsJsonObject();
@@ -548,13 +595,24 @@ public final class InteropCheck {
 					: a.goldens.resolve(o.get("resave").getAsString());
 			String archiveError = legacy && !o.get("archiveError").isJsonNull() ? o.get("archiveError").getAsString()
 					: null;
-			inputs.add(new Input(name, legacy ? Kind.LEGACY : Kind.COVERAGE, source, List.of(), archiveError, null));
+			inputs.add(new Input(name, legacy ? Kind.LEGACY : Kind.COVERAGE, source, List.of(), archiveError, null,
+					null, Set.of()));
 		}
-		inputs.add(new Input(GUI_INPUT, Kind.GUI, a.goldens.resolve(GUI_REFERENCE), List.of(), null, null));
+		inputs.add(new Input(GUI_INPUT, Kind.GUI, a.goldens.resolve(GUI_REFERENCE), List.of(), null, null, null,
+				Set.of()));
 		for (String scenario : GUI_TAB_SCENARIOS) {
 			Path directory = a.goldens.resolve("gui").resolve(scenario);
 			inputs.add(new Input("gui-" + scenario, Kind.GUI_TAB, directory.resolve("rocket.ork"), List.of(), null,
-					openedFile(a, directory)));
+					openedFile(a, directory), null, Set.of()));
+		}
+		for (GuiRun run : GUI_RUNS) {
+			Input example = examples.get(run.example());
+			if (example == null) {
+				throw new IllegalStateException("the example " + run.example() + " of the flight " + run.input()
+						+ " is no input of the manifest");
+			}
+			inputs.add(new Input(run.input(), Kind.GUI_RUN, example.source(), example.simulations(), null, null,
+					example.name(), run.simulations()));
 		}
 		return inputs;
 	}
@@ -606,14 +664,17 @@ public final class InteropCheck {
 
 	/**
 	 * The saved files of {@code input}: its archive (with or without data, as the document's default storage
-	 * options save it; a legacy file's with data) and, for an example, its plain XML without data; for a
-	 * legacy file whose archive OpenRocket cannot save, its plain XML with data instead. A file that is
-	 * missing is a failed report of its own.
+	 * options save it; a legacy file's and a flight QtRocket ran with data) and, for an example, its plain XML
+	 * without data; for a legacy file whose archive OpenRocket cannot save, its plain XML with data instead. A
+	 * file that is missing is a failed report of its own.
 	 */
 	private static List<String> expectedFiles(Input input, Map<String, Path> saves, List<Report> reports) {
 		List<List<String>> choices = new ArrayList<>();
 		if (input.kind() == Kind.LEGACY) {
 			choices.add(List.of(input.archiveError() == null ? "zip-data" : "plain-data"));
+		} else if (input.kind() == Kind.GUI_RUN) {
+			// The flight is the point: an archive with the simulation data.
+			choices.add(List.of("zip-data"));
 		} else {
 			choices.add(List.of("zip-data", "zip-nodata"));
 		}
@@ -679,7 +740,10 @@ public final class InteropCheck {
 			checkWarnings(qtRocket.warningTexts(), original.warningTexts(), report);
 			checkNotEmpty(q, o, oo, report);
 			checkOptions(q, o, oo, report);
-			checkFlightData(q, o, oo, report);
+			checkFlightData(q, o, oo, input.ran(), report);
+			if (!input.ran().isEmpty()) {
+				checkRunFlights(input, saved, qtRocket.document(), q, o, work, report);
+			}
 			checkDecals(q, o, oo, report);
 			if (form.archive()) {
 				checkArchive(input, saved, own, report);
@@ -979,11 +1043,18 @@ public final class InteropCheck {
 		}
 	}
 
-	private static void checkFlightData(Described q, Described o, Described oo, Report report) {
+	/**
+	 * The flight data of every simulation of Q against those of O and OO, but for the simulations {@code ran}
+	 * (the flights QtRocket ran, which {@link #checkRunFlights} checks).
+	 */
+	private static void checkFlightData(Described q, Described o, Described oo, Set<Integer> ran, Report report) {
 		int failures = report.failures.size();
 		int asOriginal = 0;
 		int asOwnSave = 0;
 		for (int i = 0; i < q.flightData().size() && i < o.flightData().size() && i < oo.flightData().size(); i++) {
+			if (ran.contains(i)) {
+				continue;
+			}
 			String verdict = verdict(q.flightData().get(i), o.flightData().get(i), oo.flightData().get(i));
 			if (verdict == null) {
 				report.failures.add("the flight data of simulation " + i + " differ from OpenRocket's: "
@@ -999,7 +1070,432 @@ public final class InteropCheck {
 		}
 		if (report.failures.size() == failures) {
 			report.checked.add("the flight data of " + asOriginal + " simulations as the input's, of " + asOwnSave
-					+ " as OpenRocket's own save");
+					+ " as OpenRocket's own save" + (ran.isEmpty() ? "" : ", but for the flights QtRocket ran " + ran));
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// The flights QtRocket ran
+
+	/** A start tag's attributes: name="value". */
+	private static final Pattern ATTRIBUTE = Pattern.compile("([A-Za-z_][A-Za-z0-9_]*)=\"([^\"]*)\"");
+
+	/**
+	 * The {@code <flightdata>} elements of the document text {@code text}, one entry per simulation in the order
+	 * of the document (null for a simulation without one): each the lines from its start tag to its end tag,
+	 * without their indentation.
+	 */
+	private static List<List<String>> flightDataElements(String text) {
+		List<List<String>> elements = new ArrayList<>();
+		List<String> element = null;
+		for (String line : lines(text)) {
+			String stripped = line.strip();
+			if (stripped.startsWith("<simulation ")) {
+				elements.add(null);
+			} else if (stripped.startsWith("<flightdata") && !elements.isEmpty()) {
+				element = new ArrayList<>();
+				elements.set(elements.size() - 1, element);
+			}
+			if (element != null) {
+				element.add(stripped);
+				boolean selfClosing = stripped.startsWith("<flightdata") && stripped.endsWith("/>");
+				if (stripped.equals("</flightdata>") || selfClosing) {
+					element = null;
+				}
+			}
+		}
+		return elements;
+	}
+
+	/**
+	 * {@code text} with the {@code <flightdata>} element of each simulation of {@code simulations} (indices in the
+	 * order of the document) replaced by one line that says so: the re-saves are compared without the flights
+	 * QtRocket ran, which {@link #checkRunFlights} compares on their own.
+	 */
+	private static String withoutFlightData(String text, Set<Integer> simulations) {
+		if (simulations.isEmpty()) {
+			return text;
+		}
+		StringBuilder sb = new StringBuilder(text.length());
+		int simulation = -1;
+		boolean skipping = false;
+		List<String> lines = lines(text);
+		for (int i = 0; i < lines.size(); i++) {
+			String line = lines.get(i);
+			String stripped = line.strip();
+			if (stripped.startsWith("<simulation ")) {
+				simulation++;
+			}
+			boolean start = stripped.startsWith("<flightdata") && simulations.contains(simulation);
+			if (start) {
+				sb.append("<flightdata of a flight QtRocket ran, compared on its own/>");
+				skipping = !stripped.endsWith("/>");
+			} else if (skipping) {
+				skipping = !stripped.equals("</flightdata>");
+				continue;
+			} else {
+				sb.append(line);
+			}
+			if (i + 1 < lines.size()) {
+				sb.append('\n');
+			}
+		}
+		return sb.toString();
+	}
+
+	/** The attributes of the start tag {@code tag}, in their order. */
+	private static Map<String, String> attributes(String tag) {
+		Map<String, String> attributes = new LinkedHashMap<>();
+		Matcher matcher = ATTRIBUTE.matcher(tag);
+		while (matcher.find()) {
+			attributes.put(matcher.group(1), matcher.group(2));
+		}
+		return attributes;
+	}
+
+	/**
+	 * The summary values of {@code data} as OpenRocketSaver writes them into the {@code <flightdata>} start tag
+	 * (the attributes of the values that are not NaN, TextUtil.doubleToString with
+	 * TextUtil.STORAGE_DECIMAL_PLACES, OpenRocketSaver.java:474-494).
+	 */
+	private static Map<String, String> storedSummary(FlightData data) {
+		Map<String, String> summary = new LinkedHashMap<>();
+		putSummaryValue(summary, "maxaltitude", data.getMaxAltitude());
+		putSummaryValue(summary, "maxvelocity", data.getMaxVelocity());
+		putSummaryValue(summary, "maxacceleration", data.getMaxAcceleration());
+		putSummaryValue(summary, "maxmach", data.getMaxMachNumber());
+		putSummaryValue(summary, "timetoapogee", data.getTimeToApogee());
+		putSummaryValue(summary, "flighttime", data.getFlightTime());
+		putSummaryValue(summary, "groundhitvelocity", data.getGroundHitVelocity());
+		putSummaryValue(summary, "launchrodvelocity", data.getLaunchRodVelocity());
+		putSummaryValue(summary, "deploymentvelocity", data.getDeploymentVelocity());
+		putSummaryValue(summary, "optimumdelay", data.getOptimumDelay());
+		return summary;
+	}
+
+	private static void putSummaryValue(Map<String, String> summary, String name, double value) {
+		if (!Double.isNaN(value)) {
+			summary.put(name, TextUtil.doubleToString(value, TextUtil.STORAGE_DECIMAL_PLACES));
+		}
+	}
+
+	/** How many lines of {@code lines} start with {@code prefix}. */
+	private static long count(List<String> lines, String prefix) {
+		return lines.stream().filter(line -> line.startsWith(prefix)).count();
+	}
+
+	/**
+	 * One unit of the last place OpenRocketSaver writes of {@code value} (TextUtil.doubleToString with
+	 * TextUtil.STORAGE_DECIMAL_PLACES): of the sixth decimal place, or of the sixth decimal of the mantissa in
+	 * the exponential notation of a magnitude below 0.001 or from 10000 on.
+	 */
+	private static double storageUnit(double value) {
+		double magnitude = Math.abs(value);
+		if (magnitude != 0 && (magnitude < 0.001 || magnitude >= 10000)) {
+			return Math.pow(10, Math.floor(Math.log10(magnitude)) - TextUtil.STORAGE_DECIMAL_PLACES);
+		}
+		return Math.pow(10, -TextUtil.STORAGE_DECIMAL_PLACES);
+	}
+
+	/**
+	 * The value of the text {@code text} of a flight's value, as OpenRocket's loader reads it
+	 * (DocumentConfig.stringToDouble, which is package-private: NaN, Inf and -Inf in any case, else
+	 * Double.parseDouble).
+	 */
+	private static double storedValue(String text) {
+		if (text.equalsIgnoreCase("NaN")) {
+			return Double.NaN;
+		}
+		if (text.equalsIgnoreCase("Inf")) {
+			return Double.POSITIVE_INFINITY;
+		}
+		if (text.equalsIgnoreCase("-Inf")) {
+			return Double.NEGATIVE_INFINITY;
+		}
+		return Double.parseDouble(text);
+	}
+
+	/** {@code value} as OpenRocketSaver writes a flight's values (TextUtil.doubleToString, six places). */
+	private static String stored(double value) {
+		return TextUtil.doubleToString(value, TextUtil.STORAGE_DECIMAL_PLACES);
+	}
+
+	/**
+	 * The time of the last event of the type {@code type} of {@code branch}, as FlightData's loop over the events
+	 * leaves its value (calculateInterestingValues(): the last LAUNCHROD, RECOVERY_DEVICE_DEPLOYMENT or
+	 * GROUND_HIT wins); NaN when there is none.
+	 */
+	private static double lastEventTime(FlightDataBranch branch, FlightEvent.Type type) {
+		double time = Double.NaN;
+		for (FlightEvent event : branch.getEvents()) {
+			if (event.getType() == type) {
+				time = event.getTime();
+			}
+		}
+		return time;
+	}
+
+	/**
+	 * The rows of {@code times} that MathUtil.interpolate(times, values, t) interpolates between (its left and
+	 * right end points), or null when t is outside the rows.
+	 */
+	private static int[] interpolationRows(List<Double> times, double t) {
+		int length = times.size();
+		if (length <= 1 || Double.isNaN(t) || t < times.get(0) || t > times.get(length - 1) + MathUtil.EPSILON) {
+			return null;
+		}
+		int right = 1;
+		while (t > times.get(right) + MathUtil.EPSILON) {
+			right++;
+		}
+		return new int[] { right - 1, right };
+	}
+
+	/**
+	 * Whether the summary value {@code name} that QtRocket stored ({@code storedText}) agrees with the branch
+	 * {@code branch} it was stored with, when it is not the text of OpenRocket's recomputation from that branch
+	 * ({@code recomputedText}): what the rounding of the branch's values to the storage precision can change of
+	 * a value FlightData.calculateInterestingValues() computes, with what it is ("" when the value cannot differ
+	 * so), or null when it does not agree. QtRocket, as OpenRocket after its own run, computes the summary from the
+	 * values of the flight and stores both rounded; a load computes it again from the rounded values
+	 * (FlightDataHandler.endHandler()). Rounding keeps the order of the values, so a maximum and the last time
+	 * stay the same in the storage form; what can differ:
+	 * <ul>
+	 * <li>timetoapogee, the time of the first row at the maximum altitude, which the rounding can make another
+	 * row (two rows at the same rounded altitude): it agrees when it is the time of a row whose altitude is the
+	 * maximum, both in the storage form;</li>
+	 * <li>maxacceleration, the maximum before the first deployment, whose bound the rounding of the times can
+	 * move across a row: it agrees when it is the maximum before the first deployment one time unit later;</li>
+	 * <li>launchrodvelocity, deploymentvelocity and groundhitvelocity, linear interpolations at an event's time:
+	 * they agree when they differ by at most two units of the value's storage precision and the change two time
+	 * units make along the rows the interpolation uses (the first-order bound of the rounding of the values,
+	 * of the three times and of the two results);</li>
+	 * <li>optimumdelay, the time to the optimum altitude (stored exactly) less the last burnout's time (rounded):
+	 * it agrees when it differs by at most two units.</li>
+	 * </ul>
+	 */
+	private static String summaryAgreement(String name, String storedText, String recomputedText,
+			FlightDataBranch branch, Map<String, String> summary) {
+		if (storedText == null || recomputedText == null) {
+			return null;
+		}
+		double storedNumber = storedValue(storedText);
+		double recomputed = storedValue(recomputedText);
+		List<Double> times = branch.getView(FlightDataType.TYPE_TIME);
+		switch (name) {
+			case "timetoapogee" -> {
+				List<Double> altitudes = branch.getView(FlightDataType.TYPE_ALTITUDE);
+				for (int row = 0; times != null && altitudes != null && row < times.size(); row++) {
+					if (stored(altitudes.get(row)).equals(summary.get("maxaltitude"))
+							&& stored(times.get(row)).equals(storedText)) {
+						return "the time of row " + row + ", also at the maximum altitude";
+					}
+				}
+				return null;
+			}
+			case "maxacceleration" -> {
+				double end = firstDeploymentTime(branch) + storageUnit(1);
+				List<Double> accelerations = branch.getView(FlightDataType.TYPE_ACCELERATION_TOTAL);
+				double max = 0;
+				for (int row = 0; times != null && accelerations != null && row < times.size()
+						&& times.get(row) < end; row++) {
+					double acceleration = accelerations.get(row);
+					if (acceleration > max) {
+						max = acceleration;
+					}
+				}
+				return stored(max).equals(storedText) ? "the maximum up to one time unit after the first deployment"
+						: null;
+			}
+			case "launchrodvelocity", "deploymentvelocity", "groundhitvelocity" -> {
+				FlightEvent.Type type = name.equals("launchrodvelocity") ? FlightEvent.Type.LAUNCHROD
+						: name.equals("deploymentvelocity") ? FlightEvent.Type.RECOVERY_DEVICE_DEPLOYMENT
+								: FlightEvent.Type.GROUND_HIT;
+				List<Double> velocities = branch.getView(FlightDataType.TYPE_VELOCITY_TOTAL);
+				int[] rows = times == null || velocities == null ? null
+						: interpolationRows(times, lastEventTime(branch, type));
+				if (rows == null) {
+					return null;
+				}
+				double dt = times.get(rows[1]) - times.get(rows[0]);
+				double slope = dt > storageUnit(times.get(rows[1]))
+						? Math.abs((velocities.get(rows[1]) - velocities.get(rows[0])) / dt)
+						: Double.POSITIVE_INFINITY;
+				double bound = 2 * storageUnit(recomputed) + 2 * storageUnit(times.get(rows[1])) * slope;
+				if (Double.isInfinite(bound)) {
+					// Rows the rounding brought together: the interpolation lies between their values.
+					double unit = 2 * storageUnit(recomputed);
+					double low = Math.min(velocities.get(rows[0]), velocities.get(rows[1])) - unit;
+					double high = Math.max(velocities.get(rows[0]), velocities.get(rows[1])) + unit;
+					return storedNumber >= low && storedNumber <= high
+							? "between the values of rows " + rows[0] + " and " + rows[1]
+									+ ", which the rounding brought together"
+							: null;
+				}
+				return Math.abs(storedNumber - recomputed) <= bound ? "within " + bound + " (rows " + rows[0] + " and "
+						+ rows[1] + ")" : null;
+			}
+			case "optimumdelay" -> {
+				double bound = 2 * storageUnit(recomputed);
+				return Math.abs(storedNumber - recomputed) <= bound ? "within " + bound : null;
+			}
+			default -> {
+				return null;
+			}
+		}
+	}
+
+	/** The time of the first RECOVERY_DEVICE_DEPLOYMENT of {@code branch} (FlightData.calculateMaxAcceleration). */
+	private static double firstDeploymentTime(FlightDataBranch branch) {
+		double end = Double.MAX_VALUE;
+		for (FlightEvent event : branch.getEvents()) {
+			if (event.getType() == FlightEvent.Type.RECOVERY_DEVICE_DEPLOYMENT && event.getTime() < end) {
+				end = event.getTime();
+			}
+		}
+		return end;
+	}
+
+	/**
+	 * The flights QtRocket ran (the simulations {@code input.ran()} of a flight of {@link #GUI_RUNS}), which no
+	 * OpenRocket load has, so that nothing compares their values with values of OpenRocket's own: each is
+	 * compared with OpenRocket's reading of QtRocket's file. Of each:
+	 * <ul>
+	 * <li>QtRocket's file holds the flight with its branches, and it is not the input's (QtRocket ran it);</li>
+	 * <li>the summary values QtRocket stored (the attributes of {@code <flightdata>}, which OpenRocket's loader
+	 * reads only without branches) are those OpenRocket computes from the branches it read
+	 * (FlightData.calculateInterestingValues(), FlightDataHandler.endHandler()), as its saver writes them, or,
+	 * where the rounding of the branches to the storage precision can change a value, agree with the branches
+	 * within it ({@link #checkRunSummary}: QtRocket, as OpenRocket after its own run, computes them from the
+	 * flight's values before they are rounded);</li>
+	 * <li>OpenRocket's re-save of Q (OpenRocketSaver, with the simulation data) writes the flight's
+	 * {@code <flightdata>} element as QtRocket's file holds it, line for line, but for the summary values of its
+	 * start tag (its own, above): the warnings, each branch's attributes, its events with their ids and every
+	 * data point;</li>
+	 * <li>OpenRocket's load of that re-save gives no warning and has the flight of Q bit for bit (every value of
+	 * every type of every branch, the events, the summary values, the warnings).</li>
+	 * </ul>
+	 */
+	private static void checkRunFlights(Input input, Path saved, OpenRocketDocument q, Described described,
+			Described original, Path work, Report report) throws Exception {
+		List<List<String>> ours = flightDataElements(documentText(saved));
+		byte[] resave = GoldenDumper.saveXml(q, true);
+		List<List<String>> theirs = flightDataElements(text(resave));
+		Path resaveFile = work.resolve(OWN_DIRECTORY).resolve(report.file + ".resave.ork");
+		Described reloaded;
+		List<String> reloadWarnings;
+		try {
+			Files.write(resaveFile, resave);
+			DeterministicUuids.reseed(input.name() + "/resave");
+			Loaded load = load(resaveFile);
+			reloaded = describe(load.document());
+			reloadWarnings = load.warningTexts();
+		} finally {
+			Files.deleteIfExists(resaveFile);
+		}
+		if (!reloadWarnings.isEmpty()) {
+			report.failures.add("OpenRocket's load of its re-save of QtRocket's save gives warnings: "
+					+ reloadWarnings);
+		}
+		for (int i : new TreeSet<>(input.ran())) {
+			checkRunFlight(i, ours, theirs, q, described, original, reloaded, report);
+		}
+	}
+
+	/**
+	 * The summary values QtRocket stored with a flight it ran ({@code stored}, the attributes of its
+	 * {@code <flightdata>}) against those OpenRocket computes from the branches it read ({@code computed}, in the
+	 * storage form): the same values, each the same text or, where the rounding of the branches to the storage
+	 * precision can change it, agreeing with the branch ({@link #summaryAgreement}).
+	 */
+	private static void checkRunSummary(String flight, Map<String, String> stored, Map<String, String> computed,
+			FlightDataBranch branch, Report report) {
+		if (!stored.keySet().equals(computed.keySet())) {
+			report.failures.add(flight + ": QtRocket stored the summary values " + stored.keySet() + ", OpenRocket "
+					+ "computes " + computed.keySet() + " from the branches it read");
+			return;
+		}
+		List<String> within = new ArrayList<>();
+		List<String> differing = new ArrayList<>();
+		for (Map.Entry<String, String> entry : stored.entrySet()) {
+			String name = entry.getKey();
+			if (entry.getValue().equals(computed.get(name))) {
+				continue;
+			}
+			String agreement = summaryAgreement(name, entry.getValue(), computed.get(name), branch, stored);
+			String what = name + " " + entry.getValue() + ", OpenRocket's " + computed.get(name);
+			if (agreement == null) {
+				differing.add(what);
+			} else {
+				within.add(what + " (" + agreement + ")");
+			}
+		}
+		if (!differing.isEmpty()) {
+			report.failures.add(flight + ": summary values QtRocket stored that the branches do not give: "
+					+ differing);
+		} else {
+			report.checked.add(flight + ": the " + stored.size() + " summary values QtRocket stored are those "
+					+ "OpenRocket computes from the branches it read" + (within.isEmpty() ? ""
+							: ", " + within.size() + " within the storage precision of the branches: " + within));
+		}
+	}
+
+	/** The checks of {@link #checkRunFlights} of the flight of the simulation {@code i}. */
+	private static void checkRunFlight(int i, List<List<String>> ours, List<List<String>> theirs,
+			OpenRocketDocument q, Described described, Described original, Described reloaded, Report report) {
+		String flight = "the flight QtRocket ran of simulation " + i;
+		List<String> element = i < ours.size() ? ours.get(i) : null;
+		if (element == null || i >= q.getSimulations().size() || i >= original.flightData().size()) {
+			report.failures.add(flight + ": QtRocket's save holds no <flightdata> of the simulation");
+			return;
+		}
+		long branches = count(element, "<databranch");
+		long points = count(element, "<datapoint>");
+		long events = count(element, "<event ");
+		long warnings = count(element, "<warning ");
+		FlightData data = q.getSimulations().get(i).getSimulatedData();
+		if (branches == 0 || data == null || data.getBranchCount() != branches) {
+			report.failures.add(flight + ": QtRocket's save holds " + branches + " branches of it, OpenRocket's load "
+					+ (data == null ? "no flight" : data.getBranchCount() + " branches"));
+			return;
+		}
+		if (described.flightData().get(i).equals(original.flightData().get(i))) {
+			report.failures.add(flight + ": QtRocket's save holds the input's flight, not one QtRocket ran");
+		} else {
+			report.checked.add(flight + ": QtRocket's save holds it (" + branches + " branches, " + points
+					+ " data points, " + events + " events, " + warnings + " warnings), not the input's");
+		}
+		Map<String, String> stored = attributes(element.get(0));
+		Map<String, String> computed = storedSummary(data);
+		checkRunSummary(flight, stored, computed, data.getBranch(0), report);
+		List<String> resaved = i < theirs.size() ? theirs.get(i) : null;
+		// The start tag holds the summary values, which OpenRocket's re-save computes from the branches it read
+		// (compared above); the rest of the element, line for line.
+		boolean sameStart = resaved != null && !resaved.isEmpty() && element.get(0).equals(resaved.get(0));
+		boolean sameNames = resaved != null && !resaved.isEmpty()
+				&& stored.keySet().equals(attributes(resaved.get(0)).keySet());
+		// QtRocket's element with OpenRocket's start tag, when it has the same summary values.
+		List<String> comparable = new ArrayList<>(element);
+		if (sameNames) {
+			comparable.set(0, resaved.get(0));
+		}
+		if (resaved == null || !comparable.equals(resaved)) {
+			report.failures.add(flight + ": OpenRocket's re-save writes its <flightdata> otherwise than QtRocket's "
+					+ "save (" + element.size() + " lines): " + (resaved == null ? "not at all"
+							: shortened(firstDifference(comparable, resaved))));
+		} else {
+			report.checked.add(flight + ": OpenRocket's re-save writes its <flightdata> as QtRocket's save holds it, "
+					+ "line for line (" + element.size() + " lines" + (sameStart ? ")"
+							: "), but for the summary values of its start tag, which it computes from the branches"));
+		}
+		if (i >= reloaded.flightData().size() || !reloaded.flightData().get(i).equals(described.flightData().get(i))) {
+			report.failures.add(flight + ": OpenRocket's reload of its re-save differs from its load of QtRocket's "
+					+ "save: " + (i >= reloaded.flightData().size() ? "no such simulation"
+							: shortened(firstDifference(reloaded.flightData().get(i), described.flightData().get(i),
+									"the reload's", "the load's"))));
+		} else {
+			report.checked.add(flight + ": OpenRocket's reload of its re-save has it bit for bit ("
+					+ described.flightData().get(i).size() + " lines of values, digests and events)");
 		}
 	}
 
@@ -1120,8 +1616,10 @@ public final class InteropCheck {
 
 	private static void checkResaves(Input input, Set<String> inputIds, OpenRocketDocument q, OpenRocketDocument oo,
 			Report report) throws IOException {
-		List<String> ours = lines(withDrawnIdsNumbered(text(GoldenDumper.saveXml(q, true)), inputIds));
-		List<String> theirs = lines(withDrawnIdsNumbered(text(GoldenDumper.saveXml(oo, true)), inputIds));
+		List<String> ours = lines(
+				withDrawnIdsNumbered(withoutFlightData(text(GoldenDumper.saveXml(q, true)), input.ran()), inputIds));
+		List<String> theirs = lines(
+				withDrawnIdsNumbered(withoutFlightData(text(GoldenDumper.saveXml(oo, true)), input.ran()), inputIds));
 		if (ours.size() != theirs.size()) {
 			report.failures.add("OpenRocket's re-save of QtRocket's save has " + ours.size()
 					+ " lines, its re-save of its own save " + theirs.size() + ": " + firstDifference(ours, theirs));
@@ -1152,7 +1650,8 @@ public final class InteropCheck {
 			report.failures.add((shown - MAX_SHOWN) + " more differing lines of the re-saves");
 		}
 		if (shown == 0) {
-			report.checked.add("OpenRocket's re-save (" + ours.size() + " lines) as of its own save");
+			report.checked.add("OpenRocket's re-save (" + ours.size() + " lines) as of its own save"
+					+ (input.ran().isEmpty() ? "" : ", without the <flightdata> of the flights QtRocket ran"));
 		}
 	}
 
@@ -1165,14 +1664,14 @@ public final class InteropCheck {
 	}
 
 	/**
-	 * For an example or a test rocket: the options and extensions of every simulation of Q, made
-	 * reproducible as the harness makes them (SimulationDumper.makeReproducible), are those of the golden
-	 * simulation document; for an example (whose re-save was written before the harness changed the
-	 * options) also the harness's record of what it changed.
+	 * For an example, a flight QtRocket ran of an example, or a test rocket: the options and extensions of every
+	 * simulation of Q, made reproducible as the harness makes them (SimulationDumper.makeReproducible), are those
+	 * of the golden simulation document; for an example (whose re-save was written before the harness changed
+	 * the options) also the harness's record of what it changed.
 	 */
 	private static void checkGoldenSimulations(Arguments a, Input input, OpenRocketDocument q, Report report)
 			throws IOException {
-		if (input.kind() != Kind.EXAMPLE && input.kind() != Kind.TEST_ROCKET) {
+		if (input.kind() != Kind.EXAMPLE && input.kind() != Kind.GUI_RUN && input.kind() != Kind.TEST_ROCKET) {
 			return;
 		}
 		List<Simulation> simulations = q.getSimulations();
@@ -1190,7 +1689,7 @@ public final class InteropCheck {
 					report);
 			compareJson("simulation " + i + " extensions", SimulationDumper.extensions(simulations.get(i)),
 					golden.get("extensions"), report);
-			if (input.kind() == Kind.EXAMPLE) {
+			if (input.kind() == Kind.EXAMPLE || input.kind() == Kind.GUI_RUN) {
 				compareJson("simulation " + i + " harness", harness, golden.get("harness"), report);
 			}
 		}
@@ -1219,20 +1718,21 @@ public final class InteropCheck {
 	private static final List<String> DUMP_FILES = List.of("geometry.json", "mass.json", "aero.json");
 
 	/**
-	 * The dumps of Q against the goldens (an example) or those of OO (when the components have the same ids in
-	 * both). For a scenario of the tab, whose dumps name the configurations by their ids, the ids that
-	 * {@code inputIds} does not hold (those the configurations New and Duplicate made: drawn by QtRocket's GUI
-	 * at random, by DeterministicUuids in OpenRocket's run) are numbered on both sides first, as in the
-	 * re-saves.
+	 * The dumps of Q against the goldens (an example, and the example of a flight QtRocket ran) or those of OO
+	 * (when the components have the same ids in both). For a scenario of a tab, whose dumps name the
+	 * configurations by their ids, the ids that {@code inputIds} does not hold (those the configurations New and
+	 * Duplicate made: drawn by QtRocket's GUI at random, by DeterministicUuids in OpenRocket's run) are numbered
+	 * on both sides first, as in the re-saves.
 	 */
 	private static void checkDumps(Arguments a, Input input, Set<String> inputIds, Loaded qtRocket,
 			Loaded ownLoad, Described q, Described oo, Report report) throws IOException {
 		List<byte[]> expected;
 		String reference;
-		if (input.kind() == Kind.EXAMPLE) {
+		boolean example = input.kind() == Kind.EXAMPLE || input.kind() == Kind.GUI_RUN;
+		if (example) {
 			expected = new ArrayList<>();
 			for (String file : DUMP_FILES) {
-				expected.add(Files.readAllBytes(a.goldens.resolve(input.name()).resolve(file)));
+				expected.add(Files.readAllBytes(a.goldens.resolve(input.example()).resolve(file)));
 			}
 			reference = "the goldens";
 		} else if (q.componentIds().equals(oo.componentIds())) {
@@ -1247,8 +1747,9 @@ public final class InteropCheck {
 					+ "OpenRocket's own save (" + drawn + "), and OpenRocket's sums follow the ids in the last bit");
 			return;
 		}
-		WarningSet warnings = input.kind() == Kind.EXAMPLE ? qtRocket.warnings() : new WarningSet();
-		List<byte[]> ours = dumps(input.name(), qtRocket.document(), warnings);
+		WarningSet warnings = example ? qtRocket.warnings() : new WarningSet();
+		// An example's goldens name the example as their input.
+		List<byte[]> ours = dumps(example ? input.example() : input.name(), qtRocket.document(), warnings);
 		boolean numbered = input.kind() == Kind.GUI_TAB;
 		int failures = report.failures.size();
 		for (int i = 0; i < DUMP_FILES.size(); i++) {
