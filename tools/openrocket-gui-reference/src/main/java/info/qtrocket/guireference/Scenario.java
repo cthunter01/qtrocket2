@@ -20,16 +20,17 @@ import com.google.gson.JsonParser;
  * by step, at the level of its actions (see README.md, "The scenarios"). The same file drives QtRocket's
  * GUI in its exit tests; this class only reads it and checks its form.
  * <p>
- * Two schemas: version 1 ({@value #SCHEMA_V1}, the from-scratch scenario of Milestone 2: File &gt; New
- * and the design, headless) and version 2 ({@value #SCHEMA_V2}, Milestone 3: File &gt; Open of a design
+ * Three schemas: version 1 ({@value #SCHEMA_V1}, the from-scratch scenario of Milestone 2: File &gt; New
+ * and the design, headless), version 2 ({@value #SCHEMA_V2}, Milestone 3: File &gt; Open of a design
  * file, the design steps of version 1 but for the add buttons, Copy and Paste, and the Motors &amp;
- * Configuration tab, whose panels run under a virtual display).
+ * Configuration tab, whose panels run under a virtual display) and version 3 ({@value #SCHEMA_V2} too,
+ * Milestone 4: the steps of version 2 and the Flight simulations tab with its dialogs).
  */
 final class Scenario {
 
 	/** The schema name of a version 1 scenario. */
 	static final String SCHEMA_V1 = "gui-from-scratch-scenario";
-	/** The schema name of a version 2 scenario. */
+	/** The schema name of a version 2 or version 3 scenario. */
 	static final String SCHEMA_V2 = "gui-scenario";
 
 	/** What a step does. */
@@ -101,7 +102,25 @@ final class Scenario {
 		/** Select separation, the separation dialog answered with {@code answer}. */
 		SELECT_SEPARATION("selectSeparation"),
 		/** Reset separation. */
-		RESET_SEPARATION("resetSeparation");
+		RESET_SEPARATION("resetSeparation"),
+		/** Clicks on rows of the simulations table: {@code rows} (version 3). */
+		SELECT_SIMULATIONS("selectSimulations"),
+		/** New simulation; {@code answer} answers its settings dialog (version 3). */
+		NEW_SIMULATION("newSimulation"),
+		/** Edit simulation (the selected rows); {@code answer} answers the settings dialog (version 3). */
+		EDIT_SIMULATION("editSimulation"),
+		/** Duplicate (the selected simulations; version 3). */
+		DUPLICATE_SIMULATIONS("duplicateSimulations"),
+		/** Delete (the selected simulations); {@code answer} answers its confirmation, when asked (version 3). */
+		DELETE_SIMULATIONS("deleteSimulations"),
+		/** Copy (the selected simulations; version 3). */
+		COPY_SIMULATIONS("copySimulations"),
+		/** Cut (the selected simulations); {@code answer} answers the confirmation of its delete (version 3). */
+		CUT_SIMULATIONS("cutSimulations"),
+		/** Paste (the simulations of the clipboard, after the selected row; version 3). */
+		PASTE_SIMULATIONS("pasteSimulations"),
+		/** The column {@code column} of the simulations table shown or hidden ({@code visible}; version 3). */
+		COLUMN_VISIBILITY("columnVisibility");
 
 		final String name;
 
@@ -136,14 +155,25 @@ final class Scenario {
 	 */
 	static final Set<Kind> V2_KINDS;
 
+	/** The steps of the Motors &amp; Configuration tab (version 2). */
+	static final Set<Kind> TAB_KINDS = Collections.unmodifiableSet(EnumSet.range(Kind.CONFIG_TAB, Kind.RESET_SEPARATION));
+
+	/** The steps of the Flight simulations tab (version 3). */
+	static final Set<Kind> SIMULATION_KINDS = Collections.unmodifiableSet(
+			EnumSet.range(Kind.SELECT_SIMULATIONS, Kind.COLUMN_VISIBILITY));
+
+	/** The steps of version 3: those of version 2 and the steps of the Flight simulations tab. */
+	static final Set<Kind> V3_KINDS;
+
 	static {
 		EnumSet<Kind> kinds = EnumSet.allOf(Kind.class);
 		kinds.removeAll(EnumSet.of(Kind.NEW, Kind.ADD, Kind.COPY, Kind.PASTE));
+		kinds.removeAll(SIMULATION_KINDS);
 		V2_KINDS = Collections.unmodifiableSet(kinds);
+		EnumSet<Kind> v3 = EnumSet.copyOf(kinds);
+		v3.addAll(SIMULATION_KINDS);
+		V3_KINDS = Collections.unmodifiableSet(v3);
 	}
-
-	/** The steps of the Motors &amp; Configuration tab (version 2). */
-	static final Set<Kind> TAB_KINDS = Collections.unmodifiableSet(EnumSet.range(Kind.CONFIG_TAB, Kind.RESET_SEPARATION));
 
 	/** One element of a component path: the name of a child, and which of the children of that name. */
 	record PathElement(String name, int occurrence) {
@@ -157,10 +187,19 @@ final class Scenario {
 	record Cell(int row, List<PathElement> column, String with) {
 	}
 
+	/**
+	 * A click on a row of the simulations table (version 3): the row (the simulation's place in the document; the
+	 * table is never sorted by a scenario, so its rows are in the document's order) and the key held ("ctrl"
+	 * toggles the row, "shift" extends the selection to it, null for a plain click).
+	 */
+	record SimulationRow(int row, String with) {
+	}
+
 	/** One step of the scenario, with the members its kind uses (the others are null). */
 	record Step(int index, Kind kind, String note, List<List<PathElement>> paths, String component,
 			String field, String text, String unit, String item, Boolean checked, Integer row, String column,
-			String button, String file, String tab, List<Cell> cells, List<PathElement> mount, JsonObject answer) {
+			String button, String file, String tab, List<Cell> cells, List<PathElement> mount, JsonObject answer,
+			List<SimulationRow> rows, Boolean visible) {
 	}
 
 	private final int version;
@@ -173,7 +212,7 @@ final class Scenario {
 		this.steps = steps;
 	}
 
-	/** The schema version: 1 or 2. */
+	/** The schema version: 1, 2 or 3. */
 	int version() {
 		return version;
 	}
@@ -191,21 +230,22 @@ final class Scenario {
 		JsonObject root = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
 		String schema = string(root, "schema");
 		int version = root.has("schemaVersion") ? root.get("schemaVersion").getAsInt() : 0;
-		if (!(SCHEMA_V1.equals(schema) && version == 1) && !(SCHEMA_V2.equals(schema) && version == 2)) {
+		if (!(SCHEMA_V1.equals(schema) && version == 1)
+				&& !(SCHEMA_V2.equals(schema) && (version == 2 || version == 3))) {
 			throw new IllegalArgumentException(file + " is neither a " + SCHEMA_V1 + " of version 1 nor a "
-					+ SCHEMA_V2 + " of version 2");
+					+ SCHEMA_V2 + " of version 2 or 3");
 		}
 		for (String key : root.keySet()) {
 			if (!Set.of("schema", "schemaVersion", "title", "steps").contains(key)) {
 				throw new IllegalArgumentException(file + " has an unknown member '" + key + "'");
 			}
 		}
-		Set<Kind> allowed = version == 1 ? V1_KINDS : V2_KINDS;
+		Set<Kind> allowed = version == 1 ? V1_KINDS : version == 2 ? V2_KINDS : V3_KINDS;
 		Kind first = version == 1 ? Kind.NEW : Kind.OPEN;
 		List<Step> steps = new ArrayList<>();
 		JsonArray array = root.getAsJsonArray("steps");
 		for (int i = 0; i < array.size(); i++) {
-			Step step = step(i, array.get(i).getAsJsonObject());
+			Step step = step(i, array.get(i).getAsJsonObject(), version);
 			if (!allowed.contains(step.kind())) {
 				throw new IllegalArgumentException("step " + i + " (" + step.kind().name + ") is no step of version "
 						+ version);
@@ -226,7 +266,8 @@ final class Scenario {
 	private static Set<String> membersOf(Kind kind) {
 		return switch (kind) {
 			case NEW, EDIT, OK, UNDO, REDO, COPY, PASTE, SAVE_AS, DELETE_CONFIGURATION, DUPLICATE_CONFIGURATION,
-					DELETE_MOTOR, RESET_IGNITION, RESET_DEPLOYMENT, RESET_SEPARATION -> Set.of();
+					DELETE_MOTOR, RESET_IGNITION, RESET_DEPLOYMENT, RESET_SEPARATION, DUPLICATE_SIMULATIONS,
+					COPY_SIMULATIONS, PASTE_SIMULATIONS -> Set.of();
 			case OPEN -> Set.of("file");
 			case SELECT -> Set.of("paths");
 			case ADD -> Set.of("component");
@@ -241,16 +282,24 @@ final class Scenario {
 			case SELECT_CELLS -> Set.of("cells");
 			case MOUNT_CHECK -> Set.of("mount", "checked");
 			case NEW_CONFIGURATION, RENAME_CONFIGURATION, SELECT_MOTOR, SELECT_IGNITION, SELECT_DEPLOYMENT,
-					SELECT_SEPARATION -> Set.of("answer");
+					SELECT_SEPARATION, NEW_SIMULATION, EDIT_SIMULATION, DELETE_SIMULATIONS, CUT_SIMULATIONS ->
+					Set.of("answer");
+			case SELECT_SIMULATIONS -> Set.of("rows");
+			case COLUMN_VISIBILITY -> Set.of("column", "visible");
 		};
 	}
 
-	/** The members a step may leave out: a unit (a field without a unit selector), New's answer (no question). */
+	/**
+	 * The members a step may leave out: a unit (a field without a unit selector), New Configuration's answer (no
+	 * question), and the answer of Delete and Cut of simulations (no confirmation: its "Do not ask me again" was
+	 * ticked before).
+	 */
 	private static boolean isOptional(Kind kind, String member) {
-		return member.equals("unit") || (kind == Kind.NEW_CONFIGURATION && member.equals("answer"));
+		return member.equals("unit") || (kind == Kind.NEW_CONFIGURATION && member.equals("answer"))
+				|| ((kind == Kind.DELETE_SIMULATIONS || kind == Kind.CUT_SIMULATIONS) && member.equals("answer"));
 	}
 
-	private static Step step(int index, JsonObject object) {
+	private static Step step(int index, JsonObject object, int version) {
 		Kind kind = Kind.of(string(object, "step"));
 		Set<String> allowed = membersOf(kind);
 		for (String key : object.keySet()) {
@@ -288,10 +337,18 @@ final class Scenario {
 				throw new IllegalArgumentException("step " + index + " (" + kind.name + "): the answer needs 'button'");
 			}
 		}
+		List<SimulationRow> rows = null;
+		if (object.has("rows")) {
+			rows = new ArrayList<>();
+			for (JsonElement row : object.getAsJsonArray("rows")) {
+				rows.add(simulationRow(index, row.getAsJsonObject()));
+			}
+		}
 		String tab = string(object, "tab");
 		if (tab != null) {
-			Set<String> tabs = kind == Kind.TAB ? Set.of("design", "flightConfiguration")
-					: Set.of("motors", "recovery", "stages");
+			Set<String> tabs = kind != Kind.TAB ? Set.of("motors", "recovery", "stages")
+					: version == 3 ? Set.of("design", "flightConfiguration", "simulations")
+					: Set.of("design", "flightConfiguration");
 			if (!tabs.contains(tab)) {
 				throw new IllegalArgumentException("step " + index + " (" + kind.name + "): no tab '" + tab + "'");
 			}
@@ -301,7 +358,28 @@ final class Scenario {
 				object.has("checked") ? object.get("checked").getAsBoolean() : null,
 				object.has("row") ? object.get("row").getAsInt() : null, string(object, "column"),
 				string(object, "button"), string(object, "file"), tab, cells,
-				object.has("mount") ? path(object.getAsJsonArray("mount")) : null, answer);
+				object.has("mount") ? path(object.getAsJsonArray("mount")) : null, answer, rows,
+				object.has("visible") ? object.get("visible").getAsBoolean() : null);
+	}
+
+	/**
+	 * A row of selectSimulations: {"row": n, "with": "ctrl" | "shift" (absent for a plain click)}. An empty list of
+	 * rows is a click on the table below its last row, which clears the selection.
+	 */
+	private static SimulationRow simulationRow(int index, JsonObject object) {
+		for (String key : object.keySet()) {
+			if (!Set.of("row", "with").contains(key)) {
+				throw new IllegalArgumentException("step " + index + ": a row has an unknown member '" + key + "'");
+			}
+		}
+		if (!object.has("row")) {
+			throw new IllegalArgumentException("step " + index + ": a row needs 'row'");
+		}
+		String with = string(object, "with");
+		if (with != null && !with.equals("ctrl") && !with.equals("shift")) {
+			throw new IllegalArgumentException("step " + index + ": a row is clicked with ctrl or shift, not " + with);
+		}
+		return new SimulationRow(object.get("row").getAsInt(), with);
 	}
 
 	/** A cell of selectCells: {"row": n, "column": path (absent for column 0), "with": "ctrl" | "shift" (absent)}. */
