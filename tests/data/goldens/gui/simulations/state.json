@@ -16,7 +16,7 @@
   },
   "scenario": {
     "file": "scenario.json",
-    "sha256": "4f52d2614505cfde1a674a5d81ef3ea41e85745b2d3b01da8bb79543285f7018",
+    "sha256": "d943a4073c5b8dd67c9c67ca378d8e4b576011f998e9455d88271814b0abdf11",
     "title": "Simulations of the flight-configurations design in the Flight simulations tab",
     "steps": 34
   },
@@ -1500,9 +1500,9 @@
               "HEADER 4 [Turbulence] unit=[%]",
               "HEADER 5 [Intensity] unit=[none]",
               "HEADER 6 [Delete] unit=[none]",
-              "ROW 0 [0] [2] [90] [0.2] [10] intensity=[Medium] delete=enabled",
+              "ROW 0 [164] [6] [90] [0.6] [10] intensity=[Medium] delete=enabled",
               "ROW 1 [328] [6] [90] [0.6] [10] intensity=[Medium] delete=enabled",
-              "MODEL 0.0 100.0"
+              "MODEL 50.0 100.0"
             ]
           }
         },
@@ -1868,7 +1868,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -2297,7 +2297,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -2845,7 +2845,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -3349,7 +3349,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -3882,7 +3882,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -4379,7 +4379,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -4895,7 +4895,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -5492,7 +5492,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -6007,7 +6007,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -6524,7 +6524,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -7042,7 +7042,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -7589,7 +7589,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -8172,7 +8172,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -8725,7 +8725,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -9243,7 +9243,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -9701,7 +9701,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -10184,7 +10184,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -10669,7 +10669,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -11123,7 +11123,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -11546,7 +11546,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -12030,7 +12030,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -12549,7 +12549,7 @@
           "status": "NOT_SIMULATED",
           "options": [
             "rod=1.5 intoWind=false angle=0.0 dir=1.5707963267948966",
-            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(0.0,2.0,1.5707963267948966,0.2)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
+            "wind=MULTI_LEVEL avg=(2.0,1.5707963267948966,0.2) multi=AGL(50.0,6.0,1.5707963267948966,0.6000000000000001)(100.0,6.0,1.5707963267948966,0.6000000000000001)",
             "site=0.0,28.61,-80.6 geo=SPHERICAL",
             "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988",
             "seedFixed=false",
@@ -12732,9 +12732,9 @@
             "HEADER 4 [Turbulence] unit=[%]",
             "HEADER 5 [Intensity] unit=[none]",
             "HEADER 6 [Delete] unit=[none]",
-            "ROW 0 [0] [2] [90] [0.2] [10] intensity=[Medium] delete=enabled",
+            "ROW 0 [50] [6] [90] [0.6] [10] intensity=[Medium] delete=enabled",
             "ROW 1 [100] [6] [90] [0.6] [10] intensity=[Medium] delete=enabled",
-            "MODEL 0.0 100.0"
+            "MODEL 50.0 100.0"
           ],
           "answered": {
             "title": "Wind Profile Editor",

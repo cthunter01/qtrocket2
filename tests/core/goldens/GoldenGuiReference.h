@@ -1364,7 +1364,8 @@ struct GuiSimulationToolFix
 
 /// The fixes of the tool in the records of the scenario of version 3 (GuiSimulationToolFix).
 inline constexpr std::array kGuiSimulationToolFixes{
-    // Simulation 1's wind levels: the third level's altitude edit, then Delete level.
+    // Simulation 1's wind levels: the third level's altitude edit, then Delete level of the 0 m
+    // level, which leaves the sorted levels in the records ("MODEL 50.0 100.0").
     GuiSimulationToolFix{.scenario = "simulations", .step = 3, .bug = 32},
     GuiSimulationToolFix{.scenario = "simulations", .step = 3, .bug = 33},
     // The undo of the cancelled edit of Simulation 2.

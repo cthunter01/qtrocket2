@@ -16,7 +16,7 @@
         {"addLevel": true},
         {"cell": {"row": 2, "column": "altitude", "text": "50"}},
         {"columnUnit": {"column": "altitude", "unit": "ft"}},
-        {"deleteLevel": 1},
+        {"deleteLevel": 0},
         {"altitudeReference": "AGL"}
       ], "button": "close"}},
       {"field": "LaunchRodLength", "text": "1.5", "unit": "m"},

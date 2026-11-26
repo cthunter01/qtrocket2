@@ -41,6 +41,15 @@ namespace QtRocket::Gui::Test
 /// run dialog's failures and the CSV import settings' messages are asked of this object, never
 /// shown in a dialog of their own: they reach the script (a message is recorded there, any other
 /// question fails the test).
+///
+/// So runSimulations() and askWindCsvImportSettings() repeat the bodies of WidgetUserPrompts'
+/// (gui/src/main/WidgetUserPrompts.cpp) with these prompts in place of the WidgetUserPrompts, and
+/// the exit suite does not run WidgetUserPrompts' own: those are tested by
+/// SimulationRunDialogTest.WidgetUserPromptsRunTheSimulationsInTheRunDialog and
+/// WidgetUserPromptsShowAFailureAsAMessageOverTheRunDialog
+/// (tests/gui/dialogs/simulation/SimulationRunDialogTests.cpp) and by
+/// CsvImportSettingsDialogTest.WidgetUserPromptsAsksWithTheDialog (CsvImportSettingsDialogTests.cpp
+/// beside it). A change of either body in WidgetUserPrompts is made here too.
 class SimulationsPrompts final : public FlightConfigurationPrompts
 {
 public:

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <deque>
 #include <filesystem>
@@ -46,9 +47,12 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QString>
+#include <QStyle>
+#include <QStyleOptionButton>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
 #include <QVariant>
 #include <QWidget>
@@ -408,18 +412,46 @@ void addMessageParts(const QLayout& layout, GuiQuestion& question)
 
 // ============================================================================ the widgets
 
-/// A click on @p button, which must be shown and enabled; what went wrong, or "".
-[[nodiscard]] std::string click(QAbstractButton& button, std::string_view name)
+/// Why a user cannot click @p button, named @p name: it is not shown, or disabled; "" when a user
+/// can.
+[[nodiscard]] std::string unclickable(const QAbstractButton& button, std::string_view name)
 {
     if (!button.isVisible())
     {
         return std::format("the button {} is not shown", name);
     }
-    if (!button.isEnabled())
+    return button.isEnabled() ? std::string() : std::format("the button {} is disabled", name);
+}
+
+/// Where a user clicks @p button: a check box or a radio button on its indicator and text (its
+/// style's click rectangle: its own rectangle can be wider, a click beside the text does nothing),
+/// another button in its middle.
+[[nodiscard]] QPoint clickPoint(const QAbstractButton& button)
+{
+    const bool checkBox = qobject_cast<const QCheckBox*>(&button) != nullptr;
+    if (!checkBox && qobject_cast<const QRadioButton*>(&button) == nullptr)
     {
-        return std::format("the button {} is disabled", name);
+        return button.rect().center();
     }
-    QTest::mouseClick(&button, Qt::LeftButton);
+    QStyleOptionButton option;
+    option.initFrom(&button);
+    option.text     = button.text();
+    option.icon     = button.icon();
+    option.iconSize = button.iconSize();
+    return button.style()
+        ->subElementRect(checkBox ? QStyle::SE_CheckBoxClickRect : QStyle::SE_RadioButtonClickRect,
+                         &option, &button)
+        .center();
+}
+
+/// A click on @p button, which must be shown and enabled; what went wrong, or "".
+[[nodiscard]] std::string click(QAbstractButton& button, std::string_view name)
+{
+    if (std::string refused = unclickable(button, name); !refused.empty())
+    {
+        return refused;
+    }
+    QTest::mouseClick(&button, Qt::LeftButton, Qt::NoModifier, clickPoint(button));
     return {};
 }
 
@@ -695,9 +727,40 @@ template <class E>
     return text;
 }
 
+/// Whether @p action of the lookup dialog must change what the dialog shows (the tool's lookup()):
+/// a separator, a text and a load whose file chooser is answered with Open do; Refresh and Clear
+/// are clicks on buttons, refused while disabled, and a cancelled load changes nothing.
+[[nodiscard]] bool lookupActionMustChange(const GuiLookupAction& action)
+{
+    switch (action.kind)
+    {
+        case GuiLookupActionKind::SEPARATOR:
+        case GuiLookupActionKind::TEXT:
+            return true;
+        case GuiLookupActionKind::LOAD:
+            return action.file.button == "open";
+        case GuiLookupActionKind::REFRESH:
+        case GuiLookupActionKind::CLEAR:
+            return false;
+    }
+    return false;
+}
+
 /// The model column of the name, where the scenario clicks a row (the tool's clickColumn(): a
 /// click on the status column runs a simulation).
 constexpr Column kClickColumn = Column::NAME;
+
+/// The failure of an answer whose button @p button left @p dialog open (the tool's answerInLoop():
+/// a dialog its answer does not close fails the step).
+[[nodiscard]] std::string leftOpen(std::string_view button, const QWidget& dialog)
+{
+    return std::format("the answer's {} left the dialog '{}' open", button,
+                       utf8(dialog.windowTitle()));
+}
+
+/// How long the run dialog may stay open after its Cancel before the scenario closes it: only a
+/// Cancel that never closes the dialog reaches it (the step would hang otherwise).
+constexpr std::chrono::seconds kRunDialogSafetyNet{120};
 
 /// Closes @p dialog, a dialog of a failed answer, so that the operation goes on.
 void rejectDialog(QWidget& dialog)
@@ -1009,10 +1072,22 @@ void rejectDialog(QWidget& dialog)
     return ScenarioInput::chooseUnit(selector, column, unit);
 }
 
+/// Refuses to set @p widget, @p what of the CSV import settings, unless a user can (the tool's
+/// requireSettable()): it is shown and enabled. What went wrong, or "".
+[[nodiscard]] std::string csvSettable(const QWidget& widget, const std::string& what)
+{
+    if (!widget.isVisible())
+    {
+        return what + " is not shown";
+    }
+    return widget.isEnabled() ? std::string() : what + " is disabled";
+}
+
 /// One row of the CSV import settings @p dialog as @p column answers it (the tool's
 /// csvColumn()): the column name typed, the index typed (committed as the focus leaves it:
-/// Return would click OK, the dialog's default button) and the unit chosen; what went wrong, or
-/// "".
+/// Return would click OK, the dialog's default button) and the unit chosen, each only while it
+/// is shown (the name with the header box on, the index with it off) and enabled, and refused
+/// when it shows that value already; what went wrong, or "".
 [[nodiscard]] std::string csvColumnEdit(const CsvImportSettingsDialog&            dialog,
                                         const QtRocket::Test::GuiCsvColumnAnswer& column)
 {
@@ -1031,8 +1106,17 @@ void rejectDialog(QWidget& dialog)
     const CsvRow row = *found;
     if (column.name.has_value())
     {
-        if (std::string problem =
-                typeText(dialog.columnField(row), column.row + "ColumnField", *column.name);
+        QLineEdit& field = dialog.columnField(row);
+        if (std::string problem = csvSettable(field, "the column name of " + column.row);
+            !problem.empty())
+        {
+            return problem;
+        }
+        if (field.text() == QtStrings::fromUtf8(*column.name))
+        {
+            return std::format("the column name of {} is {} already", column.row, *column.name);
+        }
+        if (std::string problem = typeText(field, column.row + "ColumnField", *column.name);
             !problem.empty())
         {
             return problem;
@@ -1041,9 +1125,14 @@ void rejectDialog(QWidget& dialog)
     if (column.index.has_value())
     {
         QSpinBox& spinner = dialog.columnSpinner(row);
-        if (!spinner.isVisible())
+        if (std::string problem = csvSettable(spinner, "the column index of " + column.row);
+            !problem.empty())
         {
-            return "the column index of " + column.row + " is not shown";
+            return problem;
+        }
+        if (spinner.value() == *column.index)
+        {
+            return std::format("the column index of {} is {} already", column.row, *column.index);
         }
         typeInto(spinner, QString::number(*column.index));
         spinner.clearFocus();
@@ -1053,9 +1142,20 @@ void rejectDialog(QWidget& dialog)
             return "the column index of " + column.row + " does not take its value";
         }
     }
-    return column.unit.has_value()
-               ? ScenarioInput::chooseUnit(dialog.unitSelector(row), column.row, *column.unit)
-               : std::string();
+    if (!column.unit.has_value())
+    {
+        return {};
+    }
+    UnitSelector& selector = dialog.unitSelector(row);
+    if (std::string problem = csvSettable(selector, "the unit of " + column.row); !problem.empty())
+    {
+        return problem;
+    }
+    if (selector.getSelectedUnit().getUnit() == *column.unit)
+    {
+        return std::format("the unit of {} is {} already", column.row, *column.unit);
+    }
+    return ScenarioInput::chooseUnit(selector, column.row, *column.unit);
 }
 
 /// A click on @p ok or @p cancel of the dialog @p what as @p button says ("ok", "cancel"); what
@@ -1444,6 +1544,12 @@ std::string SimulationsScenario::settingsOperation(const GuiScenarioStep& step)
     {
         return "the tab has no such button";
     }
+    const std::string_view name = isNew ? "New simulation" : "Edit simulation";
+    // A button a user cannot click opens no dialog for the answer to wait for.
+    if (std::string refused = unclickable(*button, name); !refused.empty())
+    {
+        return refused;
+    }
     bool opened = false;
     {
         const QtRocket::Test::GuiSettingsAnswer& answer = *step.settings;
@@ -1451,7 +1557,7 @@ std::string SimulationsScenario::settingsOperation(const GuiScenarioStep& step)
             opened = true;
             answerSettings(shown, answer);
         });
-        problem = clickWithAnswers(*button, isNew ? "New simulation" : "Edit simulation");
+        problem = clickWithAnswers(*button, name);
     }
     if (const std::string inside = answerProblems(); problem.empty())
     {
@@ -1755,6 +1861,10 @@ std::string SimulationsScenario::windLevelsEdit(SimulationConfigDialog&    dialo
     {
         return shown;
     }
+    if (std::string refused = unclickable(button, "Edit levels"); !refused.empty())
+    {
+        return refused;
+    }
     bool        opened = false;
     std::string problem;
     {
@@ -1779,6 +1889,10 @@ std::string SimulationsScenario::lookupEdit(SimulationConfigDialog& dialog,
     if (std::string shown = bringIntoView(button); !shown.empty())
     {
         return shown;
+    }
+    if (std::string refused = unclickable(button, "Configure..."); !refused.empty())
+    {
+        return refused;
     }
     bool        opened = false;
     std::string problem;
@@ -1846,6 +1960,7 @@ void SimulationsScenario::answerWindEditor(QWidget& shown, const GuiWindEditorAn
     fail(problem);
     if (!alive.isNull() && editor->isVisible())
     {
+        fail(leftOpen(answer.button, *editor));
         editor->reject();
     }
 }
@@ -1924,6 +2039,10 @@ void SimulationsScenario::answerCsvSettings(QWidget& shown, const GuiCsvImportAn
                       ? std::string("the header box is in that state already")
                       : click(dialog->hasHeaderCheckBox(), "CSV file has a header row");
         settle();
+        if (problem.empty() && dialog->hasHeaderCheckBox().isChecked() != *answer.hasHeader)
+        {
+            problem = "a click on the header box leaves it as it was";
+        }
     }
     for (const QtRocket::Test::GuiCsvColumnAnswer& column : answer.columns)
     {
@@ -1942,6 +2061,7 @@ void SimulationsScenario::answerCsvSettings(QWidget& shown, const GuiCsvImportAn
                          : problem);
     if (dialog->isVisible())
     {
+        fail(leftOpen(answer.button, *dialog));
         dialog->reject();
     }
 }
@@ -1980,6 +2100,7 @@ void SimulationsScenario::answerLookup(QWidget& shown, const GuiLookupAnswer& an
                          : problem);
     if (!alive.isNull() && dialog->isVisible())
     {
+        fail(leftOpen(answer.button, *dialog));
         dialog->reject();
     }
 }
@@ -2000,8 +2121,15 @@ std::string SimulationsScenario::lookupSection(
         {
             break;
         }
-        problem = lookupAction(dialog, section, action);
+        const GuiLookupState before = lookupState(dialog);
+        problem                     = lookupAction(dialog, section, action);
         settle();
+        if (problem.empty() && !alive.isNull() && lookupActionMustChange(action) &&
+            before == lookupState(dialog))
+        {
+            problem = std::format("the {} action left the lookup dialog as it was",
+                                  kLookupSections.at(static_cast<std::size_t>(section)));
+        }
     }
     return problem;
 }
@@ -2088,6 +2216,7 @@ void SimulationsScenario::answerConfirm(QWidget& shown, const GuiConfirmAnswer& 
     fail(problem);
     if (dialog->isVisible())
     {
+        fail(leftOpen(answer.button, *dialog));
         dialog->reject();
     }
 }
@@ -2124,6 +2253,17 @@ void SimulationsScenario::answerRun(QWidget& shown)
         return;
     }
     fail(click(*buttons.front(), "Cancel"));
+    // Cancel closes the dialog once the executor has reported its cancelled jobs, in a later turn
+    // of the dialog's event loop. A Cancel that does not would leave the step waiting for ever (the
+    // executor runs nothing): the safety net, which only a hang reaches, closes the dialog and
+    // fails the step. It goes with the dialog.
+    QTimer::singleShot(kRunDialogSafetyNet, dialog, [this, dialog] {
+        if (dialog->isVisible())
+        {
+            fail(leftOpen("cancel", *dialog));
+            dialog->QDialog::reject();
+        }
+    });
 }
 
 // -------------------------------------------------------------------------- the file choosers

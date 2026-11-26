@@ -1443,23 +1443,53 @@ final class SimulationQuestions {
 		}
 	}
 
-	/** One row of the CSV import settings (@p prefix: altitude, speed, direction, stdDeviation). */
+	/**
+	 * One row of the CSV import settings (@p prefix: altitude, speed, direction, stdDeviation). Each field is set only
+	 * when a user can set it: shown (the name field with the header box on, the index spinner with it off: the row's
+	 * CardLayout shows one of them, CSVImportSettingsDialog.updateColumnFieldValidation()) and enabled; a value the
+	 * field shows already is refused.
+	 */
 	private static void csvColumn(CSVImportSettingsDialog dialog, String prefix, JsonObject column) {
 		Questions.members(column, Set.of(), Set.of("name", "index", "unit"));
 		if (column.has("name")) {
 			JTextField field = (JTextField) Reflection.get(CSVImportSettingsDialog.class, dialog,
 					prefix + "ColumnField");
-			field.setText(Questions.string(column, "name"));
+			requireSettable(field, "the column name of " + prefix);
+			String name = Questions.string(column, "name");
+			if (name.equals(field.getText())) {
+				throw new IllegalStateException("the column name of " + prefix + " is " + name + " already");
+			}
+			field.setText(name);
 		}
 		if (column.has("index")) {
 			JSpinner spinner = (JSpinner) Reflection.get(CSVImportSettingsDialog.class, dialog,
 					prefix + "ColumnSpinner");
-			spinner.setValue(column.get("index").getAsInt());
+			requireSettable(spinner, "the column index of " + prefix);
+			int index = column.get("index").getAsInt();
+			if (Integer.valueOf(index).equals(spinner.getValue())) {
+				throw new IllegalStateException("the column index of " + prefix + " is " + index + " already");
+			}
+			spinner.setValue(index);
 		}
 		if (column.has("unit")) {
 			UnitSelector selector = (UnitSelector) Reflection.get(CSVImportSettingsDialog.class, dialog,
 					prefix + "UnitSelector");
-			selector.setSelectedUnit(Questions.unit(selector.getUnitGroup(), Questions.string(column, "unit")));
+			requireSettable(selector, "the unit of " + prefix);
+			Unit unit = Questions.unit(selector.getUnitGroup(), Questions.string(column, "unit"));
+			if (selector.getSelectedUnit() == unit) {
+				throw new IllegalStateException("the unit of " + prefix + " is " + unit.getUnit() + " already");
+			}
+			selector.setSelectedUnit(unit);
+		}
+	}
+
+	/** Refuses to set @p component (@p what) unless a user can: it is shown and enabled. */
+	private static void requireSettable(Component component, String what) {
+		if (!component.isShowing()) {
+			throw new IllegalStateException(what + " is not shown");
+		}
+		if (!component.isEnabled()) {
+			throw new IllegalStateException(what + " is disabled");
 		}
 	}
 
@@ -1529,12 +1559,23 @@ final class SimulationQuestions {
 				tabs.setSelectedIndex(section);
 			}
 			for (JsonElement action : answer.getAsJsonArray(name)) {
+				String before = lookupState(dialog).toString();
 				try {
 					lookupAction(dialog, (Container) tabs.getComponentAt(section), name, action.getAsJsonObject());
 				} catch (RuntimeException e) {
 					throw new IllegalStateException("the " + name + " action " + action + " failed", e);
 				}
 				flushQueue();
+				// An edit of the section (its separator, a file loaded with Open, its text) must change what the
+				// dialog shows, as the wind editor's edits must (Refresh and Clear are buttons, which the click
+				// refuses disabled; a load whose chooser is cancelled changes nothing).
+				JsonObject done = action.getAsJsonObject();
+				boolean edit = done.has("separator") || done.has("text") || (done.has("load")
+						&& "open".equals(Questions.string(done.getAsJsonObject("load"), "button")));
+				if (edit && before.equals(lookupState(dialog).toString())) {
+					throw new IllegalStateException("the " + name + " action " + action
+							+ " left the lookup dialog as it was");
+				}
 			}
 		}
 		question.add("answered", lookupState(dialog));

@@ -77,15 +77,22 @@ class SimulationsPrompts;
 ///     with their questions, then Close;
 ///   - the CSV import settings (CsvImportSettingsDialog): the header box, each row's column name
 ///     typed, index typed and unit chosen, the separator chosen in its box (SPACE and TAB for the
-///     space and the tab, another text typed into it), then OK or Cancel;
+///     space and the tab, another text typed into it), then OK or Cancel; a name only while the
+///     header box is on and an index while it is off (the row shows one of them), each setting
+///     shown, enabled and other than the one shown;
 ///   - the file choosers of the wind import and of the lookup dialog: the script's answer (Qt's own
 ///     file dialog is shown by no test but WidgetFileDialogTest's), the step's file in the
 ///     repository (guiRepositoryFile()) or Cancel;
 ///   - the aerodynamic lookup dialog (AerodynamicLookupDialog): per section its tab clicked, then
 ///     its actions: the separator chosen, "Load from file..." with its file chooser, the text
 ///     pasted over the text area's (select all, then the text inserted in one edit, as OpenRocket's
-///     tool sets it), Refresh, Clear; then OK or Cancel;
-///   a dialog that does not open, or an answer no dialog took, fails the step;
+///     tool sets it), Refresh, Clear; then OK or Cancel; a separator, a text and a load whose
+///     file chooser is answered with Open must change what the dialog shows;
+///   a dialog that does not open, an answer no dialog took, and an answer whose button leaves its
+///   dialog open fail the step (a run dialog its Cancel leaves open, which would never close, is
+///   closed by a safety net after two minutes);
+///   check boxes and radio buttons are clicked on their indicator and text (the style's click
+///   rectangle), other buttons in their middle;
 /// - the steps of versions 1 and 2 (open, undo, redo, Save as and its steps) as
 ///   FlightConfigurationScenario does them.
 /// A step the GUI does not allow (a disabled button or action, a field the dialog does not show or

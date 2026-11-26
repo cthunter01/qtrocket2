@@ -12,9 +12,10 @@ plan section 11.6 E6), which does the same in QtRocket's GUI.
   - Edit of Simulation 1 cancelled without a change (no question, nothing changed);
   - Edit of Simulation 1: renamed "Simulation 1 - wind levels"; the multi-level wind chosen and its
     levels edited in the wind editor (two levels added, the speed of the second 6 m/s, the third's
-    altitude 50 m, which puts it between the others, the altitude column in feet, the level at 50 m
-    deleted with "Delete level", the altitude reference AGL); the launch rod 1.5 m; launch into wind
-    off; OK, whose run of the simulation is cancelled before it starts;
+    altitude 50 m, which puts it between the others, the altitude column in feet, the level at 0 m
+    deleted with "Delete level", so that the 50 m level stays below the 100 m one, the altitude
+    reference AGL); the launch rod 1.5 m; launch into wind off; OK, whose run of the simulation is
+    cancelled before it starts;
   - Simulation 2 selected and edited on the options and warnings pages: the RK6 stepper, the WGS84
     geodetic method, a constant gravity of 9.8 m/s², the time step 0.02 s, the maximum time 600 s, the
     fixed random seed 12345, the recovery warning at 25 m/s and the dual deployment's high speed
@@ -80,7 +81,9 @@ with the fix made by the tool (its member `toolFixes`, the records `kGuiSimulati
 (`guiExpectedRecord()`), or the scenario avoids the bug, as the tool's README lists:
 
 - Bug 32: the third level's altitude edit (step 3) leaves OpenRocket's levels out of order; the tool sorts
-  them, as QtRocket's table does.
+  them, as QtRocket's table does. The level the step then deletes is the 0 m one, so that the order shows:
+  the wind editor's model line reads `MODEL 50.0 100.0` (`MODEL 100.0 50.0` without the fix), and so do
+  Simulation 1's options lines (`multi=AGL(50.0,...)(100.0,...)`) until the import of step 25.
 - Bug 33: "Delete level" (step 3) deletes the selected level, as QtRocket's does (OpenRocket's never does with
   the mouse).
 - Bug 34: the space-separated import (step 26) splits at a space, as QtRocket's does (OpenRocket's at the word

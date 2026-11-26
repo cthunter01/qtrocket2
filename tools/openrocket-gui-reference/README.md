@@ -84,8 +84,9 @@ The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from
 its modal loop, as `Questions` answers OpenRocket's) and `tests/gui/exit/simulations_exit_tests.cpp`
 (`SimulationsExitGolden`, the driver `SimulationsScenario` with the questions of `SimulationsPrompts`,
 which answers the settings dialog, the wind editor, the CSV import settings, the lookup dialog, the run
-dialog and the confirmations as `SimulationQuestions` answers OpenRocket's; its application's executor
-runs no simulation, and the file choosers are the test script's). After every step they compare what
+dialog and the confirmations as `SimulationQuestions` answers OpenRocket's, and refuses the steps and answers
+the tool refuses, which `SimulationsScenarioTests.cpp` checks; its application's executor runs no
+simulation, and the file choosers are the test script's). After every step they compare what
 QtRocket's GUI shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record
 of versions 2 and 3 after `guiExpectedRecord()`, which makes the expected differences, and in version 3
 the Undo item after the cancelled New simulation, which the exit test lists), and then compare the save
@@ -395,7 +396,7 @@ step:
 | 27: no Paste into an empty list or without a selected row | Paste without a selected row is a disabled action, which the tool refuses. The records hold OpenRocket's state of the action (`pasteSimulation` false); QtRocket's Paste is enabled while simulations are on the clipboard (the record's `clipboardSimulations`) and a row is selected or the table is shown, which `guiExpectedRecord()` of `GoldenGuiReference.h` makes |
 | 29: Cancel undoes the user's previous change after an edit `SimulationOptions.equals()` ignores (the geodetic method, launch into wind, the standard atmosphere, the lookup tables' files); 30: Cancel of a new simulation after an edit keeps it | The tool fails on a New or Edit whose Cancel leaves the simulations or the component tree otherwise than they were before the step: QtRocket's Cancel gives them back. It also fails on a Cancel after edits that OpenRocket's settings dialog does not see as a change (no `* ` in its title: the wind editor's, a lookup table cleared), whose Cancel closes the dialog without the discard question and keeps them |
 | 31: two wind levels can get the same altitude (then both are deleted, and the saved design cannot be opened) | Refused: a cell edit that gives a level the altitude of another |
-| 32: the levels are not re-sorted after an altitude edit | Fixed: the model sorted after an altitude edit that put its levels out of order (`MultiLevelPinkNoiseWindModel.sortLevels()`), `{"bug": 32, ...}` |
+| 32: the levels are not re-sorted after an altitude edit | Fixed: the model sorted after an altitude edit that put its levels out of order (`MultiLevelPinkNoiseWindModel.sortLevels()`), `{"bug": 32, ...}`; a scenario shows the fix only when the edited level stays in the record (`simulations` deletes another level after the edit: its model line reads `MODEL 50.0 100.0`, `MODEL 100.0 50.0` without the fix) |
 | 33: "Delete level" never works with the mouse (the button takes the focus, which deselects the row and disables the button) | Fixed: `deleteLevel` selects the row as a click on one of its fields does (`MultiLevelWindTable.selectRow`, the rows' `focusGained`) and clicks "Delete level", which the tool's click does without moving the focus, so that the selected level is deleted, `{"bug": 33, ...}` |
 | 34: the CSV import with SPACE or TAB splits at the word and stores the word as the export separator | Fixed: the settings dialog's separator box is given the separator itself before OK, which the import then splits at and the preference stores, `{"bug": 34, ...}` (the record's `answered` shows the box's item, SPACE or TAB, as the user chose it) |
 | 35: the missing key `simedtdlg.error.temperatureTooLow` (a temperature at or below -80 °C without the standard atmosphere) | Refused: such a temperature, or the standard atmosphere turned off below it |
@@ -421,7 +422,11 @@ Besides those of version 2, the recorded run checks every step of version 3:
   Cancel's undo, which gives it back;
 - every edit of a dialog changes what it edits: a field given the value it has, a box given the state or the
   item it shows and a tab that is the current one are refused (but "Save as default", the wind editor, the
-  lookup dialog, Reset levels and Import levels, whose own edits are checked);
+  lookup dialog, Reset levels and Import levels, whose own edits are checked: an edit of the wind editor, and a
+  separator, text or load (its file chooser answered with Open) action of the lookup dialog, must change what
+  the dialog shows; a CSV import setting must differ from the one shown);
+- a column name or index of the CSV import settings is set only while it is shown (the name with the header
+  box on, the index with it off: the row shows one of them) and enabled, as its unit;
 - a field is set only when a user can set it: brought into view as a user does it (its tab, the warnings page's
   Configuration sub-tab, a collapsed section expanded), it must be shown (not on another card of its panel: the
   constant gravity with the WGS model, the average wind with the multi-level one) and enabled (the temperature
@@ -715,7 +720,7 @@ The committed scenario of version 3 (its directory's README.md tells it step by 
 - `simulations`, 34 steps, on the flight-configurations reference (three configurations, three simulations
   without data, the third without motors): the tab; an edit of Simulation 1 cancelled without a change;
   Simulation 1 renamed and given a multi-level wind in the wind editor (two levels added, a speed and an
-  altitude edited, the altitude unit in feet, a level deleted with Delete level, AGL), a rod length and launch
+  altitude edited, the altitude unit in feet, the 0 m level deleted with Delete level, AGL), a rod length and launch
   into wind off, OK with its run cancelled; Simulation 2's options (RK6, WGS84, a constant gravity, the time
   step and the maximum time, a fixed seed), two warning thresholds (one in the collapsed dual deployment
   section), a drag lookup table loaded from a file and edited, the standard atmosphere off and a temperature,
