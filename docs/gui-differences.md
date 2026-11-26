@@ -686,6 +686,13 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
 - When the table's CSV file cannot be written, QtRocket says "Error writing file" ("An error occurred while
   writing to the file:" and the reason). OpenRocket shows a message titled "Message" with the error's text alone
   (`simulation/SimulationPanel.h`).
+- The Undo item after New simulation, when the last settings dialog's edits were ones the Undo item does not
+  show in either program (such as a wind import in the wind profile editor or "Clear" of the aerodynamic lookup
+  tables: the item keeps the text it had). OpenRocket's new simulation tells the design of its name before it is
+  added, and that names the undo step of those edits after their settings dialog. So once the new simulation
+  is cancelled or undone, OpenRocket's Undo item names that dialog ("Undo (Edit Simulation 2)"), where
+  QtRocket's reads "Undo": its design hears a simulation only once it is in the list
+  (`simulation/Simulation.h` in the core).
 
 ## The simulation settings dialog
 

@@ -75,7 +75,9 @@ the workflow or create a tag only when the user asks.
     `tests/core/plot/SimulationPlotGoldens.h` (the plot goldens' reader, the GUI's plot tests too),
     `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h`, `RecordedOrkFiles.h` and
     `OpenRocketSaverTestMotors.h` in `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h` (with
-    `GoldenGuiReference.h`, the GUI reference's scenario and records) and `GuiReferenceEnvironment.h`,
+    `GoldenGuiReference.h`, the GUI reference's scenarios and records, and `guiSimulationStates()`, a document's
+    simulations as the records hold them), `GuiReferenceEnvironment.h` and `GuiInteropInputs.h` (the inputs of
+    the GUI's interop saves),
     `tests/core/figure/FigureTestSupport.h`, `ShapePinSupport.h` and `DesignPinSupport.h`,
     `tests/core/cli/CliRunSupport.h`
   - GUI (`tests/gui/`, namespace `QtRocket::Gui::Test`): `GuiTestSupport.h` (the fixture `GuiTest`),
@@ -99,16 +101,20 @@ the workflow or create a tag only when the user asks.
     the tab's actions and menus against the `simulation-table` pins), `figure/RocketInfoFlightPins.h` and
     `RocketInfoFlightPinChecks.h` (the flight block), `plot/SimulationPlotGoldenChecks.h` (a simulation plot
     against the core's plot goldens), `dialogs/plot/PlotDialogTestSupport.h`, `PlotPanelTestSupport.h`,
-    `exit/OpenDesigns.h` (the 66 designs of the open-design exits, loaded as they load them) and
-    `OpenDesignWindows.h` (windows opened through File > Open)
+    `exit/OpenDesigns.h` (the 66 designs of the open-design exits, loaded as they load them),
+    `OpenDesignWindows.h` (windows opened through File > Open), `SimulationsScenario.h` (the simulations
+    scenario's driver; `simulationsTabState()`, the tab as the records hold it), `SimulationsPrompts.h` (answers
+    queued for the tab's questions, each given in QtRocket's own dialog) and `InteropSaves.h` (where the interop
+    writers save)
   - and the `*Support.h`, `*Pins.h` and `*Transcript.h` headers beside each subsystem's or area's tests
   - the bundled motor and preset databases are read once per test process (the presets take a second and a
     half, several under ASan), never per test; only the tests that start the application as `main()` does
     (`app/`, `exit/`) read them for each `ApplicationContext` (the presets only when a test asks for them);
     models, choosers and `QAbstractItemModelTester` take the small ones
 - `tests/data/`: test fixtures (`ork/`, `motors/`, `csv/`, `cli/`, `fin-images/`, ...) and `goldens/`, OpenRocket's
-  results for the 16 examples and the 13 test rockets (generated; never edited by hand), with the GUI reference
-  `goldens/gui/from-scratch/` (`scenario.json`, its input, is written by hand)
+  results for the 16 examples and the 13 test rockets (generated; never edited by hand), with the GUI reference's
+  scenarios `goldens/gui/from-scratch/`, `flight-configurations/`, `multi-stage/` and `simulations/` (each
+  `scenario.json`, the input, is written by hand)
 - `data/`: the shipped data, installed to `share/QtRocket/`: `motors/initial_motors.db` (OpenRocket's motor
   database) with `metadata.json` (its version), `components/` (the bundled presets, byte for byte: `database/`,
   the Apache-2.0 openrocket-database, and `internal/`, OpenRocket's legacy files) and `examples/*.ork`
@@ -116,7 +122,8 @@ the workflow or create a tag only when the user asks.
 - `tools/`: the Java programs that write the generated data, mostly from OpenRocket's compiled classes, each with
   a README that says how to run it; never built by CMake or CI. `openrocket-goldens/` (`tests/data/goldens/`; its
   `figure-pins/`: the core's figure pin tables), `openrocket-test-documents/` (`goldens/test-documents/`),
-  `openrocket-gui-reference/` (`goldens/gui/from-scratch/`), `openrocket-gui-pins/` (the GUI tests' pin tables,
+  `openrocket-gui-reference/` (`goldens/gui/<scenario>/`, the exit scenarios; schema version 3, the scenario
+  `simulations`, adds the Flight simulations tab), `openrocket-gui-pins/` (the GUI tests' pin tables,
   one subdirectory per family), `openrocket-panel-pins/` (the configuration panels' pins),
   `openrocket-component-factory/` (`tests/data/component-factory/`), `openrocket-expression-parser/`
   (`src/util/ExpressionParserTables.h` and its parity cases), `openrocket-fin-import/` (`tests/data/fin-images/`),
@@ -310,7 +317,10 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
 - Exit suites (`tests/gui/exit/`): `FromScratchExitGolden` builds the rocket of
   `tests/data/goldens/gui/from-scratch/scenario.json` through the GUI alone (no core setter), saves it and compares
   every step and the save with OpenRocket's (`FlightConfigurationsExitGolden` the same in the "Motors &
-  Configuration" tab); `OpenDesignsExitGolden` opens the examples, the re-saves and that reference through File >
+  Configuration" tab, `SimulationsExitGolden` in the "Flight simulations" tab and its dialogs, where the
+  application's `ManualSimulationExecutor` never runs and each run dialog is cancelled; its expected differences:
+  `guiExpectedRecord()` and the test's `kUndoDifferences`); `OpenDesignsExitGolden` opens the examples, the
+  re-saves and that reference through File >
   Open and compares the tree, the dialogs, the figure, the overlay, the two tabs and the settings dialog of every
   simulation with the goldens and the pins (`OpenDesignsExitGoldenPartsLibrary` the parts library of every
   component of the examples); `OpenDesignsFlightBlockExitGolden` and `OpenDesignsFlightBlockRunExitGolden` open
@@ -318,10 +328,16 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   and what the estimate runs; `SimulationPlotPresetsGolden` (`tests/gui/dialogs/plot/`) plots every stored
   simulation of the examples in the nine presets through the plot dialog. A scenario change is followed by
   `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do in OpenRocket's own GUI (the
-  tool refuses a disabled button or Automatic box, but no other disabled field). The
-  DISABLED_ `FromScratchInteropSave` writes the save into `build/<preset>/interop-saves/` (after the core's
-  `OrkInteropSaves`, which removes it as an earlier save) for `tools/openrocket-goldens/interop.sh`, which checks it
-  as the input `gui-from-scratch` against OpenRocket's save of the scenario
+  tool refuses a disabled button or Automatic box, but no other disabled field, and in the simulations tab the
+  steps that meet OpenRocket bugs 29-31, 35, 37 and 38; it fixes bugs 6, 32, 33 and 34 in OpenRocket's run and
+  records the fix: `toolFixes`, `kGuiSimulationToolFixes`). The DISABLED_ writers `FromScratchInteropSave`,
+  `FlightConfigurationsInteropSave`, `SimulationsInteropSave` and `FlightDataInteropSave` (the first simulation of
+  two examples run with the Run button on the application's own executor, saved with its flight data) write their
+  saves into `build/<preset>/interop-saves/` (`exit/InteropSaves.h`; after the core's `OrkInteropSaves`, which
+  removes them as earlier saves) for `tools/openrocket-goldens/interop.sh`, which checks them as the inputs
+  `gui-from-scratch`, `gui-<scenario>` and `gui-run-<example>` against OpenRocket's save of the scenario, or for a
+  run against OpenRocket's own reading of the flight; a new GUI input goes into `GuiInteropInputs.h`
+  (`guiInteropInputs()`) and `InteropCheck` alike
 - Traps: `QCoreApplication::processEvents()` does not run `deleteLater()` (`sendPostedEvents(nullptr,
   QEvent::DeferredDelete)`), nor does a new palette reach the widgets before `sendPostedEvents()`; inside a
   `TEST_F` body `Test::` is `testing::Test` (write `Gui::Test::`); `QTest::mouseDClick()` sends the double click
