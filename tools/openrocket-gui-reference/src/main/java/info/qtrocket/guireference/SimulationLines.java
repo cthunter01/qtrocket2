@@ -128,6 +128,19 @@ final class SimulationLines {
 		return f.getDouble(o);
 	}
 
+	/**
+	 * The ten lines of @p options as CondProbe prints them (describeConditions() of
+	 * tests/core/file/openrocket/ConditionsTestSupport.h), all of them, the baseline's too: what the records of a
+	 * version 3 scenario hold of each simulation's options (README.md, "state.json"). Nothing is changed.
+	 */
+	static List<String> optionLines(SimulationOptions options) {
+		try {
+			return List.of(options(options));
+		} catch (Exception e) {
+			throw new IllegalStateException("cannot describe the options", e);
+		}
+	}
+
 	private static String[] options(SimulationOptions o) throws Exception {
 		StringBuilder levels = new StringBuilder();
 		for (MultiLevelPinkNoiseWindModel.LevelWindModel l : o.getMultiLevelWindModel().getLevels()) {

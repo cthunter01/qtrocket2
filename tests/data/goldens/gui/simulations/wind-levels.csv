@@ -1,0 +1,4 @@
+altitude,speed,direction,stddev
+0,2,90,0.2
+250,4.5,120,0.5
+600,7,135,0.8

@@ -40,12 +40,12 @@
 #include <system_error>
 #include <vector>
 
-#include <QCoreApplication>
 #include <QString>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "InteropSaves.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
@@ -56,7 +56,6 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/util/GuiServices.h"
-#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "ScriptedUserPrompts.h"
@@ -66,6 +65,7 @@
 #include "file/openrocket/DesignFileState.h"
 #include "goldens/GoldenGuiReference.h"
 #include "goldens/GoldenResaves.h"
+#include "goldens/GuiInteropInputs.h"
 #include "goldens/GuiReferenceEnvironment.h"
 
 namespace QtRocket::Gui
@@ -354,30 +354,14 @@ TEST_F(FromScratchExitGolden, TheSaveIsTheTextOfOpenRocketsSave)
 
 // ============================================================================ (c) the interop
 
-/// The command-line argument that names the directory of the interop check's saves.
-constexpr std::string_view kInteropArgument = "--interop-saves=";
-
-/// The directory of the interop check's saves: the one --interop-saves=<directory> names on the
-/// command line (GoogleTest keeps the arguments it does not know), else interop-saves in the
-/// build tree, the directory above the bin/ of the test program (build/<preset>/interop-saves),
-/// as for the core's saves (tests/core/goldens/ork_interop_saves_tests.cpp).
-[[nodiscard]] std::filesystem::path interopSavesDirectory()
+/// The name of the save in the directory of the interop check's saves (interopSavesDirectory() of
+/// InteropSaves.h): <input>.<form>.ork, the input "gui-from-scratch" (kGuiFromScratchInput of
+/// GuiInteropInputs.h: the GUI's reference, tests/data/goldens/gui/from-scratch) and the form
+/// "zip-nodata" (an .ork archive without simulation data: the design has no simulation).
+[[nodiscard]] std::string interopSaveName()
 {
-    for (const std::string& argument : ::testing::internal::GetArgvs())
-    {
-        if (argument.starts_with(kInteropArgument))
-        {
-            return pathFromUtf8(std::string_view(argument).substr(kInteropArgument.size()));
-        }
-    }
-    return QtStrings::toPath(QCoreApplication::applicationDirPath()).parent_path() /
-           "interop-saves";
+    return std::format("{}.zip-nodata.ork", QtRocket::Test::kGuiFromScratchInput);
 }
-
-/// The name of the save in that directory: <input>.<form>.ork, the input "gui-from-scratch" (the
-/// GUI's reference, tests/data/goldens/gui/from-scratch) and the form "zip-nodata" (an .ork
-/// archive without simulation data: the design has no simulation).
-constexpr std::string_view kInteropSave = "gui-from-scratch.zip-nodata.ork";
 
 // The fixture of the interop check's save, a suite of its own (no "Golden" in its name: ctest
 // lists it disabled, as the core's OrkInteropSaves).
@@ -393,7 +377,7 @@ using FromScratchInteropSave = FromScratchExitGolden;
 //
 // clang-format off
 //   build/<preset>/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
-//   build/<preset>/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='FromScratchInteropSave.*'
+//   build/<preset>/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='*InteropSave*'
 //   tools/openrocket-goldens/interop.sh build/<preset>/interop-saves
 // clang-format on
 //
@@ -405,15 +389,10 @@ TEST_F(FromScratchInteropSave, DISABLED_WritesTheSaveForTheInteropCheck)
     ASSERT_EQ(runScenario(), "");
     const std::filesystem::path file = savedFile();
     ASSERT_FALSE(file.empty());
-    const std::filesystem::path directory = interopSavesDirectory();
-    std::error_code             error;
-    std::filesystem::create_directories(directory, error);
-    ASSERT_FALSE(error) << pathToUtf8(directory) << ": " << error.message();
-    const std::filesystem::path target = directory / pathFromUtf8(kInteropSave);
-    std::filesystem::copy_file(file, target, std::filesystem::copy_options::overwrite_existing,
-                               error);
-    ASSERT_FALSE(error) << pathToUtf8(target) << ": " << error.message();
-    std::println("{}", pathToUtf8(target));
+    const Result<std::filesystem::path> written =
+        Gui::Test::writeInteropSave(file, interopSaveName());
+    ASSERT_TRUE(written.has_value()) << written.error().message;
+    std::println("{}", pathToUtf8(written.value_or(std::filesystem::path())));
 }
 
 }  // namespace

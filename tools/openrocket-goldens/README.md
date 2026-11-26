@@ -25,7 +25,9 @@ port against these files. The data is committed; neither CMake nor CI ever needs
   [CSV export fixtures](#csv-export-fixtures)).
 - `interop.sh` and `src/main/java/info/qtrocket/goldens/InteropCheck.java`: the interop check of
   plan section 7, run by hand: OpenRocket reads the design files QtRocket saved (see
-  [Interop check](#interop-check)). It writes nothing into `tests/data`.
+  [Interop check](#interop-check)). It writes nothing into `tests/data`. `src/probe/SummaryRoundingProbe.java`
+  (compiled and run by hand only) is the probe behind its tolerance for the summary values of a flight
+  QtRocket ran.
 - `figure-pins/` (`generate.sh`, the probes `src/probe/BodyShapesProbe.java` and
   `FinMassShapesProbe.java`, the generators `gen_body_shape_pins.py` and `gen_fin_mass_shape_pins.py`)
   is not run by `generate.sh` either: it writes the pin tables of the figure's shape tests,
@@ -1060,7 +1062,22 @@ steps of `tests/data/goldens/gui/from-scratch/scenario.json`), saved with Save a
 `gui-<scenario>` (`InteropCheck.GUI_TAB_SCENARIOS`, which no manifest lists either): the design file
 each scenario of the Motors & Configuration tab opens, changed in QtRocket's tab by the steps of
 `tests/data/goldens/gui/<scenario>/scenario.json` in the exit test `FlightConfigurationsExitGolden`, and
-saved with Save as. The filter `*InteropSave*` runs the three writers.
+saved with Save as. `SimulationsInteropSave.DISABLED_WritesTheSaveForTheInteropCheck`
+(`tests/gui/exit/simulations_exit_tests.cpp`) adds the 69th, `gui-simulations.zip-nodata.ork`, the input
+`gui-simulations` (also in `GUI_TAB_SCENARIOS`): the design file the scenario of the Flight simulations
+tab opens, changed in QtRocket's tab and its dialogs by the steps of
+`tests/data/goldens/gui/simulations/scenario.json` in the exit test `SimulationsExitGolden` (no simulation
+runs), and saved with Save as. Last, the mode for flight data QtRocket ran (plan section 11.6 E7):
+`Flights/FlightDataInteropSave.DISABLED_WritesTheSaveForTheInteropCheck/<example>`
+(`tests/gui/exit/flight_data_interop_tests.cpp`) adds the 70th and 71st,
+`gui-run-example-a-simple-model-rocket.zip-data.ork` and `gui-run-example-clustered-motors.zip-data.ork`,
+the inputs `gui-run-<example>` (`InteropCheck.GUI_RUNS`, the C++ tests' `kGuiFlightRuns` of
+`tests/core/goldens/GuiInteropInputs.h`): the example opened with File > Open in QtRocket's running
+application, its first simulation run with the Run button of the Flight simulations tab on the
+application's own executor (its threads; the run dialog closes when the run is over), and the design saved
+with Save as, with the simulation data the file chooser offers (the examples' default). The filter
+`*InteropSave*` runs the four GUI writers (six tests; where they write: `tests/gui/exit/InteropSaves.h`),
+and the core's writer removes their saves of an earlier run with its own (`guiInteropInputs()`).
 
 | Inputs | Loaded by QtRocket | Saved as |
 |---|---|---|
@@ -1069,7 +1086,8 @@ saved with Save as. The filter `*InteropSave*` runs the three writers.
 | the 18 legacy files | from `tests/data/ork`, as `RecordedOrkFiles.h` records them | an archive with the simulation data; plain XML with it for `v1.6-apocd.ork`, whose archive OpenRocket cannot save either (`archiveError`) |
 | the 2 coverage documents | from their re-saves | an archive with the document's default storage options |
 | the GUI's from-scratch design | made in QtRocket's GUI (`FromScratchScenario`), not loaded; its input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/from-scratch/rocket.ork` (`tools/openrocket-gui-reference`) | Save as: an archive with the document's default storage options (no data: the design has no simulation) |
-| the 2 designs of the tab's scenarios | opened (File > Open) from the file the scenario names (the from-scratch save, the two-stage example's re-save) and changed in QtRocket's tab (`FlightConfigurationScenario`); the input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/<scenario>/rocket.ork` (`tools/openrocket-gui-reference`, version 2) | Save as: an archive with the document's default storage options (no data: the scenarios' simulations were never run) |
+| the 3 designs of the tabs' scenarios | opened (File > Open) from the file the scenario names (the from-scratch save, the two-stage example's re-save; the flight-configurations scenario's save for the simulations scenario) and changed in QtRocket's tab (`FlightConfigurationScenario`, `SimulationsScenario`); the input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/<scenario>/rocket.ork` (`tools/openrocket-gui-reference`, versions 2 and 3) | Save as: an archive with the document's default storage options (no data: the scenarios' simulations were never run) |
+| the 2 flights QtRocket ran | opened (File > Open) from `data/examples` in QtRocket's running application, the first simulation run in its Flight simulations tab on the application's executor (`FlightDataInteropSave`); the input is the example, loaded by OpenRocket as for its own saves | Save as: an archive with the simulation data (the document's default, which the file chooser offers) |
 
 `interop.sh` needs what `generate.sh` needs (Java 17; the OpenRocket checkout at the commit of the
 goldens with its preset submodule, without local changes, or `ALLOW_DIRTY=1`; it warns when the
@@ -1088,10 +1106,10 @@ give the mounts real motors of the same designations); the GUI's design in that 
 after its start-up, in which `tools/openrocket-gui-reference` loads the saved design (as
 `GuiReferenceEnvironment.h` of the C++ tests has it): no preset, no motor, and the default component
 materials the start-up stores (Balsa for fin sets, Polystyrene for nose cones), the test preferences
-otherwise (`InteropCheck.guiInjector()`); the designs of the tab's scenarios in that of version 2's
-start-up (`GuiReferenceEnvironment(Databases::BUNDLED)`): the bundled motors and component presets (the
-harness's: 1458 motor sets of 1588 motors, 5228 presets) with the same default component materials
-(`InteropCheck.guiTabInjector()`). The design file a scenario opens is the one its `state.json` names
+otherwise (`InteropCheck.guiInjector()`); the designs of the tabs' scenarios in that of the start-up of
+versions 2 and 3 (`GuiReferenceEnvironment(Databases::BUNDLED)`): the bundled motors and component presets
+(the harness's: 1458 motor sets of 1588 motors, 5228 presets) with the same default component materials
+(`InteropCheck.guiTabInjector()`); the flights QtRocket ran in the harness's, as their examples. The design file a scenario opens is the one its `state.json` names
 (`input.file`), with the SHA-256 recorded there; another one stops the check (exit status 1) before
 any file is read. With Q OpenRocket's load of QtRocket's save,
 O its load of the input and OO its load of its own save of O in the same form, a file passes when:
@@ -1129,6 +1147,29 @@ O its load of the input and OO its load of its own save of O in the same form, a
   the bits of every value of every type and its events) is that of O, or that of OO where OpenRocket's
   own save changes it (the report says how: a plain save without the data; the warning type above;
   the six decimal places and the recomputed summary values of a legacy file's first save);
+- a flight QtRocket ran (`GUI_RUNS`), which no load of OpenRocket's has and whose values nothing pins (a
+  fresh flight is chaotic: CLAUDE.md, Portability), is compared with OpenRocket's reading of QtRocket's
+  file instead (`checkRunFlights()`): the file holds it with its branches, and it is not the input's
+  flight (QtRocket ran it); the summary values QtRocket stored (the attributes of `<flightdata>`, which
+  OpenRocket's loader reads only for a simulation without branches) are those OpenRocket computes from the
+  branches it read (`FlightData.calculateInterestingValues()`), in its storage form
+  (`TextUtil.doubleToString` with six decimal places), or, where the rounding of the branches to that
+  precision can change a value, agree with the branches within it (`checkRunSummary()`,
+  `summaryAgreement()`: the time to apogee is the time of a row at the maximum altitude, the maximum
+  acceleration that before the first deployment or one time unit later, the three velocities interpolated at
+  an event (launch rod, deployment, ground hit) differ by at most two units of their last place and the change
+  two time units make along the rows the interpolation uses, the optimum delay by at most two units);
+  OpenRocket's re-save of Q writes the flight's `<flightdata>` element as QtRocket's file holds it, line for
+  line (the warnings, each branch's attributes, the events with their ids, every data point), but for the
+  summary values of its start tag, which it computes itself; and OpenRocket's load of that re-save gives no
+  warning and has the flight of Q bit for bit. The re-saves of Q and OO are compared without the
+  `<flightdata>` elements of these flights, and the flights of the other simulations are the input's. The
+  tolerance is OpenRocket's own: it computes the summary of its own run from the values before they are
+  rounded and stores both, so its load of its own save recomputes another last digit now and then (the
+  probe `src/probe/SummaryRoundingProbe.java`, run by hand as its comment says, ran the first simulation of
+  "A simple model rocket" and of "Clustered motors" 40 times each, seeds 0 to 39, and saved and loaded each
+  in OpenRocket: the deployment velocity changed in its last digit in 3 and 6 of the runs, nothing else
+  changed);
 - the decal images (by name, with the SHA-256 of their bytes, or unreadable as in OpenRocket's own
   plain save) are those of O, or of OO;
 - an archive has the entries of OpenRocket's own archive of O, in name and order, each with the same
@@ -1138,7 +1179,7 @@ O its load of the input and OO its load of its own save of O in the same form, a
 
 The allow-list (`InteropCheck.ALLOWED_WARNINGS`, `ALLOWED_RESAVE_CHANGES`, and the thrust curves:
 a synthetic digest in a test rocket, `ALLOWED_CURVES` in any other input). Each allowance has to be
-used exactly as often as `EXPECTED_ALLOWANCES` says over all 68 files (the counts below), so that it
+used exactly as often as `EXPECTED_ALLOWANCES` says over all 71 files (the counts below), so that it
 cannot hide a new case of its kind:
 
 | What | Where | Why |
@@ -1165,7 +1206,19 @@ JDK 17), with the saves of the tab's two scenarios: 68 files of 52 inputs, 0 fai
 allowances; not compared: the same dumps. `gui-flight-configurations` (14 components, 3 simulations;
 an archive of `rocket.ork` and 2 thrust curves; a re-save of 390 lines) and `gui-multi-stage` (50
 components, 3 simulations; 2 thrust curves; 1085 lines) pass every check, the dumps included; OpenRocket
-logs nothing for them. About 20 s.
+logs nothing for them. About 20 s. The run of Milestone 4 (run 4, part X4: QtRocket at the commit of the
+part, OpenRocket 5f164fd0e, JDK 17), with the save of the Flight simulations tab's scenario and the two
+flights QtRocket ran: 71 files of 55 inputs, 0 failed; the same allowances; not compared: the same dumps.
+`gui-simulations` (14 components, 5 simulations; an archive of `rocket.ork` and 2 thrust curves; a re-save
+of 484 lines) passes every check, the dumps included. `gui-run-example-a-simple-model-rocket` (the flight of
+"Simulation 1": 1 branch of about 270 data points, 10 events) and `gui-run-example-clustered-motors` (about
+170 data points, 10 events) pass every check: OpenRocket's re-save writes each flight's `<flightdata>` as
+QtRocket's file holds it, its reload has the flight bit for bit, the ten summary values are OpenRocket's from
+the branches (in the asan build's flight of "A simple model rocket" the deployment velocity within the storage
+precision: 2.722939 stored, 2.722938 recomputed), and the rest of each re-save (2934 and 2015 lines) is that of
+OpenRocket's own save, the other four simulations' flights included; OpenRocket logs nothing for them. The
+saves of the debug, asan and tsan builds (whose flights ran on the application's threads, under the
+sanitizers in the last two) pass alike. About 25 s.
 
 ## Figure pin tables
 

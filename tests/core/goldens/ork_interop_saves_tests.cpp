@@ -13,11 +13,14 @@
 // goldens' manifest (tests/data/goldens/manifest.json) and the form of the save: "zip-data" or
 // "zip-nodata" for an .ork archive (GeneralRocketSaver) with or without the simulation data,
 // "plain-data" or "plain-nodata" for plain XML (OpenRocketSaver). It also removes the saves of the
-// GUI's designs that the GUI tests' DISABLED_ writers put into the same directory (kGuiInputs:
-// gui-from-scratch.<form>.ork of FromScratchInteropSave,
-// tests/gui/exit/from_scratch_exit_tests.cpp, and gui-flight-configurations.<form>.ork and
-// gui-multi-stage.<form>.ork of FlightConfigurationsInteropSave,
-// tests/gui/exit/flight_configurations_exit_tests.cpp), so that the writers can run in turn. It
+// GUI's designs that the GUI tests' DISABLED_ writers put into the same directory
+// (guiInteropInputs() of GuiInteropInputs.h: gui-from-scratch.<form>.ork of
+// FromScratchInteropSave, tests/gui/exit/from_scratch_exit_tests.cpp;
+// gui-flight-configurations.<form>.ork and gui-multi-stage.<form>.ork of
+// FlightConfigurationsInteropSave, tests/gui/exit/flight_configurations_exit_tests.cpp;
+// gui-simulations.<form>.ork of SimulationsInteropSave, tests/gui/exit/simulations_exit_tests.cpp;
+// gui-run-<example>.<form>.ork of FlightDataInteropSave,
+// tests/gui/exit/flight_data_interop_tests.cpp), so that the writers can run in turn. It
 // removes no other file: a directory that holds another
 // *.ork file (a design of the user's, say) is refused, and nothing is written into it (the check
 // fails on an .ork file that is no save of an input). Each save is the
@@ -68,8 +71,8 @@
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenExamples.h"
-#include "goldens/GoldenGuiReference.h"
 #include "goldens/GoldenResaves.h"
+#include "goldens/GuiInteropInputs.h"
 
 namespace
 {
@@ -121,31 +124,13 @@ constexpr std::string_view kBuildTreeDirectory = "interop-saves";
 constexpr std::array<std::string_view, 4> kForms{"zip-data", "zip-nodata", "plain-data",
                                                  "plain-nodata"};
 
-/// The input of the GUI's save of the from-scratch design (FromScratchInteropSave of
-/// tests/gui/exit/from_scratch_exit_tests.cpp), which goes into the same directory.
-constexpr std::string_view kGuiFromScratchInput = "gui-from-scratch";
-
-/// The inputs of the GUI's saves that the GUI tests write into the same directory: the
-/// from-scratch design's (kGuiFromScratchInput) and the scenarios' of the Motors & Configuration
-/// tab, "gui-<scenario>" (FlightConfigurationsInteropSave of
-/// tests/gui/exit/flight_configurations_exit_tests.cpp: "gui-flight-configurations" and
-/// "gui-multi-stage"), InteropCheck's names for them.
-[[nodiscard]] std::vector<std::string> guiInputs()
-{
-    std::vector<std::string> inputs{std::string(kGuiFromScratchInput)};
-    for (const std::string_view scenario : QtRocket::Test::kGuiTabScenarios)
-    {
-        inputs.push_back(std::format("gui-{}", scenario));
-    }
-    return inputs;
-}
-
 /// The names of the files this test removes as saves of an earlier run: <input>.<form>.ork for
 /// every input of the manifest and every form, which it writes, and for the GUI's saves
-/// (guiInputs()), which the GUI tests write after it; what went wrong goes to @p problems.
+/// (guiInteropInputs() of GuiInteropInputs.h), which the GUI tests write after it; what went
+/// wrong goes to @p problems.
 [[nodiscard]] std::set<std::string> saveNames(std::string& problems)
 {
-    std::vector<std::string> inputs = guiInputs();
+    std::vector<std::string> inputs = QtRocket::Test::guiInteropInputs();
     for (const GoldenExample& example : QtRocket::Test::goldenExamples())
     {
         inputs.push_back(example.name);

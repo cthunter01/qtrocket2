@@ -15,6 +15,7 @@
 #include <QString>
 
 #include "QtRocket/gui/main/MainWindow.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
@@ -90,12 +91,13 @@ class FromScratchPrompts;
 /// can be opened again through File > Open (closeWindow(), openSavedFile()).
 ///
 /// The base of FlightConfigurationScenario, the driver of the scenarios of version 2 (the Motors &
-/// Configuration tab, Milestone 3), which does the steps of its own (perform()), adds to the
-/// records what version 2 records (record()) and gives the application prompts of its own; the
-/// steps of version 1 that a scenario of version 2 has (select, edit, choose, ok, undo, redo, the
-/// steps of Save as) are done here, as in the from-scratch scenario. A choose step of the field
-/// "ClusterConfiguration" (the inner tube's cluster layouts, ClusterSelectionPanel) is a click on
-/// the button of the layout the step names by its XML name ("4-ring"), as OpenRocket's tool does.
+/// Configuration tab, Milestone 3; and through it of SimulationsScenario, version 3's), which does
+/// the steps of its own (perform()), adds to the records what version 2 records (record()) and
+/// gives the application prompts of its own; the steps of version 1 that a scenario of version 2
+/// has (select, edit, choose, ok, undo, redo, the steps of Save as) are done here, as in the
+/// from-scratch scenario. A choose step of the field "ClusterConfiguration" (the inner tube's
+/// cluster layouts, ClusterSelectionPanel) is a click on the button of the layout the step names by
+/// its XML name ("4-ring"), as OpenRocket's tool does.
 class FromScratchScenario
 {
 public:
@@ -179,8 +181,11 @@ protected:
         std::function<std::unique_ptr<FromScratchPrompts>(UserPrompts& scripted)>;
 
     /// The application as the public constructor makes it, its questions those @p makePrompts
-    /// makes (a subclass's prompts).
-    FromScratchScenario(std::filesystem::path directory, const PromptsFactory& makePrompts);
+    /// makes (a subclass's prompts), and its runs of simulations those of @p executor (the
+    /// application's own, a PollingSimulationExecutor, when it is null: ApplicationContext's
+    /// constructors).
+    FromScratchScenario(std::filesystem::path directory, const PromptsFactory& makePrompts,
+                        std::unique_ptr<SimulationExecutor> executor = nullptr);
 
     /// Does @p step; what went wrong, or "". The steps of version 2 are none of this class's (an
     /// error): a subclass does them.

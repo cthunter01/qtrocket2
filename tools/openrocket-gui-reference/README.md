@@ -4,7 +4,7 @@
 actions and writes the references QtRocket's GUI is compared with: `tests/data/goldens/gui/<scenario>/`.
 The data is committed; neither CMake nor CI ever needs Java.
 
-Two schemas of scenarios:
+Three schemas of scenarios:
 
 - **Version 1** (Milestone 2, plan section 9.5, the exit test `FromScratchExitGolden`):
   `tests/data/goldens/gui/from-scratch/`, a rocket designed from scratch. OpenRocket's GUI code runs
@@ -15,6 +15,12 @@ Two schemas of scenarios:
   buttons, Copy and Paste. OpenRocket's real `FlightConfigurationPanel`, its sub-panels and their dialogs
   run on a virtual display (`xvfb-run`), with the bundled motors and component presets (see
   [Version 2: the Motors & Configuration tab](#version-2-the-motors--configuration-tab)).
+- **Version 3** (Milestone 4, plan section 11.6 E6, the exit test `SimulationsExitGolden`): the steps of
+  version 2 and the Flight simulations tab: OpenRocket's real `SimulationPanel` and the dialogs of its
+  actions (the settings dialog `SimulationConfigDialog` with the wind editor, the CSV import of wind
+  levels and the aerodynamic lookup dialog, the run dialog, the confirmations), on the virtual display of
+  version 2, every dialog answered from inside its modal loop; no simulation is run (see
+  [Version 3: the Flight simulations tab](#version-3-the-flight-simulations-tab)).
 
 Each scenario directory holds:
 
@@ -38,13 +44,14 @@ Files of the tool:
   the checks, the files), `Scenario` (reads scenario.json), `Session` (one design window and the
   steps), `DialogFields` (the fields of the configuration dialogs), `EditActions` (Edit, Copy and
   Paste), `ComponentPaths`, `RocketState` (the state lines), `SimulationLines` (the lines of a loaded
-  file's simulations), `DeterministicUuids` (a copy of the class of `tools/openrocket-goldens`), and for
+  file's simulations), `DeterministicUuids` (a copy of the class of `tools/openrocket-goldens`), for
   version 2 `FlightConfigurationTab` (the tab and its steps), `Questions` (its modal questions,
   answered inside their modal loops), `DefaultIgnitions` (QtRocket's fix of bug 6 in the undo history)
-  and `Reflection`.
+  and `Reflection`, and for version 3 `SimulationsTab` (the Flight simulations tab, its steps and its
+  record) and `SimulationQuestions` (the dialogs of the tab, answered inside their modal loops).
 - `src/main/resources/logback.xml`: keeps OpenRocket's log to its warnings and errors.
 
-QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h` (both versions).
+QtRocket reads the files through `tests/core/goldens/GoldenGuiReference.h` (versions 1, 2 and 3).
 `tests/core/goldens/from_scratch_reference_golden_tests.cpp` (suite `FromScratchReferenceGolden`,
 label `golden`) checks that the from-scratch state.json is the record of the committed scenario, that
 the reference comes from the OpenRocket of the other goldens, and that QtRocket loads `rocket.ork`
@@ -57,15 +64,33 @@ tree of the open step, that the archive held the thrust curves of the design's m
 expected differences (`kGuiExpectedDifferences`) name recorded questions, that OpenRocket's
 Recovery and Stages tables shade no cell (bug 1) and their cells' overrides are those of the tree,
 and that the records where the tool's fixes of bugs 5 and 6 show are those `kGuiToolFixes` lists.
+`tests/core/goldens/simulations_reference_golden_tests.cpp` (suite `SimulationsReferenceGolden`, label
+`golden`) checks the same for the scenario of version 3 (but the motor choosers, which it has none of), and
+moreover that its input is the flight-configurations reference's save, that the scenario covers the tab and
+its dialogs (plan section 11.6 E6), that no step of the simulations tab changes the component tree, that every
+step of the tab changes what it is for (a cancelled one nothing), that the questions of each step are those
+its answer answers in the order they open (`guiSimulationStepQuestions()`) and the file choosers chose the
+answers' files, that QtRocket loads the input and the save into the simulations the open step and the last
+record show (`guiSimulationStates()`), that the records' lookup files are files of the repository, that the
+records of the tool's fixes are those `kGuiSimulationToolFixes` lists, and that OpenRocket's Paste follows its
+rule in every record, so that `guiExpectedRecord()` makes QtRocket's (bug 27) where it differs (steps 29 to
+33). The suites `GuiScenarioReaderV3` and `GuiRecordComparisonV3` there check the reader of version 3 and the
+comparison of its records.
 
 The exit tests drive QtRocket's GUI through the same steps: `tests/gui/exit/from_scratch_exit_tests.cpp`
 (`FromScratchExitGolden`, the driver `FromScratchScenario`) and
 `tests/gui/exit/flight_configurations_exit_tests.cpp` (`FlightConfigurationsExitGolden`, the driver
 `FlightConfigurationScenario`, which answers each question of the tab in QtRocket's own dialog, inside
-its modal loop, as `Questions` answers OpenRocket's). After every step they compare what QtRocket's GUI
-shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record of version 2
-after `guiExpectedRecord()`, which makes the expected differences), and then compare the save with
-`rocket.ork` and the `loaded` state.
+its modal loop, as `Questions` answers OpenRocket's) and `tests/gui/exit/simulations_exit_tests.cpp`
+(`SimulationsExitGolden`, the driver `SimulationsScenario` with the questions of `SimulationsPrompts`,
+which answers the settings dialog, the wind editor, the CSV import settings, the lookup dialog, the run
+dialog and the confirmations as `SimulationQuestions` answers OpenRocket's, and refuses the steps and answers
+the tool refuses, which `SimulationsScenarioTests.cpp` checks; its application's executor runs no
+simulation, and the file choosers are the test script's). After every step they compare what
+QtRocket's GUI shows with the step's record (`guiRecordDifferences()` of `GoldenGuiReference.h`; a record
+of versions 2 and 3 after `guiExpectedRecord()`, which makes the expected differences, and in version 3
+the Undo item after the cancelled New simulation, which the exit test lists), and then compare the save
+with `rocket.ork` and the `loaded` state.
 
 ## Regenerating
 
@@ -76,7 +101,7 @@ to the QtRocket repository; the reference records its commit, which should be th
 `tests/data/goldens/manifest.json`), and either network access (Maven Central and JitPack, as
 OpenRocket's own build) or a Gradle cache that already holds the dependencies of OpenRocket's core
 and Swing modules (building OpenRocket once fills it). OpenRocket's Gradle wrapper is used. The
-scenarios of version 2 also need `xvfb-run` and the checkout's preset submodule initialized at the
+scenarios of versions 2 and 3 also need `xvfb-run` and the checkout's preset submodule initialized at the
 commit the checkout records (`git -C <OpenRocket checkout> submodule update --init`).
 
 ```sh
@@ -87,29 +112,31 @@ The scenarios are the directories of `tests/data/goldens/gui` that hold a `scena
 when none is named. The script checks the checkout as `tools/openrocket-goldens/generate.sh` does (no
 modified tracked file, no untracked or ignored file among `core/src/main/java`, `core/src/main/resources`,
 `core/build.gradle`, `core/libs`, `swing/src/main/java`, `swing/src/main/resources` and
-`swing/build.gradle`, and for a scenario of version 2 the preset submodule at its recorded commit and
+`swing/build.gradle`, and for a scenario of version 2 or 3 the preset submodule at its recorded commit and
 without local changes; `ALLOW_DIRTY=1` overrides and state.json then records `"dirty": true`), builds
 with Gradle, and runs the tool twice per scenario with a fixed locale, time zone and encoding and a
 fresh `java.util.prefs` store each time (OpenRocket's preferences at their defaults; see
 [Determinism](#determinism)): into the scenario's directory and into a temporary one. A scenario of
-version 1 runs headless, without a display; one of version 2 on a virtual display of its own
+version 1 runs headless, without a display; one of version 2 or 3 on a virtual display of its own
 (`xvfb-run -a`; the session's `DISPLAY` and `WAYLAND_DISPLAY` are unset, so nothing is shown on the
 desktop), with a fresh home and temporary directory (OpenRocket's motor library, thrust curve and
 preset directories are there). The script fails unless the two runs wrote the same `rocket.ork` and
 `state.json`. A run of the from-scratch scenario takes about ten seconds once Gradle has compiled
-OpenRocket (the first build takes a minute or two), one of a scenario of version 2 about twenty.
+OpenRocket (the first build takes a minute or two), one of a scenario of version 2 or 3 about twenty
+(`generate.sh --check` of all four committed scenarios: about a minute).
 
 `--check` writes nothing into the scenario directories: it runs each scenario as usual into the work
 directory and compares the files with the committed ones (`<scenario>/<file>: same` or `DIFFERS`); the
 exit status is 1 when one differs or is missing.
 
-The order of the runs: a scenario of version 2 whose `open` step names a file of another scenario's
+The order of the runs: a scenario of version 2 or 3 whose `open` step names a file of another scenario's
 directory runs after that scenario when both run in one call, and opens the file that run has just
 written (the tool's `--input`: the output directory of the other scenario, which is its own
 directory, the one of `GUI_REFERENCE_OUT`, or with `--check` the work directory's). So
 `flight-configurations`, which opens the from-scratch reference's `rocket.ork`, runs after
-`from-scratch`, and one call regenerates both consistently (state.json records the SHA-256 of the
-file it opened, see below). A scenario named alone opens the committed file.
+`from-scratch`, and `simulations`, which opens the flight-configurations reference's, after that one;
+one call regenerates them consistently (state.json records the SHA-256 of the file it opened, see
+below). A scenario named alone opens the committed file.
 
 Every run of the tool has a time limit (`GUI_REFERENCE_TIMEOUT`, in seconds, default 600; coreutils'
 `timeout`): a run that takes longer is stopped and the script fails, so that a modal dialog nobody
@@ -121,15 +148,18 @@ of `tests/data/goldens/gui` (to try a scenario before it is committed; its `open
 file of the repository, or of a scenario directory of the same call, see the order above);
 `GUI_REFERENCE_OUT=<directory>` writes `<directory>/<scenario>/` instead of the scenario's
 directory; `GUI_REFERENCE_WORK=<directory>` keeps the work files there (per scenario: the archives
-every run saved, the second run's output, and for version 2 the runs' preferences, home
-directories and logs); `GUI_REFERENCE_TIMEOUT=<seconds>` is the time limit of a run.
+every run saved, the second run's output, and for versions 2 and 3 the runs' preferences, home
+directories and logs; a recorded run of version 2 or 3 that fails one of [the checks](#the-checks) leaves
+the records up to the failed step's in `<scenario>/first-run/saves/recorded/records-of-the-failed-run.json`,
+to see what the step left); `GUI_REFERENCE_TIMEOUT=<seconds>` is the time limit of a run.
 
 Edit a `scenario.json` by hand and regenerate: `FromScratchReferenceGolden` fails while the
 from-scratch state.json records another scenario (the SHA-256 of its bytes); a state.json of version 2
-records its scenario and its input file the same way, which `FlightConfigurationsReferenceGolden`
-checks (`flight-configurations` opens the from-scratch reference's `rocket.ork`, `multi-stage` a
-re-save of `tools/openrocket-goldens`: regenerate them after a change of those; a call without
-scenario names regenerates `from-scratch` before `flight-configurations`).
+or 3 records its scenario and its input file the same way, which `FlightConfigurationsReferenceGolden`
+(and `SimulationsReferenceGolden`) checks (`flight-configurations` opens the from-scratch reference's
+`rocket.ork`, `multi-stage` a re-save of `tools/openrocket-goldens`, `simulations` the flight-configurations
+reference's `rocket.ork`: regenerate them after a change of those; a call without scenario names
+regenerates `from-scratch` before `flight-configurations` and that before `simulations`).
 
 ## How OpenRocket is run
 
@@ -297,6 +327,113 @@ a dialog disables), the recorded run checks every step:
 - Save as fails where `StorageOptionChooser` would ask how to store simulated data (a simulation with
   data and storage options not set explicitly) or the saver cannot read a decal's image.
 
+### Version 3: the Flight simulations tab
+
+Everything runs as in version 2 (the start-up, File > Open, the window with the design tree and the Motors &
+Configuration tab, the three runs, the load), and the window has OpenRocket's real Flight simulations tab:
+
+- **The tab** (`SimulationsTab`): OpenRocket's `SimulationPanel` (its table, a `ColumnTable` with the panel's
+  `SimulationTableModel` and a `ColumnTableRowSorter`, its twelve actions and its header's column chooser) in a
+  frame of its own on the virtual display (1100 x 600). It is the first panel of the window, as `BasicFrame`
+  makes its `SimulationPanel` before anything else (`BasicFrame.java:231-242`), and the window's
+  `DocumentSelectionModel` holds the table's selection model, so that a selection of simulations clears the
+  component selection and the other way round. `RocketActions` (the Edit menu) is not made: its actions select
+  the window's tab through the BasicFrame, which the tool allocates without its window. The steps run the
+  panel's own actions, which RocketActions calls for a selection of simulations (the simulation branches of its
+  actions, `RocketActions.java:597-999`), and the tab registers the listeners of RocketActions that update them
+  (the clipboard, the document's selection, the table's selection and the rocket, `RocketActions.java:144-172`).
+  OpenRocket's clipboard (static, `OpenRocketClipboard`) is emptied when a run's window opens. There is no
+  `RocketPanel` (its background simulation would change the document's simulations).
+- **The window's tab** `simulations`: `BasicFrame.stateChanged` (`:2518-2535`), `takeTheSpotlight()` (the focus
+  to the table; the previous selection or, with none, the first row selected) and `activating()` (which runs
+  the outdated simulations when the preference AutoRunSimulations asks for it: off by default, and the tool
+  fails when it is on); leaving the tab, `updatePreviousSelection()`.
+- **The steps of the tab** use OpenRocket's own table, actions and menu: a click on a row is
+  `JTable.changeSelection` (BasicTableUI's mouse handler: Ctrl toggles, Shift extends) in the name column,
+  whose single click does nothing more (a click on the status column runs an outdated simulation,
+  `SimulationPanel.java:327-338`); New, Edit, Duplicate, Delete, Copy, Cut and Paste are `actionPerformed`
+  of the panel's enabled action; a column is shown or hidden by a click on its check box item of the header's
+  popup menu (`ColumnVisibilityController.createMenu()`, a right click on the header), which the document
+  preference `simulation.table.hiddenColumns` keeps.
+- **The dialogs** (`SimulationQuestions`) are answered from inside their modal loops by the step's answer, as
+  in version 2. An operation can open a dialog inside another (the wind editor of the settings dialog) or one
+  after another (the CSV import's settings, its file chooser and the overwrite question), so the answers of the
+  dialogs a click is to open are queued in their order before the click: a modal dialog that shows takes the
+  next queued answer (an AWT listener of `COMPONENT_SHOWN`), which runs inside the dialog's modal loop after the
+  work the dialog queued itself, and closes it with its button. Between two edits of an answer the event queue
+  is flushed, as a user's next action comes after what the last one queued (OpenRocket's wind table queues the
+  highlight of the rows an altitude edit moved, which fails when a row is deleted before it runs). A dialog that
+  shows with no answer queued (a message OpenRocket shows, a question the step does not answer) fails the step
+  and is closed as it shows; an answer no dialog took fails the step after its click; an answer that fails
+  closes its dialog, so that the operation goes on, and the step fails when it is over.
+- **No run.** The settings dialog's OK runs the simulations of the dialog that are not up to date
+  (`SimulationConfigDialog.java:414-418`), and a simulation without data never is: the run dialog
+  (`SimulationRunDialog`) is answered with Cancel before any of its simulations starts. The tool holds every
+  thread of the run dialog's executor (a static pool of `availableProcessors()` threads) from before OK until
+  the run dialog's answer is done, so that its simulations stay queued until Cancel cancels them; the
+  simulations keep what they had (no flight data, the status of before). A fresh flight's values would be in the
+  save (`<flightdata>` without branches), and they cannot be compared (CLAUDE.md: fresh flights are chaotic);
+  OpenRocket bug 40 (a cancelled run's partial flight marked up to date) does not show either. Run, Plot,
+  the status click and the auto-run are no steps.
+- **Files.** The files an answer names (the CSV files of a wind import and of the lookup tables) are paths
+  relative to the repository and must be in it (as the `open` step's). A record writes the path of a lookup
+  table's file relative to the repository (`path:tests/...`; OpenRocket's lookup dialog stores it absolute).
+  Save as fails while a simulation holds a lookup table's file: OpenRocket's saver writes the absolute path
+  (`AerodynamicLookupDialog.normalizePath`, `OpenRocketSaver.writeCsvLookup`), which would make the reference
+  depend on where the repository is (and QtRocket's loader refuses an absolute path): clear the tables a
+  scenario loads before Save as.
+
+#### QtRocket's fixes of OpenRocket's bugs (version 3)
+
+The bugs of plan section 11.4 that the steps of version 3 meet. As in version 2, the tool either makes
+QtRocket's fix in OpenRocket's run, and the step's record names it in its member `toolFixes`, or fails on the
+step:
+
+| Bug | What the tool does |
+|---|---|
+| 6 (Milestone 3): an undo loads a copy of the rocket, which loses the mounts' default ignitions | Fixed as in version 2 (`DefaultIgnitions`), also after the undo of the settings dialog's Cancel (`SimulationConfigDialog.discardChanges()`). A record of version 3 where a mount got its kept default back lists `{"bug": 6, ...}` |
+| 23, 24, 26, 28: the Warnings column does not sort; Paste, New and Duplicate and the selection mix view rows and model rows in a sorted table; the status click and the warnings double click test view columns | No step sorts the table or clicks its status or warnings column |
+| 27: no Paste into an empty list or without a selected row | Paste without a selected row is a disabled action, which the tool refuses. The records hold OpenRocket's state of the action (`pasteSimulation` false); QtRocket's Paste is enabled while simulations are on the clipboard (the record's `clipboardSimulations`) and a row is selected or the table is shown, which `guiExpectedRecord()` of `GoldenGuiReference.h` makes |
+| 29: Cancel undoes the user's previous change after an edit `SimulationOptions.equals()` ignores (the geodetic method, launch into wind, the standard atmosphere, the lookup tables' files); 30: Cancel of a new simulation after an edit keeps it | The tool fails on a New or Edit whose Cancel leaves the simulations or the component tree otherwise than they were before the step: QtRocket's Cancel gives them back. It also fails on a Cancel after edits that OpenRocket's settings dialog does not see as a change (no `* ` in its title: the wind editor's, a lookup table cleared), whose Cancel closes the dialog without the discard question and keeps them |
+| 31: two wind levels can get the same altitude (then both are deleted, and the saved design cannot be opened) | Refused: a cell edit that gives a level the altitude of another |
+| 32: the levels are not re-sorted after an altitude edit | Fixed: the model sorted after an altitude edit that put its levels out of order (`MultiLevelPinkNoiseWindModel.sortLevels()`), `{"bug": 32, ...}`; a scenario shows the fix only when the edited level stays in the record (`simulations` deletes another level after the edit: its model line reads `MODEL 50.0 100.0`, `MODEL 100.0 50.0` without the fix) |
+| 33: "Delete level" never works with the mouse (the button takes the focus, which deselects the row and disables the button) | Fixed: `deleteLevel` selects the row as a click on one of its fields does (`MultiLevelWindTable.selectRow`, the rows' `focusGained`) and clicks "Delete level", which the tool's click does without moving the focus, so that the selected level is deleted, `{"bug": 33, ...}` |
+| 34: the CSV import with SPACE or TAB splits at the word and stores the word as the export separator | Fixed: the settings dialog's separator box is given the separator itself before OK, which the import then splits at and the preference stores, `{"bug": 34, ...}` (the record's `answered` shows the box's item, SPACE or TAB, as the user chose it) |
+| 35: the missing key `simedtdlg.error.temperatureTooLow` (a temperature at or below -80 °C without the standard atmosphere) | Refused: such a temperature, or the standard atmosphere turned off below it |
+| 36: the multi-level summary refreshes only when the wind editor closes, and its highest altitude starts at `Double.MIN_VALUE` | The summary is not recorded |
+| 37: "Import levels" appends .csv to the chosen file | Refused: a chosen file without the extension .csv |
+| 38: OpenRocket's new simulation takes neither the geodetic method of the Simulation preferences nor the thresholds of the Warnings preferences (QtRocket's does, and its launch conditions' Reset to default too) | Refused: New simulation and the launch conditions' Reset to default while one of those preferences is not the value of a new `SimulationOptions` ("Save as default" of the options or the warnings page changes them) |
+| 40: a cancelled run's partial flight | The run is cancelled before it starts (above) |
+| The wind table's delete buttons stay as they were after Reset levels or an import, so that a lone level keeps an enabled button (Milestone 4 run 2's documented difference S2) | Fixed: the rows' buttons updated as QtRocket's table shows them (enabled exactly while there is more than one level), `{"fix": "the wind table's delete buttons ..."}` without a bug number |
+
+Bugs 22 (a pasted simulation stays a listener of its source design: the scenarios have one document), 25
+(Copy's status column pairs the statuses by position: no row has data), 39 and 41 to 55 (runs, plots, exports
+and the background estimate) concern no step of version 3.
+
+#### The checks (version 3)
+
+Besides those of version 2, the recorded run checks every step of version 3:
+
+- a step of the simulations tab needs the window's tab `simulations`;
+- `selectSimulations` changes the table's selection; New and Edit with OK change the simulations, with Cancel
+  they leave the simulations and the component tree as they were before the step (bugs 29 and 30); Duplicate,
+  Cut and Paste change the simulations, and so does Delete unless its confirmation was cancelled (which changes
+  nothing); `columnVisibility` changes the table; no step of the tab changes the component tree but by a
+  Cancel's undo, which gives it back;
+- every edit of a dialog changes what it edits: a field given the value it has, a box given the state or the
+  item it shows and a tab that is the current one are refused (but "Save as default", the wind editor, the
+  lookup dialog, Reset levels and Import levels, whose own edits are checked: an edit of the wind editor, and a
+  separator, text or load (its file chooser answered with Open) action of the lookup dialog, must change what
+  the dialog shows; a CSV import setting must differ from the one shown);
+- a column name or index of the CSV import settings is set only while it is shown (the name with the header
+  box on, the index with it off: the row shows one of them) and enabled, as its unit;
+- a field is set only when a user can set it: brought into view as a user does it (its tab, the warnings page's
+  Configuration sub-tab, a collapsed section expanded), it must be shown (not on another card of its panel: the
+  constant gravity with the WGS model, the average wind with the multi-level one) and enabled (the temperature
+  with the standard atmosphere, the rod direction with launch into wind);
+- an answer has exactly the members its dialog takes; a dialog that opens without an answer, and an answer whose
+  dialog does not open, fail the step.
+
 ### Determinism
 
 - The component and flight configuration ids come from `DeterministicUuids`, reseeded before each
@@ -321,6 +458,12 @@ a dialog disables), the recorded run checks every step:
   OpenRocket may take) and registers the `FlightConfigurationPanel` again after its table models, the
   order QtRocket's panel connects in. The order of the preset files is the file system's
   (`DirectoryIterator`, `File.listFiles`), which nothing recorded depends on.
+- Version 3: no simulation runs (see [Version 3](#version-3-the-flight-simulations-tab)). The random seeds
+  OpenRocket draws (`new Random()`: a new simulation's, the run dialog's for a seed that is not fixed, the one
+  "Fixed random seed" puts into its field when it is ticked) are never recorded or saved: a seed is in a record
+  and in the save only while it is fixed, and the answer that ticks the box types its seed in the same edit. A
+  stability lookup table lists its columns in the order of a `Set.copyOf()` (`MachAoALookup.getValueColumns()`),
+  which changes from one JVM to the next: the record sorts the column list of the lookup dialog's summary.
 - Nothing else depends on the time, the machine or the user: `generate.sh` compares two runs of the
   tool byte for byte.
 
@@ -481,6 +624,121 @@ GUI shows (bug 1: the scope a deployment or separation question starts on, five 
 `kGuiExpectedDifferences` names, and the shading of every Recovery and Stages cell without an
 override of its own).
 
+### Version 3
+
+`scenario.json` is `{"schema": "gui-scenario", "schemaVersion": 3, "title": ..., "steps": [...]}`. The first
+step is `open`, and only that one; the steps of version 2 follow, the window's tab `tab` also takes
+`simulations` (the Flight simulations tab), and the steps of that tab:
+
+| step | members | the GUI action |
+|---|---|---|
+| `selectSimulations` | `rows` | clicks on rows of the simulations table, in order: each `{"row": n, "with": "ctrl" \| "shift"}`, `row` the simulation's place in the document (the table is never sorted), `with` the key held (left out: a plain click); `"rows": []` is a click below the last row, which clears the selection |
+| `newSimulation` | `answer` | New simulation (`simpanel.but.newsimulation`): a new simulation after the last, selected, its settings dialog answered with `answer` |
+| `editSimulation` | `answer` | Edit simulation of the selected rows (more than one: the multi-simulation edit, whose OK copies the first one's options to the others) |
+| `duplicateSimulations` | | Duplicate: copies of the selected simulations after the last, selected |
+| `deleteSimulations` | `answer` | Delete of the selected simulations; `answer` answers its confirmation (left out once its "Do not ask me again" was ticked) |
+| `copySimulations` | | Copy: the selected simulations on OpenRocket's clipboard, the table's text on the system clipboard |
+| `cutSimulations` | `answer` | Cut: Copy, then Delete with its confirmation (`answer`, left out as for Delete) |
+| `pasteSimulations` | | Paste: copies of the clipboard's simulations after the first selected row, selected (a row must be selected: bug 27) |
+| `columnVisibility` | `column`, `visible` | the check box item of the column `column` (its id: `status`, `warnings`, `name`, `configuration`, `simulationStepper`, `launchRodVelocity`, `apogee`, `deploymentVelocity`, `optimumCoastTime`, `maxVelocity`, `maxAcceleration`, `timeToApogee`, `flightTime`, `groundHitVelocity`) of the header's popup menu, which must change it to `visible` |
+
+The steps of the tab need the window's tab `simulations`; `undo`, `redo` and `saveAs` work on every tab.
+
+An answer has `"button"` and the members of its dialog; a typed number is `{"text": ..., "unit": ...}` as in
+version 2. The dialogs, their answers and the order in which an answer's members are applied:
+
+| dialog | answer |
+|---|---|
+| the settings dialog (`SimulationConfigDialog`, on its Launch conditions tab) | `{"edits": [<edit>, ...], "button": "ok" \| "cancel", "run": <the run dialog's answer>, "discard": <the discard question's answer>}`: the edits in order, then the button; `run` exactly when OK runs simulations (one that is not up to date: always one without data), `discard` exactly when Cancel asks its question (an edited existing simulation, any new one, while the preference asks it) |
+| the run dialog (`SimulationRunDialog`) | `{"button": "cancel"}`, the only answer (no simulation runs) |
+| the discard question (`SimulationConfigDialog.CancelOperation.*`) | `{"button": "yes", "doNotAskAgain": true}`, `doNotAskAgain` optional; No (which leaves the dialog open) is refused |
+| the delete confirmation (`simpanel.dlg.lbl.DeleteSim*`) | `{"button": "ok" \| "cancel", "doNotAskAgain": true}`, `doNotAskAgain` optional (its box ticked before the button) |
+| the wind editor (`MultiLevelWindEditDialog`, "Edit levels" of the multi-level wind) | `{"edits": [<wind edit>, ...], "button": "close"}` |
+| the CSV import settings (`CSVImportSettingsDialog`, "Import levels") | `{"hasHeader": <the header box>, "columns": {"altitude" \| "speed" \| "direction" \| "standardDeviation": {"name": <the column name field's text>, "index": <the column index spinner's value>, "unit": <the unit selector's unit>}}, "separator": <the separator itself: ",", ";", " " (the item SPACE), a tab (the item TAB), or another text typed into the box>, "button": "ok" \| "cancel"}`, every member but `button` optional, applied in this order |
+| a file chooser (the wind import's, the lookup's "Load from file...") | `{"file": <a path relative to the repository>, "button": "open"}` (the file selected and approved) or `{"button": "cancel"}` |
+| the overwrite question of the wind editor (Reset levels, and Import levels while there are levels) | `{"button": "yes" \| "no"}` |
+| the aerodynamic lookup dialog ("Configure..." of the options page) | `{"drag": [<lookup action>, ...], "stability": [<lookup action>, ...], "button": "ok" \| "cancel"}`: the drag section's actions, then the stability section's (each section's tab selected first), then the button |
+
+An edit of the settings dialog has exactly one of these members (`field` with the members of its kind):
+
+| edit | the GUI action |
+|---|---|
+| `{"field": <Java property>, "text": ..., "unit": ...}` | a spinner of the launch conditions, options or warnings page by the property its `DoubleModel` binds: the unit chosen in its unit selector (`unit` left out for a field without one), the text typed and committed. `Average`, `StandardDeviation`, `TurbulenceIntensity`, `Direction` (the average wind), `LaunchTemperature`, `LaunchPressure`, `LaunchRelativeHumidity`, `LaunchLatitude`, `LaunchLongitude`, `LaunchAltitude`, `LaunchRodLength`, `LaunchRodAngle`, `LaunchRodDirection`; `ConstantGravity`, `TimeStep`, `MaxSimulationTime`; `RecoverySpeedWarning`, `RecoveryDrogueMainLowSpeedWarning`, `RecoveryDrogueMainHighSpeedWarning` |
+| `{"field": <Java property>, "checked": true \| false}` | a check box by its `BooleanModel`'s property: `ISAAtmosphere`, `LaunchIntoWind` |
+| `{"field": <Java property>, "item": <Java enum constant>}` | a combo box by its `EnumModel`'s property: `SimulationStepperMethodChoice` (`RK4`, `RK6`), `GeodeticComputation` (`FLAT`, `SPHERICAL`, `WGS84`), `GravityModelType` (`WGS`, `CONSTANT`) |
+| `{"name": <text>}` | the name field set to the text (not empty: an empty field leaves the name as it is) |
+| `{"configuration": <row>}` | the configuration box: the rocket's configuration of that place among its configurations |
+| `{"tab": "launchConditions" \| "simulationOptions" \| "warnings"}` | a click on the dialog's tab (the plot and export tabs need flight data, so they are disabled) |
+| `{"windModel": "AVERAGE" \| "MULTI_LEVEL"}` | the wind model's radio button |
+| `{"randomSeed": {"fixed": true, "text": <seed>}}` or `{"randomSeed": {"fixed": false}}` | "Fixed random seed" ticked (when it is not; it draws a random seed) and the seed typed into its field, or the box cleared |
+| `{"defaults": "reset" \| "save", "panel": "launchConditions" \| "simulationOptions" \| "warnings"}` | "Reset to default" or "Save as default" of that page |
+| `{"windLevels": <the wind editor's answer>}` | "Edit levels" (the multi-level wind's card must be shown) |
+| `{"lookup": <the lookup dialog's answer>}` | "Configure..." of the aerodynamic data |
+
+A field, a button or a radio button is brought into view as a user brings it there before the click: its
+page's tab selected, on the warnings page its Configuration sub-tab, a collapsed section around it expanded
+(the dual deployment thresholds). A field must then be shown (not on another card of its panel) and enabled.
+
+An edit of the wind editor has exactly one of `{"altitudeReference": "MSL" \| "AGL"}` (the radio button),
+`{"addLevel": true}` ("Add new level"), `{"deleteLevel": <row>}` (the row selected, as a click on one of its
+fields selects it, then "Delete level": bug 33), `{"deleteRow": <row>}` (the row's delete button),
+`{"cell": {"row": <row>, "column": "altitude" \| "speed" \| "direction" \| "standardDeviation" \|
+"turbulence", "text": ...}}` (the text typed into the row's field, in the unit of the column's header),
+`{"columnUnit": {"column": ..., "unit": ...}}` (the unit chosen in the column header's unit selector),
+`{"resetLevels": <the overwrite question's answer>}` ("Reset levels") and `{"importLevels": {"settings": <the
+CSV import settings' answer>, "file": <the file chooser's answer>, "overwrite": <the overwrite question's
+answer>}}` ("Import levels"; `file` after the settings' OK, `overwrite` while the editor has levels). The rows
+are the table's, sorted by altitude.
+
+A lookup action has exactly one of `{"separator": <the separator itself>}` (the section's separator box, as
+in the CSV import settings), `{"load": <the file chooser's answer>}` ("Load from file..."), `{"text": <text>}`
+(the loaded data's text area set to the text: editable only with a table loaded), `{"refresh": true}` and
+`{"clear": true}`.
+
+Traps of OpenRocket's tab and dialogs that the tool reports, and how to write around them:
+
+- A click on the simulations tab selects the first row when no row is selected; the operations select their
+  rows (New and Paste the new ones, Delete and Cut the first row afterwards): a `selectSimulations` of what is
+  selected already checks nothing and is refused.
+- The settings dialog's OK always asks for the run dialog of a simulation without data: answer `"run":
+  {"button": "cancel"}`. Its Cancel asks nothing when an existing simulation was not edited, and always asks for
+  a new one; the edits of the wind editor and a cleared lookup table are no edit to OpenRocket's dialog (no `* `
+  in its title, and the undo text stays the one before), so that its Cancel would keep them: OK such edits.
+- OpenRocket's settings dialog keeps the random seed controls as they were made: a "Reset to default" of the
+  launch conditions after a seed was typed is undone by OK's `prepareForSimulation()` (QtRocket's controls
+  follow the options; run 2's S4 deviation): do not combine them.
+- A spinner commits the text it shows when it loses the focus: type values the field shows as typed (no more
+  decimals than its unit shows), or a later focus change can change the value.
+- The lookup tables a scenario loads must be cleared (`{"clear": true}` and OK) before Save as.
+- "Save as default" of the options page stores the geodetic method, and of the warnings page the thresholds:
+  New simulation and the launch conditions' Reset to default are refused after them (bug 38) while they differ
+  from OpenRocket's defaults.
+- The open design's simulations must hold no flight data (as in version 2), and the scenario runs none.
+
+The committed scenario of version 3 (its directory's README.md tells it step by step):
+
+- `simulations`, 34 steps, on the flight-configurations reference (three configurations, three simulations
+  without data, the third without motors): the tab; an edit of Simulation 1 cancelled without a change;
+  Simulation 1 renamed and given a multi-level wind in the wind editor (two levels added, a speed and an
+  altitude edited, the altitude unit in feet, the 0 m level deleted with Delete level, AGL), a rod length and launch
+  into wind off, OK with its run cancelled; Simulation 2's options (RK6, WGS84, a constant gravity, the time
+  step and the maximum time, a fixed seed), two warning thresholds (one in the collapsed dual deployment
+  section), a drag lookup table loaded from a file and edited, the standard atmosphere off and a temperature,
+  OK; an edit of it cancelled with its discard question; New simulation with its launch conditions by property
+  (renamed, a configuration, the average wind, its turbulence and direction, the launch site, the rod
+  direction and angle without launch into wind, the atmosphere: temperature, pressure and humidity), OK;
+  Duplicate; the two edited together (the multi-simulation edit); Copy, Paste after the first row, a Delete
+  cancelled at its confirmation, Delete of the pasted one with "Do not ask me again", Cut of two rows without
+  the confirmation, Undo and Redo; the stepper column shown and the apogee hidden; Paste of the Cut's two
+  simulations; two wind imports in the wind editor (a comma-separated file with a header, then a
+  space-separated one in feet after a cancelled Reset levels: bug 34); the lookup table cleared; a cancelled
+  New simulation (its discard question with "Do not ask me again"); Save as.
+
+Where QtRocket's fixes of OpenRocket's bugs show in it, the record is OpenRocket's with the tool's fix (its
+`toolFixes`: bugs 6, 32, 33 and 34, the records `kGuiSimulationToolFixes` of `GoldenGuiReference.h` lists), the
+scenario avoids the step, or the golden test's expected record makes the difference QtRocket's GUI shows
+(`guiExpectedRecord()`: bug 27's Paste, and no Monte Carlo action, which is Milestone 7's).
+
 ## state.json
 
 ### Version 1
@@ -599,3 +857,71 @@ by `guiReloadChanges()` of `GoldenGuiReference.h`: in `flight-configurations` th
 named `Flight {motors}`, the default name at the save, which `RocketSaver` saves without their
 `<name>` (`FlightConfiguration.isNameOverridden()`), so that the reload gives them the default name
 `[{motors}]`; nothing in `multi-stage`.
+
+### Version 3
+
+The file of version 2 with `"schemaVersion": 3`. A record has the members of version 2 (`selection` the selected
+components: none while simulations are selected; `tab` also `simulations`; `questions` also the questions of
+the simulations tab; `flightConfiguration` as in version 2; `tree` after the same steps: the steps of the
+simulations tab hold the tree's digest only), and:
+
+- `simulationsTab`, what the Flight simulations tab shows, in the terms of the simulation-table pins
+  (`tools/openrocket-gui-pins/simulation-table`, SimulationTableProbe):
+  - `showsHelp`: the panel's card shows the help text (no configuration with motors) instead of the table;
+  - `columns`: the table's columns in the view's order, `[{"id", "header"}]` (the ids of `columnVisibility`,
+    the header texts);
+  - `rows`: per row (the document's order) `{"status": <Simulation.Status name>, "statusSortText": <the status
+    label's toString(), which its sorter compares>, "description": <getStatusDescription()>, "warnings": <the
+    warnings box as text: each count and its icon as [HIGH], [NORMAL] or [LOW]>, "warningCounts": [<critical>,
+    <normal>, <informational>] (-1 without data), "warningsToolTip": <the box's tooltip>, "cells": [<the text
+    of every model column from the name on, null for no value>]}`;
+  - `selectedRows`: the table's selected rows;
+  - `actions`: the enabled state of the panel's twelve actions by their names without "Action"
+    (`newSimulation`, `editSimulation`, `cutSimulation`, `copySimulation`, `pasteSimulation`, `runSimulation`,
+    `landingDispersion`, `plotSimulation`, `duplicateSimulation`, `deleteSimulation`, `simTableExport`,
+    `selectedSimsExport`; `landingDispersion` is Milestone 7's);
+  - `clipboardSimulations`: the names of the simulations on OpenRocket's clipboard;
+  - `hiddenColumnsPreference`: the document preference `simulation.table.hiddenColumns` (null when the
+    document has none: the table hides the stepper column by default);
+- `simulations`: per simulation of the document, in its order, `{"name", "configuration": <the configuration's
+  row among the rocket's, -1 for one the rocket does not have>, "status": <getStatus()>, "options": [<the ten
+  lines of describeConditions() of tests/core/file/openrocket/ConditionsTestSupport.h (SimulationLines'
+  CondProbe lines, all of them): rod, wind, site, stepper, seed, atmosphere, gravity, thresholds, drag and
+  stability; the path of a lookup table's file inside the repository written relative to it>], "extensions":
+  [<the extensions' names>]}`;
+- `toolFixes` (when the step shows one): `[{"bug": <its number, left out for a fix without one>, "fix": <what
+  the tool did>}]`, the places where the record is OpenRocket's with one of QtRocket's fixes (see
+  [QtRocket's fixes of OpenRocket's bugs (version 3)](#qtrockets-fixes-of-openrockets-bugs-version-3));
+- `clipboardText` (after `copySimulations` and `cutSimulations`): the text Copy put on the system clipboard
+  (`SimulationPanel.copySimulationValues("\t")`: the status column and the table's header, a line per selected
+  simulation with summary data).
+
+The questions of the simulations tab, each as it opened, with `answered`: the same members as the answer left
+them, before its button, for the dialogs with fields:
+
+- `simulation` (the settings dialog): `title` (with `* ` once the simulation changed), `name` (the name field),
+  `configuration` (the configuration box's item), `status` (the status label's HTML), `tab` (the current tab's
+  id), `tabs` (`[{"tab", "title", "enabled"}]` of the five tabs: `launchConditions`, `simulationOptions`,
+  `warnings`, `plot`, `export`), `multiSimEdit` (the multi-simulation label's text, null in a single edit);
+- `run`: `title`, `simulations` (the names of the simulations it was to run);
+- `confirm` (a JOptionPane: the delete confirmation, the discard question, the wind editor's overwrite
+  question): `title`, `message` (the texts of its message, in order), `checkBoxes` (the texts of its check
+  boxes), `buttons` (its buttons' texts);
+- `windLevels` (the wind editor): `title`, `altitudeReference` (`MSL` or `AGL`), `lines` (the lines of the probe
+  tools/openrocket-probes/wind-editor: a `HEADER` line per column, a `ROW` line per level and the `MODEL` line;
+  QtRocket's `windTableHeaderLines()` and `windTableRowLines()` of
+  tests/gui/dialogs/simulation/WindEditorTranscript.h);
+- `csvImportSettings`: `title`, `hasHeader`, `columns` (`{"altitude" | "speed" | "direction" |
+  "standardDeviation": {"name", "index", "unit"}}`), `separator` (the separator box's item: `SPACE` and `TAB`
+  as the box shows them);
+- `openFile` (a file chooser): `title`, and `file` (the chosen file, relative to the repository) when it was
+  approved;
+- `lookup` (the aerodynamic lookup dialog): `title`, `tab` (`drag` or `stability`), and per section `drag` and
+  `stability`: `summary` and `summaryToolTip` (the summary label's text and tool tip, with the column list
+  sorted, see [Determinism](#determinism)), `border` (the title of the text's border: "Example format:" or
+  "Loaded data:"), `text` (the text area), `editable`, `separator` (the separator box's item), `clearEnabled`
+  and `refreshEnabled`.
+
+What the save and the reload of the scenario's design change is listed by `guiReloadChanges()` of
+`GoldenGuiReference.h`, as for version 2: nothing in `simulations` (its input is the flight-configurations
+reference's save, whose reload named its configurations already).
