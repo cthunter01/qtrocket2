@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -80,7 +81,10 @@ import info.openrocket.swing.gui.util.SwingPreferences;
  * with a display) has the same design window, without the add buttons' steps, Copy and Paste, and with
  * OpenRocket's real Motors &amp; Configuration tab (FlightConfigurationTab), the window's tab, QtRocket's
  * fix of bug 6 in the undo history (DefaultIgnitions) and the rocket's listeners in the order they were
- * registered (orderListeners).
+ * registered (orderListeners). A session of a version 3 scenario (Milestone 4) has OpenRocket's real Flight
+ * simulations tab too (SimulationsTab, made first as BasicFrame makes its SimulationPanel), whose table's selection
+ * the window's DocumentSelectionModel holds, and the fix of bug 6 also after the undo of the settings dialog's
+ * Cancel.
  */
 final class Session {
 
@@ -120,19 +124,23 @@ final class Session {
 	/** Whether the rocket fired a tree or undo change since the flag was last cleared. */
 	private boolean treeOrUndoChange = false;
 
-	/** The Motors &amp; Configuration tab of a version 2 session (null in version 1). */
+	/** The Motors &amp; Configuration tab of a version 2 or 3 session (null in version 1). */
 	private final FlightConfigurationTab tab;
-	/** QtRocket's fix of bug 6 in the undo history of a version 2 session (null in version 1). */
+	/** The Flight simulations tab of a version 3 session (null in versions 1 and 2). */
+	private final SimulationsTab simulationsTab;
+	/** QtRocket's fix of bug 6 in the undo history of a version 2 or 3 session (null in version 1). */
 	private final DefaultIgnitions defaultIgnitions;
-	/** The window's tab in a version 2 session: "design" or "flightConfiguration". */
+	/** The window's tab in a version 2 or 3 session: "design", "flightConfiguration" or "simulations" (version 3). */
 	private String windowTab = "design";
+	/** Whether the rocket fired an undo change (an undo or a redo loaded a state) since the flag was last cleared. */
+	private boolean undoChange = false;
 
 	/**
 	 * File &gt; New (BasicFrame.newAction): a new document and its window, with the parts of the
 	 * BasicFrame constructor (:216-372) and of DesignPanel (:217) that run headless (version 1).
 	 */
 	Session(File saveDirectory) throws Exception {
-		this(saveDirectory, OpenRocketDocumentFactory.createNewRocket(), false);
+		this(saveDirectory, OpenRocketDocumentFactory.createNewRocket(), 1, null);
 	}
 
 	/**
@@ -143,6 +151,14 @@ final class Session {
 	 * window it replaces). Then the window, as for File &gt; New, with the Motors &amp; Configuration tab.
 	 */
 	static Session open(File saveDirectory, File file) throws Exception {
+		return open(saveDirectory, file, 2, null);
+	}
+
+	/**
+	 * File &gt; Open of @p file for a scenario of version @p version (2 or 3): as {@link #open(File, File)}, and in
+	 * version 3 the window has the Flight simulations tab too, whose answers name files relative to @p repository.
+	 */
+	static Session open(File saveDirectory, File file, int version, Path repository) throws Exception {
 		GeneralRocketLoader loader = new GeneralRocketLoader(file);
 		OpenRocketDocument document;
 		try (InputStream is = new BufferedInputStream(new FileInputStream(file))) {
@@ -155,29 +171,45 @@ final class Session {
 			throw new IllegalStateException("the load of " + file + " has warnings, which File > Open shows: "
 					+ loader.getWarnings());
 		}
-		return new Session(saveDirectory, document, true);
+		return new Session(saveDirectory, document, version, repository);
 	}
 
 	/**
-	 * The window of @p openedDocument: the parts of the BasicFrame constructor (:216-372) and of
-	 * DesignPanel (:217) that run headless, and in version 2 (@p withTab) the Motors &amp; Configuration
-	 * tab after them (:251).
+	 * The window of @p openedDocument for a scenario of version @p version: the parts of the BasicFrame
+	 * constructor (:216-372) and of DesignPanel (:217) that run headless, and from version 2 on the Motors &amp;
+	 * Configuration tab after them (:251); in version 3 the Flight simulations tab before them, as BasicFrame makes
+	 * its SimulationPanel first (:231-242), its table's selection model attached to the window's
+	 * DocumentSelectionModel.
 	 */
-	private Session(File saveDirectory, OpenRocketDocument openedDocument, boolean withTab) throws Exception {
+	private Session(File saveDirectory, OpenRocketDocument openedDocument, int version, Path repository)
+			throws Exception {
+		boolean withTab = version >= 2;
 		this.saveDirectory = saveDirectory;
 		document = openedDocument;
 		rocket = document.getRocket();
 		if (withTab) {
 			orderListeners(rocket);
 		}
+		defaultIgnitions = withTab ? new DefaultIgnitions(document) : null;
+		// BasicFrame.java:231: the simulations panel first; OpenRocket's clipboard holds no simulation of a run before.
+		if (version == 3) {
+			SimulationsTab.clearClipboard();
+		}
+		simulationsTab = version == 3 ? new SimulationsTab(document, repository) : null;
 
 		componentSelectionModel = new DefaultTreeSelectionModel();
 		componentSelectionModel.setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 		selectionModel = new DocumentSelectionModel(document);
 		selectionModel.attachComponentTreeSelectionModel(componentSelectionModel);
-		// The selection model of the simulation table (SimulationPanel's JTable); the document has no
-		// simulation, and SimulationPanel cannot be made headless (its actions read the menu shortcut key).
-		selectionModel.attachSimulationListSelectionModel(new DefaultListSelectionModel());
+		if (simulationsTab != null) {
+			// BasicFrame.java:234-242: the simulation table's selection model, and RocketActions' listeners.
+			selectionModel.attachSimulationListSelectionModel(simulationsTab.listSelectionModel());
+			simulationsTab.connect(selectionModel);
+		} else {
+			// The selection model of the simulation table (SimulationPanel's JTable); the document has no
+			// simulation, and SimulationPanel cannot be made headless (its actions read the menu shortcut key).
+			selectionModel.attachSimulationListSelectionModel(new DefaultListSelectionModel());
+		}
 		actions = new EditActions(document, selectionModel);
 		// ComponentTree (componenttree/ComponentTree.java:17-46) is a BasicTree with a ComponentTreeModel,
 		// expanded; its renderer, drag and drop and tool tips are left out (setDragEnabled refuses to run
@@ -194,7 +226,6 @@ final class Session {
 
 		// BasicFrame.java:251: the Motors & Configuration tab, after the design panel.
 		tab = withTab ? new FlightConfigurationTab(document, selectionModel) : null;
-		defaultIgnitions = withTab ? new DefaultIgnitions(document) : null;
 
 		// BasicFrame.java:363-372: the sustainer is selected when the window opens.
 		componentSelectionModel.setSelectionPath(new TreePath(rocket.getChild(0)));
@@ -207,6 +238,9 @@ final class Session {
 		rocket.addComponentChangeListener(e -> {
 			if (e.isTreeChange() || e.isUndoChange()) {
 				treeOrUndoChange = true;
+			}
+			if (e.isUndoChange()) {
+				undoChange = true;
 			}
 		});
 	}
@@ -232,19 +266,27 @@ final class Session {
 		Reflection.set(Rocket.class, rocket, "listenerList", new LinkedHashSet<>(listeners));
 	}
 
-	/** Closes the window of a version 2 session (its tab's frame and dialogs). */
+	/** Closes the window of a version 2 or 3 session (its tabs' frames and dialogs). */
 	void dispose() {
 		if (tab != null) {
 			tab.dispose();
 		}
+		if (simulationsTab != null) {
+			simulationsTab.dispose();
+		}
 	}
 
-	/** The Motors &amp; Configuration tab of a version 2 session, null in version 1. */
+	/** The Motors &amp; Configuration tab of a version 2 or 3 session, null in version 1. */
 	FlightConfigurationTab tab() {
 		return tab;
 	}
 
-	/** The window's tab of a version 2 session: "design" or "flightConfiguration". */
+	/** The Flight simulations tab of a version 3 session, null in versions 1 and 2. */
+	SimulationsTab simulationsTab() {
+		return simulationsTab;
+	}
+
+	/** The window's tab of a version 2 or 3 session: "design", "flightConfiguration" or "simulations". */
 	String windowTab() {
 		return windowTab;
 	}
@@ -291,9 +333,24 @@ final class Session {
 		// Version 2 (on the event dispatch thread): QtRocket's fix of bug 6 around every step.
 		defaultIgnitions.beginStep();
 		tab.beginStep();
+		if (simulationsTab == null) {
+			runStep(step);
+			if (step.kind() == Scenario.Kind.UNDO || step.kind() == Scenario.Kind.REDO) {
+				defaultIgnitions.restoreAfterUndoOrRedo();
+			}
+			defaultIgnitions.endStep();
+			return;
+		}
+		// Version 3: also after the undo of the settings dialog's Cancel (SimulationConfigDialog.discardChanges()),
+		// which loads a state of the undo history as Undo does; the record lists the fix where it shows.
+		simulationsTab.beginStep();
+		undoChange = false;
 		runStep(step);
-		if (step.kind() == Scenario.Kind.UNDO || step.kind() == Scenario.Kind.REDO) {
-			defaultIgnitions.restoreAfterUndoOrRedo();
+		boolean undoOrRedo = step.kind() == Scenario.Kind.UNDO || step.kind() == Scenario.Kind.REDO;
+		if (undoOrRedo || (Scenario.SIMULATION_KINDS.contains(step.kind()) && undoChange)) {
+			if (defaultIgnitions.restoreAfterUndoOrRedo()) {
+				simulationsTab.addToolFix(6, "the motor mounts' default ignitions of the state the undo or redo loaded");
+			}
 		}
 		defaultIgnitions.endStep();
 	}
@@ -319,6 +376,10 @@ final class Session {
 		treeOrUndoChange = false;
 		if (Scenario.TAB_KINDS.contains(kind)) {
 			tab.run(step);
+			return;
+		}
+		if (Scenario.SIMULATION_KINDS.contains(kind)) {
+			simulationsTab.run(step);
 			return;
 		}
 		switch (kind) {
@@ -368,6 +429,9 @@ final class Session {
 		if (Scenario.TAB_KINDS.contains(kind) && !windowTab.equals("flightConfiguration")) {
 			throw new IllegalStateException("the step " + kind.name + " needs the tab flightConfiguration");
 		}
+		if (Scenario.SIMULATION_KINDS.contains(kind) && !windowTab.equals("simulations")) {
+			throw new IllegalStateException("the step " + kind.name + " needs the tab simulations");
+		}
 		if (kind == Scenario.Kind.SELECT && !windowTab.equals("design")) {
 			throw new IllegalStateException("the component tree is on the design tab");
 		}
@@ -383,9 +447,15 @@ final class Session {
 		if (windowTab.equals(name)) {
 			throw new IllegalStateException("the tab " + name + " is the current one already");
 		}
+		if (windowTab.equals("simulations")) {
+			// BasicFrame.java:2521-2523: the previous tab was the simulations tab.
+			simulationsTab.leave();
+		}
 		windowTab = name;
 		if (name.equals("flightConfiguration")) {
 			tab.takeTheSpotlight();
+		} else if (name.equals("simulations")) {
+			simulationsTab.takeTheSpotlight();
 		} else {
 			tree.requestFocusInWindow();
 		}
@@ -415,6 +485,21 @@ final class Session {
 					throw new IllegalStateException("Save as would ask how to store the data of the simulation "
 							+ s.getName());
 				}
+			}
+		}
+	}
+
+	/**
+	 * Version 3: OpenRocket's saver writes the path of a simulation's aerodynamic lookup table as the dialog stored it,
+	 * absolute (AerodynamicLookupDialog.normalizePath; OpenRocketSaver.writeCsvLookup), which would make the reference
+	 * depend on where the repository is (and QtRocket's loader refuses an absolute path). The tool fails before such a
+	 * save: a scenario clears the lookup tables it loads before Save as.
+	 */
+	private void requireNoLookupFile() {
+		for (Simulation s : document.getSimulations()) {
+			if (s.getOptions().getDragLookupCsvPath() != null || s.getOptions().getStabilityLookupCsvPath() != null) {
+				throw new IllegalStateException("Save as would write the absolute path of the lookup table of the"
+						+ " simulation " + s.getName() + ": clear it before");
 			}
 		}
 	}
@@ -670,6 +755,9 @@ final class Session {
 		file = FileHelper.forceExtension(file, "ork");
 		if (tab != null) {
 			requireNoStorageQuestion();
+		}
+		if (simulationsTab != null) {
+			requireNoLookupFile();
 		}
 		if (!StorageOptionChooser.verifyStorageOptions(document, null)) {
 			throw new IllegalStateException("the storage options were not confirmed");

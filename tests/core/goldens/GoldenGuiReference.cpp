@@ -8,6 +8,7 @@
 #include <format>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,13 +19,18 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
+#include "file/openrocket/ConditionsTestSupport.h"
 #include "file/openrocket/DesignFileState.h"
 #include "goldens/GoldenData.h"
 
@@ -36,7 +42,8 @@ namespace
 
 using nlohmann::json;
 
-/// The schemas the tool writes, by version (Scenario.SCHEMA_V1 and SCHEMA_V2, GuiReference).
+/// The schemas the tool writes, by version (Scenario.SCHEMA_V1 and SCHEMA_V2, GuiReference): the
+/// schema names of version 2 are those of version 3 too.
 constexpr std::string_view kScenarioSchemaV1  = "gui-from-scratch-scenario";
 constexpr std::string_view kScenarioSchemaV2  = "gui-scenario";
 constexpr std::string_view kReferenceSchemaV1 = "gui-from-scratch-reference";
@@ -45,17 +52,30 @@ constexpr std::string_view kReferenceSchemaV2 = "gui-reference";
 /// The versions a step kind belongs to (bits).
 constexpr unsigned kV1   = 1U;
 constexpr unsigned kV2   = 2U;
-constexpr unsigned kBoth = kV1 | kV2;
+constexpr unsigned kV3   = 4U;
+constexpr unsigned kV2V3 = kV2 | kV3;
+constexpr unsigned kAll  = kV1 | kV2 | kV3;
+
+/// The bit of version @p version.
+[[nodiscard]] constexpr unsigned versionBit(int version) noexcept
+{
+    if (version == 1)
+    {
+        return kV1;
+    }
+    return version == 2 ? kV2 : kV3;
+}
 
 /// A step kind, its name, the members it takes besides "step" and "note" (separated by blanks;
-/// every one is required but "unit", and New's "answer"), as Scenario.membersOf() of the tool has
-/// them, and the versions it belongs to (Scenario.V1_KINDS, V2_KINDS).
+/// every one is required but "unit", New Configuration's "answer" and the answer of Delete and
+/// Cut of simulations), as Scenario.membersOf() of the tool has them, and the versions it
+/// belongs to (Scenario.V1_KINDS, V2_KINDS, V3_KINDS).
 struct StepSpec
 {
     GuiStepKind      kind{GuiStepKind::NEW};
     std::string_view name;
     std::string_view members;
-    unsigned         versions{kBoth};
+    unsigned         versions{kAll};
 };
 
 constexpr std::array kStepSpecs{
@@ -77,64 +97,100 @@ constexpr std::array kStepSpecs{
     StepSpec{.kind = GuiStepKind::PASTE, .name = "paste", .members = "", .versions = kV1},
     StepSpec{.kind = GuiStepKind::SAVE_AS, .name = "saveAs", .members = ""},
     StepSpec{.kind = GuiStepKind::CHOOSE_FILE, .name = "chooseFile", .members = "file"},
-    StepSpec{.kind = GuiStepKind::OPEN, .name = "open", .members = "file", .versions = kV2},
-    StepSpec{.kind = GuiStepKind::TAB, .name = "tab", .members = "tab", .versions = kV2},
+    StepSpec{.kind = GuiStepKind::OPEN, .name = "open", .members = "file", .versions = kV2V3},
+    StepSpec{.kind = GuiStepKind::TAB, .name = "tab", .members = "tab", .versions = kV2V3},
     StepSpec{
-        .kind = GuiStepKind::CONFIG_TAB, .name = "configTab", .members = "tab", .versions = kV2},
+        .kind = GuiStepKind::CONFIG_TAB, .name = "configTab", .members = "tab", .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::SELECT_CELLS,
              .name     = "selectCells",
              .members  = "cells",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::MOUNT_CHECK,
              .name     = "mountCheck",
              .members  = "mount checked",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::NEW_CONFIGURATION,
              .name     = "newConfiguration",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::RENAME_CONFIGURATION,
              .name     = "renameConfiguration",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::DELETE_CONFIGURATION,
              .name     = "deleteConfiguration",
              .members  = "",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::DUPLICATE_CONFIGURATION,
              .name     = "duplicateConfiguration",
              .members  = "",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::SELECT_MOTOR,
              .name     = "selectMotor",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{
-        .kind = GuiStepKind::DELETE_MOTOR, .name = "deleteMotor", .members = "", .versions = kV2},
+        .kind = GuiStepKind::DELETE_MOTOR, .name = "deleteMotor", .members = "", .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::SELECT_IGNITION,
              .name     = "selectIgnition",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::RESET_IGNITION,
              .name     = "resetIgnition",
              .members  = "",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::SELECT_DEPLOYMENT,
              .name     = "selectDeployment",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::RESET_DEPLOYMENT,
              .name     = "resetDeployment",
              .members  = "",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::SELECT_SEPARATION,
              .name     = "selectSeparation",
              .members  = "answer",
-             .versions = kV2},
+             .versions = kV2V3},
     StepSpec{.kind     = GuiStepKind::RESET_SEPARATION,
              .name     = "resetSeparation",
              .members  = "",
-             .versions = kV2},
+             .versions = kV2V3},
+    StepSpec{.kind     = GuiStepKind::SELECT_SIMULATIONS,
+             .name     = "selectSimulations",
+             .members  = "rows",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::NEW_SIMULATION,
+             .name     = "newSimulation",
+             .members  = "answer",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::EDIT_SIMULATION,
+             .name     = "editSimulation",
+             .members  = "answer",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::DUPLICATE_SIMULATIONS,
+             .name     = "duplicateSimulations",
+             .members  = "",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::DELETE_SIMULATIONS,
+             .name     = "deleteSimulations",
+             .members  = "answer",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::COPY_SIMULATIONS,
+             .name     = "copySimulations",
+             .members  = "",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::CUT_SIMULATIONS,
+             .name     = "cutSimulations",
+             .members  = "answer",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::PASTE_SIMULATIONS,
+             .name     = "pasteSimulations",
+             .members  = "",
+             .versions = kV3},
+    StepSpec{.kind     = GuiStepKind::COLUMN_VISIBILITY,
+             .name     = "columnVisibility",
+             .members  = "column visible",
+             .versions = kV3},
 };
 
 /// The question kinds by name.
@@ -151,6 +207,13 @@ constexpr std::array kQuestionSpecs{
     QuestionSpec{.kind = GuiQuestionKind::SEPARATION, .name = "separation"},
     QuestionSpec{.kind = GuiQuestionKind::RENAME, .name = "rename"},
     QuestionSpec{.kind = GuiQuestionKind::MESSAGE, .name = "message"},
+    QuestionSpec{.kind = GuiQuestionKind::SIMULATION, .name = "simulation"},
+    QuestionSpec{.kind = GuiQuestionKind::RUN, .name = "run"},
+    QuestionSpec{.kind = GuiQuestionKind::CONFIRM, .name = "confirm"},
+    QuestionSpec{.kind = GuiQuestionKind::WIND_LEVELS, .name = "windLevels"},
+    QuestionSpec{.kind = GuiQuestionKind::CSV_IMPORT_SETTINGS, .name = "csvImportSettings"},
+    QuestionSpec{.kind = GuiQuestionKind::OPEN_FILE, .name = "openFile"},
+    QuestionSpec{.kind = GuiQuestionKind::LOOKUP, .name = "lookup"},
 };
 
 /// The members an answer may have (README.md of the tool, "Version 2").
@@ -400,18 +463,18 @@ public:
                                 : std::optional<GuiTypedValue>{typed(*value, key, context)};
     }
 
-    /// Fails unless @p object has the "schema" @p v1 of version 1 or @p v2 of version 2; the
-    /// version (0 after a failure).
+    /// Fails unless @p object has the "schema" @p v1 of version 1 or @p v2 of version 2 or 3;
+    /// the version (0 after a failure).
     int schemaVersion(const json& object, std::string_view v1, std::string_view v2)
     {
         const std::string schema  = string(object, "schema", "the document");
         const int         version = integer(object, "schemaVersion", "the document");
-        if ((schema == v1 && version == 1) || (schema == v2 && version == 2))
+        if ((schema == v1 && version == 1) || (schema == v2 && (version == 2 || version == 3)))
         {
             return version;
         }
         failure("the document",
-                std::format("neither a {} of version 1 nor a {} of version 2", v1, v2));
+                std::format("neither a {} of version 1 nor a {} of version 2 or 3", v1, v2));
         return 0;
     }
 
@@ -565,6 +628,15 @@ void checkAnswer(JsonReader& reader, const GuiAnswer& answer,
         case GuiQuestionKind::MESSAGE:
             reader.failure(context, "a message is answered by the rename dialog's answer");
             break;
+        case GuiQuestionKind::SIMULATION:
+        case GuiQuestionKind::RUN:
+        case GuiQuestionKind::CONFIRM:
+        case GuiQuestionKind::WIND_LEVELS:
+        case GuiQuestionKind::CSV_IMPORT_SETTINGS:
+        case GuiQuestionKind::OPEN_FILE:
+        case GuiQuestionKind::LOOKUP:
+            reader.failure(context, "a question of the simulations tab has no answer of version 2");
+            break;
     }
 }
 
@@ -633,6 +705,705 @@ void checkAnswer(JsonReader& reader, const GuiAnswer& answer,
     answer.nozzleExitDiameter = reader.optionalTyped(object, "nozzleExitDiameter", context);
     checkAnswer(reader, answer, questionOfStep(kind), context);
     return answer;
+}
+
+// --------------------------------------------------------------- the answers of version 3
+//
+// The answers of the dialogs of the simulations tab, as the tool's SimulationQuestions takes them
+// (its Questions.members() checks: the required members, and no member its dialog does not take).
+
+/// The names of @p object's members that are not in @p allowed, and those of @p required it does
+/// not have, as failures of @p reader ("the <what> has no member ..."); false when @p object is
+/// no object.
+bool checkObjectMembers(JsonReader& reader, const json& object,
+                        std::span<const std::string_view> allowed,
+                        std::span<const std::string_view> required, std::string_view what,
+                        std::string_view context)
+{
+    if (!object.is_object())
+    {
+        reader.failure(context, std::format("the {} is not an object", what));
+        return false;
+    }
+    for (const auto& [key, value] : object.items())
+    {
+        if (!contains(allowed, key))
+        {
+            reader.failure(context, std::format(R"(the {} has no member "{}")", what, key));
+        }
+    }
+    for (const std::string_view key : required)
+    {
+        if (!object.contains(key))
+        {
+            reader.failure(context, std::format(R"(the {} needs "{}")", what, key));
+        }
+    }
+    return true;
+}
+
+/// Fails unless @p value is one of @p values (the member @p member of the @p what).
+void checkOneOf(JsonReader& reader, std::string_view value,
+                std::span<const std::string_view> values, std::string_view member,
+                std::string_view what, std::string_view context)
+{
+    if (!contains(values, value))
+    {
+        std::string names;
+        for (const std::string_view name : values)
+        {
+            names += std::format("{}\"{}\"", names.empty() ? "" : ", ", name);
+        }
+        reader.failure(context, std::format(R"(the {}'s "{}" is one of {}, not "{}")", what, member,
+                                            names, value));
+    }
+}
+
+/// A member that must be true when present ("doNotAskAgain", "addLevel", "refresh", "clear").
+[[nodiscard]] bool trueMember(JsonReader& reader, const json& object, std::string_view key,
+                              std::string_view context)
+{
+    const bool value = reader.boolean(object, key, context);
+    if (!value)
+    {
+        reader.failure(context, std::format(R"("{}" is true or left out)", key));
+    }
+    return value;
+}
+
+/// A JOptionPane question's answer: {"button": one of @p buttons, "doNotAskAgain": true (left
+/// out: the box is left alone)} (SimulationQuestions.confirm()).
+[[nodiscard]] GuiConfirmAnswer confirmAnswer(JsonReader& reader, const json& object,
+                                             std::span<const std::string_view> buttons,
+                                             std::string_view                  context)
+{
+    constexpr std::array<std::string_view, 2> kMembers{"button", "doNotAskAgain"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    GuiConfirmAnswer                          answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "confirmation's answer", context))
+    {
+        return answer;
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, buttons, "button", "confirmation's answer", context);
+    if (JsonReader::optionalMember(object, "doNotAskAgain") != nullptr)
+    {
+        answer.doNotAskAgain = trueMember(reader, object, "doNotAskAgain", context);
+    }
+    return answer;
+}
+
+/// A file chooser's answer: {"file": a path of the repository, "button": "open"} or {"button":
+/// "cancel"} (SimulationQuestions.openFile()).
+[[nodiscard]] GuiFileAnswer fileAnswer(JsonReader& reader, const json& object,
+                                       std::string_view context)
+{
+    constexpr std::array<std::string_view, 2> kMembers{"button", "file"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    constexpr std::array<std::string_view, 2> kButtons{"open", "cancel"};
+    GuiFileAnswer                             answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "file chooser's answer", context))
+    {
+        return answer;
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, kButtons, "button", "file chooser's answer", context);
+    const bool hasFile = object.contains("file");
+    if (hasFile != (answer.button == "open"))
+    {
+        reader.failure(context, R"(a file chooser's "open" has a "file", its "cancel" none)");
+    }
+    if (hasFile)
+    {
+        answer.file = reader.string(object, "file", context);
+        if (const Result<std::filesystem::path> file = guiRepositoryFile(answer.file); !file)
+        {
+            reader.failure(context, file.error().message);
+        }
+    }
+    return answer;
+}
+
+/// A row of the CSV import settings: {"name", "index", "unit"}, each optional
+/// (SimulationQuestions.csvColumn()).
+[[nodiscard]] GuiCsvColumnAnswer csvColumnAnswer(JsonReader& reader, const json& object,
+                                                 std::string_view row, std::string_view context)
+{
+    constexpr std::array<std::string_view, 3> kMembers{"name", "index", "unit"};
+    GuiCsvColumnAnswer                        answer;
+    answer.row = std::string(row);
+    if (!checkObjectMembers(reader, object, kMembers, {}, "CSV import's row", context))
+    {
+        return answer;
+    }
+    answer.name = reader.optionalString(object, "name", context);
+    if (JsonReader::optionalMember(object, "index") != nullptr)
+    {
+        answer.index = reader.integer(object, "index", context);
+    }
+    answer.unit = reader.optionalString(object, "unit", context);
+    return answer;
+}
+
+/// The CSV import settings' answer: {"hasHeader", "columns": {<row>: ...}, "separator",
+/// "button": "ok" | "cancel"} (SimulationQuestions.csvSettings()); the rows in the order of
+/// kGuiCsvImportRows.
+[[nodiscard]] GuiCsvImportAnswer csvImportAnswer(JsonReader& reader, const json& object,
+                                                 std::string_view context)
+{
+    constexpr std::array<std::string_view, 4> kMembers{"hasHeader", "columns", "separator",
+                                                       "button"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    constexpr std::array<std::string_view, 2> kButtons{"ok", "cancel"};
+    GuiCsvImportAnswer                        answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "CSV import's answer", context))
+    {
+        return answer;
+    }
+    if (JsonReader::optionalMember(object, "hasHeader") != nullptr)
+    {
+        answer.hasHeader = reader.boolean(object, "hasHeader", context);
+    }
+    if (const json* const columns = JsonReader::optionalMember(object, "columns");
+        columns != nullptr && checkObjectMembers(reader, *columns, kGuiCsvImportRows, {},
+                                                 "CSV import's columns", context))
+    {
+        for (const std::string_view row : kGuiCsvImportRows)
+        {
+            if (columns->contains(row))
+            {
+                answer.columns.push_back(csvColumnAnswer(reader, columns->at(row), row, context));
+            }
+        }
+    }
+    answer.separator = reader.optionalString(object, "separator", context);
+    if (answer.separator && answer.separator->empty())
+    {
+        reader.failure(context, "the CSV import's separator is not empty");
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, kButtons, "button", "CSV import's answer", context);
+    return answer;
+}
+
+/// Whether the file name of @p path (a path of the repository) has the extension csv, in any
+/// case (MultiLevelWindEditDialog.importLevels: OpenRocket appends ".csv" to another, bug 37).
+[[nodiscard]] bool hasCsvExtension(std::string_view path)
+{
+    const std::size_t      slash = path.rfind('/');
+    const std::string_view name  = slash == std::string_view::npos ? path : path.substr(slash + 1);
+    const std::size_t      dot   = name.rfind('.');
+    return dot != std::string_view::npos && dot > 0 &&
+           Strings::toLower(name.substr(dot + 1)) == "csv";
+}
+
+/// "Import levels": {"settings", "file", "overwrite"} (SimulationQuestions.importLevels()); a
+/// chosen file without the extension .csv is refused (bug 37).
+[[nodiscard]] GuiWindImportAnswer windImportAnswer(JsonReader& reader, const json& object,
+                                                   std::string_view context)
+{
+    constexpr std::array<std::string_view, 3> kMembers{"settings", "file", "overwrite"};
+    constexpr std::array<std::string_view, 1> kRequired{"settings"};
+    constexpr std::array<std::string_view, 2> kYesNo{"yes", "no"};
+    GuiWindImportAnswer                       answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "wind import", context))
+    {
+        return answer;
+    }
+    answer.settings = csvImportAnswer(reader, reader.object(object, "settings", context), context);
+    if (const json* const file = JsonReader::optionalMember(object, "file"))
+    {
+        answer.file = fileAnswer(reader, *file, context);
+        if (answer.file->button == "open" && !hasCsvExtension(answer.file->file))
+        {
+            reader.failure(context, std::format("bug 37: OpenRocket appends .csv to the chosen "
+                                                "file {}",
+                                                answer.file->file));
+        }
+    }
+    if (const json* const overwrite = JsonReader::optionalMember(object, "overwrite"))
+    {
+        answer.overwrite = confirmAnswer(reader, *overwrite, kYesNo, context);
+    }
+    return answer;
+}
+
+/// The names of an edit of the wind editor by kind (SimulationQuestions.windEdit()).
+struct WindEditSpec
+{
+    GuiWindEditKind  kind{GuiWindEditKind::ADD_LEVEL};
+    std::string_view name;
+};
+
+constexpr std::array kWindEditSpecs{
+    WindEditSpec{.kind = GuiWindEditKind::ALTITUDE_REFERENCE, .name = "altitudeReference"},
+    WindEditSpec{.kind = GuiWindEditKind::ADD_LEVEL, .name = "addLevel"},
+    WindEditSpec{.kind = GuiWindEditKind::DELETE_LEVEL, .name = "deleteLevel"},
+    WindEditSpec{.kind = GuiWindEditKind::DELETE_ROW, .name = "deleteRow"},
+    WindEditSpec{.kind = GuiWindEditKind::CELL, .name = "cell"},
+    WindEditSpec{.kind = GuiWindEditKind::COLUMN_UNIT, .name = "columnUnit"},
+    WindEditSpec{.kind = GuiWindEditKind::RESET_LEVELS, .name = "resetLevels"},
+    WindEditSpec{.kind = GuiWindEditKind::IMPORT_LEVELS, .name = "importLevels"},
+};
+
+/// The members of a wind edit's "cell" or "columnUnit": {"row", "column", "text"} or {"column",
+/// "unit"}, the column one of kGuiWindColumns.
+void readWindCell(JsonReader& reader, const json& object, GuiWindEdit& edit,
+                  std::string_view context)
+{
+    constexpr std::array<std::string_view, 3> kCell{"row", "column", "text"};
+    constexpr std::array<std::string_view, 2> kUnit{"column", "unit"};
+    const bool                                cell = edit.kind == GuiWindEditKind::CELL;
+    const std::span<const std::string_view>   members =
+        cell ? std::span<const std::string_view>(kCell) : std::span<const std::string_view>(kUnit);
+    if (!checkObjectMembers(reader, object, members, members,
+                            cell ? "wind table's cell" : "wind table's column unit", context))
+    {
+        return;
+    }
+    edit.column = reader.string(object, "column", context);
+    checkOneOf(reader, edit.column, kGuiWindColumns, "column", "wind table's edit", context);
+    if (cell)
+    {
+        edit.row  = reader.integer(object, "row", context);
+        edit.text = reader.string(object, "text", context);
+    }
+    else
+    {
+        edit.unit = reader.string(object, "unit", context);
+    }
+}
+
+/// An edit of the wind editor: an object with exactly one member, of kWindEditSpecs.
+[[nodiscard]] GuiWindEdit windEdit(JsonReader& reader, const json& object, std::string_view context)
+{
+    constexpr std::array<std::string_view, 2> kReferences{"MSL", "AGL"};
+    constexpr std::array<std::string_view, 2> kYesNo{"yes", "no"};
+    GuiWindEdit                               edit;
+    if (!object.is_object() || object.size() != 1)
+    {
+        reader.failure(context, "an edit of the wind editor has exactly one member");
+        return edit;
+    }
+    const std::string                   key = object.begin().key();
+    const std::span<const WindEditSpec> specs(kWindEditSpecs);
+    const auto found = std::ranges::find(specs, std::string_view(key), &WindEditSpec::name);
+    if (found == specs.end())
+    {
+        reader.failure(context, std::format(R"(the wind editor has no edit "{}")", key));
+        return edit;
+    }
+    edit.kind = found->kind;
+    switch (edit.kind)
+    {
+        case GuiWindEditKind::ALTITUDE_REFERENCE:
+            edit.altitudeReference = reader.string(object, key, context);
+            checkOneOf(reader, edit.altitudeReference, kReferences, key, "wind edit", context);
+            break;
+        case GuiWindEditKind::ADD_LEVEL:
+            static_cast<void>(trueMember(reader, object, key, context));
+            break;
+        case GuiWindEditKind::DELETE_LEVEL:
+        case GuiWindEditKind::DELETE_ROW:
+            edit.row = reader.integer(object, key, context);
+            break;
+        case GuiWindEditKind::CELL:
+        case GuiWindEditKind::COLUMN_UNIT:
+            readWindCell(reader, object.at(key), edit, context);
+            break;
+        case GuiWindEditKind::RESET_LEVELS:
+            edit.resetQuestion = confirmAnswer(reader, object.at(key), kYesNo, context);
+            break;
+        case GuiWindEditKind::IMPORT_LEVELS:
+            edit.importLevels = windImportAnswer(reader, object.at(key), context);
+            break;
+    }
+    return edit;
+}
+
+/// The wind editor's answer: {"edits": [...], "button": "close"}
+/// (SimulationQuestions.windEditor()).
+[[nodiscard]] GuiWindEditorAnswer windEditorAnswer(JsonReader& reader, const json& object,
+                                                   std::string_view context)
+{
+    constexpr std::array<std::string_view, 2> kMembers{"edits", "button"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    constexpr std::array<std::string_view, 1> kButtons{"close"};
+    GuiWindEditorAnswer                       answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "wind editor's answer", context))
+    {
+        return answer;
+    }
+    if (JsonReader::optionalMember(object, "edits") != nullptr)
+    {
+        for (const json& edit : reader.array(object, "edits", context))
+        {
+            answer.edits.push_back(windEdit(reader, edit, context));
+        }
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, kButtons, "button", "wind editor's answer", context);
+    return answer;
+}
+
+/// The names of a lookup action by kind (SimulationQuestions.lookupAction()).
+struct LookupActionSpec
+{
+    GuiLookupActionKind kind{GuiLookupActionKind::CLEAR};
+    std::string_view    name;
+};
+
+constexpr std::array kLookupActionSpecs{
+    LookupActionSpec{.kind = GuiLookupActionKind::SEPARATOR, .name = "separator"},
+    LookupActionSpec{.kind = GuiLookupActionKind::LOAD, .name = "load"},
+    LookupActionSpec{.kind = GuiLookupActionKind::TEXT, .name = "text"},
+    LookupActionSpec{.kind = GuiLookupActionKind::REFRESH, .name = "refresh"},
+    LookupActionSpec{.kind = GuiLookupActionKind::CLEAR, .name = "clear"},
+};
+
+/// An action of a section of the lookup dialog: an object with exactly one member, of
+/// kLookupActionSpecs.
+[[nodiscard]] GuiLookupAction lookupAction(JsonReader& reader, const json& object,
+                                           std::string_view context)
+{
+    GuiLookupAction action;
+    if (!object.is_object() || object.size() != 1)
+    {
+        reader.failure(context, "a lookup action has exactly one member");
+        return action;
+    }
+    const std::string                       key = object.begin().key();
+    const std::span<const LookupActionSpec> specs(kLookupActionSpecs);
+    const auto found = std::ranges::find(specs, std::string_view(key), &LookupActionSpec::name);
+    if (found == specs.end())
+    {
+        reader.failure(context, std::format(R"(the lookup dialog has no action "{}")", key));
+        return action;
+    }
+    action.kind = found->kind;
+    switch (action.kind)
+    {
+        case GuiLookupActionKind::SEPARATOR:
+        case GuiLookupActionKind::TEXT:
+            action.text = reader.string(object, key, context);
+            break;
+        case GuiLookupActionKind::LOAD:
+            action.file = fileAnswer(reader, object.at(key), context);
+            break;
+        case GuiLookupActionKind::REFRESH:
+        case GuiLookupActionKind::CLEAR:
+            static_cast<void>(trueMember(reader, object, key, context));
+            break;
+    }
+    return action;
+}
+
+/// The lookup dialog's answer: {"drag": [...], "stability": [...], "button": "ok" | "cancel"}
+/// (SimulationQuestions.lookup()).
+[[nodiscard]] GuiLookupAnswer lookupAnswer(JsonReader& reader, const json& object,
+                                           std::string_view context)
+{
+    constexpr std::array<std::string_view, 3> kMembers{"drag", "stability", "button"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    constexpr std::array<std::string_view, 2> kButtons{"ok", "cancel"};
+    GuiLookupAnswer                           answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "lookup dialog's answer", context))
+    {
+        return answer;
+    }
+    for (const auto& [name, section] :
+         {std::pair{std::string_view("drag"), &answer.drag},
+          std::pair{std::string_view("stability"), &answer.stability}})
+    {
+        if (JsonReader::optionalMember(object, name) == nullptr)
+        {
+            continue;
+        }
+        std::vector<GuiLookupAction> actions;
+        for (const json& action : reader.array(object, name, context))
+        {
+            actions.push_back(lookupAction(reader, action, context));
+        }
+        *section = std::move(actions);
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, kButtons, "button", "lookup dialog's answer", context);
+    return answer;
+}
+
+/// A field edit: {"field": a property of kGuiSettingsFields, and the members of its kind}
+/// (SimulationQuestions.fieldEdit()).
+void readFieldEdit(JsonReader& reader, const json& object, GuiSettingsEdit& edit,
+                   std::string_view context)
+{
+    edit.field                         = reader.string(object, "field", context);
+    const GuiSettingsField* const spec = guiSettingsField(edit.field);
+    if (spec == nullptr)
+    {
+        reader.failure(context, std::format("the settings dialog has no field {}", edit.field));
+        return;
+    }
+    constexpr std::array<std::string_view, 3> kSpinner{"field", "text", "unit"};
+    constexpr std::array<std::string_view, 2> kSpinnerRequired{"field", "text"};
+    constexpr std::array<std::string_view, 2> kCheckBox{"field", "checked"};
+    constexpr std::array<std::string_view, 2> kComboBox{"field", "item"};
+    switch (spec->kind)
+    {
+        case GuiSettingsFieldKind::SPINNER:
+            checkObjectMembers(reader, object, kSpinner, kSpinnerRequired, "spinner's edit",
+                               context);
+            edit.text = reader.string(object, "text", context);
+            edit.unit = reader.optionalString(object, "unit", context);
+            return;
+        case GuiSettingsFieldKind::CHECK_BOX:
+            checkObjectMembers(reader, object, kCheckBox, kCheckBox, "check box's edit", context);
+            edit.checked = reader.boolean(object, "checked", context);
+            return;
+        case GuiSettingsFieldKind::COMBO_BOX:
+        {
+            checkObjectMembers(reader, object, kComboBox, kComboBox, "combo box's edit", context);
+            edit.item                            = reader.string(object, "item", context);
+            const std::vector<std::string> items = Strings::split(spec->items, ' ');
+            if (std::ranges::find(items, *edit.item) == items.end())
+            {
+                reader.failure(context, std::format("the combo box {} has no item {}", edit.field,
+                                                    *edit.item));
+            }
+            return;
+        }
+    }
+}
+
+/// The edit "randomSeed": {"fixed": true, "text": <an integer>} or {"fixed": false}
+/// (SimulationQuestions.randomSeedEdit()).
+void readRandomSeed(JsonReader& reader, const json& object, GuiSettingsEdit& edit,
+                    std::string_view context)
+{
+    constexpr std::array<std::string_view, 2> kMembers{"fixed", "text"};
+    constexpr std::array<std::string_view, 1> kRequired{"fixed"};
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "random seed", context))
+    {
+        return;
+    }
+    edit.seedFixed = reader.boolean(object, "fixed", context);
+    edit.seedText  = reader.optionalString(object, "text", context);
+    if (edit.seedFixed != edit.seedText.has_value())
+    {
+        reader.failure(context,
+                       "a fixed seed has its text (the box draws a random one), one that "
+                       "is not fixed none");
+    }
+    // Integer.parseInt(text.trim()).
+    if (edit.seedText && !Strings::parseInt(Strings::trim(*edit.seedText)).has_value())
+    {
+        reader.failure(context, std::format("the seed '{}' is no integer", *edit.seedText));
+    }
+}
+
+/// The kinds of the settings dialog's edits by the member that names them, in the order the tool
+/// tells them apart (SimulationQuestions.settingsEdit()).
+struct SettingsEditSpec
+{
+    GuiSettingsEditKind kind{GuiSettingsEditKind::NAME};
+    std::string_view    name;
+};
+
+constexpr std::array kSettingsEditSpecs{
+    SettingsEditSpec{.kind = GuiSettingsEditKind::FIELD, .name = "field"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::NAME, .name = "name"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::CONFIGURATION, .name = "configuration"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::TAB, .name = "tab"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::WIND_MODEL, .name = "windModel"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::RANDOM_SEED, .name = "randomSeed"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::DEFAULTS, .name = "defaults"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::WIND_LEVELS, .name = "windLevels"},
+    SettingsEditSpec{.kind = GuiSettingsEditKind::LOOKUP, .name = "lookup"},
+};
+
+/// The members of an edit that is not a field's, of kind @p edit.kind.
+void readSettingsEditMembers(JsonReader& reader, const json& object, GuiSettingsEdit& edit,
+                             std::string_view key, std::string_view context)
+{
+    constexpr std::array<std::string_view, 3> kPages{"launchConditions", "simulationOptions",
+                                                     "warnings"};
+    constexpr std::array<std::string_view, 2> kWindModels{"AVERAGE", "MULTI_LEVEL"};
+    constexpr std::array<std::string_view, 2> kDefaults{"reset", "save"};
+    constexpr std::array<std::string_view, 2> kDefaultsMembers{"defaults", "panel"};
+    const std::array<std::string_view, 1>     single{key};
+    if (edit.kind == GuiSettingsEditKind::DEFAULTS)
+    {
+        checkObjectMembers(reader, object, kDefaultsMembers, kDefaultsMembers, "defaults edit",
+                           context);
+    }
+    else
+    {
+        checkObjectMembers(reader, object, single, single, "settings edit", context);
+    }
+    switch (edit.kind)
+    {
+        case GuiSettingsEditKind::NAME:
+            edit.name = reader.string(object, key, context);
+            if (edit.name.empty())
+            {
+                reader.failure(context, "an empty name leaves the simulation's name as it is");
+            }
+            break;
+        case GuiSettingsEditKind::CONFIGURATION:
+            edit.configuration = reader.integer(object, key, context);
+            if (edit.configuration < 0)
+            {
+                reader.failure(context, "the configuration is a row, from 0");
+            }
+            break;
+        case GuiSettingsEditKind::TAB:
+            edit.tab = reader.string(object, key, context);
+            checkOneOf(reader, edit.tab, kPages, key, "settings edit", context);
+            break;
+        case GuiSettingsEditKind::WIND_MODEL:
+            edit.windModel = reader.string(object, key, context);
+            checkOneOf(reader, edit.windModel, kWindModels, key, "settings edit", context);
+            break;
+        case GuiSettingsEditKind::RANDOM_SEED:
+            readRandomSeed(reader, reader.object(object, key, context), edit, context);
+            break;
+        case GuiSettingsEditKind::DEFAULTS:
+            edit.defaults = reader.string(object, "defaults", context);
+            checkOneOf(reader, edit.defaults, kDefaults, "defaults", "settings edit", context);
+            edit.tab = reader.string(object, "panel", context);
+            checkOneOf(reader, edit.tab, kPages, "panel", "settings edit", context);
+            break;
+        case GuiSettingsEditKind::WIND_LEVELS:
+            edit.windLevels =
+                windEditorAnswer(reader, reader.object(object, key, context), context);
+            break;
+        case GuiSettingsEditKind::LOOKUP:
+            edit.lookup = lookupAnswer(reader, reader.object(object, key, context), context);
+            break;
+        case GuiSettingsEditKind::FIELD:
+            break;
+    }
+}
+
+/// An edit of the settings dialog: exactly one of the members of kSettingsEditSpecs ("field"
+/// with the members of its field, "defaults" with "panel").
+[[nodiscard]] GuiSettingsEdit settingsEdit(JsonReader& reader, const json& object,
+                                           std::string_view context)
+{
+    GuiSettingsEdit edit;
+    if (!object.is_object())
+    {
+        reader.failure(context, "an edit of the settings dialog is not an object");
+        return edit;
+    }
+    const std::span<const SettingsEditSpec> specs(kSettingsEditSpecs);
+    const auto                              found = std::ranges::find_if(
+        specs, [&object](const SettingsEditSpec& spec) { return object.contains(spec.name); });
+    if (found == specs.end())
+    {
+        reader.failure(context, "an edit of the settings dialog the tool does not know");
+        return edit;
+    }
+    edit.kind = found->kind;
+    if (edit.kind == GuiSettingsEditKind::FIELD)
+    {
+        readFieldEdit(reader, object, edit, context);
+    }
+    else
+    {
+        readSettingsEditMembers(reader, object, edit, found->name, context);
+    }
+    return edit;
+}
+
+/// The settings dialog's answer: {"edits": [...], "button": "ok" | "cancel", "run": {"button":
+/// "cancel"} (OK only), "discard": {"button": "yes", "doNotAskAgain"} (Cancel only)}
+/// (SimulationQuestions.settings(), ok(), cancel(), run()).
+[[nodiscard]] GuiSettingsAnswer settingsAnswer(JsonReader& reader, const json& object,
+                                               std::string_view context)
+{
+    constexpr std::array<std::string_view, 4> kMembers{"edits", "button", "run", "discard"};
+    constexpr std::array<std::string_view, 1> kRequired{"button"};
+    constexpr std::array<std::string_view, 2> kButtons{"ok", "cancel"};
+    constexpr std::array<std::string_view, 1> kRunMembers{"button"};
+    constexpr std::array<std::string_view, 1> kRunButtons{"cancel"};
+    constexpr std::array<std::string_view, 1> kYes{"yes"};
+    GuiSettingsAnswer                         answer;
+    if (!checkObjectMembers(reader, object, kMembers, kRequired, "settings dialog's answer",
+                            context))
+    {
+        return answer;
+    }
+    if (JsonReader::optionalMember(object, "edits") != nullptr)
+    {
+        for (const json& edit : reader.array(object, "edits", context))
+        {
+            answer.edits.push_back(settingsEdit(reader, edit, context));
+        }
+    }
+    answer.button = reader.string(object, "button", context);
+    checkOneOf(reader, answer.button, kButtons, "button", "settings dialog's answer", context);
+    if (const json* const run = JsonReader::optionalMember(object, "run");
+        run != nullptr &&
+        checkObjectMembers(reader, *run, kRunMembers, kRunMembers, "run dialog's answer", context))
+    {
+        answer.run = reader.string(*run, "button", context);
+        checkOneOf(reader, *answer.run, kRunButtons, "button", "run dialog's answer", context);
+    }
+    if (const json* const discard = JsonReader::optionalMember(object, "discard"))
+    {
+        answer.discard = confirmAnswer(reader, *discard, kYes, context);
+    }
+    if ((answer.button == "ok" && answer.discard) || (answer.button == "cancel" && answer.run))
+    {
+        reader.failure(context, R"(OK asks no discard question, and Cancel runs nothing)");
+    }
+    return answer;
+}
+
+/// The answer of the step @p object of kind @p kind of the simulations tab into @p step: the
+/// settings dialog's (New, Edit; required) or the delete confirmation's (Delete, Cut; left out
+/// once its "Do not ask me again" was ticked).
+void readSimulationAnswer(JsonReader& reader, const json& object, std::string_view context,
+                          GuiScenarioStep& step)
+{
+    constexpr std::array<std::string_view, 2> kOkCancel{"ok", "cancel"};
+    if (step.kind == GuiStepKind::NEW_SIMULATION || step.kind == GuiStepKind::EDIT_SIMULATION)
+    {
+        if (const json* const answer = reader.member(object, "answer", context))
+        {
+            step.settings = settingsAnswer(reader, *answer, context);
+        }
+        return;
+    }
+    if (const json* const answer = JsonReader::optionalMember(object, "answer"))
+    {
+        step.confirm = confirmAnswer(reader, *answer, kOkCancel, context);
+    }
+}
+
+/// The rows of a selectSimulations step: [{"row", "with"}] (Scenario.simulationRow()).
+[[nodiscard]] std::vector<GuiRowClick> rowClicks(JsonReader& reader, const json& object,
+                                                 std::string_view context)
+{
+    constexpr std::array<std::string_view, 2> kMembers{"row", "with"};
+    constexpr std::array<std::string_view, 1> kRequired{"row"};
+    constexpr std::array<std::string_view, 2> kKeys{"ctrl", "shift"};
+    std::vector<GuiRowClick>                  rows;
+    for (const json& row : reader.array(object, "rows", context))
+    {
+        if (!checkObjectMembers(reader, row, kMembers, kRequired, "row", context))
+        {
+            continue;
+        }
+        GuiRowClick click{.row  = reader.integer(row, "row", context),
+                          .with = reader.optionalString(row, "with", context).value_or("")};
+        if (!click.with.empty())
+        {
+            checkOneOf(reader, click.with, kKeys, "with", "row", context);
+        }
+        rows.push_back(std::move(click));
+    }
+    return rows;
 }
 
 // --------------------------------------------------------------------------------- the steps
@@ -716,15 +1487,22 @@ constexpr std::array kStringMembers{
     return cells;
 }
 
-/// The tab of a tab or configTab step, one of its tabs.
-[[nodiscard]] std::string tabOf(JsonReader& reader, const json& object, GuiStepKind kind,
-                                std::string_view context)
+/// The window's tabs of a scenario of version @p version (2 or 3).
+[[nodiscard]] std::span<const std::string_view> windowTabs(int version) noexcept
 {
-    constexpr std::array<std::string_view, 2> kWindowTabs{"design", "flightConfiguration"};
+    static constexpr std::array<std::string_view, 3> kWindowTabs{"design", "flightConfiguration",
+                                                                 "simulations"};
+    return std::span<const std::string_view>(kWindowTabs).first(version == 3 ? 3 : 2);
+}
+
+/// The tab of a tab or configTab step of version @p version, one of its tabs.
+[[nodiscard]] std::string tabOf(JsonReader& reader, const json& object, GuiStepKind kind,
+                                int version, std::string_view context)
+{
     constexpr std::array<std::string_view, 3> kConfigTabs{"motors", "recovery", "stages"};
     std::string                               tab = reader.string(object, "tab", context);
     const std::span<const std::string_view>   tabs =
-        kind == GuiStepKind::TAB ? std::span<const std::string_view>(kWindowTabs)
+        kind == GuiStepKind::TAB ? windowTabs(version)
                                  : std::span<const std::string_view>(kConfigTabs);
     if (!contains(tabs, tab))
     {
@@ -733,8 +1511,9 @@ constexpr std::array kStringMembers{
     return tab;
 }
 
-/// Reads the member @p member of the step @p object into @p step.
-void readStepMember(JsonReader& reader, const json& object, std::string_view member,
+/// Reads the member @p member of the step @p object of a scenario of version @p version into
+/// @p step.
+void readStepMember(JsonReader& reader, const json& object, std::string_view member, int version,
                     std::string_view context, GuiScenarioStep& step)
 {
     if (member == "paths")
@@ -755,7 +1534,19 @@ void readStepMember(JsonReader& reader, const json& object, std::string_view mem
     }
     else if (member == "tab")
     {
-        step.tab = tabOf(reader, object, step.kind, context);
+        step.tab = tabOf(reader, object, step.kind, version, context);
+    }
+    else if (member == "rows")
+    {
+        step.rows = rowClicks(reader, object, context);
+    }
+    else if (member == "visible")
+    {
+        step.visible = reader.boolean(object, member, context);
+    }
+    else if (member == "answer" && isGuiSimulationStep(step.kind))
+    {
+        readSimulationAnswer(reader, object, context, step);
     }
     else if (member == "cells")
     {
@@ -789,6 +1580,11 @@ void readStepMember(JsonReader& reader, const json& object, std::string_view mem
             return;
         }
         step.*found->member = reader.string(object, member, context);
+        if (step.kind == GuiStepKind::COLUMN_VISIBILITY && member == "column")
+        {
+            checkOneOf(reader, step.column, kGuiSimulationColumns, member, "column visibility",
+                       context);
+        }
     }
 }
 
@@ -806,7 +1602,7 @@ void readStepMember(JsonReader& reader, const json& object, std::string_view mem
         return step;
     }
     step.kind = spec->kind;
-    if ((spec->versions & (version == 1 ? kV1 : kV2)) == 0U)
+    if ((spec->versions & versionBit(version)) == 0U)
     {
         reader.failure(context,
                        std::format(R"("{}" is no step of version {})", spec->name, version));
@@ -822,14 +1618,14 @@ void readStepMember(JsonReader& reader, const json& object, std::string_view mem
         // A kind without members has the one empty name.
         if (!member.empty())
         {
-            readStepMember(reader, object, member, context, step);
+            readStepMember(reader, object, member, version, context, step);
         }
     }
     return step;
 }
 
-/// Fails unless the scenario starts with File > New (version 1) or File > Open (version 2, and
-/// only there).
+/// Fails unless the scenario starts with File > New (version 1) or File > Open (versions 2 and 3,
+/// and only there).
 void checkFirstStep(JsonReader& reader, const GuiScenario& scenario)
 {
     const GuiStepKind first = scenario.schemaVersion == 1 ? GuiStepKind::NEW : GuiStepKind::OPEN;
@@ -907,7 +1703,231 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
     }
 }
 
-[[nodiscard]] GuiQuestion questionOf(JsonReader& reader, const json& object,
+/// A tab of a record ({"tab", "title", "enabled"}): a sub-tab of the Motors & Configuration tab,
+/// or a tab of the settings dialog.
+[[nodiscard]] GuiConfigTabState tabState(JsonReader& reader, const json& object,
+                                         std::string_view context)
+{
+    return {.tab     = reader.string(object, "tab", context),
+            .title   = reader.string(object, "title", context),
+            .enabled = reader.boolean(object, "enabled", context)};
+}
+
+/// What the settings dialog showed (SimulationQuestions.settingsState()): "multiSimEdit" left out
+/// (null) in a single edit.
+[[nodiscard]] GuiSettingsDialogState settingsDialogState(JsonReader& reader, const json& object,
+                                                         std::string_view context)
+{
+    GuiSettingsDialogState state;
+    state.title         = reader.string(object, "title", context);
+    state.name          = reader.string(object, "name", context);
+    state.configuration = reader.string(object, "configuration", context);
+    state.status        = reader.string(object, "status", context);
+    state.tab           = reader.string(object, "tab", context);
+    for (const json& tab : reader.array(object, "tabs", context))
+    {
+        state.tabs.push_back(tabState(reader, tab, context));
+    }
+    state.multiSimEdit = reader.optionalString(object, "multiSimEdit", context);
+    return state;
+}
+
+/// What the wind editor showed (SimulationQuestions.windState()).
+[[nodiscard]] GuiWindEditorState windEditorState(JsonReader& reader, const json& object,
+                                                 std::string_view context)
+{
+    return {.title             = reader.string(object, "title", context),
+            .altitudeReference = reader.string(object, "altitudeReference", context),
+            .lines             = reader.strings(object, "lines", context)};
+}
+
+/// What the CSV import settings showed (SimulationQuestions.csvState()).
+[[nodiscard]] GuiCsvImportState csvImportState(JsonReader& reader, const json& object,
+                                               std::string_view context)
+{
+    GuiCsvImportState state;
+    state.title         = reader.string(object, "title", context);
+    state.hasHeader     = reader.boolean(object, "hasHeader", context);
+    const json& columns = reader.object(object, "columns", context);
+    for (std::size_t at = 0; at < kGuiCsvImportRows.size(); ++at)
+    {
+        const json& column   = reader.object(columns, kGuiCsvImportRows.at(at), context);
+        state.columns.at(at) = {.name  = reader.string(column, "name", context),
+                                .index = reader.integer(column, "index", context),
+                                .unit  = reader.string(column, "unit", context)};
+    }
+    state.separator = reader.string(object, "separator", context);
+    return state;
+}
+
+/// A section of the lookup dialog (SimulationQuestions.lookupState()): "summaryToolTip" left out
+/// (null) without a tool tip.
+[[nodiscard]] GuiLookupSectionState lookupSectionState(JsonReader& reader, const json& object,
+                                                       std::string_view context)
+{
+    return {.summary        = reader.string(object, "summary", context),
+            .summaryToolTip = reader.optionalString(object, "summaryToolTip", context),
+            .border         = reader.string(object, "border", context),
+            .text           = reader.string(object, "text", context),
+            .editable       = reader.boolean(object, "editable", context),
+            .separator      = reader.string(object, "separator", context),
+            .clearEnabled   = reader.boolean(object, "clearEnabled", context),
+            .refreshEnabled = reader.boolean(object, "refreshEnabled", context)};
+}
+
+/// What the lookup dialog showed.
+[[nodiscard]] GuiLookupState lookupState(JsonReader& reader, const json& object,
+                                         std::string_view context)
+{
+    return {.title = reader.string(object, "title", context),
+            .tab   = reader.string(object, "tab", context),
+            .drag  = lookupSectionState(reader, reader.object(object, "drag", context), context),
+            .stability =
+                lookupSectionState(reader, reader.object(object, "stability", context), context)};
+}
+
+/// The members of a question of the simulations tab (version 3), of kind @p question.kind.
+void readSimulationQuestion(JsonReader& reader, const json& object, std::string_view context,
+                            GuiQuestion& question)
+{
+    switch (question.kind)
+    {
+        case GuiQuestionKind::SIMULATION:
+            question.settingsShown = settingsDialogState(reader, object, context);
+            question.settingsAnswered =
+                settingsDialogState(reader, reader.object(object, "answered", context), context);
+            break;
+        case GuiQuestionKind::RUN:
+            question.simulations = reader.strings(object, "simulations", context);
+            break;
+        case GuiQuestionKind::CONFIRM:
+            question.message    = reader.strings(object, "message", context);
+            question.checkBoxes = reader.strings(object, "checkBoxes", context);
+            question.buttons    = reader.strings(object, "buttons", context);
+            break;
+        case GuiQuestionKind::WIND_LEVELS:
+            question.windShown = windEditorState(reader, object, context);
+            question.windAnswered =
+                windEditorState(reader, reader.object(object, "answered", context), context);
+            break;
+        case GuiQuestionKind::CSV_IMPORT_SETTINGS:
+            question.csvShown = csvImportState(reader, object, context);
+            question.csvAnswered =
+                csvImportState(reader, reader.object(object, "answered", context), context);
+            break;
+        case GuiQuestionKind::OPEN_FILE:
+            question.file = reader.optionalString(object, "file", context);
+            break;
+        case GuiQuestionKind::LOOKUP:
+            question.lookupShown = lookupState(reader, object, context);
+            question.lookupAnswered =
+                lookupState(reader, reader.object(object, "answered", context), context);
+            break;
+        default:
+            break;
+    }
+}
+
+/// Whether @p kind is a question of the simulations tab (version 3).
+[[nodiscard]] bool isSimulationQuestion(GuiQuestionKind kind) noexcept
+{
+    return kind >= GuiQuestionKind::SIMULATION;
+}
+
+/// A row of the simulations table (SimulationsTab.row()): its cells' nulls are no value.
+[[nodiscard]] GuiSimulationTableRow simulationTableRow(JsonReader& reader, const json& object,
+                                                       std::string_view context)
+{
+    GuiSimulationTableRow row;
+    row.status                    = reader.string(object, "status", context);
+    row.statusSortText            = reader.string(object, "statusSortText", context);
+    row.description               = reader.string(object, "description", context);
+    row.warnings                  = reader.string(object, "warnings", context);
+    const std::vector<int> counts = reader.integers(object, "warningCounts", context);
+    if (counts.size() != row.warningCounts.size())
+    {
+        reader.failure(context, R"("warningCounts" has three counts)");
+    }
+    for (std::size_t at = 0; at < counts.size() && at < row.warningCounts.size(); ++at)
+    {
+        row.warningCounts.at(at) = counts[at];
+    }
+    row.warningsToolTip = reader.string(object, "warningsToolTip", context);
+    for (const json& cell : reader.array(object, "cells", context))
+    {
+        if (cell.is_null())
+        {
+            row.cells.emplace_back(std::nullopt);
+        }
+        else if (cell.is_string())
+        {
+            row.cells.emplace_back(cell.get<std::string>());
+        }
+        else
+        {
+            reader.failure(context, "a cell is a string or null");
+        }
+    }
+    return row;
+}
+
+/// What the simulations tab showed (SimulationsTab.record()).
+[[nodiscard]] GuiSimulationsTabState simulationsTabState(JsonReader& reader, const json& object,
+                                                         std::string_view context)
+{
+    GuiSimulationsTabState state;
+    state.showsHelp = reader.boolean(object, "showsHelp", context);
+    for (const json& column : reader.array(object, "columns", context))
+    {
+        state.columns.push_back({.id     = reader.string(column, "id", context),
+                                 .header = reader.string(column, "header", context)});
+    }
+    for (const json& row : reader.array(object, "rows", context))
+    {
+        state.rows.push_back(simulationTableRow(reader, row, context));
+    }
+    state.selectedRows         = reader.integers(object, "selectedRows", context);
+    state.actions              = reader.booleans(object, "actions", context);
+    state.clipboardSimulations = reader.strings(object, "clipboardSimulations", context);
+    state.hiddenColumnsPreference =
+        reader.optionalString(object, "hiddenColumnsPreference", context);
+    return state;
+}
+
+/// The members of a record of version 3 only: the simulations tab, the simulations, the tool's
+/// fixes and the clipboard's text (the last two left out when there are none).
+void readSimulationsRecord(JsonReader& reader, const json& object, std::string_view context,
+                           GuiStepRecord& record)
+{
+    record.simulationsTab =
+        simulationsTabState(reader, reader.object(object, "simulationsTab", context), context);
+    for (const json& simulation : reader.array(object, "simulations", context))
+    {
+        record.simulations.push_back(
+            {.name          = reader.string(simulation, "name", context),
+             .configuration = reader.integer(simulation, "configuration", context),
+             .status        = reader.string(simulation, "status", context),
+             .options       = reader.strings(simulation, "options", context),
+             .extensions    = reader.strings(simulation, "extensions", context)});
+    }
+    if (JsonReader::optionalMember(object, "toolFixes") != nullptr)
+    {
+        for (const json& fix : reader.array(object, "toolFixes", context))
+        {
+            GuiRecordedToolFix recorded;
+            if (JsonReader::optionalMember(fix, "bug") != nullptr)
+            {
+                recorded.bug = reader.integer(fix, "bug", context);
+            }
+            recorded.fix = reader.string(fix, "fix", context);
+            record.toolFixes.push_back(std::move(recorded));
+        }
+    }
+    record.clipboardText = reader.optionalString(object, "clipboardText", context);
+}
+
+/// A question of a record of version @p version.
+[[nodiscard]] GuiQuestion questionOf(JsonReader& reader, const json& object, int version,
                                      std::string_view context)
 {
     GuiQuestion                          question;
@@ -920,6 +1940,15 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
     }
     question.kind  = *kind;
     question.title = reader.string(object, "title", context);
+    if (isSimulationQuestion(question.kind))
+    {
+        if (version != 3)
+        {
+            reader.failure(context, "a question of the simulations tab before version 3");
+        }
+        readSimulationQuestion(reader, object, context, question);
+        return question;
+    }
     switch (question.kind)
     {
         case GuiQuestionKind::MOTOR:
@@ -937,6 +1966,8 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
             break;
         case GuiQuestionKind::MESSAGE:
             question.text = reader.string(object, "text", context);
+            break;
+        default:
             break;
     }
     return question;
@@ -1027,12 +2058,13 @@ void readValueQuestion(JsonReader& reader, const json& object, std::string_view 
     return state;
 }
 
-/// The members of a record of version 2: the tab, the questions, what the tab showed.
-void readTabRecord(JsonReader& reader, const json& object, std::string_view context,
+/// The members of a record of version 2 or 3 (@p version): the tab, the questions, what the
+/// Motors & Configuration tab showed.
+void readTabRecord(JsonReader& reader, const json& object, int version, std::string_view context,
                    GuiStepRecord& record)
 {
     record.tab = reader.string(object, "tab", context);
-    if (record.tab != "design" && record.tab != "flightConfiguration")
+    if (!contains(windowTabs(version), record.tab))
     {
         reader.failure(context, std::format(R"(no tab "{}")", record.tab));
     }
@@ -1040,7 +2072,7 @@ void readTabRecord(JsonReader& reader, const json& object, std::string_view cont
     {
         for (const json& question : reader.array(object, "questions", context))
         {
-            record.questions.push_back(questionOf(reader, question, context));
+            record.questions.push_back(questionOf(reader, question, version, context));
         }
     }
     record.flightConfiguration = flightConfigurationState(
@@ -1079,15 +2111,19 @@ void readTabRecord(JsonReader& reader, const json& object, std::string_view cont
     {
         record.tree = reader.strings(object, "tree", context);
     }
-    if (version == 2)
+    if (version >= 2)
     {
-        readTabRecord(reader, object, context, record);
+        readTabRecord(reader, object, version, context, record);
+    }
+    if (version == 3)
+    {
+        readSimulationsRecord(reader, object, context, record);
     }
     return record;
 }
 
-/// The members of the reference of version 2 only: the preset commit, the start-up, the input and
-/// the archive's digests.
+/// The members of the references of versions 2 and 3 only: the preset commit, the start-up, the
+/// input and the archive's digests.
 void readTabReference(JsonReader& reader, const json& document, GuiReference& reference)
 {
     reference.presetDatabaseCommit =
@@ -1241,6 +2277,248 @@ bool isGuiTabOperation(GuiStepKind kind) noexcept
            kind != GuiStepKind::SELECT_CELLS;
 }
 
+bool isGuiSimulationStep(GuiStepKind kind) noexcept
+{
+    return kind >= GuiStepKind::SELECT_SIMULATIONS && kind <= GuiStepKind::COLUMN_VISIBILITY;
+}
+
+const GuiSettingsField* guiSettingsField(std::string_view property) noexcept
+{
+    const std::span<const GuiSettingsField> fields(kGuiSettingsFields);
+    const auto found = std::ranges::find(fields, property, &GuiSettingsField::property);
+    return found == fields.end() ? nullptr : &*found;
+}
+
+namespace
+{
+
+/// The file of @p answer when it opens one.
+void addAnsweredFile(const GuiFileAnswer& answer, std::vector<std::string>& files)
+{
+    if (answer.button == "open")
+    {
+        files.push_back(answer.file);
+    }
+}
+
+/// The files the edits of @p answer name.
+void addSettingsFiles(const GuiSettingsAnswer& answer, std::vector<std::string>& files)
+{
+    for (const GuiSettingsEdit& edit : answer.edits)
+    {
+        for (const GuiWindEdit& wind : edit.windLevels.edits)
+        {
+            if (wind.kind == GuiWindEditKind::IMPORT_LEVELS && wind.importLevels.file)
+            {
+                addAnsweredFile(*wind.importLevels.file, files);
+            }
+        }
+        for (const std::optional<std::vector<GuiLookupAction>>* const section :
+             {&edit.lookup.drag, &edit.lookup.stability})
+        {
+            for (const GuiLookupAction& action : section->value_or(std::vector<GuiLookupAction>{}))
+            {
+                if (action.kind == GuiLookupActionKind::LOAD)
+                {
+                    addAnsweredFile(action.file, files);
+                }
+            }
+        }
+    }
+}
+
+/// The questions the wind editor's answer @p answer asks, after the editor's own.
+void addWindQuestions(const GuiWindEditorAnswer& answer, std::vector<GuiQuestionKind>& questions)
+{
+    for (const GuiWindEdit& edit : answer.edits)
+    {
+        if (edit.kind == GuiWindEditKind::RESET_LEVELS)
+        {
+            questions.push_back(GuiQuestionKind::CONFIRM);
+        }
+        else if (edit.kind == GuiWindEditKind::IMPORT_LEVELS)
+        {
+            questions.push_back(GuiQuestionKind::CSV_IMPORT_SETTINGS);
+            if (edit.importLevels.file)
+            {
+                questions.push_back(GuiQuestionKind::OPEN_FILE);
+            }
+            if (edit.importLevels.overwrite)
+            {
+                questions.push_back(GuiQuestionKind::CONFIRM);
+            }
+        }
+    }
+}
+
+/// The questions the lookup dialog's answer @p answer asks, after the dialog's own: a file
+/// chooser per "Load from file...".
+void addLookupQuestions(const GuiLookupAnswer& answer, std::vector<GuiQuestionKind>& questions)
+{
+    for (const std::optional<std::vector<GuiLookupAction>>* const section :
+         {&answer.drag, &answer.stability})
+    {
+        for (const GuiLookupAction& action : section->value_or(std::vector<GuiLookupAction>{}))
+        {
+            if (action.kind == GuiLookupActionKind::LOAD)
+            {
+                questions.push_back(GuiQuestionKind::OPEN_FILE);
+            }
+        }
+    }
+}
+
+/// Java's @p text.split(", "): the parts between the separators ", ", without the empty parts at
+/// the end ("" gives one empty part).
+[[nodiscard]] std::vector<std::string> javaSplitAtCommaSpace(std::string_view text)
+{
+    constexpr std::string_view kSeparator = ", ";
+    std::vector<std::string>   parts;
+    std::size_t                from = 0;
+    for (std::size_t at = text.find(kSeparator); at != std::string_view::npos;
+         at             = text.find(kSeparator, from))
+    {
+        parts.emplace_back(text.substr(from, at - from));
+        from = at + kSeparator.size();
+    }
+    if (parts.empty())
+    {
+        return {std::string(text)};
+    }
+    parts.emplace_back(text.substr(from));
+    while (!parts.empty() && parts.back().empty())
+    {
+        parts.pop_back();
+    }
+    return parts;
+}
+
+}  // namespace
+
+std::vector<std::string> guiScenarioAnswerFiles(const GuiScenario& scenario)
+{
+    std::vector<std::string> files;
+    for (const GuiScenarioStep& step : scenario.steps)
+    {
+        if (step.settings)
+        {
+            addSettingsFiles(*step.settings, files);
+        }
+    }
+    return files;
+}
+
+std::vector<GuiQuestionKind> guiSimulationStepQuestions(const GuiScenarioStep& step)
+{
+    std::vector<GuiQuestionKind> questions;
+    if (step.confirm)
+    {
+        questions.push_back(GuiQuestionKind::CONFIRM);
+    }
+    if (!step.settings)
+    {
+        return questions;
+    }
+    questions.push_back(GuiQuestionKind::SIMULATION);
+    for (const GuiSettingsEdit& edit : step.settings->edits)
+    {
+        if (edit.kind == GuiSettingsEditKind::WIND_LEVELS)
+        {
+            questions.push_back(GuiQuestionKind::WIND_LEVELS);
+            addWindQuestions(edit.windLevels, questions);
+        }
+        else if (edit.kind == GuiSettingsEditKind::LOOKUP)
+        {
+            questions.push_back(GuiQuestionKind::LOOKUP);
+            addLookupQuestions(edit.lookup, questions);
+        }
+    }
+    if (step.settings->run)
+    {
+        questions.push_back(GuiQuestionKind::RUN);
+    }
+    if (step.settings->discard)
+    {
+        questions.push_back(GuiQuestionKind::CONFIRM);
+    }
+    return questions;
+}
+
+std::vector<std::string> guiRelativeLookupPaths(std::vector<std::string> lines)
+{
+    // data/ is a directory of the repository's root (guiRepositoryFile()).
+    const std::u8string root   = dataDir().parent_path().generic_u8string();
+    const std::string   prefix = "path:" + std::string(root.begin(), root.end()) + "/";
+    for (std::string& line : lines)
+    {
+        for (std::size_t at = line.find(prefix); at != std::string::npos;
+             at             = line.find(prefix, at + 1))
+        {
+            line.replace(at, prefix.size(), "path:");
+        }
+    }
+    return lines;
+}
+
+std::vector<GuiSimulationState> guiSimulationStates(OpenRocketDocument& document)
+{
+    std::vector<GuiSimulationState>          states;
+    const std::vector<FlightConfigurationId> ids = document.getRocket().getIds();
+    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
+    {
+        const auto         id = std::ranges::find(ids, simulation->getFlightConfigurationId());
+        GuiSimulationState state;
+        state.name          = simulation->getName();
+        state.configuration = id == ids.end() ? -1 : static_cast<int>(id - ids.begin());
+        state.status        = std::string(name(simulation->getStatus()));
+        state.options       = guiRelativeLookupPaths(describeConditions(simulation->getOptions()));
+        for (const std::shared_ptr<SimulationExtension>& extension :
+             simulation->getSimulationExtensions())
+        {
+            state.extensions.push_back(extension->getName());
+        }
+        states.push_back(std::move(state));
+    }
+    return states;
+}
+
+std::string guiSortedLookupColumns(std::string_view text)
+{
+    // SimulationQuestions.SUMMARY_COLUMNS: "columns: ([^<(]*?)(?= <i>\(modified\)</i>|
+    // \(modified\)|</html>|$)", its first match; a list ends where one of the endings starts, and
+    // a '<' or '(' before an ending makes that start fail (the search goes on after it).
+    static constexpr std::string_view                kStart = "columns: ";
+    static constexpr std::array<std::string_view, 3> kEndings{" <i>(modified)</i>", " (modified)",
+                                                              "</html>"};
+    for (std::size_t start = text.find(kStart); start != std::string_view::npos;
+         start             = text.find(kStart, start + 1))
+    {
+        const std::size_t first    = start + kStart.size();
+        std::size_t       end      = first;
+        const auto        endsHere = [&text](std::size_t at) {
+            return at == text.size() ||
+                   std::ranges::any_of(kEndings, [&text, at](std::string_view ending) {
+                       return text.substr(at).starts_with(ending);
+                   });
+        };
+        while (!endsHere(end) && text[end] != '<' && text[end] != '(')
+        {
+            ++end;
+        }
+        if (!endsHere(end))
+        {
+            continue;
+        }
+        std::vector<std::string> columns = javaSplitAtCommaSpace(text.substr(first, end - first));
+        std::ranges::sort(columns, [](const std::string& a, const std::string& b) {
+            return Strings::javaCompareTo(a, b) < 0;
+        });
+        return std::string(text.substr(0, first)) + Strings::join(", ", columns) +
+               std::string(text.substr(end));
+    }
+    return std::string(text);
+}
+
 std::string_view guiQuestionName(GuiQuestionKind kind) noexcept
 {
     const std::span<const QuestionSpec> specs(kQuestionSpecs);
@@ -1305,7 +2583,7 @@ Result<GuiReference> parseGuiReference(std::string_view text)
         reference.savedAs        = reader.string(*saved, "savedAs", "reference");
         reference.archiveEntries = reader.strings(*saved, "archiveEntries", "reference");
     }
-    if (reference.schemaVersion == 2)
+    if (reference.schemaVersion >= 2)
     {
         readTabReference(reader, *document, reference);
     }
@@ -1346,6 +2624,10 @@ std::span<const GuiReloadChange> guiReloadChanges(std::string_view scenario) noe
     if (scenario == "flight-configurations")
     {
         return kGuiFlightConfigurationsReloadChanges;
+    }
+    if (scenario == kGuiSimulationsScenario)
+    {
+        return kGuiSimulationsReloadChanges;
     }
     return kGuiMultiStageReloadChanges;
 }
@@ -1454,6 +2736,203 @@ namespace
         state.delay, state.nozzleExitDiameter);
 }
 
+/// @p text with its backslashes, line feeds and tabs written as \\, \n and \t, so that a text is
+/// one line.
+[[nodiscard]] std::string escapedText(std::string_view text)
+{
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (const char c : text)
+    {
+        switch (c)
+        {
+            case '\\':
+                escaped += "\\\\";
+                break;
+            case '\n':
+                escaped += "\\n";
+                break;
+            case '\t':
+                escaped += "\\t";
+                break;
+            default:
+                escaped += c;
+                break;
+        }
+    }
+    return escaped;
+}
+
+/// @p text quoted and escaped, or "(none)".
+[[nodiscard]] std::string optionalText(const std::optional<std::string>& text)
+{
+    return text.has_value() ? "'" + escapedText(*text) + "'" : std::string("(none)");
+}
+
+/// What the settings dialog showed, in one line.
+[[nodiscard]] std::string settingsDialogText(const GuiSettingsDialogState& state)
+{
+    std::vector<std::string> tabs;
+    tabs.reserve(state.tabs.size());
+    for (const GuiConfigTabState& tab : state.tabs)
+    {
+        tabs.push_back(
+            std::format("{} '{}' {}", tab.tab, tab.title, tab.enabled ? "enabled" : "disabled"));
+    }
+    return std::format(
+        "title='{}' name='{}' configuration='{}' status='{}' tab={} tabs=[{}] "
+        "multiSimEdit={}",
+        state.title, state.name, state.configuration, state.status, state.tab,
+        joinedTexts(tabs, ", "), optionalText(state.multiSimEdit));
+}
+
+/// The lines of what the wind editor showed: its title and reference, then its probe lines.
+void addWindEditorLines(std::string_view prefix, const GuiWindEditorState& state,
+                        std::vector<std::string>& lines)
+{
+    lines.push_back(
+        std::format("{}: title='{}' reference={}", prefix, state.title, state.altitudeReference));
+    for (const std::string& line : state.lines)
+    {
+        lines.push_back(std::format("{} line: {}", prefix, escapedText(line)));
+    }
+}
+
+/// What the CSV import settings showed, in one line.
+[[nodiscard]] std::string csvImportText(const GuiCsvImportState& state)
+{
+    std::string columns;
+    for (std::size_t at = 0; at < state.columns.size(); ++at)
+    {
+        const GuiCsvColumnState& column = state.columns.at(at);
+        columns += std::format("{}{}='{}'/{}/{}", columns.empty() ? "" : " ",
+                               kGuiCsvImportRows.at(at), column.name, column.index, column.unit);
+    }
+    return std::format("title='{}' hasHeader={} {} separator='{}'", state.title, state.hasHeader,
+                       columns, escapedText(state.separator));
+}
+
+/// The lines of what the lookup dialog showed: its title and section, then per section its
+/// summary and states, and its text.
+void addLookupLines(std::string_view prefix, const GuiLookupState& state,
+                    std::vector<std::string>& lines)
+{
+    lines.push_back(std::format("{}: title='{}' tab={}", prefix, state.title, state.tab));
+    for (const auto& [name, section] : {std::pair{std::string_view("drag"), &state.drag},
+                                        std::pair{std::string_view("stability"), &state.stability}})
+    {
+        lines.push_back(std::format(
+            "{} {}: summary='{}' toolTip={} border='{}' editable={} separator='{}' clear={} "
+            "refresh={}",
+            prefix, name, escapedText(section->summary), optionalText(section->summaryToolTip),
+            section->border, section->editable, escapedText(section->separator),
+            section->clearEnabled, section->refreshEnabled));
+        lines.push_back(std::format("{} {} text: {}", prefix, name, escapedText(section->text)));
+    }
+}
+
+/// The lines of a question of the simulations tab (version 3), after its first line.
+void addSimulationQuestionLines(const std::string& prefix, const GuiQuestion& question,
+                                std::vector<std::string>& lines)
+{
+    switch (question.kind)
+    {
+        case GuiQuestionKind::SIMULATION:
+            lines.push_back(prefix + " shown: " + settingsDialogText(question.settingsShown));
+            lines.push_back(prefix + " answered: " + settingsDialogText(question.settingsAnswered));
+            return;
+        case GuiQuestionKind::RUN:
+            lines.push_back(std::format("{} simulations: {}", prefix,
+                                        joinedTexts(question.simulations, " | ")));
+            return;
+        case GuiQuestionKind::CONFIRM:
+        {
+            std::vector<std::string> message;
+            message.reserve(question.message.size());
+            for (const std::string& part : question.message)
+            {
+                message.push_back(escapedText(part));
+            }
+            lines.push_back(std::format("{} message: {}", prefix, joinedTexts(message, " | ")));
+            lines.push_back(
+                std::format("{} checkBoxes: {}", prefix, joinedTexts(question.checkBoxes, " | ")));
+            lines.push_back(
+                std::format("{} buttons: {}", prefix, joinedTexts(question.buttons, " | ")));
+            return;
+        }
+        case GuiQuestionKind::WIND_LEVELS:
+            addWindEditorLines(prefix + " shown", question.windShown, lines);
+            addWindEditorLines(prefix + " answered", question.windAnswered, lines);
+            return;
+        case GuiQuestionKind::CSV_IMPORT_SETTINGS:
+            lines.push_back(prefix + " shown: " + csvImportText(question.csvShown));
+            lines.push_back(prefix + " answered: " + csvImportText(question.csvAnswered));
+            return;
+        case GuiQuestionKind::OPEN_FILE:
+            lines.push_back(std::format("{} file: {}", prefix, optionalText(question.file)));
+            return;
+        case GuiQuestionKind::LOOKUP:
+            addLookupLines(prefix + " shown", question.lookupShown, lines);
+            addLookupLines(prefix + " answered", question.lookupAnswered, lines);
+            return;
+        default:
+            return;
+    }
+}
+
+/// The lines of what the simulations tab showed (version 3).
+void addSimulationsTabLines(const GuiSimulationsTabState& state, std::vector<std::string>& lines)
+{
+    lines.push_back(std::format("simulationsTab help: {}", state.showsHelp));
+    std::vector<std::string> columns;
+    columns.reserve(state.columns.size());
+    for (const GuiSimulationTableColumn& column : state.columns)
+    {
+        columns.push_back(std::format("{} '{}'", column.id, column.header));
+    }
+    lines.push_back("simulationsTab columns: " + joinedTexts(columns, ", "));
+    for (std::size_t at = 0; at < state.rows.size(); ++at)
+    {
+        const GuiSimulationTableRow& row = state.rows[at];
+        std::vector<std::string>     cells;
+        cells.reserve(row.cells.size());
+        for (const std::optional<std::string>& cell : row.cells)
+        {
+            cells.push_back(optionalText(cell));
+        }
+        lines.push_back(std::format(
+            "simulationsTab row {}: status={} sortText='{}' description='{}' warnings='{}' "
+            "counts={} toolTip='{}' cells=[{}]",
+            at, row.status, row.statusSortText, row.description, row.warnings,
+            integersText(row.warningCounts), escapedText(row.warningsToolTip),
+            joinedTexts(cells, " | ")));
+    }
+    lines.push_back("simulationsTab selection: " + integersText(state.selectedRows));
+    lines.push_back("simulationsTab actions: " + buttonsText(state.actions));
+    lines.push_back("simulationsTab clipboard: " + joinedTexts(state.clipboardSimulations, " | "));
+    lines.push_back("simulationsTab hiddenColumns: " + optionalText(state.hiddenColumnsPreference));
+}
+
+/// The lines of the document's simulations (version 3): each one's name, configuration, status
+/// and extensions, then its options.
+void addSimulationLines(std::span<const GuiSimulationState> simulations,
+                        std::vector<std::string>&           lines)
+{
+    for (std::size_t at = 0; at < simulations.size(); ++at)
+    {
+        const GuiSimulationState& simulation = simulations[at];
+        lines.push_back(
+            std::format("simulation {}: '{}' configuration={} status={} "
+                        "extensions=[{}]",
+                        at, simulation.name, simulation.configuration, simulation.status,
+                        joinedTexts(simulation.extensions, ", ")));
+        for (const std::string& option : simulation.options)
+        {
+            lines.push_back(std::format("simulation {} option: {}", at, escapedText(option)));
+        }
+    }
+}
+
 /// The lines of the question @p question, the step's question @p at.
 void addQuestionLines(std::size_t at, const GuiQuestion& question, std::vector<std::string>& lines)
 {
@@ -1487,6 +2966,15 @@ void addQuestionLines(std::size_t at, const GuiQuestion& question, std::vector<s
             return;
         case GuiQuestionKind::MESSAGE:
             lines.push_back(std::format("{} text: {}", prefix, question.text));
+            return;
+        case GuiQuestionKind::SIMULATION:
+        case GuiQuestionKind::RUN:
+        case GuiQuestionKind::CONFIRM:
+        case GuiQuestionKind::WIND_LEVELS:
+        case GuiQuestionKind::CSV_IMPORT_SETTINGS:
+        case GuiQuestionKind::OPEN_FILE:
+        case GuiQuestionKind::LOOKUP:
+            addSimulationQuestionLines(prefix, question, lines);
             return;
     }
 }
@@ -1639,11 +3127,45 @@ void shadeValueCellsAsQtRocket(std::size_t step, std::string_view name,
     }
 }
 
+/// The rules of the simulations tab for the record of step @p step (guiExpectedRecord()): no
+/// Monte Carlo action (Milestone 7), and QtRocket's Paste (bug 27).
+void applySimulationsTabRules(std::size_t step, GuiSimulationsTabState& state,
+                              std::string& problems)
+{
+    // The Monte Carlo action comes with Milestone 7 (U-M4-3).
+    state.actions.erase("landingDispersion");
+    const auto paste = state.actions.find("pasteSimulation");
+    if (paste == state.actions.end())
+    {
+        problems += std::format("step {}: the simulations tab has no Paste\n", step);
+        return;
+    }
+    const bool clipboard = !state.clipboardSimulations.empty();
+    const bool selected  = !state.selectedRows.empty();
+    // SimulationPanel.PasteSimulationAction.updateEnabledState(): simulations on the clipboard and
+    // a selected row.
+    if (paste->second != (clipboard && selected))
+    {
+        problems += std::format(
+            "step {}: OpenRocket's Paste is {} with {} simulations on the clipboard and {} "
+            "selected rows (bug 27: it needs both)\n",
+            step, paste->second ? "enabled" : "disabled", state.clipboardSimulations.size(),
+            state.selectedRows.size());
+        return;
+    }
+    // OpenRocket bug 27, fixed in QtRocket: no selected row needed while the table is shown.
+    paste->second = clipboard && (selected || !state.showsHelp);
+}
+
 }  // namespace
 
 GuiStepRecord guiExpectedRecord(std::string_view scenario, GuiStepRecord record,
                                 std::string& problems)
 {
+    if (record.simulationsTab.has_value())
+    {
+        applySimulationsTabRules(record.index, *record.simulationsTab, problems);
+    }
     if (record.flightConfiguration.has_value())
     {
         shadeValueCellsAsQtRocket(record.index, "recovery", record.flightConfiguration->recovery,
@@ -1687,6 +3209,15 @@ std::vector<std::string> guiRecordLines(const GuiStepRecord& record)
     {
         addTabLines(*record.flightConfiguration, lines);
     }
+    if (record.simulationsTab.has_value())
+    {
+        addSimulationsTabLines(*record.simulationsTab, lines);
+        addSimulationLines(record.simulations, lines);
+    }
+    if (record.clipboardText.has_value())
+    {
+        lines.push_back("clipboard text: " + escapedText(*record.clipboardText));
+    }
     return lines;
 }
 
@@ -1710,7 +3241,7 @@ std::vector<std::string> guiRecordDifferences(const GuiStepRecord& expected,
     {
         differences.push_back(treeDifference(expected, found));
     }
-    // The members of version 2, line for line.
+    // The members of versions 2 and 3, line for line.
     const std::vector<std::string> wanted = guiRecordLines(expected);
     const std::vector<std::string> got    = guiRecordLines(found);
     std::size_t                    named  = 0;

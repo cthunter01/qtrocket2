@@ -72,6 +72,7 @@
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/SimulationExecutor.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
 #include "QtRocket/gui/widgets/MaterialComboBox.h"
@@ -483,8 +484,9 @@ FromScratchScenario::FromScratchScenario(std::filesystem::path directory)
 {
 }
 
-FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
-                                         const PromptsFactory& makePrompts)
+FromScratchScenario::FromScratchScenario(std::filesystem::path               directory,
+                                         const PromptsFactory&               makePrompts,
+                                         std::unique_ptr<SimulationExecutor> executor)
   : m_directory(std::move(directory))
 {
     std::unique_ptr<FromScratchPrompts> prompts = makePrompts(m_scripted);
@@ -495,8 +497,13 @@ FromScratchScenario::FromScratchScenario(std::filesystem::path directory,
     // No window runs a simulation on its own (GuiTestSupport.h): OpenRocket's reference tool
     // builds no design view, and its saves hold simulations that were never run.
     preferences->putBoolean(GuiPreferenceKeys::kBackgroundFlight, false);
-    auto context = std::make_unique<ApplicationContext>(
-        std::move(preferences), DataPaths::forApplication(), std::move(prompts));
+    auto context =
+        executor == nullptr
+            ? std::make_unique<ApplicationContext>(std::move(preferences),
+                                                   DataPaths::forApplication(), std::move(prompts))
+            : std::make_unique<ApplicationContext>(std::move(preferences),
+                                                   DataPaths::forApplication(), std::move(prompts),
+                                                   std::move(executor));
     ApplicationSession::Options options;
     options.lastWindowBehaviour    = WindowManager::LastWindowBehaviour::KEEP_RUNNING;
     Application* const application = Application::current();
@@ -596,8 +603,17 @@ std::string FromScratchScenario::perform(const GuiScenarioStep& step)
         case GuiStepKind::RESET_DEPLOYMENT:
         case GuiStepKind::SELECT_SEPARATION:
         case GuiStepKind::RESET_SEPARATION:
-            // The steps of the scenarios of version 2 (parseGuiScenario() refuses them in one of
-            // version 1).
+        case GuiStepKind::SELECT_SIMULATIONS:
+        case GuiStepKind::NEW_SIMULATION:
+        case GuiStepKind::EDIT_SIMULATION:
+        case GuiStepKind::DUPLICATE_SIMULATIONS:
+        case GuiStepKind::DELETE_SIMULATIONS:
+        case GuiStepKind::COPY_SIMULATIONS:
+        case GuiStepKind::CUT_SIMULATIONS:
+        case GuiStepKind::PASTE_SIMULATIONS:
+        case GuiStepKind::COLUMN_VISIBILITY:
+            // The steps of the scenarios of versions 2 and 3 (parseGuiScenario() refuses them in
+            // one of version 1).
             return std::format("\"{}\" is no step of the from-scratch scenario",
                                QtRocket::Test::guiStepName(step.kind));
     }

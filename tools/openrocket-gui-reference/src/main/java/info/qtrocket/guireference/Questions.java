@@ -362,7 +362,7 @@ final class Questions {
 		}
 	}
 
-	private static Unit unit(UnitGroup group, String name) {
+	static Unit unit(UnitGroup group, String name) {
 		for (int i = 0; i < group.getUnitCount(); i++) {
 			if (group.getUnit(i).getUnit().equals(name)) {
 				return group.getUnit(i);
@@ -372,7 +372,7 @@ final class Questions {
 	}
 
 	/** The DoubleModel of a spinner made with a DoubleModel's spinner model (an inner class of DoubleModel). */
-	private static DoubleModel spinnerModel(JSpinner spinner) {
+	static DoubleModel spinnerModel(JSpinner spinner) {
 		SpinnerModel model = spinner.getModel();
 		return (DoubleModel) Reflection.get(model.getClass(), model, "this$0");
 	}

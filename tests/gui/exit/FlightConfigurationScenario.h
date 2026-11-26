@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -84,7 +85,12 @@ class FlightConfigurationPrompts;
 /// The application is FromScratchScenario's (its preferences in a new file of the scenario's
 /// directory, the build tree's data: the bundled motors), with the questions of
 /// FlightConfigurationPrompts.
-class FlightConfigurationScenario final : public FromScratchScenario
+///
+/// The base of SimulationsScenario, the driver of the scenario of version 3 (the Flight
+/// simulations tab, Milestone 4), which does the steps of that tab itself (perform()), adds to the
+/// records what version 3 records (record()) and gives the application prompts and an executor of
+/// simulations of its own (the protected constructor).
+class FlightConfigurationScenario : public FromScratchScenario
 {
 public:
     /// The application (see the class comment), started, with its preferences and the saves in
@@ -111,6 +117,12 @@ public:
         const FlightConfigurationPanel& panel);
 
 protected:
+    /// The application as the public constructor makes it, with the questions @p makePrompts
+    /// makes (a FlightConfigurationPrompts of a subclass's) and the runs of @p executor
+    /// (FromScratchScenario's protected constructor).
+    FlightConfigurationScenario(std::filesystem::path directory, const PromptsFactory& makePrompts,
+                                std::unique_ptr<SimulationExecutor> executor);
+
     /// The steps of version 2 (see the class comment); the others FromScratchScenario's.
     [[nodiscard]] std::string perform(const QtRocket::Test::GuiScenarioStep& step) override;
 

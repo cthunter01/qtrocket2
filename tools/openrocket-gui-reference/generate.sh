@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Regenerates the GUI references of tests/data/goldens/gui/<scenario>/ (rocket.ork and state.json): OpenRocket's
 # own GUI code runs the scenario of that directory (scenario.json). A scenario of version 1 (from-scratch, the
-# exit check of Milestone 2) runs headless; one of version 2 (Milestone 3, the Motors & Configuration tab) runs
-# OpenRocket's real panels and dialogs on a virtual display of xvfb-run. See README.md.
+# exit check of Milestone 2) runs headless; one of version 2 (Milestone 3, the Motors & Configuration tab) or 3
+# (Milestone 4, the Flight simulations tab too) runs OpenRocket's real panels and dialogs on a virtual display of
+# xvfb-run. See README.md.
 #
 #   tools/openrocket-gui-reference/generate.sh [--check] [<scenario>...]
 #
@@ -10,17 +11,17 @@
 # named). --check writes nothing into them: it runs each scenario as usual into the work directory and compares
 # the files with the committed ones, and its exit status is 1 when one differs (or is missing).
 #
-# Order: a scenario of version 2 whose open step names a file of another scenario's directory
+# Order: a scenario of version 2 or 3 whose open step names a file of another scenario's directory
 # (flight-configurations opens tests/data/goldens/gui/from-scratch/rocket.ork) runs after that scenario when both
 # run, and opens the file that run has just written (its output directory: the scenario's own, the one of
 # GUI_REFERENCE_OUT, or with --check the work directory's), so that one call regenerates both consistently (the
-# state.json of version 2 records the SHA-256 of the file it opened).
+# state.json of versions 2 and 3 records the SHA-256 of the file it opened).
 #
 # Environment:
 #   OPENROCKET_DIR   the OpenRocket checkout (default: "openrocket" next to the main working tree of the QtRocket
 #                    repository); it should be at the commit state.json records, with its preset submodule
 #                    (core/resources-src/datafiles/openrocket-database) initialized at the commit it records
-#                    (needed for the scenarios of version 2, whose start-up loads the bundled presets)
+#                    (needed for the scenarios of versions 2 and 3, whose start-up loads the bundled presets)
 #   JAVA             the java executable (default: java on PATH); it must be Java 17
 #   ALLOW_DIRTY=1    accept an OpenRocket checkout with modified, untracked or ignored source files, or a preset
 #                    submodule at another commit or with local changes (state.json records "dirty": true)
@@ -79,8 +80,9 @@ if ((${#names[@]} == 0)); then
     exit 1
 fi
 declare -A versions=()
-# The design file the open step of a scenario of version 2 names (relative to the repository).
+# The design file the open step of a scenario of version 2 or 3 names (relative to the repository).
 declare -A opens=()
+# Whether a scenario of version 2 or 3 runs (on a virtual display, with the bundled presets).
 any_v2=false
 for name in "${names[@]}"; do
     scenario="$scenarios_dir/$name/scenario.json"
@@ -91,7 +93,7 @@ for name in "${names[@]}"; do
     version="$(sed -n 's/^ *"schemaVersion": *\([0-9][0-9]*\).*/\1/p' "$scenario" | head -n 1)"
     case "$version" in
     1) ;;
-    2)
+    2 | 3)
         any_v2=true
         opens["$name"]="$(grep -m 1 '"step": *"open"' "$scenario" | sed -n 's/.*"file": *"\([^"]*\)".*/\1/p' || true)"
         if [[ -z "${opens[$name]}" ]]; then
@@ -100,7 +102,7 @@ for name in "${names[@]}"; do
         fi
         ;;
     *)
-        echo "error: $scenario has no schemaVersion 1 or 2" >&2
+        echo "error: $scenario has no schemaVersion 1, 2 or 3" >&2
         exit 1
         ;;
     esac
@@ -140,7 +142,8 @@ while ((${#ordered[@]} < ${#names[@]})); do
 done
 names=("${ordered[@]}")
 if [[ "$any_v2" == true ]] && ! command -v xvfb-run > /dev/null; then
-    echo "error: xvfb-run is not on PATH (the scenarios of version 2 run OpenRocket's panels on a virtual display)" >&2
+    echo "error: xvfb-run is not on PATH (the scenarios of versions 2 and 3 run OpenRocket's panels on a virtual" \
+        "display)" >&2
     exit 1
 fi
 
@@ -156,7 +159,7 @@ fi
 # The checkout must be exactly its commit among what the build compiles or puts on the class path: no
 # modified tracked file, no untracked or ignored file there (build.gradle keeps the two ignored copies
 # that OpenRocket's own build leaves in core/src/main/resources off the class path, as
-# tools/openrocket-goldens does); for a scenario of version 2 also the preset submodule, whose orc/ files
+# tools/openrocket-goldens does); for a scenario of version 2 or 3 also the preset submodule, whose orc/ files
 # build.gradle copies onto the class path, initialized at the commit the checkout records and unmodified.
 sources=(core/src/main/java core/src/main/resources core/build.gradle core/libs
     swing/src/main/java swing/src/main/resources swing/build.gradle)
@@ -244,8 +247,8 @@ check_run() {
 # when it starts and from which TranslatorProvider reads no locale: the user's own OpenRocket preferences are
 # neither read nor written, on every system.
 #   version 1: headless AWT and no display, as in Milestone 2;
-#   version 2: a virtual display of its own (xvfb-run; the display of the session is unset, so nothing is shown
-#              on the desktop), a fresh home directory (OpenRocket's motor library, thrust curve and preset
+#   versions 2 and 3: a virtual display of its own (xvfb-run; the display of the session is unset, so nothing is
+#              shown on the desktop), a fresh home directory (OpenRocket's motor library, thrust curve and preset
 #              directories: the bundled motors and presets alone) and temporary directory.
 run_tool() {
     local name="$1" target="$2" run="$3"

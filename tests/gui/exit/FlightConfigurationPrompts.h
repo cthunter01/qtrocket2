@@ -34,7 +34,9 @@ namespace QtRocket::Gui::Test
 /// answer the question goes to the script, which fails the test (no answer scripted); such
 /// questions are counted (unansweredQuestions()). The messages go to the script (the record), each
 /// first told the scenario (setMessageObserver(): the message of "Save as default").
-class FlightConfigurationPrompts final : public FromScratchPrompts
+/// The base of SimulationsPrompts, the questions of the scenario of version 3, which keeps these
+/// as they are.
+class FlightConfigurationPrompts : public FromScratchPrompts
 {
 public:
     /// What answers the open dialog of a question.

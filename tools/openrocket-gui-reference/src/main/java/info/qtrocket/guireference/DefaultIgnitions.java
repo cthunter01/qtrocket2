@@ -49,8 +49,11 @@ final class DefaultIgnitions {
 		recordStates();
 	}
 
-	/** After an undo or a redo: the mounts get the default ignitions of the state the document loaded. */
-	void restoreAfterUndoOrRedo() {
+	/**
+	 * After an undo or a redo: the mounts get the default ignitions of the state the document loaded. Returns whether
+	 * a mount's default was another than the one OpenRocket's copy gave it (the fix shows).
+	 */
+	boolean restoreAfterUndoOrRedo() {
 		recordStates();
 		List<Rocket> states = undoHistory();
 		int position = (Integer) Reflection.get(OpenRocketDocument.class, document, "undoPosition");
@@ -58,6 +61,8 @@ final class DefaultIgnitions {
 		if (stored == null) {
 			throw new IllegalStateException("no default ignitions are kept for the state an undo or redo loaded");
 		}
+		Map<String, Object[]> before = current();
+		boolean changed = false;
 		for (RocketComponent c : document.getRocket()) {
 			if (c instanceof MotorMount mount && stored.containsKey(c.getID().toString())) {
 				Object[] values = stored.get(c.getID().toString());
@@ -65,8 +70,10 @@ final class DefaultIgnitions {
 				set(defaults, "ignitionEvent", values[0]);
 				set(defaults, "ignitionDelay", values[1]);
 				set(defaults, "ignitionOveride", values[2]);
+				changed |= !java.util.Arrays.equals(before.get(c.getID().toString()), values);
 			}
 		}
+		return changed;
 	}
 
 	private void recordStates() {

@@ -57,17 +57,19 @@ import info.openrocket.swing.startup.GuiModule;
  * code, saves the design with OpenRocket's saver and writes QtRocket's reference of it into that directory:
  * {@code rocket.ork} (the document OpenRocket saved) and {@code state.json} (what each step left, and the saved
  * file as OpenRocket loads it). A scenario of version 1 (the from-scratch scenario of Milestone 2) runs
- * headless; one of version 2 (Milestone 3, the Motors &amp; Configuration tab) runs OpenRocket's real panels
- * and dialogs on a virtual display (generate.sh runs it under xvfb-run). See README.md.
+ * headless; one of version 2 (Milestone 3, the Motors &amp; Configuration tab) or 3 (Milestone 4, the Flight
+ * simulations tab too) runs OpenRocket's real panels and dialogs on a virtual display (generate.sh runs it under
+ * xvfb-run). See README.md.
  *
  * <pre>
  *   GuiReference --scenario &lt;scenario.json&gt; --out &lt;directory&gt; --work &lt;directory&gt;
  *                --commit &lt;OpenRocket commit&gt; --dirty &lt;true|false&gt;
  *                [--repo &lt;QtRocket repository&gt; --preset-commit &lt;openrocket-database commit&gt;
- *                 [--input &lt;design file&gt;]]  (version 2)
+ *                 [--input &lt;design file&gt;]]  (versions 2 and 3)
  * </pre>
  * <p>
- * A scenario of version 2 opens the file its open step names, relative to the repository; {@code --input}
+ * A scenario of version 2 or 3 opens the file its open step names, relative to the repository (the files of a
+ * version 3 answer are relative to it too); {@code --input}
  * opens another file in its place (generate.sh: the file a run of another scenario has just written,
  * where the open step names that scenario's reference). state.json records the open step's name and the
  * SHA-256 of the bytes opened.
@@ -127,7 +129,7 @@ public final class GuiReference {
 		Scenario scenario = Scenario.read(scenarioFile);
 		// The seed of the component ids: the scenario's directory ("gui/from-scratch").
 		String seed = "gui/" + scenarioFile.toAbsolutePath().getParent().getFileName();
-		if (scenario.version() == 2) {
+		if (scenario.version() >= 2) {
 			mainV2(options, scenarioFile, scenario, seed, out, work);
 			return;
 		}
@@ -463,15 +465,16 @@ public final class GuiReference {
 	}
 
 	/**
-	 * A scenario of version 2: the start-up with the bundled motors and presets, the three runs (as for
+	 * A scenario of version 2 or 3: the start-up with the bundled motors and presets, the three runs (as for
 	 * version 1) on the event dispatch thread, each with OpenRocket's preferences as the start-up left them,
-	 * and state.json of version 2.
+	 * and state.json of the scenario's version.
 	 */
 	private static void mainV2(Map<String, String> options, Path scenarioFile, Scenario scenario, String seed,
 			Path out, Path work) throws Exception {
 		for (String required : List.of("--repo", "--preset-commit")) {
 			if (!options.containsKey(required)) {
-				throw new IllegalArgumentException("missing " + required + " (a scenario of version 2)");
+				throw new IllegalArgumentException("missing " + required + " (a scenario of version "
+						+ scenario.version() + ")");
 			}
 		}
 		Path repo = Paths.get(options.get("--repo"));
@@ -488,9 +491,9 @@ public final class GuiReference {
 		JsonObject startup = onEdt(GuiReference::bootstrapV2);
 		byte[] preferences = exportPreferences();
 
-		run2(scenario, input, work.resolve("warm-up"), false, seed, preferences);
-		Run recorded = run2(scenario, input, work.resolve("recorded"), true, seed, preferences);
-		Run plain = run2(scenario, input, work.resolve("plain"), false, seed, preferences);
+		run2(scenario, input, repo, work.resolve("warm-up"), false, seed, preferences);
+		Run recorded = run2(scenario, input, repo, work.resolve("recorded"), true, seed, preferences);
+		Run plain = run2(scenario, input, repo, work.resolve("plain"), false, seed, preferences);
 		if (!Arrays.equals(recorded.document, plain.document)) {
 			throw new IllegalStateException("the save depends on what was asked between the steps: compare "
 					+ recorded.file + " with " + plain.file);
@@ -514,7 +517,7 @@ public final class GuiReference {
 
 		JsonObject state = new JsonObject();
 		state.addProperty("schema", "gui-reference");
-		state.addProperty("schemaVersion", 2);
+		state.addProperty("schemaVersion", scenario.version());
 		state.addProperty("generator", "tools/openrocket-gui-reference/generate.sh (GuiReference)");
 		JsonObject openrocket = new JsonObject();
 		openrocket.addProperty("commit", options.get("--commit"));
@@ -618,7 +621,7 @@ public final class GuiReference {
 	 * @p input (the session's window with the Motors &amp; Configuration tab), the steps, the checks of the
 	 * recorded run (README.md, "The checks"), and the window closed.
 	 */
-	private static Run run2(Scenario scenario, Path input, Path directory, boolean record, String seed,
+	private static Run run2(Scenario scenario, Path input, Path repo, Path directory, boolean record, String seed,
 			byte[] preferences) throws Exception {
 		Files.createDirectories(directory);
 		onEdt(() -> {
@@ -626,7 +629,8 @@ public final class GuiReference {
 			return null;
 		});
 		DeterministicUuids.reseed(seed);
-		Session session = onEdt(() -> Session.open(directory.toFile(), input.toFile()));
+		Session session = onEdt(() -> scenario.version() == 2 ? Session.open(directory.toFile(), input.toFile())
+				: Session.open(directory.toFile(), input.toFile(), scenario.version(), repo));
 		try {
 			JsonArray records = new JsonArray();
 			JsonObject previous = null;
@@ -649,8 +653,13 @@ public final class GuiReference {
 				requireNoUncaughtException("in step " + step.index() + " (" + step.kind().name + ")");
 				if (record) {
 					JsonObject current = onEdt(() -> record2(step, session));
-					check(step, previous, current, session);
 					records.add(current);
+					try {
+						check(step, previous, current, session);
+					} catch (RuntimeException e) {
+						writeFailedRecords(directory, records);
+						throw e;
+					}
 					previous = current;
 				}
 			}
@@ -660,6 +669,20 @@ public final class GuiReference {
 				session.dispose();
 				return null;
 			});
+		}
+	}
+
+	/**
+	 * The records of a recorded run whose check failed, the failed step's last, into @p directory (the run's work
+	 * directory, which GUI_REFERENCE_WORK keeps): records-of-the-failed-run.json, to see what the step left.
+	 */
+	private static void writeFailedRecords(Path directory, JsonArray records) {
+		try {
+			Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+			Files.writeString(directory.resolve("records-of-the-failed-run.json"), gson.toJson(records) + "\n",
+					StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -676,6 +699,10 @@ public final class GuiReference {
 		if (FIELD_STEPS.contains(step.kind()) && !changed) {
 			throw new IllegalStateException(name + " left the component tree as it was: give the field a value it"
 					+ " does not have");
+		}
+		if (Scenario.SIMULATION_KINDS.contains(step.kind())) {
+			checkSimulationStep(step, previous, current, name);
+			return;
 		}
 		if (!TAB_OPERATIONS.contains(step.kind())) {
 			return;
@@ -696,7 +723,61 @@ public final class GuiReference {
 		}
 	}
 
-	/** What a step of version 2 left (README.md, "state.json"). */
+	/**
+	 * The checks of a step of the simulations tab (version 3, README.md, "The checks"): a click on rows changes the
+	 * table's selection; New and Edit with OK change the simulations, with Cancel they leave the simulations and the
+	 * tree as they were before the step (QtRocket's fix of bugs 29 and 30: OpenRocket's Cancel undoes the user's
+	 * previous change after an edit SimulationOptions.equals() ignores, and keeps a new simulation after an edit);
+	 * Duplicate, Cut and Paste change the simulations, Delete does unless its confirmation was cancelled (which
+	 * changes nothing); a column's visibility changes the table.
+	 */
+	private static void checkSimulationStep(Scenario.Step step, JsonObject previous, JsonObject current,
+			String name) {
+		boolean treeChanged = !current.get("treeSha256").equals(previous.get("treeSha256"));
+		boolean simulationsChanged = !current.get("simulations").equals(previous.get("simulations"));
+		boolean tabChanged = !current.get("simulationsTab").equals(previous.get("simulationsTab"));
+		boolean cancelled = step.answer() != null && "cancel".equals(Questions.string(step.answer(), "button"));
+		switch (step.kind()) {
+			case SELECT_SIMULATIONS -> {
+				if (!tabChanged) {
+					throw new IllegalStateException(name + " left the table's selection as it was: it checks nothing");
+				}
+			}
+			case NEW_SIMULATION, EDIT_SIMULATION -> {
+				if (cancelled && (treeChanged || simulationsChanged)) {
+					throw new IllegalStateException(name + ": OpenRocket's Cancel left the simulations or the design"
+							+ " otherwise than they were before the step (bugs 29 and 30: QtRocket's Cancel gives them"
+							+ " back as they were)");
+				}
+				if (!cancelled && !simulationsChanged) {
+					throw new IllegalStateException(name + " left the simulations as they were: it checks nothing");
+				}
+			}
+			case DUPLICATE_SIMULATIONS, CUT_SIMULATIONS, PASTE_SIMULATIONS -> {
+				if (!simulationsChanged) {
+					throw new IllegalStateException(name + " left the simulations as they were");
+				}
+			}
+			case DELETE_SIMULATIONS -> {
+				if (cancelled == simulationsChanged) {
+					throw new IllegalStateException(name + (cancelled ? ": the cancelled Delete changed the simulations"
+							: " left the simulations as they were"));
+				}
+			}
+			case COLUMN_VISIBILITY -> {
+				if (!tabChanged) {
+					throw new IllegalStateException(name + " left the table as it was");
+				}
+			}
+			default -> {
+			}
+		}
+		if (treeChanged && !cancelled) {
+			throw new IllegalStateException(name + " changed the component tree");
+		}
+	}
+
+	/** What a step of version 2 or 3 left (README.md, "state.json"). */
 	private static JsonObject record2(Scenario.Step step, Session session) throws Exception {
 		JsonObject object = new JsonObject();
 		object.addProperty("index", step.index());
@@ -715,13 +796,32 @@ public final class GuiReference {
 			}
 			object.add("open", open);
 		}
+		SimulationsTab simulations = session.simulationsTab();
 		List<JsonObject> asked = session.tab().askedQuestions();
+		if (simulations != null) {
+			asked = new ArrayList<>(asked);
+			asked.addAll(simulations.askedQuestions());
+		}
 		if (!asked.isEmpty()) {
 			JsonArray questions = new JsonArray();
 			asked.forEach(questions::add);
 			object.add("questions", questions);
 		}
 		object.add("flightConfiguration", session.tab().record());
+		if (simulations != null) {
+			// Version 3: the simulations tab, the document's simulations, QtRocket's fixes the tool made in the step,
+			// and the system clipboard's text after a Copy or a Cut.
+			object.add("simulationsTab", simulations.record());
+			object.add("simulations", simulations.simulations());
+			if (!simulations.toolFixes().isEmpty()) {
+				JsonArray fixes = new JsonArray();
+				simulations.toolFixes().forEach(fixes::add);
+				object.add("toolFixes", fixes);
+			}
+			if (simulations.clipboardText() != null) {
+				object.addProperty("clipboardText", simulations.clipboardText());
+			}
+		}
 		List<String> tree = RocketState.dump(session.document(), Collections.emptySet());
 		object.addProperty("treeSha256", sha256(String.join("\n", tree).concat("\n").getBytes(StandardCharsets.UTF_8)));
 		if (CHECKPOINTS_V2.contains(step.kind())) {
