@@ -613,12 +613,15 @@ profile, which OpenRocket draws itself (the user's decisions U-M3-6a and b, and 
   (`plot/DataPlot.h`).
 - The labels of the flight events are flags, boxes in a band above the plot area, each with its event's icon.
   OpenRocket writes them upright beside the event lines, inside the plot area, without icons. With a dark
-  scheme the events' colours are lighter. The "Simulation Abort" box has rocketplot's font, frame and
-  background, with its text in the error colour; OpenRocket's is bold on white, framed in the error colour. An
-  event icon is placed against the axis of its own curve; OpenRocket maps it onto the left axis, which puts it
-  in the same place until the axes are zoomed apart (`plot/SimulationPlot.h`, `PlotEventGraphics.h`).
-- The data points of each stage have a shape of their own: rocketplot has 6, and a seventh stage takes the
-  first again. JFreeChart has 10 (`plot/DataPlot.h`).
+  scheme the events' colours are lighter. The "Simulation Abort" box has rocketplot's font and background
+  and a hairline frame, its text and its frame in the error colour; OpenRocket's is bold on white, in a frame
+  one pixel wide of the error colour. An event icon is placed against the axis of its own curve; OpenRocket
+  maps it onto the left axis, which puts it in the same place until the axes are zoomed apart
+  (`plot/SimulationPlot.h`, `PlotEventGraphics.h`).
+- The data points of each stage have a shape of their own, JFreeChart's ten in its order (an eleventh stage
+  takes the first again, as in OpenRocket), but the four triangles are rocketplot's: equilateral, their
+  corners on the circle of the shape's size, where JFreeChart's fill its 6 by 6 pixel square
+  (`plot/DataPlot.h`).
 - A colour of the Plot data tab is chosen in Qt's colour dialog (with an alpha channel, as OpenRocket's), made
   anew at each click, and reaches the button when the dialog closes with OK. OpenRocket's chooser shows each
   colour picked in the button at once, puts the first back on Cancel, and keeps its recent colours from one

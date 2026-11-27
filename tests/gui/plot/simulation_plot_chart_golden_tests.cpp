@@ -4,7 +4,7 @@
 // of a few simulations, chosen as OpenRocket's plot panel chooses one (a copy in the default
 // units), drawn and read back without pixels (plot/PlotReadback.h) and compared as
 // plot/SimulationPlotGoldenChecks.h says: the titles, the axes' labels and ranges (to the last
-// bit: the home ranges, PlotHomeRange), the series (names, axes, colours and a digest of their
+// bit: the axes' home ranges), the series (names, axes, colours and a digest of their
 // points), the legend, the event lines over time and the event icons (also over time, in the
 // marker style "Icon", on the same plot). The core's tests compare the model itself with every
 // stored simulation; the exit suite SimulationPlotPresetsGolden (dialogs/plot/

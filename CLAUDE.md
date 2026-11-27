@@ -189,7 +189,7 @@ subsystem or area is added there too.
   change only through their generators
 - Tests are deterministic and leave no process-wide state behind (default units, the flight data type registry,
   shared preferences, the current directory). An optional measurement or a tool run by hand is a `DISABLED_` test
-- Plots come from rocketplot by FetchContent at tag `v0.7.0` (only with the GUI), with `SYSTEM` and without
+- Plots come from rocketplot by FetchContent at tag `v0.8.0` (only with the GUI), with `SYSTEM` and without
   `EXCLUDE_FROM_ALL` (which would drop its licence files' install rules); `ROCKETPLOT_SANITIZERS` is set from
   `QTROCKET_SANITIZERS` before `FetchContent_MakeAvailable`, and the `asan`, `tsan` and `coverage` presets set
   `FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER` (an installed rocketplot has no sanitizer instrumentation)

@@ -16,7 +16,8 @@ namespace QtRocket::Gui
 /// - Shift + left drag: PAN; ChartPanel: the zoom rectangle.
 /// - Ctrl + left drag: nothing; ChartPanel: nothing (a pan, which its plots refuse); in the
 ///   simulation plots a pan (simulationChart()).
-/// - Double-click (left): RESET (autoscale); ChartPanel: nothing (the popup's Auto Range).
+/// - Double-click (left): RESET (autoscale, or the axes' home ranges where they have them);
+///   ChartPanel: nothing (the popup's Auto Range).
 /// - Back / forward mouse button: BACK / FORWARD; ChartPanel: nothing.
 /// - Wheel: ZOOM about the pointer; ChartPanel: zoom about the pointer.
 /// - Ctrl + wheel, Shift + wheel: ZOOM_X, ZOOM_Y; ChartPanel: zoom about the pointer (both axes).
@@ -53,7 +54,8 @@ public:
     /// rocketplot action (rocketplot's N19): the right button opens the context menu, as in the
     /// other charts. OpenRocket refuses to pan or zoom out beyond the ranges its axis fitting
     /// computed (Plot.PresetNumberAxis); rocketplot has no such limit (its N17), so here the view
-    /// can go beyond them, and Reset view comes back to them (PlotHomeRange).
+    /// can go beyond them, and Reset view comes back to them (the axes' home ranges,
+    /// DataPlot::setHomeRanges()).
     [[nodiscard]] static rocketplot::InputBindings simulationChart();
 
     /// No gesture does anything (rocketplot::InputBindings with no binding).

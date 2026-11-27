@@ -49,7 +49,7 @@ program.
 The GUI (the program QtRocket, gui/; not yet part of the release archives) uses Qt 6 (https://www.qt.io), the
 modules Core, Gui, Widgets and Svg of the Qt installation it is built with (the tests also Test): Copyright (C)
 The Qt Company Ltd. and other contributors, GNU Lesser General Public License version 3 (also available under the
-GNU General Public License version 2 or 3). Its plots are drawn by rocketplot 0.7.0
+GNU General Public License version 2 or 3). Its plots are drawn by rocketplot 0.8.0
 (https://github.com/cthunter01/rocketplot), which it contains (built from source with it,
 cmake/Dependencies.cmake; without the library's optional math font): Copyright (c) 2026 Travis Hunter. MIT License
 (below). It contains icons copied from OpenRocket (gui/resources/icons/, whose README.md lists the files):

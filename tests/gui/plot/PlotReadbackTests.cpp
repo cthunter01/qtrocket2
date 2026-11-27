@@ -288,6 +288,7 @@ TEST_F(PlotReadbackTest, ReadsTheAnnotationsByKind)
     static_cast<void>(plot.addIcon(0.0, 0.0, QIcon()));
     rocketplot::TextAnnotation* const text = plot.addText(0.01, 0.02, QStringLiteral("Abort"));
     text->setCoordinates(rocketplot::AnnotationCoordinates::PLOT_AREA);
+    text->setFrameColor(QColor::fromRgb(200, 0, 0));
     rocketplot::ReferenceLine* const zero = plot.addHorizontalLine(0.0);
     zero->setLineWidth(0.5);
     static_cast<void>(plot.addVerticalSpan(0.1, 0.2));
@@ -298,18 +299,19 @@ TEST_F(PlotReadbackTest, ReadsTheAnnotationsByKind)
     EXPECT_EQ(read.events[0].label, rocketplot::literalText(QStringLiteral("Apogee")));
     EXPECT_EQ(read.events[0].color, QColor::fromRgb(15, 120, 15));
     EXPECT_EQ(read.events[0].icon, Gui::Test::iconImage(icon));
-    ASSERT_EQ(read.icons.size(), 1U);
+    ASSERT_EQ(read.icons.size(), 2U);
     EXPECT_EQ(read.icons[0].position, QPointF(0.25, 5.0));
     EXPECT_TRUE(read.icons[0].secondaryYAxis);
     EXPECT_EQ(read.icons[0].toolTip, QStringLiteral("<html>Apogee</html>"));
     EXPECT_FALSE(read.icons[0].icon.isNull());
-    // An icon annotation without an icon draws nothing.
-    ASSERT_EQ(read.blankIcons.size(), 1U);
-    EXPECT_TRUE(read.blankIcons[0].icon.isNull());
+    // An icon annotation without an icon, which draws nothing, has a null image.
+    EXPECT_EQ(read.icons[1].position, QPointF(0.0, 0.0));
+    EXPECT_TRUE(read.icons[1].icon.isNull());
     ASSERT_EQ(read.texts.size(), 1U);
     EXPECT_EQ(read.texts[0].text, QStringLiteral("Abort"));
     EXPECT_EQ(read.texts[0].coordinates, rocketplot::AnnotationCoordinates::PLOT_AREA);
     EXPECT_EQ(read.texts[0].position, QPointF(0.01, 0.02));
+    EXPECT_EQ(read.texts[0].frameColor, QColor::fromRgb(200, 0, 0));
     ASSERT_EQ(read.lines.size(), 1U);
     EXPECT_EQ(read.lines[0].orientation, Qt::Horizontal);
     EXPECT_EQ(read.lines[0].lineWidth, 0.5);

@@ -32,10 +32,10 @@
 #include <rocketplot/LineSeries.h>
 #include <rocketplot/PlotWidget.h>
 #include <rocketplot/TextAnnotation.h>
+#include <rocketplot/text.h>
 
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/dialogs/plot/PlotDialog.h"
-#include "QtRocket/gui/plot/PlotText.h"
 #include "QtRocket/gui/plot/SimulationPlot.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/ThemeColors.h"
@@ -190,7 +190,7 @@ void PrintTo(const StageView& view, std::ostream* out)
                                   std::optional<std::size_t>  branch)
 {
     const std::string text = dialog.plot().model().getAbortText(branch);
-    return text.empty() ? QString() : PlotText::literalText(QtStrings::fromUtf8(text));
+    return text.empty() ? QString() : rocketplot::literalText(QtStrings::fromUtf8(text));
 }
 
 /// The left edge of @p widget in @p dialog's coordinates.

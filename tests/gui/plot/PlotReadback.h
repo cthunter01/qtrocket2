@@ -156,7 +156,9 @@ struct TextReadback
     Qt::Alignment                     alignment;
     bool                              arrowVisible = true;
     bool                              frameVisible = false;
-    bool                              visible      = true;
+    /// TextAnnotation::frameColor(): the one set, else the theme's legend border.
+    QColor frameColor;
+    bool   visible = true;
 
     friend bool operator==(const TextReadback&, const TextReadback&) = default;
 };
@@ -183,13 +185,11 @@ struct ReferenceLineReadback
 void PrintTo(const ReferenceLineReadback& line, std::ostream* out);
 
 /// The annotations of a plot by kind, each kind in the plot's order (PlotWidget::annotations(),
-/// the order added), and how many are of another kind. Icon annotations without an icon, which
-/// draw nothing (the corners of PlotHomeRange), are blankIcons, apart from the icons drawn.
+/// the order added), and how many are of another kind.
 struct AnnotationsReadback
 {
     std::vector<EventMarkerReadback>   events;
     std::vector<IconReadback>          icons;
-    std::vector<IconReadback>          blankIcons;
     std::vector<TextReadback>          texts;
     std::vector<ReferenceLineReadback> lines;
     std::size_t                        others = 0;
@@ -258,7 +258,8 @@ CrosshairReadback moveCrosshairToPoint(rocketplot::PlotWidget& plot, std::size_t
 /// A text a plot draws, as its SVG export has it: the characters (of the <text> element and its
 /// children, as written), and where the text starts (the element's x and y through the
 /// transforms of the groups around it), in the plot's widget coordinates; rotated when those
-/// transforms turn it (the y axes' labels read upward).
+/// transforms turn it (the y axes' labels read upward). rocketplot (from 0.8.0) draws each line
+/// of a text of several lines apart: a text each.
 struct SvgText
 {
     QString text;
@@ -316,7 +317,7 @@ struct PlotTexts
 /// - the y tick labels: the unrotated texts that start left of plotArea() and below its top,
 ///   outside the legend, above the x tick labels' row (the title is above the plot area, and the
 ///   y axis' label is rotated).
-/// This relies on how rocketplot (0.6.0 and 0.7.0) lays a plot out (PlotRenderer::drawLabels(): the
+/// This relies on how rocketplot (0.6.0 to 0.8.0) lays a plot out (PlotRenderer::drawLabels(): the
 /// tick labels of x under the plot area, of y right-aligned left of it, the axis labels further
 /// out) and holds for plots with a title, axis labels, a legend inside or outside the plot area and
 /// no secondary y axis, event flags or color key. For a plot with those, read the secondary axis

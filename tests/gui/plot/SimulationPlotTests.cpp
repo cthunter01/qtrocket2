@@ -1,6 +1,7 @@
 #include "QtRocket/gui/plot/SimulationPlot.h"
 
 #include <cstddef>
+#include <format>
 #include <initializer_list>
 #include <memory>
 #include <optional>
@@ -8,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include <QChar>
 #include <QColor>
 #include <QCoreApplication>
 #include <QIcon>
@@ -36,7 +38,6 @@
 #include "QtRocket/gui/plot/PlotColors.h"
 #include "QtRocket/gui/plot/PlotEventGraphics.h"
 #include "QtRocket/gui/plot/PlotInputBindings.h"
-#include "QtRocket/gui/plot/PlotText.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/ThemeColors.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -396,6 +397,82 @@ private:
     return box->text();
 }
 
+/// A flight of one stage named @p stage that aborts at 1.5 s, over time.
+[[nodiscard]] Model abortedStageModel(std::string stage)
+{
+    const auto data = std::make_shared<const FlightData>(std::initializer_list{
+        plotBranch(std::move(stage), {0, 1, 2}, {PlotColumn(Id::TYPE_ALTITUDE, {0, 10, 5})},
+                   {FlightEvent(Event::SIM_ABORT, 1.5, nullptr,
+                                SimulationAbort(SimulationAbort::Cause::NO_CP))})});
+    return {"Aborted", data,
+            plotConfiguration(Id::TYPE_TIME, {PlotRow(Id::TYPE_ALTITUDE, 0)}, {Event::SIM_ABORT}),
+            SimulationPlot::translator()};
+}
+
+/// The lines of @p text that @p plot's SVG export does not draw as texts of their own, in order,
+/// then, if there are any, every text the export draws (joined by '|'). The export is made at
+/// kPlotWidth x kPlotHeight, which @p plot is given first (the plot of a SimulationPlot never
+/// shown has not been laid out: a child widget's 100 x 30 pixels).
+[[nodiscard]] std::vector<std::string> linesNotDrawn(rocketplot::PlotWidget& plot,
+                                                     const QString&          text)
+{
+    plot.resize(kPlotWidth, kPlotHeight);
+    QStringList drawn;
+    for (const Gui::Test::SvgText& svg : Gui::Test::svgTexts(plot))
+    {
+        drawn.append(svg.text);
+    }
+    std::vector<std::string> missing;
+    for (const QString& line : text.split(QLatin1Char('\n')))
+    {
+        if (!drawn.contains(line))
+        {
+            missing.push_back(QtStrings::toUtf8(line));
+        }
+    }
+    if (!missing.empty())
+    {
+        missing.push_back("drawn: " + QtStrings::toUtf8(drawn.join(u'|')));
+    }
+    return missing;
+}
+
+/// A flight of @p count stages, "Stage 1" to "Stage <count>", each with two points of altitude.
+[[nodiscard]] Model manyStagesModel(std::size_t count)
+{
+    std::vector<std::shared_ptr<FlightDataBranch>> branches;
+    branches.reserve(count);
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        branches.push_back(plotBranch(std::format("Stage {}", i + 1), {0, 1},
+                                      {PlotColumn(Id::TYPE_ALTITUDE, {0, 10})}));
+    }
+    return {"Stages", std::make_shared<const FlightData>(branches),
+            plotConfiguration(Id::TYPE_TIME, {PlotRow(Id::TYPE_ALTITUDE, 0)}),
+            SimulationPlot::translator()};
+}
+
+/// A flight of three points at the altitude @p value, over time.
+[[nodiscard]] Model flatModel(double value)
+{
+    return {"Flat",
+            std::make_shared<const FlightData>(std::initializer_list{plotBranch(
+                "Sustainer", {0, 1, 2}, {PlotColumn(Id::TYPE_ALTITUDE, {value, value, value})})}),
+            plotConfiguration(Id::TYPE_TIME, {PlotRow(Id::TYPE_ALTITUDE, 0)}),
+            SimulationPlot::translator()};
+}
+
+/// The marker size of each series of @p plot.
+[[nodiscard]] std::vector<double> seriesMarkerSizes(const rocketplot::PlotWidget& plot)
+{
+    std::vector<double> sizes;
+    for (const Gui::Test::SeriesReadback& series : Gui::Test::readAllSeries(plot))
+    {
+        sizes.push_back(series.markerSize);
+    }
+    return sizes;
+}
+
 /// Whether @p axis shows @p range exactly.
 [[nodiscard]] bool showsRange(const rocketplot::Axis& axis, const Model::Range& range)
 {
@@ -475,18 +552,49 @@ TEST_F(SimulationPlotTest, ThePointsHaveTheShapeOfTheirBranch)
     EXPECT_EQ(seriesMarkers(test.widget()), (std::vector<Marker>(4, Marker::NONE)));
 }
 
-TEST_F(SimulationPlotTest, PointShapesRepeatAfterSix)
+// JFreeChart's DefaultDrawingSupplier.createStandardSeriesShapes() (1.5.6, OpenRocket's), in its
+// order: Rectangle2D(-3, -3, 6, 6), Ellipse2D(-3, -3, 6, 6), the polygon (0, -3), (3, 3), (-3, 3)
+// (y down: pointing up), the diamond (0, -3), (3, 0), (0, 3), (-3, 0), Rectangle2D(-3, -1.5, 6, 3),
+// the polygon (-3, -3), (3, -3), (0, 3) (down), Ellipse2D(-3, -1.5, 6, 3), the polygon (-3, -3),
+// (3, 0), (-3, 3) (right), Rectangle2D(-1.5, -3, 3, 6) and the polygon (-3, 0), (3, -3), (3, 3)
+// (left); Plot's renderer takes DEFAULT_SHAPE_SEQUENCE[branch % 10].
+TEST_F(SimulationPlotTest, PointShapesAreJFreeChartsTenThenRepeat)
 {
     using rocketplot::Marker;
     EXPECT_EQ(DataPlot::pointShape(0), Marker::SQUARE);
     EXPECT_EQ(DataPlot::pointShape(1), Marker::CIRCLE);
     EXPECT_EQ(DataPlot::pointShape(2), Marker::TRIANGLE);
     EXPECT_EQ(DataPlot::pointShape(3), Marker::DIAMOND);
-    EXPECT_EQ(DataPlot::pointShape(4), Marker::CROSS);
-    EXPECT_EQ(DataPlot::pointShape(5), Marker::PLUS);
-    EXPECT_EQ(DataPlot::pointShape(6), Marker::SQUARE);
+    EXPECT_EQ(DataPlot::pointShape(4), Marker::RECTANGLE_WIDE);
+    EXPECT_EQ(DataPlot::pointShape(5), Marker::TRIANGLE_DOWN);
+    EXPECT_EQ(DataPlot::pointShape(6), Marker::ELLIPSE_WIDE);
+    EXPECT_EQ(DataPlot::pointShape(7), Marker::TRIANGLE_RIGHT);
+    EXPECT_EQ(DataPlot::pointShape(8), Marker::RECTANGLE_TALL);
+    EXPECT_EQ(DataPlot::pointShape(9), Marker::TRIANGLE_LEFT);
+    EXPECT_EQ(DataPlot::pointShape(10), Marker::SQUARE);
+    EXPECT_EQ(DataPlot::pointShape(13), Marker::DIAMOND);
+    // 6 pixels across: the long side of the square and the rectangles is 0.85 of their size.
     EXPECT_EQ(DataPlot::pointSize(Marker::SQUARE), 6.0 / 0.85);
+    EXPECT_EQ(DataPlot::pointSize(Marker::RECTANGLE_WIDE), 6.0 / 0.85);
+    EXPECT_EQ(DataPlot::pointSize(Marker::RECTANGLE_TALL), 6.0 / 0.85);
+    EXPECT_EQ(DataPlot::pointSize(Marker::CIRCLE), 6.0);
+    EXPECT_EQ(DataPlot::pointSize(Marker::ELLIPSE_WIDE), 6.0);
     EXPECT_EQ(DataPlot::pointSize(Marker::TRIANGLE), 6.0);
+    EXPECT_EQ(DataPlot::pointSize(Marker::TRIANGLE_LEFT), 6.0);
+}
+
+TEST_F(SimulationPlotTest, ElevenStagesHaveTheTenShapesThenTheFirstAgain)
+{
+    const PlotUnderTest test(manyStagesModel(11), true);
+    using rocketplot::Marker;
+    const std::vector<Marker> shapes{
+        Marker::SQUARE,         Marker::CIRCLE,        Marker::TRIANGLE,     Marker::DIAMOND,
+        Marker::RECTANGLE_WIDE, Marker::TRIANGLE_DOWN, Marker::ELLIPSE_WIDE, Marker::TRIANGLE_RIGHT,
+        Marker::RECTANGLE_TALL, Marker::TRIANGLE_LEFT, Marker::SQUARE};
+    EXPECT_EQ(seriesMarkers(test.widget()), shapes);
+    constexpr double kLong = 6.0 / 0.85;
+    EXPECT_EQ(seriesMarkerSizes(test.widget()),
+              (std::vector<double>{kLong, 6.0, 6.0, 6.0, kLong, 6.0, 6.0, 6.0, kLong, 6.0, kLong}));
 }
 
 // --------------------------------------------------------------------------------------- legend
@@ -578,6 +686,26 @@ TEST_F(SimulationPlotTest, TheAxesShowTheFittedRanges)
     EXPECT_EQ(plot.xAxis()->max(), 3.5);
     EXPECT_TRUE(showsRange(*plot.yAxis(), model.getYAxes()[0].range));
     EXPECT_TRUE(showsRange(*plot.yAxis2(), model.getYAxes()[1].range));
+}
+
+// The axis fitting widens a flat series' range by 1 on either side (PlotConfiguration.fitAxes():
+// MathUtil.equals(min, max)), then by 3 %: for values beyond about 1e13 that range is too narrow
+// for rocketplot to tell its ends apart (Axis::setHomeRange() would warn, which fails the test).
+// The axis then has no home range and fits the data, as the plot did before rocketplot had home
+// ranges; nearer to zero the range is the home range, to the last bit.
+TEST_F(SimulationPlotTest, AFlatSeriesFarFromZeroFitsItsData)
+{
+    PlotUnderTest far(flatModel(1e14));
+    const Model&  model = far.plot().model();
+    EXPECT_EQ(model.getYAxes()[0].range.max - model.getYAxes()[0].range.min, 2.125);
+    EXPECT_FALSE(far.widget().yAxis()->homeRange().has_value());
+    EXPECT_LT(far.widget().yAxis()->min(), 1e14);
+    EXPECT_GT(far.widget().yAxis()->max(), 1e14);
+    EXPECT_TRUE(showsRange(*far.widget().xAxis(), model.getDomainRange()));
+
+    PlotUnderTest nearer(flatModel(1e12));
+    EXPECT_TRUE(nearer.widget().yAxis()->homeRange().has_value());
+    EXPECT_TRUE(showsRange(*nearer.widget().yAxis(), nearer.plot().model().getYAxes()[0].range));
 }
 
 TEST_F(SimulationPlotTest, TheZoomButtonsZoomAboutTheMiddleAndResetComesHome)
@@ -776,17 +904,45 @@ TEST_F(SimulationPlotTest, TheAbortBoxListsTheAbortsAtTheBottomLeft)
     const QString text = QtStrings::fromUtf8(test.plot().model().getAbortText());
     EXPECT_TRUE(text.startsWith(QStringLiteral("Simulation Abort\nStage: Sustainer; Time: 2.50 s")))
         << QtStrings::toUtf8(text);
+    // The text and its frame in the error colour (TextTitle's paint, BlockBorder's).
+    const QColor error = ThemeColors::color(ThemeColors::Key::ERROR, test.plot().palette());
     EXPECT_EQ(read.texts[0],
-              (Gui::Test::TextReadback{
-                  .position    = QPointF(0.01, 0.01),
-                  .text        = PlotText::literalText(text),
-                  .color       = ThemeColors::color(ThemeColors::Key::ERROR, test.plot().palette()),
-                  .coordinates = rocketplot::AnnotationCoordinates::PLOT_AREA,
-                  .alignment   = Qt::AlignLeft | Qt::AlignBottom,
-                  .arrowVisible = false,
-                  .frameVisible = true,
-                  .visible      = true}));
+              (Gui::Test::TextReadback{.position     = QPointF(0.01, 0.01),
+                                       .text         = rocketplot::literalText(text),
+                                       .color        = error,
+                                       .coordinates  = rocketplot::AnnotationCoordinates::PLOT_AREA,
+                                       .alignment    = Qt::AlignLeft | Qt::AlignBottom,
+                                       .arrowVisible = false,
+                                       .frameVisible = true,
+                                       .frameColor   = error,
+                                       .visible      = true}));
     EXPECT_TRUE(test.plot().showsErrors());
+}
+
+// ErrorAnnotationSet's TextTitle has a line for each line of its text: the title, then one per
+// aborted stage, each drawn as written.
+TEST_F(SimulationPlotTest, TheAbortBoxHasALineForEachLineOfItsText)
+{
+    PlotUnderTest     test(abortedModel());
+    const QString     text  = QtStrings::fromUtf8(test.plot().model().getAbortText());
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    ASSERT_EQ(lines.size(), 3);
+    EXPECT_EQ(lines[0], QStringLiteral("Simulation Abort"));
+    EXPECT_TRUE(lines[2].startsWith(QStringLiteral("Stage: Payload; Time: 1.25 s")))
+        << QtStrings::toUtf8(lines[2]);
+    EXPECT_EQ(linesNotDrawn(test.widget(), text), std::vector<std::string>());
+}
+
+// A stage's name in the abort box is shown with the characters of markup and math it has.
+TEST_F(SimulationPlotTest, TheAbortBoxShowsAStagesNameAsWritten)
+{
+    PlotUnderTest test(abortedStageModel("Stage <A> & $5$"));
+    const QString text = QtStrings::fromUtf8(test.plot().model().getAbortText());
+    EXPECT_EQ(abortBoxText(test.plot()), std::optional(rocketplot::literalText(text)));
+    EXPECT_TRUE(
+        text.startsWith(QStringLiteral("Simulation Abort\nStage: Stage <A> & $5$; Time: 1.50 s")))
+        << QtStrings::toUtf8(text);
+    EXPECT_EQ(linesNotDrawn(test.widget(), text), std::vector<std::string>());
 }
 
 TEST_F(SimulationPlotTest, TheAbortBoxStaysWithTheEventsOnOrOff)
@@ -818,14 +974,14 @@ TEST_F(SimulationPlotTest, AStageShowsItsOwnAbortBox)
     const Model&  model = test.plot().model();
     test.plot().setShowBranch(2);
     EXPECT_EQ(abortBoxText(test.plot()),
-              std::optional(PlotText::literalText(QtStrings::fromUtf8(model.getAbortText(2)))));
+              std::optional(rocketplot::literalText(QtStrings::fromUtf8(model.getAbortText(2)))));
     // The booster has no abort: no box.
     test.plot().setShowBranch(1);
     EXPECT_EQ(test.plot().abortBox(), nullptr);
     EXPECT_TRUE(Gui::Test::readAnnotations(test.widget()).texts.empty());
     test.plot().setShowBranch(std::nullopt);
     EXPECT_EQ(abortBoxText(test.plot()),
-              std::optional(PlotText::literalText(QtStrings::fromUtf8(model.getAbortText()))));
+              std::optional(rocketplot::literalText(QtStrings::fromUtf8(model.getAbortText()))));
 }
 
 TEST_F(SimulationPlotTest, WithoutAnAbortThereIsNoBox)
@@ -856,6 +1012,7 @@ TEST_F(SimulationPlotTest, ADarkPaletteBrightensTheEventsAndTheErrors)
         ASSERT_EQ(abortRead.texts.size(), 1U);
         EXPECT_EQ(abortRead.texts.front().color,
                   ThemeColors::themeColor(ThemeColors::Key::ERROR, ThemeColors::Theme::DARK));
+        EXPECT_EQ(abortRead.texts.front().frameColor, abortRead.texts.front().color);
     }
     QCoreApplication::sendPostedEvents();
     const Gui::Test::AnnotationsReadback read = Gui::Test::readAnnotations(test.widget());
@@ -865,6 +1022,7 @@ TEST_F(SimulationPlotTest, ADarkPaletteBrightensTheEventsAndTheErrors)
     ASSERT_EQ(abortRead.texts.size(), 1U);
     EXPECT_EQ(abortRead.texts.front().color,
               ThemeColors::themeColor(ThemeColors::Key::ERROR, ThemeColors::Theme::LIGHT));
+    EXPECT_EQ(abortRead.texts.front().frameColor, abortRead.texts.front().color);
 }
 
 // --------------------------------------------------------------------------------------- readout

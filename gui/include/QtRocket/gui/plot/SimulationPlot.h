@@ -57,8 +57,9 @@ class GuiServices;
 ///   with icons, the group's icon on each series of its branch (getIconMarkers(): on the series'
 ///   axis, with OpenRocket's tool tip).
 /// - The abort box (OpenRocket's ErrorAnnotationSet): the model's getAbortText() of the stage
-///   shown, or of all stages, at the bottom left of the plot area, framed, in the error colour
-///   (ThemeColors ERROR), shown while setShowErrors() says so (shown at first).
+///   shown, or of all stages, a line for each of its lines, at the bottom left of the plot area,
+///   its text and its frame in the error colour (ThemeColors ERROR), shown while setShowErrors()
+///   says so (shown at first).
 /// - The readout (DataPlot): the model's tool tip of the point under the crosshair
 ///   (SimulationPlotModel::getToolTip()).
 ///
@@ -89,8 +90,9 @@ class GuiServices;
 /// the label in the event's colour, turned upright beside the line, in the plot area); their
 /// colours follow PlotEventGraphics' dark rule; an icon is drawn against the axis of its series
 /// (Java draws it on the left axis's scale, its right-axis height mapped to it, the same place
-/// until a zoom moves the axes apart); the abort box has rocketplot's font and background (Java:
-/// bold 14 point on white, framed in the error colour; the frame here is rocketplot's, N22).
+/// until a zoom moves the axes apart); the abort box has rocketplot's font and background, and
+/// its frame is rocketplot's hairline (Java: the text bold 14 point on white, the frame a 1 pixel
+/// BlockBorder; both in the error colour, as here).
 ///
 /// The plot holds the model, which shares the flight data: a re-run of the simulation leaves this
 /// plot's data alive, never dangling (a new plot shows the new data).
@@ -183,6 +185,9 @@ private:
     /// The abort box of the branch shown (ErrorAnnotationSet.setCurrent()).
     void updateAbortBox();
     void recolor();
+    /// Gives the abort box (there is one) the error colour of this widget's palette, its text and
+    /// its frame.
+    void recolorAbortBox();
 
     SimulationPlotModel                               m_model;
     std::vector<EventLine>                            m_eventLines;

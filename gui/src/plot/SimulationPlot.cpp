@@ -30,7 +30,6 @@
 #include "QtRocket/gui/plot/DataPlot.h"
 #include "QtRocket/gui/plot/PlotColors.h"
 #include "QtRocket/gui/plot/PlotEventGraphics.h"
-#include "QtRocket/gui/plot/PlotText.h"
 #include "QtRocket/gui/util/ColorConversion.h"
 #include "QtRocket/gui/util/EnumText.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -327,17 +326,19 @@ void SimulationPlot::updateAbortBox()
     }
     if (m_abortBox == nullptr)
     {
+        // One line per line of the text (rocketplot keeps its line breaks), in the error colour:
+        // TextTitle's paint and its BlockBorder's, UITheme.Keys.ERROR.
         m_abortBox =
-            plot.addText(kAbortBoxPosition, kAbortBoxPosition, PlotText::literalText(text));
+            plot.addText(kAbortBoxPosition, kAbortBoxPosition, rocketplot::literalText(text));
         m_abortBox->setCoordinates(rocketplot::AnnotationCoordinates::PLOT_AREA);
         m_abortBox->setAlignment(Qt::AlignLeft | Qt::AlignBottom);
         m_abortBox->setArrowVisible(false);
         m_abortBox->setFrameVisible(true);
-        m_abortBox->setColor(ThemeColors::color(ThemeColors::Key::ERROR, palette()));
+        recolorAbortBox();
     }
     else
     {
-        m_abortBox->setText(PlotText::literalText(text));
+        m_abortBox->setText(rocketplot::literalText(text));
     }
     m_abortBox->setVisible(m_showErrors);
 }
@@ -353,8 +354,17 @@ void SimulationPlot::recolor()
     }
     if (m_abortBox != nullptr)
     {
-        m_abortBox->setColor(ThemeColors::color(ThemeColors::Key::ERROR, palette()));
+        recolorAbortBox();
     }
+}
+
+void SimulationPlot::recolorAbortBox()
+{
+    rocketplot::TextAnnotation* const box = m_abortBox.data();
+    QTROCKET_ASSERT(box != nullptr);
+    const QColor error = ThemeColors::color(ThemeColors::Key::ERROR, palette());
+    box->setColor(error);
+    box->setFrameColor(error);
 }
 
 }  // namespace QtRocket::Gui

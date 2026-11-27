@@ -7,9 +7,7 @@ target_sources(QtRocket_gui PRIVATE
     PlotColors.cpp ${gui_include_dir}/plot/PlotColors.h
     PlotEventGraphics.cpp ${gui_include_dir}/plot/PlotEventGraphics.h
     PlotExport.cpp ${gui_include_dir}/plot/PlotExport.h
-    PlotHomeRange.cpp ${gui_include_dir}/plot/PlotHomeRange.h
     PlotInputBindings.cpp ${gui_include_dir}/plot/PlotInputBindings.h
-    PlotText.cpp ${gui_include_dir}/plot/PlotText.h
     PlotTheme.cpp ${gui_include_dir}/plot/PlotTheme.h
     SimulationPlot.cpp ${gui_include_dir}/plot/SimulationPlot.h
     ThrustCurvePlot.cpp ${gui_include_dir}/plot/ThrustCurvePlot.h

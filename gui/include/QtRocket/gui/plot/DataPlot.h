@@ -19,7 +19,6 @@
 #include <rocketplot/Range.h>
 #include <rocketplot/enums.h>
 
-#include "QtRocket/gui/plot/PlotHomeRange.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/util/LineStyle.h"
 
@@ -53,10 +52,11 @@ class GuiServices;
 /// - The points (setShowPoints(): ModifiedXYItemRenderer.setDefaultShapesVisible(), its shapes
 ///   filled): a marker at every point, in the series' colour, of the shape of the series' branch
 ///   (pointShape(): ModifiedXYItemRenderer.lookupSeriesShape(), JFreeChart's
-///   DEFAULT_SHAPE_SEQUENCE by the branch).
+///   DEFAULT_SHAPE_SEQUENCE by the branch, all ten of its shapes).
 /// - The axes' labels, the grid of x and of the left y axis (Plot: both grids; JFreeChart draws
 ///   the gridlines of the first range axis), and the ranges the axis fitting computed
-///   (Plot.PresetNumberAxis) as the home ranges (PlotHomeRange: shown at first and after a reset).
+///   (Plot.PresetNumberAxis) as the axes' home ranges (setHomeRanges(), rocketplot's
+///   Axis::setHomeRange(): shown at first and after every reset, exactly as given).
 /// - A line across the plot at 0 on the left axis (Plot: addRangeMarker(new ValueMarker(0)):
 ///   JFreeChart's grey, 0.5 pixels, opacity 0.8, over the series). Plot's domain marker at 0 never
 ///   shows: SimulationPlot's first drawDomainMarkers() clears it, and OpenRocket's plot dialog
@@ -73,10 +73,11 @@ class GuiServices;
 /// Deliberate differences (the user's decisions U-M3-6a and U-M4-6): the look is rocketplot's
 /// (fonts, the light or dark palette, the plot area's background, the legend's swatches); a
 /// click on a legend entry hides or shows its series and pointing at it brings them forward
-/// (OpenRocket: hovering or clicking an entry draws its series three times as wide); 6 point
-/// shapes, then again from the first (pointShape(); JFreeChart has 10, rocketplot's N18); the
-/// view can be panned and zoomed beyond the home ranges (rocketplot's N17); the lines' joins are
-/// round (Java's bevelled).
+/// (OpenRocket: hovering or clicking an entry draws its series three times as wide); the four
+/// triangles among the point shapes are rocketplot's, equilateral within the circle of their size
+/// (pointSize(); JFreeChart's fill the 6 x 6 pixel square, their base on one side of it and their
+/// tip in the middle of the other); the view can be panned and zoomed beyond the home ranges
+/// (rocketplot's N17); the lines' joins are round (Java's bevelled).
 class DataPlot : public QWidget
 {
     Q_OBJECT
@@ -109,7 +110,8 @@ public:
     static constexpr double kLineWidth = 1.5;
     /// The size of JFreeChart's shapes of DEFAULT_SHAPE_SEQUENCE (6 x 6 pixels).
     static constexpr double kPointSide = 6.0;
-    /// rocketplot draws a SQUARE marker of size s as a square of side s times this
+    /// rocketplot draws a SQUARE marker of size s as a square of side s times this, and a
+    /// RECTANGLE_WIDE or RECTANGLE_TALL as a rectangle that long and half as wide
     /// (Series::markerSize()).
     static constexpr double kRocketplotSquareScale = 0.85;
     /// The zero line (JFreeChart's ValueMarker: Color.GRAY, a 0.5 pixel stroke, alpha 0.8).
@@ -123,10 +125,17 @@ public:
     /// middle of the data area, its zoomOutFactor 2.0 doubles them (PlotWidget::zoom(2.0) and
     /// zoom(0.5)).
     static constexpr double kZoomFactor = 2.0;
-    /// The point shapes, by branch (pointShape()).
+    /// The point shapes, by branch (pointShape()): JFreeChart's DEFAULT_SHAPE_SEQUENCE in its
+    /// order (DefaultDrawingSupplier.createStandardSeriesShapes(), each 6 pixels across about the
+    /// point): a square, a circle, a triangle pointing up, a diamond, a rectangle lying (6 x 3), a
+    /// triangle pointing down, an ellipse lying (6 x 3), a triangle pointing right, a rectangle
+    /// standing (3 x 6) and a triangle pointing left.
     static constexpr std::array kPointShapes{
-        rocketplot::Marker::SQUARE,  rocketplot::Marker::CIRCLE, rocketplot::Marker::TRIANGLE,
-        rocketplot::Marker::DIAMOND, rocketplot::Marker::CROSS,  rocketplot::Marker::PLUS,
+        rocketplot::Marker::SQUARE,         rocketplot::Marker::CIRCLE,
+        rocketplot::Marker::TRIANGLE,       rocketplot::Marker::DIAMOND,
+        rocketplot::Marker::RECTANGLE_WIDE, rocketplot::Marker::TRIANGLE_DOWN,
+        rocketplot::Marker::ELLIPSE_WIDE,   rocketplot::Marker::TRIANGLE_RIGHT,
+        rocketplot::Marker::RECTANGLE_TALL, rocketplot::Marker::TRIANGLE_LEFT,
     };
 
     ~DataPlot() override;
@@ -178,11 +187,14 @@ public:
     [[nodiscard]] const QString& readout() const noexcept { return m_readout; }
 
     /// The point shape of a series of the branch @p shape (JFreeChart's DEFAULT_SHAPE_SEQUENCE[
-    /// branch % 10]: square, circle, up-triangle, diamond, then rectangles, triangles and an
-    /// ellipse that rocketplot does not have): kPointShapes[@p shape % 6].
+    /// branch % 10]): kPointShapes[@p shape % 10], so that an eleventh branch has the first shape
+    /// again, as in OpenRocket.
     [[nodiscard]] static rocketplot::Marker pointShape(std::size_t shape) noexcept;
-    /// The marker size of @p shape whose shape is kPointSide wide, as JFreeChart's are: a SQUARE's
-    /// side is its size times kRocketplotSquareScale, every other shape's is its size.
+    /// The marker size of @p shape whose shape is kPointSide across, as JFreeChart's are: the
+    /// size of a SQUARE, a RECTANGLE_WIDE and a RECTANGLE_TALL is their long side over
+    /// kRocketplotSquareScale (a rectangle's short side is half its long one, as JFreeChart's),
+    /// that of every other shape the diameter of the circle it is drawn in: a CIRCLE's, an
+    /// ELLIPSE_WIDE's width, and the corners of a DIAMOND and of the triangles lie on it.
     [[nodiscard]] static double pointSize(rocketplot::Marker shape) noexcept;
 
 protected:
@@ -199,10 +211,18 @@ protected:
     /// @p look.axis other than 0 and 1 is a BugError.
     rocketplot::LineSeries& addSeries(std::vector<double>&& x, std::vector<double>&& y,
                                       const SeriesLook& look);
-    /// The home ranges (PlotHomeRange::setRanges()).
+    /// The home ranges (rocketplot's Axis::setHomeRange()): @p x of the x axis, @p y of the y
+    /// axis and @p y2 of the secondary one, which each axis shows at first and after every reset
+    /// (resetZoom(), a double click, the menu's Reset view), exactly as given, whatever series
+    /// are hidden; nullopt for an axis without data. A range rocketplot cannot show (not finite,
+    /// its minimum above its maximum, or too narrow for its distance from zero to tell its ends
+    /// apart: that of a flat series of values beyond about 1e13, which the axis fitting widens by
+    /// 1 on either side) counts as none, which rocketplot would ignore with a warning: such an
+    /// axis fits its data, without a margin (the constructor). Replaces the ranges given before;
+    /// while an axis autoscales (no zoom or pan since the last reset) it shows its new range at
+    /// once.
     void setHomeRanges(std::optional<rocketplot::Range> x, std::optional<rocketplot::Range> y,
                        std::optional<rocketplot::Range> y2);
-    [[nodiscard]] const PlotHomeRange& homeRange() const noexcept { return m_homeRange; }
 
     /// The readout's text of point @p point of the series added as @p series (both exist): the
     /// tool tip OpenRocket's renderer shows there.
@@ -218,7 +238,6 @@ private:
 
     const GuiServices*                            m_services;
     rocketplot::PlotWidget*                       m_plot;
-    PlotHomeRange                                 m_homeRange;
     std::vector<QPointer<rocketplot::LineSeries>> m_series;
     std::vector<std::size_t>                      m_shapes;
     bool                                          m_showPoints;

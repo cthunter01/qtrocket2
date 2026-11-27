@@ -1,6 +1,9 @@
 #include "QtRocket/gui/plot/DataPlot.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -44,6 +47,32 @@ namespace QtRocket::Gui
 namespace
 {
 
+/// rocketplot's bounds of a range an axis can show (core::isUsableRange() of its
+/// src/core/AxisMapping.cpp, on a linear scale, which Axis::setHomeRange() checks): its span at
+/// most kMaxShowableSpan, and more than kMinShowableShare of the larger magnitude of its ends.
+constexpr double kMaxShowableSpan  = 1e300;
+constexpr double kMinShowableShare = 1e-13;
+
+/// @p range if rocketplot can show it as a home range, else nullopt (DataPlot::setHomeRanges()):
+/// finite, its minimum at most its maximum (rocketplot::Range::isValid()), and of a span within
+/// rocketplot's bounds and above the least normal double, as rocketplot checks it; any other
+/// range Axis::setHomeRange() would ignore with a warning.
+[[nodiscard]] std::optional<rocketplot::Range> showableRange(std::optional<rocketplot::Range> range)
+{
+    if (!range.has_value() || !range->isValid())
+    {
+        return std::nullopt;
+    }
+    const double span      = range->span();
+    const double magnitude = std::max(std::abs(range->min), std::abs(range->max));
+    if (span <= kMaxShowableSpan && span > magnitude * kMinShowableShare &&
+        span > std::numeric_limits<double>::min())
+    {
+        return range;
+    }
+    return std::nullopt;
+}
+
 /// The dashes of @p style as a pen's pattern in pixels (Plot.createPlotStroke(): none for SOLID,
 /// else LineStyle.getDashes()).
 [[nodiscard]] QList<qreal> dashPatternOf(LineStyle style)
@@ -79,7 +108,6 @@ DataPlot::DataPlot(const GuiServices& services, bool showPoints, QWidget* parent
   : QWidget(parent),
     m_services(&services),
     m_plot(makeChild<rocketplot::PlotWidget>(this)),
-    m_homeRange(*m_plot),
     m_showPoints(showPoints)
 {
     // OpenRocket's names: the ChartPanel "chartPanel", its JFreeChart "chart".
@@ -98,6 +126,15 @@ DataPlot::DataPlot(const GuiServices& services, bool showPoints, QWidget* parent
     m_plot->xAxis()->setGridVisible(true);
     m_plot->yAxis()->setGridVisible(true);
     m_plot->yAxis2()->setGridVisible(false);
+    // An axis shows its home range (setHomeRanges()), which holds the axis fitting's own margin
+    // and zero rule. One without (no data on it, or a range rocketplot cannot show) fits its data
+    // as they are, without rocketplot's margin besides: rocketplot's zero rule and its alignment
+    // of the y axes' zeros are off already (Axis::autoscaleIncludesZero() 0,
+    // PlotWidget::areYAxesZeroAligned() false, its defaults).
+    for (rocketplot::Axis* const axis : {m_plot->xAxis(), m_plot->yAxis(), m_plot->yAxis2()})
+    {
+        axis->setAutoscaleMargin(0.0);
+    }
 
     // Plot: addRangeMarker(new ValueMarker(0)), on the first range axis, over the series.
     rocketplot::ReferenceLine* const zeroLine = m_plot->addHorizontalLine(0.0);
@@ -188,7 +225,10 @@ rocketplot::Marker DataPlot::pointShape(std::size_t shape) noexcept
 
 double DataPlot::pointSize(rocketplot::Marker shape) noexcept
 {
-    return shape == rocketplot::Marker::SQUARE ? kPointSide / kRocketplotSquareScale : kPointSide;
+    const bool upright = shape == rocketplot::Marker::SQUARE ||
+                         shape == rocketplot::Marker::RECTANGLE_WIDE ||
+                         shape == rocketplot::Marker::RECTANGLE_TALL;
+    return upright ? kPointSide / kRocketplotSquareScale : kPointSide;
 }
 
 void DataPlot::setTitles(const QString& title, const QString& subtitle)
@@ -228,7 +268,9 @@ rocketplot::LineSeries& DataPlot::addSeries(std::vector<double>&& x, std::vector
 void DataPlot::setHomeRanges(std::optional<rocketplot::Range> x, std::optional<rocketplot::Range> y,
                              std::optional<rocketplot::Range> y2)
 {
-    m_homeRange.setRanges(x, y, y2);
+    m_plot->xAxis()->setHomeRange(showableRange(x));
+    m_plot->yAxis()->setHomeRange(showableRange(y));
+    m_plot->yAxis2()->setHomeRange(showableRange(y2));
 }
 
 void DataPlot::updateReadout()

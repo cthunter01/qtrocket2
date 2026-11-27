@@ -5,11 +5,9 @@ target_sources(QtRocket_gui_tests PRIVATE
     PlotColorsTests.cpp
     PlotEventGraphicsTests.cpp
     PlotExportTests.cpp
-    PlotHomeRangeTests.cpp
     PlotInputBindingsTests.cpp
     PlotReadback.cpp
     PlotReadbackTests.cpp
-    PlotTextTests.cpp
     PlotThemeTests.cpp
     rocketplot_build_tests.cpp
     simulation_plot_chart_golden_tests.cpp

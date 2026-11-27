@@ -130,7 +130,7 @@ if(QTROCKET_BUILD_GUI)
     # which Qt links anyway. On every Apple build: a search for AGL itself can find the run-time framework under
     # /System/Library/Frameworks although the SDK lacks it (CI's first macOS run). CI's macOS job builds against Qt
     # 6.8.3 on macOS 26. Remove this once the oldest Qt supported is 6.9.2 or newer. It comes before every
-    # find_package(Qt6), rocketplot's own below included. (rocketplot 0.7.0 carries the same work-around, but only
+    # find_package(Qt6), rocketplot's own below included. (rocketplot 0.8.0 carries the same work-around, but only
     # while Qt's OpenGL target does not exist yet: after our find_package(Qt6), this one has settled the link.)
     if(APPLE)
         find_library(WrapOpenGL_AGL NAMES OpenGL)
@@ -138,8 +138,8 @@ if(QTROCKET_BUILD_GUI)
     find_package(Qt6 6.8 REQUIRED COMPONENTS ${qtrocket_qt_components})
     message(STATUS "QtRocket GUI: Qt ${Qt6_VERSION}")
 
-    # Plots (from Milestone 3): rocketplot 0.7.0 (https://github.com/cthunter01/rocketplot, MIT; the tag is commit
-    # b77e48b), a Qt 6 Widgets library, linked by QtRocket_gui (gui/CMakeLists.txt) and used only in gui/'s area
+    # Plots (from Milestone 3): rocketplot 0.8.0 (https://github.com/cthunter01/rocketplot, MIT; the tag is commit
+    # 61b9318), a Qt 6 Widgets library, linked by QtRocket_gui (gui/CMakeLists.txt) and used only in gui/'s area
     # plot/ (CLAUDE.md, lint.layers). It runs its own find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Svg): after
     # ours, so that the AGL work-around above has run first. As a subproject it builds only its library: no tests,
     # demo, Designer plugin, docs or install rules of the library, but the install rule of its licence
@@ -150,7 +150,7 @@ if(QTROCKET_BUILD_GUI)
     #   which can appear late and far from rocketplot). For the same reason a sanitized build never takes an installed
     #   rocketplot (no FIND_PACKAGE_ARGS then; the asan, tsan and coverage presets also set
     #   FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER).
-    # - FIND_PACKAGE_ARGS 0.7: an installed rocketplot is taken only in the version QtRocket is written for (its
+    # - FIND_PACKAGE_ARGS 0.8: an installed rocketplot is taken only in the version QtRocket is written for (its
     #   package accepts the same minor version only, as a 0.x minor version may change the API); otherwise the tag is
     #   fetched.
     # - ROCKETPLOT_BUNDLE_MATH_FONT=OFF: no Latin Modern Math (700 KB, GUST Font License): QtRocket's plots set no math
@@ -162,13 +162,13 @@ if(QTROCKET_BUILD_GUI)
     set(ROCKETPLOT_SANITIZERS "${QTROCKET_SANITIZERS}" CACHE STRING "" FORCE)
     set(ROCKETPLOT_BUNDLE_MATH_FONT OFF CACHE BOOL "" FORCE)
     set(ROCKETPLOT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-    set(rocketplot_find_package_args FIND_PACKAGE_ARGS 0.7 NAMES rocketplot)
+    set(rocketplot_find_package_args FIND_PACKAGE_ARGS 0.8 NAMES rocketplot)
     if(QTROCKET_SANITIZERS)
         set(rocketplot_find_package_args "")
     endif()
     FetchContent_Declare(rocketplot
         GIT_REPOSITORY https://github.com/cthunter01/rocketplot.git
-        GIT_TAG        v0.7.0
+        GIT_TAG        v0.8.0
         GIT_SHALLOW    TRUE
         SYSTEM
         ${rocketplot_find_package_args})

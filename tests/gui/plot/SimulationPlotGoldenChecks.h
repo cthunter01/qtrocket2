@@ -7,7 +7,8 @@
 // simulation_plot_chart_golden_tests.cpp: a SimulationPlot of a few simulations) and the exit
 // suite of every preset (dialogs/plot/simulation_plot_presets_golden_tests.cpp: every stored
 // simulation with every preset, through SimulationPlotDialog) compare:
-// - the titles, the axes' labels and ranges, to the last bit (the home ranges, PlotHomeRange);
+// - the titles, the axes' labels and ranges, to the last bit (the axes' home ranges,
+//   rocketplot's Axis::setHomeRange());
 // - the series: their names, axes and colours (those the plot tab shows: bug 42) and a digest of
 //   their points;
 // - the legend's entries;

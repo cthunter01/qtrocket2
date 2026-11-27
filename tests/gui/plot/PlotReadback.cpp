@@ -98,13 +98,12 @@ void readAnnotation(const rocketplot::Annotation& annotation, AnnotationsReadbac
     }
     else if (const auto* const icon = qobject_cast<const rocketplot::IconAnnotation*>(&annotation))
     {
-        std::vector<IconReadback>& icons = icon->icon().isNull() ? read.blankIcons : read.icons;
-        icons.push_back({.position            = icon->position(),
-                         .secondaryYAxis      = icon->isOnSecondaryYAxis(),
-                         .icon                = iconImage(icon->icon()),
-                         .toolTip             = icon->toolTip(),
-                         .visible             = icon->isVisible(),
-                         .includedInAutoscale = icon->isIncludedInAutoscale()});
+        read.icons.push_back({.position            = icon->position(),
+                              .secondaryYAxis      = icon->isOnSecondaryYAxis(),
+                              .icon                = iconImage(icon->icon()),
+                              .toolTip             = icon->toolTip(),
+                              .visible             = icon->isVisible(),
+                              .includedInAutoscale = icon->isIncludedInAutoscale()});
     }
     else if (const auto* const text = qobject_cast<const rocketplot::TextAnnotation*>(&annotation))
     {
@@ -115,6 +114,7 @@ void readAnnotation(const rocketplot::Annotation& annotation, AnnotationsReadbac
                               .alignment    = text->alignment(),
                               .arrowVisible = text->isArrowVisible(),
                               .frameVisible = text->isFrameVisible(),
+                              .frameColor   = text->frameColor(),
                               .visible      = text->isVisible()});
     }
     else if (const auto* const line = qobject_cast<const rocketplot::ReferenceLine*>(&annotation))
@@ -402,11 +402,11 @@ void PrintTo(const IconReadback& icon, std::ostream* out)
 void PrintTo(const TextReadback& text, std::ostream* out)
 {
     *out << std::format(
-        "{{({:a}, {:a}), \"{}\", color {}, coordinates {}, alignment {}, arrow {}, frame {}, "
+        "{{({:a}, {:a}), \"{}\", color {}, coordinates {}, alignment {}, arrow {}, frame {} in {}, "
         "visible {}}}",
         text.position.x(), text.position.y(), QtStrings::toUtf8(text.text), colorText(text.color),
         static_cast<int>(text.coordinates), static_cast<int>(text.alignment.toInt()),
-        text.arrowVisible, text.frameVisible, text.visible);
+        text.arrowVisible, text.frameVisible, colorText(text.frameColor), text.visible);
 }
 
 void PrintTo(const ReferenceLineReadback& line, std::ostream* out)
